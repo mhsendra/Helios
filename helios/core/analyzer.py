@@ -20,16 +20,16 @@ class ConsumptionAnalyzer:
 
     def load_excel(self, path: str | Path):
 
-        xls = pd.ExcelFile(path)
+        #xls = pd.ExcelFile(path)
 
-        print("Hojas encontradas:", xls.sheet_names)
+        #print("Hojas encontradas:", xls.sheet_names)
 
         self.dataset = pd.read_excel(
         path,
         sheet_name="18_06_2025"
         )
 
-        print(f"Registros cargados: {len(self.dataset)}")
+        #print(f"Registros cargados: {len(self.dataset)}")
 
     def inspect_gap(self, gap_id: int):
 
@@ -66,6 +66,19 @@ class ConsumptionAnalyzer:
 
         #print(self.dataset.dtypes)
 
+    def clean_data(self):
+
+        print("\n=== LIMPIEZA DE DATOS ===")
+
+        self.dataset = self.cleaner.mark_missing_data(self.dataset)
+        self.dataset = self.cleaner.classify_gaps(self.dataset)
+
+        missing = (self.dataset["data_status"] == "missing").sum()
+        blocks = self.dataset["gap_id"].nunique()
+
+        print(f"Registros perdidos..... {missing}")
+        print(f"Bloques detectados..... {blocks}")
+        
     def build_datetime(self):
 
         """
@@ -78,8 +91,6 @@ class ConsumptionAnalyzer:
         )
 
         self.dataset.set_index("datetime", inplace=True)
-        print(self.dataset.index.is_unique)
-        print(self.dataset.index.is_monotonic_increasing)
 
     def _build_day_datetime(self, day_df):
         """
@@ -218,9 +229,6 @@ class ConsumptionAnalyzer:
         print(f"Primer registro : {self.dataset.index.min()}")
         print(f"Último registro : {self.dataset.index.max()}")
 
-        print(f"Índice ordenado : {'Sí' if self.dataset.index.is_monotonic_increasing else 'No'}")
-        print(f"Índice único    : {'Sí' if self.dataset.index.is_unique else 'No'}")
-
     def quality_report(self):
 
         total = len(self.dataset)
@@ -257,33 +265,94 @@ class ConsumptionAnalyzer:
         print("HELIOS - GAP REPORT")
         print("=" * 45)
 
-        gaps = (
-            self.dataset[self.dataset["gap_id"].notna()]
-            .groupby("gap_id")["gap_size"]
-            .first()
+        gaps = self.dataset[self.dataset["gap_id"].notna()]
+
+        summary = (
+            gaps
+            .groupby("gap_id")
+            .agg(
+                start=("gap_size", lambda s: s.index.min()),
+                end=("gap_size", lambda s: s.index.max()),
+                hours=("gap_size", "first"),
+                gap_type=("gap_type", "first")
+            )
         )
 
-        print(f"Bloques detectados..... {len(gaps)}")
-        print(f"Mayor hueco............ {gaps.max()} horas")
+        if gaps.empty:
+            print("No se han detectado huecos.")
+            return
 
-        print("\nDistribución:")
+        total_missing = (self.dataset["data_status"] == "missing").sum()
+        total_blocks = len(summary)
 
-        for size, count in gaps.value_counts().sort_index().items():
-            print(f"{size:>3} horas........... {count}")
+        print(f"Registros perdidos..... {total_missing}")
+        print(f"Bloques detectados..... {total_blocks}")
+        print(f"Mayor hueco............ {gaps['gap_size'].max()} horas")
+        small = (summary["gap_type"] == "small").sum()
+        large = (summary["gap_type"] == "large").sum()
+        print(f"Huecos pequeños........ {small}")
+        print(f"Huecos grandes......... {large}")
 
-    def clean_data(self):
+        print("\nDistribución de huecos")
 
-        self.dataset = self.cleaner.mark_missing_data(self.dataset)
-        self.dataset = self.cleaner.classify_gaps(self.dataset)
+        distribution = (
+            summary["hours"]
+            .value_counts()
+            .sort_index()
+        )
 
-        missing = (self.dataset["data_status"] == "missing").sum()
-        blocks = self.dataset["gap_id"].nunique()
-        largest = self.dataset["gap_size"].max()
+        for size, count in distribution.items():
+            print(f"{size:>2} horas............. {count}")
 
-        print("\n=== LIMPIEZA DE DATOS ===")
-        print(f"Registros faltantes..... {missing}")
-        print(f"Bloques de huecos....... {blocks}")
-        print(f"Mayor hueco............. {largest} horas")
+        print("\nDetalle de bloques")
+        print("-" * 78)
+        print(f"{'ID':>3} {'Inicio':<20} {'Fin':<20} {'Horas':>7} {'Tipo':>8}")
+        print("-" * 78)
+
+        for gap_id, gap in (
+            self.dataset[self.dataset["gap_id"].notna()]
+            .groupby("gap_id")
+        ):
+
+            start = gap.index.min()
+            end = gap.index.max()
+
+            print(
+                f"{int(gap_id):>3} "
+                f"{start.strftime('%Y-%m-%d %H:%M'):<20} "
+                f"{end.strftime('%Y-%m-%d %H:%M'):<20} "
+                f"{gap['gap_size'].iloc[0]:>7} "
+                f"{gap['gap_type'].iloc[0]:>8}"
+            )
+
+        def clean_data(self):
+
+            self.dataset = self.cleaner.mark_missing_data(self.dataset)
+            self.dataset = self.cleaner.classify_gaps(self.dataset)
+
+            missing = (self.dataset["data_status"] == "missing").sum()
+            blocks = self.dataset["gap_id"].nunique()
+            largest = summary["hours"].max()
+
+            print("\n=== LIMPIEZA DE DATOS ===")
+            print(f"Registros faltantes..... {missing}")
+            print(f"Bloques de huecos....... {blocks}")
+            print(f"Mayor hueco............. {largest} horas")
+
+            print("\nDetalle de bloques")
+        print("-" * 70)
+        print(f"{'ID':>3} {'Inicio':<20} {'Fin':<20} {'Duración':>9}")
+        print("-" * 70)
+
+        for gap_id, row in summary.iterrows():
+
+            print(
+                f"{int(gap_id):>3} "
+                f"{row['start'].strftime('%Y-%m-%d %H:%M'):<20} "
+                f"{row['end'].strftime('%Y-%m-%d %H:%M'):<20} "
+                f"{row['hours']:>7} "
+                f"{row['gap_type']:>8}"
+            )
         
 
     def calculate_statistics(self):

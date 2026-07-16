@@ -1,5 +1,7 @@
 import pandas as pd
 
+SMALL_GAP_MAX = 3
+LARGE_GAP_MAX = 12
 
 class ConsumptionCleaner:
 
@@ -29,6 +31,15 @@ class ConsumptionCleaner:
 
         # Crear gap_id
         df["gap_id"] = pd.NA
+
+        # Crear gap_type
+        df["gap_type"] = pd.NA
+
+        small_gaps = (df["gap_size"] > 0) & (df["gap_size"] <= SMALL_GAP_MAX)
+        large_gaps = df["gap_size"] > SMALL_GAP_MAX
+
+        df.loc[small_gaps, "gap_type"] = "small"
+        df.loc[large_gaps, "gap_type"] = "large"
 
         gap_counter = 1
 
