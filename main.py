@@ -12,6 +12,11 @@ def main():
     analyzer.find_missing_hours()
     analyzer.find_duplicate_timestamps()
     analyzer.inspect_dst_days()
+    analyzer.mark_missing_data()
+
+    print(
+        analyzer.dataset["data_status"].value_counts()
+    )
 
     print(analyzer.dataset.head())
 

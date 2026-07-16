@@ -4,6 +4,7 @@ Consumption Analyzer
 """
 
 from pathlib import Path
+from helios.core.cleaning import ConsumptionCleaner
 import pandas as pd
 
 
@@ -14,6 +15,7 @@ class ConsumptionAnalyzer:
         self.dataset: pd.DataFrame | None = None
         self.statistics = None
         self.profiles = None
+        self.cleaner = ConsumptionCleaner()
 
     def load_excel(self, path: str | Path):
 
@@ -214,6 +216,18 @@ class ConsumptionAnalyzer:
             quality = "REVISAR"
 
         print(f"Calidad............... {quality}")
+
+    def mark_missing_data(self):
+        self.dataset["data_status"] = "original"
+
+        self.dataset.loc[
+            self.dataset["AE_kWh"].isna(),
+            "data_status"
+        ] = "missing"
+
+    def clean_data(self):
+
+        self.dataset = self.cleaner.mark_missing_data(self.dataset)
 
     def calculate_statistics(self):
         pass
