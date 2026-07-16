@@ -60,16 +60,48 @@ class ConsumptionAnalyzer:
 
     def build_datetime(self):
 
-        self.dataset["datetime"] = (
-            self.dataset["Fecha"]
-            + pd.to_timedelta(self.dataset["Hora"] - 1, unit="h")
+        """
+        Construye el índice temporal respetando el formato horario
+        de e-distribución.
+        """
+
+        self.dataset = self.dataset.groupby("Fecha", group_keys=False).apply(
+            self._build_day_datetime
         )
 
-        self.dataset = (
-            self.dataset
-            .sort_values("datetime")
-            .set_index("datetime")
-        )
+        self.dataset.set_index("datetime", inplace=True)
+
+    def _build_day_datetime(self, day_df):
+        """
+        Construye la columna datetime para un único día.
+
+        Soporta:
+            - días de 23 horas (horario verano)
+            - días normales (24 horas)
+            - días de 25 horas (horario invierno)
+        """
+
+        fecha = day_df["Fecha"].iloc[0]
+
+        horas = day_df["Hora"].tolist()
+
+        datetimes = []
+
+        for hora in horas:
+
+            if hora <= 24:
+                dt = fecha + pd.Timedelta(hours=hora - 1)
+
+            else:
+                # Hora 25 -> última hora extraordinaria
+                dt = fecha + pd.Timedelta(hours=23, minutes=30)
+
+            datetimes.append(dt)
+
+        day_df = day_df.copy()
+        day_df["datetime"] = datetimes
+
+        return day_df
 
     def find_missing_hours(self):
 
