@@ -6,6 +6,7 @@ Consumption Analyzer
 from pathlib import Path
 from helios.core.cleaning import ConsumptionCleaner
 import pandas as pd
+import calendar
 
 
 class ConsumptionAnalyzer:
@@ -30,23 +31,28 @@ class ConsumptionAnalyzer:
 
         print(f"Registros cargados: {len(self.dataset)}")
 
-    def analyze_missing_data(self):
+    def inspect_gap(self, gap_id: int):
 
-        missing = self.dataset[self.dataset["AE_kWh"].isna()]
+        gap = self.dataset[self.dataset["gap_id"] == gap_id]
 
-        print("\n========== DATOS FALTANTES ==========")
+        if gap.empty:
+            print(f"No existe el bloque de huecos {gap_id}.")
+            return
 
-        print(f"Total registros sin consumo: {len(missing)}")
+        print("\n")
+        print("=" * 45)
+        print(f"HELIOS - GAP #{gap_id}")
+        print("=" * 45)
 
-        if len(missing) > 0:
-            print("\nPrimeros registros:")
+        print(f"Inicio.......... {gap.index.min()}")
+        print(f"Fin............. {gap.index.max()}")
+        print(f"Duración........ {gap['gap_size'].iloc[0]} horas")
 
-            print(missing.head(20))
+        print("\nRegistros:")
 
-            print("\nÚltimos registros:")
+        print(gap[["Fecha", "Hora", "AE_kWh"]])
 
-            print(missing.tail(20))
-    def clean_data(self):
+    def inspect_data(self):
 
         print("\n=== Calidad de los datos ===")
 
@@ -56,9 +62,9 @@ class ConsumptionAnalyzer:
 
         print(f"\nDuplicados: {self.dataset.duplicated().sum()}")
 
-        print("\nTipos:")
+        #print("\nTipos:")
 
-        print(self.dataset.dtypes)
+        #print(self.dataset.dtypes)
 
     def build_datetime(self):
 
@@ -72,6 +78,8 @@ class ConsumptionAnalyzer:
         )
 
         self.dataset.set_index("datetime", inplace=True)
+        print(self.dataset.index.is_unique)
+        print(self.dataset.index.is_monotonic_increasing)
 
     def _build_day_datetime(self, day_df):
         """
@@ -104,24 +112,69 @@ class ConsumptionAnalyzer:
         day_df["datetime"] = datetimes
 
         return day_df
+    
+    def _expected_hours_for_day(self, day):
+        """
+        Devuelve el conjunto de horas esperadas para una fecha
+        según el calendario español (23, 24 o 25 horas).
+        """
+
+        year = day.year
+
+        # Último domingo de marzo
+        march = calendar.monthcalendar(year, 3)
+        last_sunday_march = max(week[calendar.SUNDAY] for week in march)
+
+        # Último domingo de octubre
+        october = calendar.monthcalendar(year, 10)
+        last_sunday_october = max(week[calendar.SUNDAY] for week in october)
+
+        # Cambio a horario de verano
+        if day.month == 3 and day.day == last_sunday_march:
+            return set(range(1, 24))
+
+        # Cambio a horario de invierno
+        if day.month == 10 and day.day == last_sunday_october:
+            return set(range(1, 26))
+
+        # Día normal
+        return set(range(1, 25))
 
     def find_missing_hours(self):
 
-        expected = pd.date_range(
-            start=self.dataset.index.min(),
-            end=self.dataset.index.max(),
-            freq="h"
-        )
+        print("\n=== VALIDACIÓN DE HORAS POR DÍA ===")
 
-        missing = expected.difference(self.dataset.index)
+        errors = 0
 
-        print("\n=== HORAS AUSENTES ===")
+        for fecha, day_df in self.dataset.groupby("Fecha"):
 
-        if len(missing) == 0:
-            print("No faltan horas.")
-        else:
-            for dt in missing:
-                print(dt)
+            expected = self._expected_hours_for_day(fecha)
+
+            existing = set(day_df["Hora"])
+
+            missing = sorted(expected - existing)
+
+            extra = sorted(existing - expected)
+
+            if missing or extra:
+
+                errors += 1
+
+                print(f"\n{fecha.date()}")
+
+                if missing:
+                    print(f"  Horas ausentes : {missing}")
+
+                if extra:
+                    print(f"  Horas inesperadas: {extra}")
+
+        if errors == 0:
+            print("Todos los días tienen la secuencia horaria correcta.")
+
+        return {
+        "valid": errors == 0,
+        "errors": errors
+    }
 
     def find_duplicate_timestamps(self):
 
@@ -162,31 +215,11 @@ class ConsumptionAnalyzer:
 
         print("\n=== VALIDACIÓN TEMPORAL ===")
 
-        first = self.dataset.index.min()
-        last = self.dataset.index.max()
+        print(f"Primer registro : {self.dataset.index.min()}")
+        print(f"Último registro : {self.dataset.index.max()}")
 
-        expected = len(
-            pd.date_range(
-                start=first,
-                end=last,
-                freq="h"
-            )
-        )
-
-        existing = len(self.dataset)
-
-        missing = expected - existing
-
-        print(f"Primer registro : {first}")
-        print(f"Último registro : {last}")
-        print(f"Horas esperadas : {expected}")
-        print(f"Horas existentes: {existing}")
-        print(f"Horas ausentes  : {missing}")
-
-        if missing == 0:
-            print("Serie temporal continua: OK")
-        else:
-            print("ATENCIÓN: existen horas ausentes")
+        print(f"Índice ordenado : {'Sí' if self.dataset.index.is_monotonic_increasing else 'No'}")
+        print(f"Índice único    : {'Sí' if self.dataset.index.is_unique else 'No'}")
 
     def quality_report(self):
 
@@ -217,17 +250,41 @@ class ConsumptionAnalyzer:
 
         print(f"Calidad............... {quality}")
 
-    def mark_missing_data(self):
-        self.dataset["data_status"] = "original"
+    def gap_report(self):
 
-        self.dataset.loc[
-            self.dataset["AE_kWh"].isna(),
-            "data_status"
-        ] = "missing"
+        print("\n")
+        print("=" * 45)
+        print("HELIOS - GAP REPORT")
+        print("=" * 45)
+
+        gaps = (
+            self.dataset[self.dataset["gap_id"].notna()]
+            .groupby("gap_id")["gap_size"]
+            .first()
+        )
+
+        print(f"Bloques detectados..... {len(gaps)}")
+        print(f"Mayor hueco............ {gaps.max()} horas")
+
+        print("\nDistribución:")
+
+        for size, count in gaps.value_counts().sort_index().items():
+            print(f"{size:>3} horas........... {count}")
 
     def clean_data(self):
 
         self.dataset = self.cleaner.mark_missing_data(self.dataset)
+        self.dataset = self.cleaner.classify_gaps(self.dataset)
+
+        missing = (self.dataset["data_status"] == "missing").sum()
+        blocks = self.dataset["gap_id"].nunique()
+        largest = self.dataset["gap_size"].max()
+
+        print("\n=== LIMPIEZA DE DATOS ===")
+        print(f"Registros faltantes..... {missing}")
+        print(f"Bloques de huecos....... {blocks}")
+        print(f"Mayor hueco............. {largest} horas")
+        
 
     def calculate_statistics(self):
         pass
