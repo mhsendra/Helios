@@ -18,7 +18,12 @@ def main():
 
     analyzer.calculate_statistics()
     analyzer.statistics_report()
-
+    analyzer.calculate_daily_consumption()
+    analyzer.daily_report()
+    analyzer.calculate_monthly_consumption()
+    analyzer.monthly_report()
+    analyzer.calculate_yearly_consumption()
+    analyzer.yearly_report()
     #print(analyzer.statistics)
 
     #print(

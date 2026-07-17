@@ -23,3 +23,33 @@ class ConsumptionStatistics:
 
         return statistics
     
+    def calculate_daily_consumption(self, df):
+
+        daily = (
+            df["AE_kWh"]
+            .resample("D")
+            .sum()
+        )
+
+        return daily
+    
+    def calculate_monthly_consumption(self, df):
+
+        monthly = (
+            df["AE_kWh"]
+            .resample("ME")
+            .sum()
+        )
+
+        return monthly
+    
+    def calculate_yearly_consumption(self, df):
+
+        yearly = (
+            df["AE_kWh"]
+            .resample("YE")
+            .sum()
+        )
+
+        return yearly
+    

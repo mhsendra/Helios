@@ -15,8 +15,15 @@ class ConsumptionAnalyzer:
     def __init__(self):
 
         self.dataset: pd.DataFrame | None = None
+
+        # Resultados de análisis
         self.statistics = None
+        self.daily_consumption = None
+        self.monthly_consumption = None
+        self.yearly_consumption = None
         self.profiles = None
+
+        # Motores de procesamiento
         self.cleaner = ConsumptionCleaner()
         self.statistics_engine = ConsumptionStatistics()
 
@@ -441,6 +448,112 @@ class ConsumptionAnalyzer:
             self.dataset
         )
 
+    def calculate_daily_consumption(self):
+
+        self.daily_consumption = (
+            self.statistics_engine.calculate_daily_consumption(
+                self.dataset
+            )
+        )
+
+    def daily_report(self):
+
+        if self.daily_consumption is None:
+            print("No hay consumos diarios calculados.")
+            return
+
+        print()
+        print("=" * 45)
+        print("HELIOS - DAILY CONSUMPTION REPORT")
+        print("=" * 45)
+
+        print(f"Días analizados......... {len(self.daily_consumption)}")
+        print(f"Consumo total........... {self.daily_consumption.sum():.2f} kWh")
+        print(f"Consumo diario medio.... {self.daily_consumption.mean():.2f} kWh")
+
+        print(f"Consumo máximo diario... {self.daily_consumption.max():.2f} kWh")
+        print(f"Fecha del máximo........ {self.daily_consumption.idxmax():%d/%m/%Y}")
+
+        print(f"Consumo mínimo diario... {self.daily_consumption.min():.2f} kWh")
+        print(f"Fecha del mínimo........ {self.daily_consumption.idxmin():%d/%m/%Y}")
+
+    def calculate_monthly_consumption(self):
+
+        self.monthly_consumption = (
+            self.statistics_engine.calculate_monthly_consumption(
+                self.dataset
+            )
+        )
+
+    def monthly_report(self):
+
+        if self.monthly_consumption is None:
+            print("No hay consumos mensuales calculados.")
+            return
+
+        print()
+        print("=" * 45)
+        print("HELIOS - MONTHLY CONSUMPTION REPORT")
+        print("=" * 45)
+
+        print(f"Meses analizados........ {len(self.monthly_consumption)}")
+        print(f"Consumo total........... {self.monthly_consumption.sum():.2f} kWh")
+        print(f"Consumo mensual medio... {self.monthly_consumption.mean():.2f} kWh")
+
+        print()
+
+        print(f"Consumo máximo mensual.. {self.monthly_consumption.max():.2f} kWh")
+        print(
+            f"Fecha del máximo........ "
+            f"{self.monthly_consumption.idxmax():%m/%Y}"
+        )
+
+        print()
+
+        print(f"Consumo mínimo mensual.. {self.monthly_consumption.min():.2f} kWh")
+        print(
+            f"Fecha del mínimo........ "
+            f"{self.monthly_consumption.idxmin():%m/%Y}"
+        )
+
+    def calculate_yearly_consumption(self):
+
+        self.yearly_consumption = (
+            self.statistics_engine.calculate_yearly_consumption(
+                self.dataset
+            )
+        )
+    
+    def yearly_report(self):
+
+        if self.yearly_consumption is None:
+            print("No hay consumos anuales calculados.")
+            return
+
+        print()
+        print("=" * 45)
+        print("HELIOS - YEARLY CONSUMPTION REPORT")
+        print("=" * 45)
+
+        print(f"Años analizados......... {len(self.yearly_consumption)}")
+        print(f"Consumo total........... {self.yearly_consumption.sum():.2f} kWh")
+        print(f"Consumo anual medio..... {self.yearly_consumption.mean():.2f} kWh")
+
+        print()
+
+        print(f"Consumo máximo anual.... {self.yearly_consumption.max():.2f} kWh")
+        print(
+            f"Año del máximo.......... "
+            f"{self.yearly_consumption.idxmax():%Y}"
+        )
+
+        print()
+
+        print(f"Consumo mínimo anual.... {self.yearly_consumption.min():.2f} kWh")
+        print(
+            f"Año del mínimo.......... "
+            f"{self.yearly_consumption.idxmin():%Y}"
+        )
     def build_profiles(self):
         pass
 
