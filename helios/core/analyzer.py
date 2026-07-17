@@ -5,6 +5,7 @@ Consumption Analyzer
 
 from pathlib import Path
 from helios.core.cleaning import ConsumptionCleaner
+from helios.core.statistics import ConsumptionStatistics
 import pandas as pd
 import calendar
 
@@ -17,6 +18,7 @@ class ConsumptionAnalyzer:
         self.statistics = None
         self.profiles = None
         self.cleaner = ConsumptionCleaner()
+        self.statistics_engine = ConsumptionStatistics()
 
     def load_excel(self, path: str | Path):
 
@@ -325,24 +327,103 @@ class ConsumptionAnalyzer:
                 f"{gap['gap_type'].iloc[0]:>8}"
             )
 
-        def clean_data(self):
+    def statistics_report(self):
 
-            self.dataset = self.cleaner.mark_missing_data(self.dataset)
-            self.dataset = self.cleaner.classify_gaps(self.dataset)
+        if self.statistics is None:
+            print("No hay estadísticas calculadas.")
+            return
 
-            missing = (self.dataset["data_status"] == "missing").sum()
-            blocks = self.dataset["gap_id"].nunique()
-            largest = summary["hours"].max()
+        print()
+        print("=" * 45)
+        print("HELIOS - STATISTICS REPORT")
+        print("=" * 45)
 
-            print("\n=== LIMPIEZA DE DATOS ===")
-            print(f"Registros faltantes..... {missing}")
-            print(f"Bloques de huecos....... {blocks}")
-            print(f"Mayor hueco............. {largest} horas")
+        print(
+            f"Consumo total.......... "
+            f"{self.statistics['total_consumption']:.2f} kWh"
+        )
 
-            print("\nDetalle de bloques")
-        print("-" * 70)
-        print(f"{'ID':>3} {'Inicio':<20} {'Fin':<20} {'Duración':>9}")
-        print("-" * 70)
+        print(
+            f"Consumo medio horario.. "
+            f"{self.statistics['mean_hourly']:.3f} kWh"
+        )
+
+        print(
+            f"Consumo máximo......... "
+            f"{self.statistics['max_consumption']:.3f} kWh"
+        )
+
+        print(
+            f"Fecha del máximo....... "
+            f"{self.statistics['max_consumption_time']:%d/%m/%Y %H:%M}"
+        )
+
+        print(
+            f"Consumo mínimo......... "
+            f"{self.statistics['min_consumption']:.3f} kWh"
+        )
+
+        print(
+            f"Fecha del mínimo....... "
+            f"{self.statistics['min_consumption_time']:%d/%m/%Y %H:%M}"
+        )
+
+        print(
+            f"Desv. estándar......... "
+            f"{self.statistics['std_consumption']:.3f} kWh"
+        )
+
+    def gap_report(self):
+
+        gaps = self.dataset[
+            self.dataset["data_status"] == "missing"
+        ]
+
+        if len(gaps) == 0:
+            print("\n=== GAP REPORT ===")
+            print("No existen huecos.")
+            return
+
+
+        summary = (
+            gaps
+            .groupby("gap_id")
+            .agg(
+                start=("gap_size", lambda s: s.index.min()),
+                end=("gap_size", lambda s: s.index.max()),
+                hours=("gap_size", "first"),
+                gap_type=("gap_type", "first")
+            )
+        )
+
+
+        largest = summary["hours"].max()
+
+
+        print()
+        print("=" * 45)
+        print("HELIOS - GAP REPORT")
+        print("=" * 45)
+
+        print(f"Registros faltantes..... {len(gaps)}")
+        print(f"Bloques detectados...... {len(summary)}")
+        print(f"Mayor hueco............. {largest} horas")
+
+
+        print()
+        print("Detalle de bloques")
+        print("-" * 75)
+
+        print(
+            f"{'ID':>3} "
+            f"{'Inicio':<20} "
+            f"{'Fin':<20} "
+            f"{'Horas':>8} "
+            f"{'Tipo':>10}"
+        )
+
+        print("-" * 75)
+
 
         for gap_id, row in summary.iterrows():
 
@@ -350,13 +431,15 @@ class ConsumptionAnalyzer:
                 f"{int(gap_id):>3} "
                 f"{row['start'].strftime('%Y-%m-%d %H:%M'):<20} "
                 f"{row['end'].strftime('%Y-%m-%d %H:%M'):<20} "
-                f"{row['hours']:>7} "
-                f"{row['gap_type']:>8}"
+                f"{row['hours']:>8} "
+                f"{row['gap_type']:>10}"
             )
-        
 
     def calculate_statistics(self):
-        pass
+
+        self.statistics = self.statistics_engine.calculate(
+            self.dataset
+        )
 
     def build_profiles(self):
         pass

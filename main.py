@@ -16,6 +16,11 @@ def main():
     #analyzer.find_duplicate_timestamps()
     #analyzer.inspect_dst_days()
 
+    analyzer.calculate_statistics()
+    analyzer.statistics_report()
+
+    #print(analyzer.statistics)
+
     #print(
         #analyzer.dataset["data_status"].value_counts()
     #)
