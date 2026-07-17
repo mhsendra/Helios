@@ -22,6 +22,7 @@ class ConsumptionAnalyzer:
         self.monthly_consumption = None
         self.yearly_consumption = None
         self.profiles = None
+        self.hourly_profile = None
 
         # Motores de procesamiento
         self.cleaner = ConsumptionCleaner()
@@ -554,6 +555,51 @@ class ConsumptionAnalyzer:
             f"Año del mínimo.......... "
             f"{self.yearly_consumption.idxmin():%Y}"
         )
+
+    def calculate_hourly_profile(self):
+
+        self.hourly_profile = (
+            self.statistics_engine.calculate_hourly_profile(
+                self.dataset
+            )
+        )
+
+    def hourly_profile_report(self):
+
+        if self.hourly_profile is None:
+            print("No hay perfil horario calculado.")
+            return
+
+        print()
+        print("=" * 45)
+        print("HELIOS - HOURLY PROFILE REPORT")
+        print("=" * 45)
+
+        print(f"Horas analizadas........ {len(self.hourly_profile)}")
+        print(f"Consumo medio........... {self.hourly_profile.mean():.3f} kWh")
+
+        print()
+
+        print(f"Hora de mayor consumo... {self.hourly_profile.idxmax():02d}:00")
+        print(f"Consumo máximo.......... {self.hourly_profile.max():.3f} kWh")
+
+        print()
+
+        print(f"Hora de menor consumo... {self.hourly_profile.idxmin():02d}:00")
+        print(f"Consumo mínimo.......... {self.hourly_profile.min():.3f} kWh")
+
+        print()
+        print("Top 5 horas de consumo")
+        print("-" * 30)
+
+        print(f"{'Hora':<8}{'Consumo':>12}")
+        print("-" * 30) 
+
+        top5 = self.hourly_profile.sort_values(ascending=False).head(5)
+
+        for hour, value in top5.items():
+            print(f"{hour:02d}:00    {value:>12.3f} kWh")
+
     def build_profiles(self):
         pass
 

@@ -24,6 +24,10 @@ def main():
     analyzer.monthly_report()
     analyzer.calculate_yearly_consumption()
     analyzer.yearly_report()
+    analyzer.calculate_hourly_profile()
+    analyzer.hourly_profile_report()
+    
+    
     #print(analyzer.statistics)
 
     #print(

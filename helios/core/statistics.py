@@ -53,3 +53,13 @@ class ConsumptionStatistics:
 
         return yearly
     
+    def calculate_hourly_profile(self, df):
+
+        profile = (
+            df["AE_kWh"]
+            .groupby(df.index.hour)
+            .mean()
+        )
+
+        return profile
+    
