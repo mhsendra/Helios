@@ -23,6 +23,9 @@ class ConsumptionAnalyzer:
         self.yearly_consumption = None
         self.profiles = None
         self.hourly_profile = None
+        self.weekday_profile = None
+        self.monthly_profile = None
+        self.seasonal_profile = None
 
         # Motores de procesamiento
         self.cleaner = ConsumptionCleaner()
@@ -600,6 +603,156 @@ class ConsumptionAnalyzer:
         for hour, value in top5.items():
             print(f"{hour:02d}:00    {value:>12.3f} kWh")
 
+    def calculate_weekday_profile(self):
+
+        self.weekday_profile = (
+            self.statistics_engine.calculate_weekday_profile(
+                self.dataset
+            )
+        )
+
+    def weekday_profile_report(self):
+
+        if self.weekday_profile is None:
+            print("No hay perfil semanal calculado.")
+            return
+        laborables = self.weekday_profile.iloc[:5].mean()
+        fin_semana = self.weekday_profile.iloc[5:].mean()
+
+        incremento = (
+            (fin_semana - laborables)
+            / laborables
+            * 100
+        )
+
+        print()
+        print("=" * 45)
+        print("HELIOS - WEEKDAY PROFILE REPORT")
+        print("=" * 45)
+
+        print(f"Consumo medio........... {self.weekday_profile.mean():.3f} kWh")
+
+        print()
+
+        print(f"Media laborables........ {laborables:.3f} kWh")
+        print(f"Media fin de semana..... {fin_semana:.3f} kWh")
+        print(f"Incremento.............. {incremento:+.1f} %")
+        
+
+        print()
+
+        print(f"Día de mayor consumo.... {self.weekday_profile.idxmax()}")
+        print(f"Consumo máximo.......... {self.weekday_profile.max():.3f} kWh")
+
+        print()
+
+        print(f"Día de menor consumo.... {self.weekday_profile.idxmin()}")
+        print(f"Consumo mínimo.......... {self.weekday_profile.min():.3f} kWh")
+
+        print()
+        print("Consumo medio por día")
+        print("-" * 30)
+        print(f"{'Día':<12}{'Consumo':>10}")
+        print("-" * 30)
+
+        for day, value in self.weekday_profile.items():
+            print(f"{day:<12}{value:>10.3f} kWh")
+
+    def calculate_monthly_profile(self):
+
+        self.monthly_profile = (
+            self.statistics_engine.calculate_monthly_profile(
+                self.dataset
+            )
+        )
+    
+    def monthly_profile_report(self):
+
+        if self.monthly_profile is None:
+            print("No hay perfil mensual calculado.")
+            return
+
+        incremento = (
+            (self.monthly_profile.max() - self.monthly_profile.min())
+            / self.monthly_profile.min()
+            * 100
+        )
+
+        print()
+        print("=" * 45)
+        print("HELIOS - MONTHLY PROFILE REPORT")
+        print("=" * 45)
+
+        print()
+
+        print(f"Mes de mayor consumo.... {self.monthly_profile.idxmax()}")
+        print(f"Consumo máximo.......... {self.monthly_profile.max():.3f} kWh")
+
+        print()
+
+        print(f"Mes de menor consumo.... {self.monthly_profile.idxmin()}")
+        print(f"Consumo mínimo.......... {self.monthly_profile.min():.3f} kWh")
+
+        print()
+
+        print(f"Variación estacional... {incremento:+.1f} %")
+
+        print()
+        print("Consumo medio por mes")
+        print()
+        print("-" * 30)
+        print(f"{'Mes':<15}{'Consumo':>10}")
+        print("-" * 30)
+
+        for month, value in self.monthly_profile.items():
+            print(f"{month:<15}{value:>10.3f} kWh")
+
+    def calculate_seasonal_profile(self):
+
+        self.seasonal_profile = (
+            self.statistics_engine.calculate_seasonal_profile(
+                self.monthly_profile
+            )
+        )
+
+    def seasonal_profile_report(self):
+
+        if self.seasonal_profile is None:
+            print("No hay perfil estacional calculado.")
+            return
+
+        incremento = (
+            (self.seasonal_profile.max() - self.seasonal_profile.min())
+            / self.seasonal_profile.min()
+            * 100
+        )
+
+        print()
+        print("=" * 45)
+        print("HELIOS - SEASONAL PROFILE REPORT")
+        print("=" * 45)
+
+        print(f"Estación de mayor consumo... {self.seasonal_profile.idxmax()}")
+        print(f"Consumo máximo.............. {self.seasonal_profile.max():.3f} kWh")
+
+        print()
+
+        print(f"Estación de menor consumo... {self.seasonal_profile.idxmin()}")
+        print(f"Consumo mínimo.............. {self.seasonal_profile.min():.3f} kWh")
+
+        print()
+
+        print(f"Variación estacional........ {incremento:+.1f} %")
+
+        print()
+        print("Consumo medio por estación")
+        print()
+        print("-" * 35)
+        print(f"{'Estación':<15}{'Consumo':>10}")
+        print("-" * 35)
+
+        for season, value in self.seasonal_profile.items():
+            print(f"{season:<15}{value:>10.3f} kWh")
     def build_profiles(self):
         pass
 

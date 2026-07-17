@@ -63,3 +63,77 @@ class ConsumptionStatistics:
 
         return profile
     
+    def calculate_weekday_profile(self, df):
+
+        profile = (
+            df["AE_kWh"]
+            .groupby(df.index.dayofweek)
+            .mean()
+        )
+
+        profile.index = [
+            "Lunes",
+            "Martes",
+            "Miércoles",
+            "Jueves",
+            "Viernes",
+            "Sábado",
+            "Domingo"
+        ]
+
+        return profile
+    
+    def calculate_monthly_profile(self, df):
+
+        profile = (
+            df["AE_kWh"]
+            .groupby(df.index.month)
+            .mean()
+        )
+
+        profile.index = [
+            "Enero",
+            "Febrero",
+            "Marzo",
+            "Abril",
+            "Mayo",
+            "Junio",
+            "Julio",
+            "Agosto",
+            "Septiembre",
+            "Octubre",
+            "Noviembre",
+            "Diciembre"
+        ]
+
+        return profile
+    
+    def calculate_seasonal_profile(self, monthly_profile):
+
+        profile = {
+            "Invierno": (
+                monthly_profile["Diciembre"]
+                + monthly_profile["Enero"]
+                + monthly_profile["Febrero"]
+            ) / 3,
+
+            "Primavera": (
+                monthly_profile["Marzo"]
+                + monthly_profile["Abril"]
+                + monthly_profile["Mayo"]
+            ) / 3,
+
+            "Verano": (
+                monthly_profile["Junio"]
+                + monthly_profile["Julio"]
+                + monthly_profile["Agosto"]
+            ) / 3,
+
+            "Otoño": (
+                monthly_profile["Septiembre"]
+                + monthly_profile["Octubre"]
+                + monthly_profile["Noviembre"]
+            ) / 3
+        }
+
+        return pd.Series(profile)

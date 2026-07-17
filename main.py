@@ -27,6 +27,13 @@ def main():
     analyzer.calculate_hourly_profile()
     analyzer.hourly_profile_report()
     
+    analyzer.calculate_weekday_profile()
+    analyzer.weekday_profile_report()
+    analyzer.calculate_monthly_profile()
+    analyzer.monthly_profile_report()
+    analyzer.calculate_monthly_profile()
+    analyzer.calculate_seasonal_profile()
+    analyzer.seasonal_profile_report()
     
     #print(analyzer.statistics)
 
