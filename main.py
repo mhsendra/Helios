@@ -34,6 +34,8 @@ def main():
     analyzer.calculate_monthly_profile()
     analyzer.calculate_seasonal_profile()
     analyzer.seasonal_profile_report()
+    analyzer.calculate_workweek_profile()
+    analyzer.workweek_profile_report()
     
     #print(analyzer.statistics)
 
