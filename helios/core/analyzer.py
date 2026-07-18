@@ -31,6 +31,9 @@ class ConsumptionAnalyzer:
         self.workweek_profile = None
         self.monthly_comparison = None
         self.monthly_variation = None
+        self.yearly_comparison = None
+        self.weekly_comparison = None
+        self.weekly_variation = None
 
         # Motores de procesamiento
         self.cleaner = ConsumptionCleaner()
@@ -859,7 +862,7 @@ class ConsumptionAnalyzer:
     def calculate_monthly_variation(self):
 
         self.monthly_variation = (
-            self.comparisons_engine.monthly_variation(
+            self.comparisons_engine.calculate_variation(
                 self.monthly_comparison
             )
         )
@@ -872,8 +875,11 @@ class ConsumptionAnalyzer:
 
     def plot_monthly_comparison(self):
 
-        self.visualizer.plot_monthly_comparison(
-            self.monthly_comparison
+        self.visualizer.plot_comparison_lines(
+            dataframe=self.monthly_comparison,
+            title="Comparativa mensual",
+            xlabel="Mes",
+            ylabel="Consumo (kWh)"
         )
 
 
@@ -881,4 +887,79 @@ class ConsumptionAnalyzer:
 
         self.visualizer.plot_monthly_variation(
             self.monthly_variation
+        )
+    
+    def compare_years(self):
+
+        self.yearly_comparison = (
+            self.comparisons_engine.compare_years(
+                self.dataset
+            )
+        )
+
+    def yearly_comparison_report(self):
+
+        self.comparisons_engine.yearly_comparison_report(
+            self.yearly_comparison
+        )
+
+    def plot_yearly_comparison(self):
+
+        self.visualizer.plot_yearly_comparison(
+            self.yearly_comparison
+        )
+
+    def compare_weeks_by_year(self):
+
+        self.weekly_comparison = (
+            self.comparisons_engine.compare_weeks_by_year(
+                self.dataset
+            )
+        )
+    
+    def weekly_comparison_report(self):
+
+        self.comparisons_engine.weekly_comparison_report(
+            self.weekly_comparison
+        )
+
+    def calculate_weekly_variation(self):
+
+        self.weekly_variation = (
+            self.comparisons_engine.calculate_variation(
+                self.weekly_comparison
+            )
+        )
+    
+    def weekly_variation_report(self):
+
+        self.comparisons_engine.weekly_variation_report(
+            self.weekly_variation
+        )
+
+    def plot_weekly_variation(self):
+
+        self.visualizer.plot_variation_bars(
+            dataframe=self.weekly_variation,
+            title="Variación semanal",
+            xlabel="Semana",
+            ylabel="Variación (%)"
+        )
+
+    def plot_monthly_variation(self):
+
+        self.visualizer.plot_variation_bars(
+            dataframe=self.monthly_variation,
+            title="Variación mensual",
+            xlabel="Mes",
+            ylabel="Variación (%)"
+        )
+
+    def plot_weekly_comparison(self):
+
+        self.visualizer.plot_comparison_lines(
+            dataframe=self.weekly_comparison,
+            title="Comparativa semanal",
+            xlabel="Semana",
+            ylabel="Consumo (kWh)"
         )

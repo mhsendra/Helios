@@ -73,6 +73,7 @@ class ConsumptionVisualizer:
 
         plt.title(title)
         plt.xlabel(xlabel)
+        plt.xticks(series.index)
         plt.ylabel(ylabel)
 
         margin = (series.max() - series.min()) * margin_ratio
@@ -85,6 +86,114 @@ class ConsumptionVisualizer:
         plt.grid(True, alpha=0.3)
 
         plt.tight_layout()
+
+    def plot_comparison_lines(
+        self,
+        dataframe: pd.DataFrame,
+        title: str,
+        xlabel: str,
+        ylabel: str
+    ) -> None:
+
+        plt.figure(figsize=(12, 5))
+
+        manager = plt.get_current_fig_manager()
+
+        try:
+            manager.set_window_title(
+                f"Helios - {title}"
+            )
+        except Exception:
+            pass
+
+        for column in dataframe.columns:
+
+            plt.plot(
+                dataframe.index,
+                dataframe[column],
+                marker="o",
+                linewidth=2,
+                label=str(column)
+            )
+
+        plt.title(title)
+
+        plt.xlabel(xlabel)
+
+        plt.ylabel(ylabel)
+
+        plt.grid(True, alpha=0.3)
+
+        plt.legend(title="Año")
+
+        plt.xticks(rotation=90)
+
+        plt.tight_layout()
+
+    def plot_variation_bars(
+        self,
+        dataframe: pd.DataFrame,
+        title: str,
+        xlabel: str,
+        ylabel: str
+    ) -> None:
+
+        positive_color = "tab:green"
+        negative_color = "tab:red"
+
+        for column in dataframe.columns:
+
+            series = dataframe[column]
+
+            colors = [
+                positive_color if pd.notna(value) and value >= 0
+                else negative_color
+                for value in series
+            ]
+
+            plt.figure(figsize=(12, 5))
+
+            x = list(range(len(series)))
+
+            plt.bar(
+                x,
+                series.values,
+                color=colors
+            )
+
+            plt.axhline(
+                y=0,
+                color="black",
+                linewidth=1
+            )
+
+            plt.title(f"{title} - {column}")
+
+            plt.xlabel(xlabel)
+
+            plt.ylabel(ylabel)
+
+            plt.grid(
+                axis="y",
+                alpha=0.3
+            )
+
+            manager = plt.get_current_fig_manager()
+
+            try:
+                manager.set_window_title(
+                    f"Helios - {title} - {column}"
+                )
+            except Exception:
+                pass
+
+            plt.xticks(
+                ticks=x,
+                labels=series.index,
+                rotation=90
+            )
+
+            plt.tight_layout()
 
     def show(self):
 
@@ -113,7 +222,6 @@ class ConsumptionVisualizer:
             ylabel="Consumo medio (kWh)"
         )
 
-
     def plot_workweek_profile(self, profile: pd.Series) -> None:
 
         self.plot_series(
@@ -123,7 +231,6 @@ class ConsumptionVisualizer:
             ylabel="Consumo medio (kWh)"
         )
 
-
     def plot_monthly_profile(self, profile: pd.Series) -> None:
 
         self.plot_series(
@@ -132,7 +239,6 @@ class ConsumptionVisualizer:
             xlabel="Mes",
             ylabel="Consumo medio (kWh)"
         )
-
 
     def plot_seasonal_profile(self, profile: pd.Series) -> None:
 
@@ -146,65 +252,58 @@ class ConsumptionVisualizer:
     def plot_monthly_comparison(
         self,
         comparison: pd.DataFrame
-    ):
+    ) -> None:
 
-        fig = plt.figure(figsize=(12, 5))
-        fig.canvas.manager.set_window_title(
-            "HELIOS - Comparativa mensual"
+        self.plot_comparison_lines(
+            dataframe=comparison,
+            title="Comparativa mensual",
+            xlabel="Mes",
+            ylabel="Consumo (kWh)"
         )
-
-        for year in comparison.columns:
-
-            plt.plot(
-                comparison.index,
-                comparison[year],
-                marker="o",
-                linewidth=2,
-                label=str(year)
-            )
-
-        plt.title("Comparativa mensual por años")
-        plt.xlabel("Mes")
-        plt.ylabel("Consumo (kWh)")
-
-        plt.grid(True, alpha=0.3)
-
-        plt.legend()
-
-        plt.tight_layout()
 
     def plot_monthly_variation(
         self,
         variation: pd.DataFrame
-    ):
+    ) -> None:
 
-        fig = plt.figure(figsize=(12, 5))
-        fig.canvas.manager.set_window_title(
-            "HELIOS - Variación mensual"
+        self.plot_variation_bars(
+            dataframe=variation,
+            title="Variación mensual",
+            xlabel="Mes",
+            ylabel="Variación (%)"
         )
 
-        for column in variation.columns:
+    def plot_yearly_comparison(
+    self,
+    comparison: pd.Series
+):
 
-            plt.plot(
-                variation.index,
-                variation[column],
-                marker="o",
-                linewidth=2,
-                label=column
-            )
+        self.plot_series(
+            series=comparison,
+            title="Comparativa anual",
+            xlabel="Año",
+            ylabel="Consumo (kWh)"
+        )
+    def plot_weekly_comparison(
+        self,
+        comparison: pd.DataFrame
+    ) -> None:
 
-        plt.axhline(
-            0,
-            color="black",
-            linewidth=1
+        self.plot_comparison_lines(
+            dataframe=comparison,
+            title="Comparativa semanal",
+            xlabel="Semana",
+            ylabel="Consumo (kWh)"
         )
 
-        plt.title("Variación interanual mensual")
-        plt.xlabel("Mes")
-        plt.ylabel("Variación (%)")
+    def plot_weekly_variation(
+        self,
+        variation: pd.DataFrame
+    ) -> None:
 
-        plt.grid(True, alpha=0.3)
-
-        plt.legend()
-
-        plt.tight_layout()
+        self.plot_variation_bars(
+            dataframe=variation,
+            title="Variación semanal",
+            xlabel="Semana",
+            ylabel="Variación (%)"
+        )
