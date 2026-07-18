@@ -7,6 +7,7 @@ from pathlib import Path
 from helios.core.cleaning import ConsumptionCleaner
 from helios.core.statistics import ConsumptionStatistics
 from helios.core.visualizer import ConsumptionVisualizer
+from helios.core.comparisons import ConsumptionComparisons
 import pandas as pd
 import calendar
 
@@ -28,11 +29,15 @@ class ConsumptionAnalyzer:
         self.monthly_profile = None
         self.seasonal_profile = None
         self.workweek_profile = None
+        self.monthly_comparison = None
+        self.monthly_variation = None
 
         # Motores de procesamiento
         self.cleaner = ConsumptionCleaner()
         self.statistics_engine = ConsumptionStatistics()
         self.visualizer = ConsumptionVisualizer()
+        self.comparisons_engine = ConsumptionComparisons()
+
 
     def load_excel(self, path: str | Path):
 
@@ -838,8 +843,42 @@ class ConsumptionAnalyzer:
         self.visualizer.plot_seasonal_profile(
             self.seasonal_profile
         )
-    def build_profiles(self):
-        pass
+    def compare_months_by_year(self):
 
-    def export_results(self):
-        pass
+        self.monthly_comparison = (
+            self.comparisons_engine.compare_months_by_year(
+                self.dataset
+            )
+        )
+    def monthly_comparison_report(self):
+
+        self.comparisons_engine.monthly_comparison_report(
+            self.monthly_comparison
+        )
+    
+    def calculate_monthly_variation(self):
+
+        self.monthly_variation = (
+            self.comparisons_engine.monthly_variation(
+                self.monthly_comparison
+            )
+        )
+
+    def monthly_variation_report(self):
+
+        self.comparisons_engine.monthly_variation_report(
+            self.monthly_variation
+        )
+
+    def plot_monthly_comparison(self):
+
+        self.visualizer.plot_monthly_comparison(
+            self.monthly_comparison
+        )
+
+
+    def plot_monthly_variation(self):
+
+        self.visualizer.plot_monthly_variation(
+            self.monthly_variation
+        )

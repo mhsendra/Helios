@@ -53,25 +53,22 @@ def main():
     analyzer.plot_seasonal_profile()
     analyzer.plot_workweek_profile()
 
-    analyzer.show_plots()
-
     
-    #print(analyzer.statistics)
 
-    #print(
-        #analyzer.dataset["data_status"].value_counts()
-    #)
+    print()
 
-    #print(analyzer.dataset.head())
+    #Comparaciones
+    analyzer.compare_months_by_year()
+    analyzer.monthly_comparison_report()
 
-    #print(analyzer.dataset["gap_size"].value_counts().sort_index())
+    analyzer.calculate_monthly_variation()
+    analyzer.monthly_variation_report()
 
-    #print(
-        #analyzer.dataset.loc[
-            #analyzer.dataset["gap_size"] > 0,
-            #["AE_kWh", "gap_size"]
-        #].head(40)
-    #)
+    analyzer.plot_monthly_comparison()
+    analyzer.plot_monthly_variation()
+    analyzer.show_plots()
+    
+    
 
 if __name__ == "__main__":
     main()

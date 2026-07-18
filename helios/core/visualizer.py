@@ -142,3 +142,69 @@ class ConsumptionVisualizer:
             xlabel="Estación",
             ylabel="Consumo medio (kWh)"
         )
+
+    def plot_monthly_comparison(
+        self,
+        comparison: pd.DataFrame
+    ):
+
+        fig = plt.figure(figsize=(12, 5))
+        fig.canvas.manager.set_window_title(
+            "HELIOS - Comparativa mensual"
+        )
+
+        for year in comparison.columns:
+
+            plt.plot(
+                comparison.index,
+                comparison[year],
+                marker="o",
+                linewidth=2,
+                label=str(year)
+            )
+
+        plt.title("Comparativa mensual por años")
+        plt.xlabel("Mes")
+        plt.ylabel("Consumo (kWh)")
+
+        plt.grid(True, alpha=0.3)
+
+        plt.legend()
+
+        plt.tight_layout()
+
+    def plot_monthly_variation(
+        self,
+        variation: pd.DataFrame
+    ):
+
+        fig = plt.figure(figsize=(12, 5))
+        fig.canvas.manager.set_window_title(
+            "HELIOS - Variación mensual"
+        )
+
+        for column in variation.columns:
+
+            plt.plot(
+                variation.index,
+                variation[column],
+                marker="o",
+                linewidth=2,
+                label=column
+            )
+
+        plt.axhline(
+            0,
+            color="black",
+            linewidth=1
+        )
+
+        plt.title("Variación interanual mensual")
+        plt.xlabel("Mes")
+        plt.ylabel("Variación (%)")
+
+        plt.grid(True, alpha=0.3)
+
+        plt.legend()
+
+        plt.tight_layout()
