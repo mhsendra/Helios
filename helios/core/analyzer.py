@@ -6,6 +6,7 @@ Consumption Analyzer
 from pathlib import Path
 from helios.core.cleaning import ConsumptionCleaner
 from helios.core.statistics import ConsumptionStatistics
+from helios.core.visualizer import ConsumptionVisualizer
 import pandas as pd
 import calendar
 
@@ -31,6 +32,7 @@ class ConsumptionAnalyzer:
         # Motores de procesamiento
         self.cleaner = ConsumptionCleaner()
         self.statistics_engine = ConsumptionStatistics()
+        self.visualizer = ConsumptionVisualizer()
 
     def load_excel(self, path: str | Path):
 
@@ -789,6 +791,7 @@ class ConsumptionAnalyzer:
 
         print()
         print("Consumo por tipo de día")
+        print()
         print("-" * 30)
         print(f"{'Tipo':<18}{'Consumo':>10}")
         print("-" * 30)
@@ -796,6 +799,45 @@ class ConsumptionAnalyzer:
         for day_type, value in self.workweek_profile.items():
             print(f"{day_type:<18}{value:>10.3f} kWh")
 
+    def show_plots(self):
+
+        self.visualizer.show()
+
+    def plot_hourly_profile(self):
+
+        self.visualizer.plot_series(
+            self.hourly_profile,
+            title="Perfil horario de consumo",
+            xlabel="Hora",
+            ylabel="Consumo medio (kWh)"
+        )
+
+    def plot_weekday_profile(self):
+
+        self.visualizer.plot_weekday_profile(
+            self.weekday_profile
+        )
+
+
+    def plot_workweek_profile(self):
+
+        self.visualizer.plot_workweek_profile(
+            self.workweek_profile
+        )
+
+
+    def plot_monthly_profile(self):
+
+        self.visualizer.plot_monthly_profile(
+            self.monthly_profile
+        )
+
+
+    def plot_seasonal_profile(self):
+
+        self.visualizer.plot_seasonal_profile(
+            self.seasonal_profile
+        )
     def build_profiles(self):
         pass
 

@@ -16,26 +16,45 @@ def main():
     #analyzer.find_duplicate_timestamps()
     #analyzer.inspect_dst_days()
 
+    # Estadísticas generales
     analyzer.calculate_statistics()
     analyzer.statistics_report()
+
+    # Consumos
     analyzer.calculate_daily_consumption()
     analyzer.daily_report()
+
     analyzer.calculate_monthly_consumption()
     analyzer.monthly_report()
+
     analyzer.calculate_yearly_consumption()
     analyzer.yearly_report()
+
+    # Perfiles
     analyzer.calculate_hourly_profile()
     analyzer.hourly_profile_report()
-    
+
     analyzer.calculate_weekday_profile()
     analyzer.weekday_profile_report()
+
     analyzer.calculate_monthly_profile()
     analyzer.monthly_profile_report()
-    analyzer.calculate_monthly_profile()
+
     analyzer.calculate_seasonal_profile()
     analyzer.seasonal_profile_report()
+
     analyzer.calculate_workweek_profile()
     analyzer.workweek_profile_report()
+
+    # Gráficos
+    analyzer.plot_hourly_profile()
+    analyzer.plot_weekday_profile()
+    analyzer.plot_monthly_profile()
+    analyzer.plot_seasonal_profile()
+    analyzer.plot_workweek_profile()
+
+    analyzer.show_plots()
+
     
     #print(analyzer.statistics)
 
