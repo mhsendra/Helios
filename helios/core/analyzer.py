@@ -8,6 +8,7 @@ from helios.core.cleaning import ConsumptionCleaner
 from helios.core.statistics import ConsumptionStatistics
 from helios.core.visualizer import ConsumptionVisualizer
 from helios.core.comparisons import ConsumptionComparisons
+from helios.core.indicators import IndicatorsEngine
 import pandas as pd
 import calendar
 
@@ -34,13 +35,15 @@ class ConsumptionAnalyzer:
         self.yearly_comparison = None
         self.weekly_comparison = None
         self.weekly_variation = None
+        self.mean_consumption = None
+        self.extremes = None
 
         # Motores de procesamiento
         self.cleaner = ConsumptionCleaner()
         self.statistics_engine = ConsumptionStatistics()
         self.visualizer = ConsumptionVisualizer()
         self.comparisons_engine = ConsumptionComparisons()
-
+        self.indicators_engine = IndicatorsEngine()       
 
     def load_excel(self, path: str | Path):
 
@@ -963,3 +966,176 @@ class ConsumptionAnalyzer:
             xlabel="Semana",
             ylabel="Consumo (kWh)"
         )
+
+    def calculate_mean_consumption(self):
+
+        self.mean_consumption = (
+            self.indicators_engine.calculate_mean_consumption(
+                self.dataset
+            )
+        )
+
+    def mean_consumption_report(self):
+
+        print()
+        print("=" * 45)
+        print("HELIOS - MEAN CONSUMPTION")
+        print("=" * 45)
+        print()
+
+        labels = {
+
+            "hourly": "Consumo medio horario",
+
+            "daily": "Consumo medio diario",
+
+            "weekly": "Consumo medio semanal",
+
+            "monthly": "Consumo medio mensual",
+
+            "yearly": "Consumo medio anual",
+
+            "workday": "Consumo medio laborable",
+
+            "weekend": "Consumo medio fin de semana"
+        }
+
+        for key, label in labels.items():
+
+            print(
+                f"{label:.<32}"
+                f"{self.mean_consumption[key]:>10.3f} kWh"
+            )
+    def calculate_extremes(self):
+
+        self.extremes = (
+            self.indicators_engine.calculate_extremes(
+                dataset=self.dataset,
+                daily=self.daily_consumption,
+                monthly=self.monthly_consumption,
+                weekly=self.weekly_comparison
+            )
+        )
+
+    def _print_extreme(
+        self,
+        title: str,
+        key: str,
+        formatter
+    ):
+
+        index, value = self.extremes[key]
+
+        print(title)
+        print(f"  {formatter(index)}")
+        print(f"  {value:.3f} kWh")
+        print()
+    
+    def extremes_report(self):
+
+        print()
+        print("=" * 45)
+        print("HELIOS - CONSUMPTION EXTREMES")
+        print("=" * 45)
+        print()
+
+        self._print_extreme(
+            "Mayor consumo horario",
+            "hourly_max",
+            self._format_datetime
+        )
+
+        self._print_extreme(
+            "Menor consumo horario",
+            "hourly_min",
+            self._format_datetime
+        )
+
+        self._print_extreme(
+            "Mayor consumo diario",
+            "daily_max",
+            self._format_date
+        )
+
+        self._print_extreme(
+            "Menor consumo diario",
+            "daily_min",
+            self._format_date
+        )
+
+        self._print_extreme(
+            "Mayor consumo semanal",
+            "weekly_max",
+            self._format_week
+        )
+
+        self._print_extreme(
+            "Menor consumo semanal",
+            "weekly_min",
+            self._format_week
+        )
+
+        self._print_extreme(
+            "Mayor consumo mensual",
+            "monthly_max",
+            self._format_month
+        )
+
+        self._print_extreme(
+            "Menor consumo mensual",
+            "monthly_min",
+            self._format_month
+        )
+
+    def _format_datetime(
+        self,
+        timestamp
+    ) -> str:
+
+        return timestamp.strftime(
+            "%d/%m/%Y %H:%M"
+        )
+    
+    def _format_date(
+        self,
+        timestamp
+    ) -> str:
+
+        return timestamp.strftime(
+            "%d/%m/%Y"
+        )
+    
+    def _format_week(
+        self,
+        week
+    ) -> str:
+
+        year, week_number = week
+
+        return f"{week_number} ({year})"
+    
+    def _format_month(
+        self,
+        timestamp
+    ) -> str:
+
+        months = [
+            "Enero",
+            "Febrero",
+            "Marzo",
+            "Abril",
+            "Mayo",
+            "Junio",
+            "Julio",
+            "Agosto",
+            "Septiembre",
+            "Octubre",
+            "Noviembre",
+            "Diciembre"
+        ]
+
+        month = months[
+            timestamp.month - 1
+        ]
+
+        return f"{month} {timestamp.year}"

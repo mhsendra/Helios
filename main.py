@@ -6,7 +6,7 @@ def main():
     analyzer = ConsumptionAnalyzer()
 
     # ==================================================
-    # CARGA Y PREPARACIÓN
+    # 1. CARGA Y PREPARACIÓN
     # ==================================================
 
     analyzer.load_excel("data/raw/consumo electrico castellar.xlsx")
@@ -15,73 +15,75 @@ def main():
     analyzer.build_datetime()
 
     # ==================================================
-    # VALIDACIÓN
+    # 2. VALIDACIÓN
     # ==================================================
 
     analyzer.validate_timeseries()
     analyzer.find_missing_hours()
-    analyzer.quality_report()
 
     # ==================================================
-    # ESTADÍSTICAS GENERALES
+    # 3. CÁLCULOS
     # ==================================================
 
+    # Estadísticas
     analyzer.calculate_statistics()
-    analyzer.statistics_report()
 
-    # ==================================================
-    # CONSUMOS
-    # ==================================================
-
+    # Consumos
     analyzer.calculate_daily_consumption()
-    analyzer.daily_report()
-
     analyzer.calculate_monthly_consumption()
-    analyzer.monthly_report()
-
     analyzer.calculate_yearly_consumption()
-    analyzer.yearly_report()
 
-    # ==================================================
-    # PERFILES
-    # ==================================================
-
+    # Perfiles
     analyzer.calculate_hourly_profile()
-    analyzer.hourly_profile_report()
-
     analyzer.calculate_weekday_profile()
-    analyzer.weekday_profile_report()
-
     analyzer.calculate_monthly_profile()
-    analyzer.monthly_profile_report()
-
     analyzer.calculate_seasonal_profile()
-    analyzer.seasonal_profile_report()
-
     analyzer.calculate_workweek_profile()
-    analyzer.workweek_profile_report()
 
-    # ==================================================
-    # COMPARATIVAS
-    # ==================================================
-
+    # Comparativas
     analyzer.compare_months_by_year()
-    analyzer.monthly_comparison_report()
-
     analyzer.calculate_monthly_variation()
-    analyzer.monthly_variation_report()
 
     analyzer.compare_weeks_by_year()
-    analyzer.weekly_comparison_report()
-
     analyzer.calculate_weekly_variation()
-    analyzer.weekly_variation_report()
 
     analyzer.compare_years()
-    analyzer.yearly_comparison_report()
+
+    # Indicadores
+    analyzer.calculate_mean_consumption()
+    analyzer.calculate_extremes()
 
     # ==================================================
-    # GRÁFICOS
+    # 4. INFORMES
+    # ==================================================
+
+    analyzer.quality_report()
+
+    analyzer.statistics_report()
+
+    analyzer.daily_report()
+    analyzer.monthly_report()
+    analyzer.yearly_report()
+
+    analyzer.hourly_profile_report()
+    analyzer.weekday_profile_report()
+    analyzer.monthly_profile_report()
+    analyzer.seasonal_profile_report()
+    analyzer.workweek_profile_report()
+
+    analyzer.monthly_comparison_report()
+    analyzer.monthly_variation_report()
+
+    analyzer.weekly_comparison_report()
+    analyzer.weekly_variation_report()
+
+    analyzer.yearly_comparison_report()
+
+    analyzer.mean_consumption_report()
+    analyzer.extremes_report()
+
+    # ==================================================
+    # 5. GRÁFICOS
     # ==================================================
 
     analyzer.plot_hourly_profile()
@@ -97,6 +99,10 @@ def main():
     analyzer.plot_weekly_variation()
 
     analyzer.plot_yearly_comparison()
+
+    # ==================================================
+    # 6. VISUALIZACIÓN
+    # ==================================================
 
     analyzer.show_plots()
 
