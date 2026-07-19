@@ -86,3 +86,10 @@ class IndicatorsEngine:
                 "monthly_max": (monthly.idxmax(), monthly.max()),
                 "monthly_min": (monthly.idxmin(), monthly.min())
             }
+    
+    def calculate_base_load(
+        self,
+        dataset: pd.DataFrame
+    ) -> float:
+
+        return dataset["AE_kWh"].quantile(0.10)

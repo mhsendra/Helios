@@ -37,6 +37,7 @@ class ConsumptionAnalyzer:
         self.weekly_variation = None
         self.mean_consumption = None
         self.extremes = None
+        self.base_load = None
 
         # Motores de procesamiento
         self.cleaner = ConsumptionCleaner()
@@ -1139,3 +1140,24 @@ class ConsumptionAnalyzer:
         ]
 
         return f"{month} {timestamp.year}"
+    
+    def calculate_base_load(self):
+
+        self.base_load = (
+            self.indicators_engine.calculate_base_load(
+                self.dataset
+            )
+        )
+
+    def base_load_report(self):
+
+        print()
+        print("=" * 45)
+        print("HELIOS - BASE LOAD")
+        print("=" * 45)
+        print()
+
+        print(
+            f"Carga base{'':.<24}"
+            f"{self.base_load:.3f} kWh/h"
+        )
