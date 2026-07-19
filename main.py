@@ -1,6 +1,5 @@
 from helios.core.analyzer import ConsumptionAnalyzer
 
-
 def main():
 
     analyzer = ConsumptionAnalyzer()
@@ -49,9 +48,17 @@ def main():
 
     analyzer.compare_years()
 
-    # Indicadores
+    # ==================================================
+    # INDICADORES
+    # ==================================================
+
     analyzer.calculate_mean_consumption()
+
     analyzer.calculate_extremes()
+
+    analyzer.calculate_base_load()
+
+    analyzer.calculate_tariff_periods()
 
     # ==================================================
     # 4. INFORMES
@@ -80,7 +87,12 @@ def main():
     analyzer.yearly_comparison_report()
 
     analyzer.mean_consumption_report()
+
     analyzer.extremes_report()
+
+    analyzer.base_load_report()
+
+    analyzer.tariff_periods_report()
 
     # ==================================================
     # 5. GRÁFICOS

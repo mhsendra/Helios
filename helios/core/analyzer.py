@@ -9,6 +9,7 @@ from helios.core.statistics import ConsumptionStatistics
 from helios.core.visualizer import ConsumptionVisualizer
 from helios.core.comparisons import ConsumptionComparisons
 from helios.core.indicators import IndicatorsEngine
+from helios.core.tariffs import TariffEngine
 import pandas as pd
 import calendar
 
@@ -38,13 +39,17 @@ class ConsumptionAnalyzer:
         self.mean_consumption = None
         self.extremes = None
         self.base_load = None
+        self.period_consumption = None
+        self.period_percentage = None
+        
 
         # Motores de procesamiento
         self.cleaner = ConsumptionCleaner()
         self.statistics_engine = ConsumptionStatistics()
         self.visualizer = ConsumptionVisualizer()
         self.comparisons_engine = ConsumptionComparisons()
-        self.indicators_engine = IndicatorsEngine()       
+        self.indicators_engine = IndicatorsEngine()
+        self.tariff_engine = TariffEngine()       
 
     def load_excel(self, path: str | Path):
 
@@ -1161,3 +1166,46 @@ class ConsumptionAnalyzer:
             f"Carga base{'':.<24}"
             f"{self.base_load:.3f} kWh/h"
         )
+    
+    def calculate_tariff_periods(self):
+
+        self.period_consumption = (
+            self.tariff_engine.calculate_period_consumption(
+                self.dataset
+            )
+        )
+
+        self.period_percentage = (
+            self.tariff_engine.calculate_period_percentage(
+                self.period_consumption
+            )
+        )
+    
+    def tariff_periods_report(self):
+
+        print()
+
+        print("=" * 45)
+        print("HELIOS - TARIFF PERIODS")
+        print("=" * 45)
+        print()
+
+        print(
+            f"{'Periodo':<10}"
+            f"{'Consumo':>18}"
+            f"{'%':>10}"
+        )
+
+        print("-" * 40)
+
+        for period in self.tariff_engine.PERIODS:
+
+            consumption = self.period_consumption[period]
+
+            percentage = self.period_percentage[period]
+
+            print(
+                f"{period:<10}"
+                f"{consumption:>12.2f} kWh"
+                f"{percentage:>9.2f}%"
+            )
