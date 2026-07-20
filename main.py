@@ -1,4 +1,5 @@
 from helios.core.analyzer import ConsumptionAnalyzer
+from helios.core.solar import SolarConfiguration
 
 def main():
 
@@ -19,6 +20,8 @@ def main():
 
     analyzer.validate_timeseries()
     analyzer.find_missing_hours()
+    analyzer.quality_report()
+
 
     # ==================================================
     # 3. CÁLCULOS
@@ -48,6 +51,19 @@ def main():
 
     analyzer.compare_years()
 
+    #   Producción solar
+
+    config = SolarConfiguration(
+    installed_power_kwp=8.10,
+    latitude=41.633,
+    longitude=2.017,
+    tilt=35,
+    azimuth=0
+    )
+
+    analyzer.calculate_solar_production(config)
+    analyzer.calculate_solar_statistics()
+
     # ==================================================
     # INDICADORES
     # ==================================================
@@ -63,8 +79,6 @@ def main():
     # ==================================================
     # 4. INFORMES
     # ==================================================
-
-    analyzer.quality_report()
 
     analyzer.statistics_report()
 
@@ -93,6 +107,9 @@ def main():
     analyzer.base_load_report()
 
     analyzer.tariff_periods_report()
+
+    analyzer.solar_production_report()
+
 
     # ==================================================
     # 5. GRÁFICOS

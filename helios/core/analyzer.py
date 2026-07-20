@@ -10,6 +10,7 @@ from helios.core.visualizer import ConsumptionVisualizer
 from helios.core.comparisons import ConsumptionComparisons
 from helios.core.indicators import IndicatorsEngine
 from helios.core.tariffs import TariffEngine
+from helios.core.solar import (SolarEngine, SolarConfiguration)
 import pandas as pd
 import calendar
 
@@ -41,6 +42,8 @@ class ConsumptionAnalyzer:
         self.base_load = None
         self.period_consumption = None
         self.period_percentage = None
+        self.solar_configuration = None
+        self.solar_production = None
         
 
         # Motores de procesamiento
@@ -49,7 +52,8 @@ class ConsumptionAnalyzer:
         self.visualizer = ConsumptionVisualizer()
         self.comparisons_engine = ConsumptionComparisons()
         self.indicators_engine = IndicatorsEngine()
-        self.tariff_engine = TariffEngine()       
+        self.tariff_engine = TariffEngine()   
+        self.solar_engine = SolarEngine()    
 
     def load_excel(self, path: str | Path):
 
@@ -1209,3 +1213,28 @@ class ConsumptionAnalyzer:
                 f"{consumption:>12.2f} kWh"
                 f"{percentage:>9.2f}%"
             )
+    
+    def calculate_solar_production(
+        self,
+        configuration
+    ):
+
+        self.solar_production = (
+            self.solar_engine.calculate_hourly_production(
+                configuration
+            )
+        )
+
+    def solar_production_report(self):
+
+        print()
+
+        print("=== PRODUCCIÓN SOLAR ===")
+
+        print()
+
+        print(self.solar_production.head())
+
+    def calculate_solar_statistics(self):
+
+        self.solar_engine.calculate_statistics()
