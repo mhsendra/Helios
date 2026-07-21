@@ -63,6 +63,8 @@ def main():
 
     analyzer.calculate_solar_production(config)
     analyzer.calculate_solar_statistics()
+    analyzer.calculate_monthly_solar_production()
+    
 
     # ==================================================
     # INDICADORES
@@ -108,8 +110,11 @@ def main():
 
     analyzer.tariff_periods_report()
 
-    analyzer.solar_production_report()
+    #analyzer.solar_production_report()
 
+    analyzer.solar_statistics_report()
+
+    analyzer.monthly_solar_production_report()
 
     # ==================================================
     # 5. GRÁFICOS

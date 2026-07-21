@@ -214,19 +214,25 @@ class SolarEngine:
             }
         )
 
-        dataframe["production_kw"] = (
+        dataframe["production_kwh"] = (
             dataframe["production_w"] / 1000
+        )
+
+        dataframe.drop(
+            columns=["production_w"],
+            inplace=True
         )
 
         return dataframe[
             [
-                "production_kw",
+                "production_kwh",
                 "irradiance",
                 "temperature",
                 "wind_speed",
                 "interpolated"
             ]
         ]
+
     def calculate_statistics(self):
 
         if self.hourly_production is None:
@@ -235,7 +241,7 @@ class SolarEngine:
                 "Hourly production has not been calculated."
             )
 
-        production = self.hourly_production["production_kw"]
+        production = self.hourly_production["production_kwh"]
 
         annual_production = production.sum()
 
@@ -268,3 +274,75 @@ class SolarEngine:
             "capacity_factor": capacity_factor
 
         }
+    
+    def calculate_monthly_production(self):
+
+        if self.hourly_production is None:
+
+            raise ValueError(
+                "Hourly production has not been calculated."
+            )
+
+        self.monthly_production = (
+            self.hourly_production["production_kwh"]
+            .resample("ME")
+            .sum()
+        )
+
+        self.monthly_production.index = (
+            self.monthly_production.index.strftime("%m-%Y")
+        )
+
+    def monthly_production_report(self):
+
+        print()
+
+        print("=== PRODUCCIÓN MENSUAL FV ===")
+
+        print()
+
+        for month, value in self.monthly_production.items():
+
+            value_text = (
+                f"{value:,.2f}"
+                .replace(",", "X")
+                .replace(".", ",")
+                .replace("X", ".")
+            )
+
+            print(f"{month} : {value_text:>10} kWh")
+
+    def statistics_report(self):
+
+        if not self.statistics:
+
+            raise ValueError(
+                "Solar statistics have not been calculated."
+            )
+
+        print()
+
+        print("=========================================")
+        print("PRODUCCIÓN FOTOVOLTAICA")
+        print("=========================================")
+        print()
+
+        print(f"Potencia instalada      : {self.configuration.installed_power_kwp:.2f} kWp")
+        print(f"Tecnología FV           : {self.configuration.pv_technology}")
+        print(f"Inclinación             : {self.configuration.tilt}°")
+        print(f"Orientación             : {self.configuration.azimuth}°")
+        print(f"Pérdidas consideradas   : {self.configuration.losses:.1f} %")
+
+        print()
+
+        print("-----------------------------------------")
+        print("PRODUCCIÓN")
+        print("-----------------------------------------")
+
+        print(f"Horas simuladas         : {self.statistics['hours']}")
+        print(f"Producción anual        : {self.statistics['annual_production']:.2f} kWh")
+        print(f"Producción media diaria : {self.statistics['daily_average']:.2f} kWh")
+        print(f"Potencia máxima         : {self.statistics['maximum_power']:.2f} kW")
+        print(f"Potencia mínima (>0)    : {self.statistics['minimum_power']:.2f} kW")
+        print(f"Horas equivalentes      : {self.statistics['equivalent_hours']:.2f} h")
+        print(f"Factor de capacidad     : {self.statistics['capacity_factor']:.2f} %")

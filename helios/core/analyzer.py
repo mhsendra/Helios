@@ -123,8 +123,10 @@ class ConsumptionAnalyzer:
         de e-distribución.
         """
 
-        self.dataset = self.dataset.groupby("Fecha", group_keys=False).apply(
-            self._build_day_datetime
+        self.dataset = (
+            self.dataset
+            .groupby("Fecha", group_keys=False)
+            .apply(self._build_day_datetime)
         )
 
         self.dataset.set_index("datetime", inplace=True)
@@ -139,7 +141,7 @@ class ConsumptionAnalyzer:
             - días de 25 horas (horario invierno)
         """
 
-        fecha = day_df["Fecha"].iloc[0]
+        fecha = day_df.name
 
         horas = day_df["Hora"].tolist()
 
@@ -1238,3 +1240,15 @@ class ConsumptionAnalyzer:
     def calculate_solar_statistics(self):
 
         self.solar_engine.calculate_statistics()
+    
+    def calculate_monthly_solar_production(self):
+
+        self.solar_engine.calculate_monthly_production()
+
+    def monthly_solar_production_report(self):
+
+        self.solar_engine.monthly_production_report()
+
+    def solar_statistics_report(self):
+
+        self.solar_engine.statistics_report()
