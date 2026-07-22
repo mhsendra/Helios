@@ -1252,3 +1252,31 @@ class ConsumptionAnalyzer:
     def solar_statistics_report(self):
 
         self.solar_engine.statistics_report()
+
+    def calculate_energy_balance(self):
+
+        consumption = self.dataset["AE_kWh"]
+
+        self.solar_engine.calculate_energy_balance(
+            consumption
+        )
+
+    def energy_balance_report(self):
+
+        self.solar_engine.energy_balance_report()
+
+    def calculate_daily_solar_production(self):
+
+        self.solar_engine.calculate_daily_production()
+
+    def calculate_yearly_solar_production(self):
+
+        self.solar_engine.calculate_yearly_production()
+
+    def calculate_energy_statistics(self):
+
+        self.solar_engine.calculate_energy_statistics()
+
+    def energy_statistics_report(self):
+
+        self.solar_engine.energy_statistics_report()

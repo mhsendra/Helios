@@ -81,7 +81,7 @@ class TariffEngine:
             )
         )
 
-        print(data["Periodo"].value_counts(dropna=False))
+        #print(data["Periodo"].value_counts(dropna=False))
 
         consumption = (
             data

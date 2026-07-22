@@ -34,8 +34,12 @@ class SolarEngine:
 
         self.hourly_production = None
         self.statistics = {}
-        self.monthly_production = None
         self.hourly_profile = None
+        self.energy_balance: pd.DataFrame | None = None
+        self.daily_production: pd.Series | None = None
+        self.monthly_production: pd.Series | None = None
+        self.yearly_production: pd.Series | None = None
+        self.energy_statistics = None
 
         self.cache_directory = (
             Path("data")
@@ -83,6 +87,24 @@ class SolarEngine:
         self.hourly_production = dataframe
 
         return self.hourly_production
+    
+    def calculate_daily_production(self):
+
+        """
+        Calcula la producción diaria a partir de la producción horaria.
+        """
+
+        if self.hourly_production is None:
+
+            raise RuntimeError(
+                "Hourly production has not been calculated."
+            )
+
+        self.daily_production = (
+            self.hourly_production["production_kwh"]
+            .resample("D")
+            .sum()
+        )
 
     def _build_cache_filename(
         self,
@@ -257,6 +279,8 @@ class SolarEngine:
             (installed_power * len(production))
         ) * 100
 
+        print()
+        
         self.statistics = {
 
             "hours": len(production),
@@ -277,21 +301,98 @@ class SolarEngine:
     
     def calculate_monthly_production(self):
 
-        if self.hourly_production is None:
+        """
+        Calcula la producción mensual.
+        """
 
-            raise ValueError(
-                "Hourly production has not been calculated."
-            )
+        if self.daily_production is None:
+
+            self.calculate_daily_production()
 
         self.monthly_production = (
-            self.hourly_production["production_kwh"]
-            .resample("ME")
+                self.daily_production
+                .resample("ME")
+                .sum()
+            )
+
+    def calculate_yearly_production(self):
+
+        """
+        Calcula la producción anual.
+        """
+
+        if self.monthly_production is None:
+
+            self.calculate_monthly_production()
+
+        self.yearly_production = (
+            self.monthly_production
+            .resample("YE")
             .sum()
         )
 
-        self.monthly_production.index = (
-            self.monthly_production.index.strftime("%m-%Y")
+    def calculate_energy_balance(
+        self,
+        consumption: pd.Series
+    ):
+
+        """
+        Calcula el balance energético horario entre
+        consumo y producción fotovoltaica.
+
+        Parámetros
+        ----------
+        consumption
+            Serie horaria de consumo (kWh).
+
+        """
+
+        if self.hourly_production is None:
+
+            raise RuntimeError(
+                "Hourly production has not been calculated."
+            )
+        # Producción horaria
+        production = self.hourly_production["production_kwh"]
+
+        # Clave MM-DD-HH de la producción
+        production_lookup = production.copy()
+        production_lookup.index = production_lookup.index.strftime("%m-%d-%H")
+
+        # Balance con el índice REAL del consumo
+        balance = pd.DataFrame(index=consumption.index)
+
+        balance["consumption_kwh"] = consumption.values
+
+        # Buscar la producción correspondiente al mismo perfil horario
+        profile_key = balance.index.strftime("%m-%d-%H")
+
+        balance["production_kwh"] = (
+            pd.Series(profile_key, index=balance.index)
+            .map(production_lookup)
+            .fillna(0.0)
         )
+
+        balance["self_consumption_kwh"] = (
+            balance[
+                [
+                    "consumption_kwh",
+                    "production_kwh"
+                ]
+            ].min(axis=1)
+        )
+
+        balance["grid_import_kwh"] = (
+            balance["consumption_kwh"]
+            - balance["self_consumption_kwh"]
+        )
+
+        balance["grid_export_kwh"] = (
+            balance["production_kwh"]
+            - balance["self_consumption_kwh"]
+        )
+
+        self.energy_balance = balance
 
     def monthly_production_report(self):
 
@@ -310,7 +411,7 @@ class SolarEngine:
                 .replace("X", ".")
             )
 
-            print(f"{month} : {value_text:>10} kWh")
+            print(f"{month.strftime('%m-%Y')} : {value_text:>10} kWh")
 
     def statistics_report(self):
 
@@ -340,9 +441,113 @@ class SolarEngine:
         print("-----------------------------------------")
 
         print(f"Horas simuladas         : {self.statistics['hours']}")
-        print(f"Producción anual        : {self.statistics['annual_production']:.2f} kWh")
+        print(f"Producción simulada     : {self.statistics['annual_production']:.2f} kWh/año")
         print(f"Producción media diaria : {self.statistics['daily_average']:.2f} kWh")
         print(f"Potencia máxima         : {self.statistics['maximum_power']:.2f} kW")
         print(f"Potencia mínima (>0)    : {self.statistics['minimum_power']:.2f} kW")
         print(f"Horas equivalentes      : {self.statistics['equivalent_hours']:.2f} h")
         print(f"Factor de capacidad     : {self.statistics['capacity_factor']:.2f} %")
+
+    def energy_balance_report(self):
+
+        print()
+
+        print("=" * 40)
+        print("BALANCE ENERGÉTICO")
+        print("=" * 40)
+        print()
+
+        print(
+            self.energy_balance.head()
+        )
+
+    def calculate_energy_statistics(self):
+
+        """
+        Calcula los indicadores energéticos de la instalación FV.
+        """
+
+        if self.energy_balance is None:
+
+            raise RuntimeError(
+                "Energy balance has not been calculated."
+            )
+
+        balance = self.energy_balance
+
+        consumption = balance["consumption_kwh"].sum()
+
+        production = balance["production_kwh"].sum()
+
+        self_consumption = balance["self_consumption_kwh"].sum()
+
+        grid_import = balance["grid_import_kwh"].sum()
+
+        grid_export = balance["grid_export_kwh"].sum()
+
+        if consumption > 0:
+
+            self_sufficiency = (
+                self_consumption / consumption
+            ) * 100
+
+        else:
+
+            self_sufficiency = 0
+
+        if production > 0:
+
+            self_consumption_ratio = (
+                self_consumption / production
+            ) * 100
+
+        else:
+
+            self_consumption_ratio = 0
+
+        self.energy_statistics = {
+
+            "consumption_kwh": consumption,
+
+            "production_kwh": production,
+
+            "self_consumption_kwh": self_consumption,
+
+            "grid_import_kwh": grid_import,
+
+            "grid_export_kwh": grid_export,
+
+            "self_sufficiency": self_sufficiency,
+
+            "self_consumption_ratio": self_consumption_ratio
+
+        }
+
+    def energy_statistics_report(self):
+
+        if self.energy_statistics is None:
+
+            raise RuntimeError(
+                "Energy statistics have not been calculated."
+            )
+
+        s = self.energy_statistics
+
+        print()
+
+        print("=" * 41)
+        print("BALANCE ENERGÉTICO")
+        print("=" * 41)
+        print()
+
+        print(f"Consumo total periodo  : {s['consumption_kwh']:10.2f} kWh")
+        print(f"Producción periodo     : {s['production_kwh']:10.2f} kWh")
+        print()
+
+        print(f"Autoconsumo total      : {s['self_consumption_kwh']:10.2f} kWh")
+        print(f"Importación de red     : {s['grid_import_kwh']:10.2f} kWh")
+        print(f"Exportación a red      : {s['grid_export_kwh']:10.2f} kWh")
+        print()
+
+        print(f"Autosuficiencia        : {s['self_sufficiency']:10.2f} %")
+        print(f"Autoconsumo FV         : {s['self_consumption_ratio']:10.2f} %")

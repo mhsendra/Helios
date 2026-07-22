@@ -62,8 +62,12 @@ def main():
     )
 
     analyzer.calculate_solar_production(config)
-    analyzer.calculate_solar_statistics()
+    analyzer.calculate_daily_solar_production()
     analyzer.calculate_monthly_solar_production()
+    analyzer.calculate_yearly_solar_production()
+    analyzer.calculate_energy_balance()
+    analyzer.calculate_energy_statistics()
+    analyzer.calculate_solar_statistics()
     
 
     # ==================================================
@@ -115,6 +119,10 @@ def main():
     analyzer.solar_statistics_report()
 
     analyzer.monthly_solar_production_report()
+
+    analyzer.energy_balance_report()
+
+    analyzer.energy_statistics_report()
 
     # ==================================================
     # 5. GRÁFICOS
