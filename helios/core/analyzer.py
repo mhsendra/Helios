@@ -102,6 +102,19 @@ class ConsumptionAnalyzer:
 
         #print(self.dataset.dtypes)
 
+    def valid_dataset(self) -> pd.DataFrame:
+
+        """
+        Devuelve únicamente los registros válidos
+        para realizar cálculos estadísticos.
+
+        No modifica self.dataset.
+        """
+
+        return self.dataset[
+            self.dataset["data_status"] != "missing"
+        ]
+
     def clean_data(self):
 
         print("\n=== LIMPIEZA DE DATOS ===")
@@ -474,14 +487,14 @@ class ConsumptionAnalyzer:
     def calculate_statistics(self):
 
         self.statistics = self.statistics_engine.calculate(
-            self.dataset
+            self.valid_dataset()
         )
 
     def calculate_daily_consumption(self):
 
         self.daily_consumption = (
             self.statistics_engine.calculate_daily_consumption(
-                self.dataset
+                self.valid_dataset()
             )
         )
 
@@ -510,7 +523,7 @@ class ConsumptionAnalyzer:
 
         self.monthly_consumption = (
             self.statistics_engine.calculate_monthly_consumption(
-                self.dataset
+                self.valid_dataset()
             )
         )
 
@@ -549,7 +562,7 @@ class ConsumptionAnalyzer:
 
         self.yearly_consumption = (
             self.statistics_engine.calculate_yearly_consumption(
-                self.dataset
+                self.valid_dataset()
             )
         )
     
@@ -588,7 +601,7 @@ class ConsumptionAnalyzer:
 
         self.hourly_profile = (
             self.statistics_engine.calculate_hourly_profile(
-                self.dataset
+                self.valid_dataset()
             )
         )
 
@@ -632,7 +645,7 @@ class ConsumptionAnalyzer:
 
         self.weekday_profile = (
             self.statistics_engine.calculate_weekday_profile(
-                self.dataset
+                self.valid_dataset()
             )
         )
 
@@ -687,7 +700,7 @@ class ConsumptionAnalyzer:
 
         self.monthly_profile = (
             self.statistics_engine.calculate_monthly_profile(
-                self.dataset
+                self.valid_dataset()
             )
         )
     
@@ -857,7 +870,7 @@ class ConsumptionAnalyzer:
 
         self.yearly_comparison = (
             self.comparisons_engine.compare_years(
-                self.dataset
+                self.valid_dataset()
             )
         )
 
@@ -877,7 +890,7 @@ class ConsumptionAnalyzer:
 
         self.weekly_comparison = (
             self.comparisons_engine.compare_weeks_by_year(
-                self.dataset
+                self.valid_dataset()
             )
         )
     
@@ -932,7 +945,7 @@ class ConsumptionAnalyzer:
 
         self.mean_consumption = (
             self.indicators_engine.calculate_mean_consumption(
-                self.dataset
+                self.valid_dataset()
             )
         )
 
@@ -971,7 +984,7 @@ class ConsumptionAnalyzer:
 
         self.extremes = (
             self.indicators_engine.calculate_extremes(
-                dataset=self.dataset,
+                dataset=self.valid_dataset(),
                 daily=self.daily_consumption,
                 monthly=self.monthly_consumption,
                 weekly=self.weekly_comparison
@@ -1105,7 +1118,7 @@ class ConsumptionAnalyzer:
 
         self.base_load = (
             self.indicators_engine.calculate_base_load(
-                self.dataset
+                self.valid_dataset()
             )
         )
 
@@ -1126,7 +1139,7 @@ class ConsumptionAnalyzer:
 
         self.period_consumption = (
             self.tariff_engine.calculate_period_consumption(
-                self.dataset
+                self.valid_dataset()
             )
         )
 
@@ -1204,7 +1217,7 @@ class ConsumptionAnalyzer:
 
     def calculate_energy_balance(self):
 
-        consumption = self.dataset["AE_kWh"]
+        consumption = self.valid_dataset()["AE_kWh"]
 
         self.solar_engine.calculate_energy_balance(
             consumption

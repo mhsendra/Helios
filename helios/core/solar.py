@@ -255,158 +255,158 @@ class SolarEngine:
             ]
         ]
 
-def calculate_statistics(self):
+    def calculate_statistics(self):
 
-    if self.hourly_production is None:
+        if self.hourly_production is None:
 
-        raise ValueError(
-            "Hourly production has not been calculated."
+            raise ValueError(
+                "Hourly production has not been calculated."
+            )
+
+        if self.energy_balance is None:
+
+            raise ValueError(
+                "Energy balance has not been calculated."
+            )
+
+        production = self.hourly_production["production_kwh"]
+
+        balance = self.energy_balance
+
+        # ==========================================
+        # Eliminar horas sin consumo válido
+        # ==========================================
+
+        valid_balance = balance.dropna(
+            subset=["consumption_kwh"]
         )
 
-    if self.energy_balance is None:
+        consumption = valid_balance["consumption_kwh"].sum()
 
-        raise ValueError(
-            "Energy balance has not been calculated."
+        annual_production = production.sum()
+
+        installed_power = self.configuration.installed_power_kwp
+
+        productive_hours = (production > 0).sum()
+
+        zero_production_hours = (production == 0).sum()
+
+        hourly_average = production.mean()
+
+        daily_average = annual_production / 365
+
+        monthly_average = annual_production / 12
+
+        equivalent_hours = (
+            annual_production /
+            installed_power
         )
 
-    production = self.hourly_production["production_kwh"]
+        specific_yield = equivalent_hours
 
-    balance = self.energy_balance
+        capacity_factor = (
+            annual_production /
+            (installed_power * len(production))
+        ) * 100
 
-    # ==========================================
-    # Eliminar horas sin consumo válido
-    # ==========================================
+        maximum_power = production.max()
 
-    valid_balance = balance.dropna(
-        subset=["consumption_kwh"]
-    )
+        if (production > 0).any():
 
-    consumption = valid_balance["consumption_kwh"].sum()
+            minimum_power = (
+                production[production > 0].min()
+            )
 
-    annual_production = production.sum()
+        else:
 
-    installed_power = self.configuration.installed_power_kwp
+            minimum_power = 0.0
 
-    productive_hours = (production > 0).sum()
+        # ==========================================
+        # Balance energético (solo horas válidas)
+        # ==========================================
 
-    zero_production_hours = (production == 0).sum()
-
-    hourly_average = production.mean()
-
-    daily_average = annual_production / 365
-
-    monthly_average = annual_production / 12
-
-    equivalent_hours = (
-        annual_production /
-        installed_power
-    )
-
-    specific_yield = equivalent_hours
-
-    capacity_factor = (
-        annual_production /
-        (installed_power * len(production))
-    ) * 100
-
-    maximum_power = production.max()
-
-    if (production > 0).any():
-
-        minimum_power = (
-            production[production > 0].min()
+        self_consumption = (
+            valid_balance["self_consumption_kwh"].sum()
         )
 
-    else:
+        grid_import = (
+            valid_balance["grid_import_kwh"].sum()
+        )
 
-        minimum_power = 0.0
+        grid_export = (
+            valid_balance["grid_export_kwh"].sum()
+        )
 
-    # ==========================================
-    # Balance energético (solo horas válidas)
-    # ==========================================
+        self_consumption_ratio = (
+            self_consumption /
+            annual_production
+        ) * 100
 
-    self_consumption = (
-        valid_balance["self_consumption_kwh"].sum()
-    )
+        self_sufficiency = (
+            self_consumption /
+            consumption
+        ) * 100
 
-    grid_import = (
-        valid_balance["grid_import_kwh"].sum()
-    )
+        coverage_ratio = (
+            annual_production /
+            consumption
+        ) * 100
 
-    grid_export = (
-        valid_balance["grid_export_kwh"].sum()
-    )
+        surplus_ratio = (
+            grid_export /
+            annual_production
+        ) * 100
 
-    self_consumption_ratio = (
-        self_consumption /
-        annual_production
-    ) * 100
+        import_ratio = (
+            grid_import /
+            consumption
+        ) * 100
 
-    self_sufficiency = (
-        self_consumption /
-        consumption
-    ) * 100
+        self.solar_statistics = {
 
-    coverage_ratio = (
-        annual_production /
-        consumption
-    ) * 100
+            "hours": len(production),
 
-    surplus_ratio = (
-        grid_export /
-        annual_production
-    ) * 100
+            "productive_hours": productive_hours,
 
-    import_ratio = (
-        grid_import /
-        consumption
-    ) * 100
+            "zero_production_hours": zero_production_hours,
 
-    self.solar_statistics = {
+            "annual_production": annual_production,
 
-        "hours": len(production),
+            "daily_average": daily_average,
 
-        "productive_hours": productive_hours,
+            "monthly_average": monthly_average,
 
-        "zero_production_hours": zero_production_hours,
+            "hourly_average": hourly_average,
 
-        "annual_production": annual_production,
+            "maximum_power": maximum_power,
 
-        "daily_average": daily_average,
+            "minimum_power": minimum_power,
 
-        "monthly_average": monthly_average,
+            "equivalent_hours": equivalent_hours,
 
-        "hourly_average": hourly_average,
+            "specific_yield": specific_yield,
 
-        "maximum_power": maximum_power,
+            "capacity_factor": capacity_factor,
 
-        "minimum_power": minimum_power,
+            "consumption": consumption,
 
-        "equivalent_hours": equivalent_hours,
+            "self_consumption": self_consumption,
 
-        "specific_yield": specific_yield,
+            "grid_import": grid_import,
 
-        "capacity_factor": capacity_factor,
+            "grid_export": grid_export,
 
-        "consumption": consumption,
+            "self_consumption_ratio": self_consumption_ratio,
 
-        "self_consumption": self_consumption,
+            "self_sufficiency": self_sufficiency,
 
-        "grid_import": grid_import,
+            "coverage_ratio": coverage_ratio,
 
-        "grid_export": grid_export,
+            "surplus_ratio": surplus_ratio,
 
-        "self_consumption_ratio": self_consumption_ratio,
+            "import_ratio": import_ratio
 
-        "self_sufficiency": self_sufficiency,
-
-        "coverage_ratio": coverage_ratio,
-
-        "surplus_ratio": surplus_ratio,
-
-        "import_ratio": import_ratio
-
-    }
+        }
     
     def calculate_monthly_production(self):
 
@@ -501,16 +501,7 @@ def calculate_statistics(self):
             balance["production_kwh"]
             - balance["self_consumption_kwh"]
         )
-        print(type(consumption.index))
-        print(consumption.index[:5])
-
-        print(consumption.head())
-
-        print(consumption.isna().sum())
-
-        print("Longitud consumo:", len(consumption))
-        print("Longitud índice :", len(consumption.index))
-
+        
         self.energy_balance = balance
 
         # Solo horas con consumo válido
@@ -589,15 +580,7 @@ def calculate_statistics(self):
         stats = self.solar_statistics
 
         print()
-        print("=" * 40)
-        print("BALANCE ENERGÉTICO")
-        print("=" * 40)
-        print()
-
-        print(f"Consumo total periodo  : {stats['consumption']:10.2f} kWh")
-        print(f"Producción periodo     : {stats['annual_production']:10.2f} kWh")
-        print()
-
+        
         print(f"Autoconsumo total      : {stats['self_consumption']:10.2f} kWh")
         print(f"Importación de red     : {stats['grid_import']:10.2f} kWh")
         print(f"Exportación a red      : {stats['grid_export']:10.2f} kWh")

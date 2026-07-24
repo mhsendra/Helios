@@ -10,8 +10,9 @@ def main():
     # ==================================================
 
     analyzer.load_excel("data/raw/consumo electrico castellar.xlsx")
-
+    
     analyzer.clean_data()
+        
     analyzer.build_datetime()
 
     # ==================================================
@@ -64,12 +65,6 @@ def main():
     analyzer.calculate_daily_solar_production()
     analyzer.calculate_monthly_solar_production()
     analyzer.calculate_yearly_solar_production()
-    print("\n=== DATASET ANTES DEL BALANCE ===")
-    print(analyzer.dataset.head())
-    print()
-    print(analyzer.dataset["AE_kWh"].head())
-    print()
-    print("NaN:", analyzer.dataset["AE_kWh"].isna().sum())
     analyzer.calculate_energy_balance()
     analyzer.calculate_energy_statistics()
     analyzer.calculate_solar_statistics()
