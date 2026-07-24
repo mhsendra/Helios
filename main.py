@@ -40,8 +40,7 @@ def main():
     analyzer.calculate_weekday_profile()
     analyzer.calculate_monthly_profile()
     analyzer.calculate_seasonal_profile()
-    analyzer.calculate_workweek_profile()
-
+    
     # Comparativas
     analyzer.compare_months_by_year()
     analyzer.calculate_monthly_variation()
@@ -65,6 +64,12 @@ def main():
     analyzer.calculate_daily_solar_production()
     analyzer.calculate_monthly_solar_production()
     analyzer.calculate_yearly_solar_production()
+    print("\n=== DATASET ANTES DEL BALANCE ===")
+    print(analyzer.dataset.head())
+    print()
+    print(analyzer.dataset["AE_kWh"].head())
+    print()
+    print("NaN:", analyzer.dataset["AE_kWh"].isna().sum())
     analyzer.calculate_energy_balance()
     analyzer.calculate_energy_statistics()
     analyzer.calculate_solar_statistics()
@@ -96,8 +101,7 @@ def main():
     analyzer.weekday_profile_report()
     analyzer.monthly_profile_report()
     analyzer.seasonal_profile_report()
-    analyzer.workweek_profile_report()
-
+    
     analyzer.monthly_comparison_report()
     analyzer.monthly_variation_report()
 
@@ -132,8 +136,7 @@ def main():
     analyzer.plot_weekday_profile()
     analyzer.plot_monthly_profile()
     analyzer.plot_seasonal_profile()
-    analyzer.plot_workweek_profile()
-
+    
     analyzer.plot_monthly_comparison()
     analyzer.plot_monthly_variation()
 

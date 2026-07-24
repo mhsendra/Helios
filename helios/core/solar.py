@@ -33,7 +33,7 @@ class SolarEngine:
     def __init__(self):
 
         self.hourly_production = None
-        self.statistics = {}
+        self.solar_statistics = {}
         self.hourly_profile = None
         self.energy_balance: pd.DataFrame | None = None
         self.daily_production: pd.Series | None = None
@@ -255,49 +255,158 @@ class SolarEngine:
             ]
         ]
 
-    def calculate_statistics(self):
+def calculate_statistics(self):
 
-        if self.hourly_production is None:
+    if self.hourly_production is None:
 
-            raise ValueError(
-                "Hourly production has not been calculated."
-            )
-
-        production = self.hourly_production["production_kwh"]
-
-        annual_production = production.sum()
-
-        installed_power = self.configuration.installed_power_kwp
-
-        equivalent_hours = (
-            annual_production /
-            installed_power
+        raise ValueError(
+            "Hourly production has not been calculated."
         )
 
-        capacity_factor = (
-            annual_production /
-            (installed_power * len(production))
-        ) * 100
+    if self.energy_balance is None:
 
-        print()
-        
-        self.statistics = {
+        raise ValueError(
+            "Energy balance has not been calculated."
+        )
 
-            "hours": len(production),
+    production = self.hourly_production["production_kwh"]
 
-            "annual_production": annual_production,
+    balance = self.energy_balance
 
-            "daily_average": annual_production / 365,
+    # ==========================================
+    # Eliminar horas sin consumo válido
+    # ==========================================
 
-            "maximum_power": production.max(),
+    valid_balance = balance.dropna(
+        subset=["consumption_kwh"]
+    )
 
-            "minimum_power": production[production > 0].min(),
+    consumption = valid_balance["consumption_kwh"].sum()
 
-            "equivalent_hours": equivalent_hours,
+    annual_production = production.sum()
 
-            "capacity_factor": capacity_factor
+    installed_power = self.configuration.installed_power_kwp
 
-        }
+    productive_hours = (production > 0).sum()
+
+    zero_production_hours = (production == 0).sum()
+
+    hourly_average = production.mean()
+
+    daily_average = annual_production / 365
+
+    monthly_average = annual_production / 12
+
+    equivalent_hours = (
+        annual_production /
+        installed_power
+    )
+
+    specific_yield = equivalent_hours
+
+    capacity_factor = (
+        annual_production /
+        (installed_power * len(production))
+    ) * 100
+
+    maximum_power = production.max()
+
+    if (production > 0).any():
+
+        minimum_power = (
+            production[production > 0].min()
+        )
+
+    else:
+
+        minimum_power = 0.0
+
+    # ==========================================
+    # Balance energético (solo horas válidas)
+    # ==========================================
+
+    self_consumption = (
+        valid_balance["self_consumption_kwh"].sum()
+    )
+
+    grid_import = (
+        valid_balance["grid_import_kwh"].sum()
+    )
+
+    grid_export = (
+        valid_balance["grid_export_kwh"].sum()
+    )
+
+    self_consumption_ratio = (
+        self_consumption /
+        annual_production
+    ) * 100
+
+    self_sufficiency = (
+        self_consumption /
+        consumption
+    ) * 100
+
+    coverage_ratio = (
+        annual_production /
+        consumption
+    ) * 100
+
+    surplus_ratio = (
+        grid_export /
+        annual_production
+    ) * 100
+
+    import_ratio = (
+        grid_import /
+        consumption
+    ) * 100
+
+    self.solar_statistics = {
+
+        "hours": len(production),
+
+        "productive_hours": productive_hours,
+
+        "zero_production_hours": zero_production_hours,
+
+        "annual_production": annual_production,
+
+        "daily_average": daily_average,
+
+        "monthly_average": monthly_average,
+
+        "hourly_average": hourly_average,
+
+        "maximum_power": maximum_power,
+
+        "minimum_power": minimum_power,
+
+        "equivalent_hours": equivalent_hours,
+
+        "specific_yield": specific_yield,
+
+        "capacity_factor": capacity_factor,
+
+        "consumption": consumption,
+
+        "self_consumption": self_consumption,
+
+        "grid_import": grid_import,
+
+        "grid_export": grid_export,
+
+        "self_consumption_ratio": self_consumption_ratio,
+
+        "self_sufficiency": self_sufficiency,
+
+        "coverage_ratio": coverage_ratio,
+
+        "surplus_ratio": surplus_ratio,
+
+        "import_ratio": import_ratio
+
+    }
     
     def calculate_monthly_production(self):
 
@@ -352,6 +461,7 @@ class SolarEngine:
             raise RuntimeError(
                 "Hourly production has not been calculated."
             )
+        
         # Producción horaria
         production = self.hourly_production["production_kwh"]
 
@@ -391,8 +501,22 @@ class SolarEngine:
             balance["production_kwh"]
             - balance["self_consumption_kwh"]
         )
+        print(type(consumption.index))
+        print(consumption.index[:5])
+
+        print(consumption.head())
+
+        print(consumption.isna().sum())
+
+        print("Longitud consumo:", len(consumption))
+        print("Longitud índice :", len(consumption.index))
 
         self.energy_balance = balance
+
+        # Solo horas con consumo válido
+        valid_balance = balance.dropna(subset=["consumption_kwh"])
+
+        consumption = valid_balance["consumption_kwh"].sum()
 
     def monthly_production_report(self):
 
@@ -415,7 +539,7 @@ class SolarEngine:
 
     def statistics_report(self):
 
-        if not self.statistics:
+        if not self.solar_statistics:
 
             raise ValueError(
                 "Solar statistics have not been calculated."
@@ -440,26 +564,49 @@ class SolarEngine:
         print("PRODUCCIÓN")
         print("-----------------------------------------")
 
-        print(f"Horas simuladas         : {self.statistics['hours']}")
-        print(f"Producción simulada     : {self.statistics['annual_production']:.2f} kWh/año")
-        print(f"Producción media diaria : {self.statistics['daily_average']:.2f} kWh")
-        print(f"Potencia máxima         : {self.statistics['maximum_power']:.2f} kW")
-        print(f"Potencia mínima (>0)    : {self.statistics['minimum_power']:.2f} kW")
-        print(f"Horas equivalentes      : {self.statistics['equivalent_hours']:.2f} h")
-        print(f"Factor de capacidad     : {self.statistics['capacity_factor']:.2f} %")
+        print(f"Horas simuladas         : {self.solar_statistics['hours']}")
+        print(f"Producción simulada     : {self.solar_statistics['annual_production']:.2f} kWh/año")
+        print(f"Producción media diaria : {self.solar_statistics['daily_average']:.2f} kWh")
+        print(f"Potencia máxima         : {self.solar_statistics['maximum_power']:.2f} kW")
+        print(f"Potencia mínima (>0)    : {self.solar_statistics['minimum_power']:.2f} kW")
+        print(f"Horas equivalentes      : {self.solar_statistics['equivalent_hours']:.2f} h")
+        print(f"Factor de capacidad     : {self.solar_statistics['capacity_factor']:.2f} %")
 
     def energy_balance_report(self):
 
-        print()
+        if self.energy_balance is None:
 
+            raise ValueError(
+                "Energy balance has not been calculated."
+            )
+
+        if self.solar_statistics is None:
+
+            raise ValueError(
+                "Solar statistics have not been calculated."
+            )
+
+        stats = self.solar_statistics
+
+        print()
         print("=" * 40)
         print("BALANCE ENERGÉTICO")
         print("=" * 40)
         print()
 
-        print(
-            self.energy_balance.head()
-        )
+        print(f"Consumo total periodo  : {stats['consumption']:10.2f} kWh")
+        print(f"Producción periodo     : {stats['annual_production']:10.2f} kWh")
+        print()
+
+        print(f"Autoconsumo total      : {stats['self_consumption']:10.2f} kWh")
+        print(f"Importación de red     : {stats['grid_import']:10.2f} kWh")
+        print(f"Exportación a red      : {stats['grid_export']:10.2f} kWh")
+        print()
+
+        print(f"Autosuficiencia        : {stats['self_sufficiency']:10.2f} %")
+        print(f"Autoconsumo FV         : {stats['self_consumption_ratio']:10.2f} %")
+        print(f"Cobertura FV           : {stats['coverage_ratio']:10.2f} %")
+        print(f"Excedentes             : {stats['surplus_ratio']:10.2f} %")
 
     def calculate_energy_statistics(self):
 

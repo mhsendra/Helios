@@ -222,7 +222,7 @@ class ConsumptionVisualizer:
             ylabel="Consumo medio (kWh)"
         )
 
-    def plot_workweek_profile(self, profile: pd.Series) -> None:
+    
 
         self.plot_series(
             series=profile,

@@ -137,22 +137,5 @@ class ConsumptionStatistics:
         }
 
         return pd.Series(profile)
-    
-    def calculate_workweek_profile(self, df):
-
-        laborables = (
-            df.loc[df.index.dayofweek < 5, "AE_kWh"]
-            .mean()
-        )
-
-        fin_semana = (
-            df.loc[df.index.dayofweek >= 5, "AE_kWh"]
-            .mean()
-        )
-
-        return pd.Series({
-    "Laborables": laborables,
-    "Fin de semana": fin_semana
-})
-    
+        
     

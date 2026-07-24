@@ -31,7 +31,6 @@ class ConsumptionAnalyzer:
         self.weekday_profile = None
         self.monthly_profile = None
         self.seasonal_profile = None
-        self.workweek_profile = None
         self.monthly_comparison = None
         self.monthly_variation = None
         self.yearly_comparison = None
@@ -780,48 +779,6 @@ class ConsumptionAnalyzer:
         for season, value in self.seasonal_profile.items():
             print(f"{season:<15}{value:>10.3f} kWh")
 
-    def calculate_workweek_profile(self):
-
-        self.workweek_profile = (
-            self.statistics_engine.calculate_workweek_profile(
-                self.dataset
-            )
-        )
-
-    def workweek_profile_report(self):
-
-        if self.workweek_profile is None:
-            print("No hay perfil laborables / fin de semana calculado.")
-            return
-
-        variation = (
-            (self.workweek_profile.max() - self.workweek_profile.min())
-            / self.workweek_profile.min()
-            * 100
-        )
-
-        print()
-        print("=" * 45)
-        print("HELIOS - WORKWEEK PROFILE REPORT")
-        print("=" * 45)
-
-        print(f"Media laborables........ {self.workweek_profile['Laborables']:.3f} kWh")
-        print(f"Media fin de semana..... {self.workweek_profile['Fin de semana']:.3f} kWh")
-
-        print()
-
-        print(f"Incremento.............. {variation:+.1f} %")
-
-        print()
-        print("Consumo por tipo de día")
-        print()
-        print("-" * 30)
-        print(f"{'Tipo':<18}{'Consumo':>10}")
-        print("-" * 30)
-
-        for day_type, value in self.workweek_profile.items():
-            print(f"{day_type:<18}{value:>10.3f} kWh")
-
     def show_plots(self):
 
         self.visualizer.show()
@@ -840,14 +797,6 @@ class ConsumptionAnalyzer:
         self.visualizer.plot_weekday_profile(
             self.weekday_profile
         )
-
-
-    def plot_workweek_profile(self):
-
-        self.visualizer.plot_workweek_profile(
-            self.workweek_profile
-        )
-
 
     def plot_monthly_profile(self):
 
