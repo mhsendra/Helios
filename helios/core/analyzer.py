@@ -6,11 +6,12 @@ Consumption Analyzer
 from pathlib import Path
 from helios.core.cleaning import ConsumptionCleaner
 from helios.core.statistics import ConsumptionStatistics
-from helios.core.visualizer import ConsumptionVisualizer
+from helios.reports.visualizer import ConsumptionVisualizer
 from helios.core.comparisons import ConsumptionComparisons
 from helios.core.indicators import IndicatorsEngine
 from helios.core.tariffs import TariffEngine
 from helios.core.solar import (SolarEngine, SolarConfiguration)
+from helios.reports.printer import ReportPrinter
 import pandas as pd
 import calendar
 
@@ -98,10 +99,6 @@ class ConsumptionAnalyzer:
 
         print(f"\nDuplicados: {self.dataset.duplicated().sum()}")
 
-        #print("\nTipos:")
-
-        #print(self.dataset.dtypes)
-
     def valid_dataset(self) -> pd.DataFrame:
 
         """
@@ -115,6 +112,36 @@ class ConsumptionAnalyzer:
             self.dataset["data_status"] != "missing"
         ]
 
+    def dataset_quality(self) -> dict:
+
+        """
+        Devuelve un resumen de la calidad del dataset.
+        """
+
+        total_hours = len(self.dataset)
+
+        valid_hours = len(
+            self.valid_dataset()
+        )
+
+        missing_hours = total_hours - valid_hours
+
+        coverage = (
+            valid_hours /
+            total_hours
+        ) * 100
+
+        return {
+
+            "total_hours": total_hours,
+
+            "valid_hours": valid_hours,
+
+            "missing_hours": missing_hours,
+
+            "coverage": coverage
+
+        }
     def clean_data(self):
 
         print("\n=== LIMPIEZA DE DATOS ===")
@@ -280,23 +307,21 @@ class ConsumptionAnalyzer:
         print(f"Primer registro : {self.dataset.index.min()}")
         print(f"Último registro : {self.dataset.index.max()}")
 
-    def quality_report(self):
+    def dataset_quality(self):
 
-        total = len(self.dataset)
-        nulls = self.dataset["AE_kWh"].isna().sum()
+        total_hours = len(self.dataset)
+
+        missing_hours = (
+            self.dataset["data_status"] == "missing"
+        ).sum()
+
+        valid_hours = total_hours - missing_hours
+
         duplicates = self.dataset.index.duplicated().sum()
 
-        coverage = (1 - nulls / total) * 100
-
-        print("\n")
-        print("=" * 45)
-        print("HELIOS - DATA QUALITY REPORT")
-        print("=" * 45)
-
-        print(f"Registros.............. {total}")
-        print(f"Valores nulos......... {nulls}")
-        print(f"Duplicados............ {duplicates}")
-        print(f"Cobertura............. {coverage:.2f} %")
+        coverage = (
+            valid_hours / total_hours
+        ) * 100
 
         if coverage >= 99:
             quality = "EXCELENTE"
@@ -307,7 +332,54 @@ class ConsumptionAnalyzer:
         else:
             quality = "REVISAR"
 
-        print(f"Calidad............... {quality}")
+        return {
+            "total_hours": total_hours,
+            "valid_hours": valid_hours,
+            "missing_hours": missing_hours,
+            "duplicates": duplicates,
+            "coverage": coverage,
+            "quality": quality
+        }
+
+    def quality_report(self):
+
+        quality = self.dataset_quality()
+
+        ReportPrinter.title("DATA QUALITY REPORT")
+
+        ReportPrinter.blank()
+
+        ReportPrinter.count(
+            "Registros totales",
+            quality["total_hours"]
+        )
+
+        ReportPrinter.hours(
+            "Horas válidas",
+            quality["valid_hours"]
+        )
+
+        ReportPrinter.hours(
+            "Horas omitidas",
+            quality["missing_hours"]
+        )
+
+        ReportPrinter.percent(
+            "Cobertura",
+            quality["coverage"]
+        )
+
+        ReportPrinter.blank()
+
+        ReportPrinter.count(
+            "Duplicados",
+            quality["duplicates"]
+        )
+
+        ReportPrinter.quality(
+            "Calidad",
+            quality["quality"]
+        )
 
     def gap_report(self):
 
@@ -381,45 +453,49 @@ class ConsumptionAnalyzer:
         if self.statistics is None:
             print("No hay estadísticas calculadas.")
             return
-
-        print()
-        print("=" * 45)
-        print("HELIOS - STATISTICS REPORT")
-        print("=" * 45)
-
-        print(
-            f"Consumo total.......... "
-            f"{self.statistics['total_consumption']:.2f} kWh"
+        
+        ReportPrinter.title(
+            "STATISTICS REPORT"
+        )
+        
+        ReportPrinter.energy(
+            "Consumo total",
+            self.statistics["total_consumption"]
         )
 
-        print(
-            f"Consumo medio horario.. "
-            f"{self.statistics['mean_hourly']:.3f} kWh"
+        ReportPrinter.energy(
+            "Consumo medio horario",
+            self.statistics["mean_hourly"],
+            decimals=3
         )
 
-        print(
-            f"Consumo máximo......... "
-            f"{self.statistics['max_consumption']:.3f} kWh"
+
+        ReportPrinter.energy(
+            "Consumo máximo",
+            self.statistics["max_consumption"],
+            decimals=3
         )
 
-        print(
-            f"Fecha del máximo....... "
-            f"{self.statistics['max_consumption_time']:%d/%m/%Y %H:%M}"
+        ReportPrinter.datetime(
+            "Fecha del máximo",
+            self.statistics["max_consumption_time"]
         )
 
-        print(
-            f"Consumo mínimo......... "
-            f"{self.statistics['min_consumption']:.3f} kWh"
+        ReportPrinter.energy(
+            "Consumo mínimo",
+            self.statistics["min_consumption"],
+            decimals=3
         )
 
-        print(
-            f"Fecha del mínimo....... "
-            f"{self.statistics['min_consumption_time']:%d/%m/%Y %H:%M}"
+        ReportPrinter.datetime(
+            "Fecha del mínimo",
+            self.statistics["min_consumption_time"]
         )
 
-        print(
-            f"Desv. estándar......... "
-            f"{self.statistics['std_consumption']:.3f} kWh"
+        ReportPrinter.energy(
+            "Desv. estándar",
+            self.statistics["std_consumption"],
+            decimals=3
         )
 
     def gap_report(self):
@@ -827,7 +903,7 @@ class ConsumptionAnalyzer:
 
         self.monthly_comparison = (
             self.comparisons_engine.compare_months_by_year(
-                self.dataset
+                self.valid_dataset()
             )
         )
     def monthly_comparison_report(self):

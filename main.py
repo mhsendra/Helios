@@ -88,7 +88,7 @@ def main():
 
     analyzer.statistics_report()
 
-    analyzer.daily_report()
+    """analyzer.daily_report()
     analyzer.monthly_report()
     analyzer.yearly_report()
 
@@ -144,7 +144,7 @@ def main():
     # 6. VISUALIZACIÓN
     # ==================================================
 
-    analyzer.show_plots()
+    analyzer.show_plots()"""
 
 
 if __name__ == "__main__":
