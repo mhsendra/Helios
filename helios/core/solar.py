@@ -4,6 +4,7 @@ import json
 import requests
 
 import pandas as pd
+from helios.reports.printer import ReportPrinter
 
 
 @dataclass
@@ -39,8 +40,7 @@ class SolarEngine:
         self.daily_production: pd.Series | None = None
         self.monthly_production: pd.Series | None = None
         self.yearly_production: pd.Series | None = None
-        self.energy_statistics = None
-
+        
         self.cache_directory = (
             Path("data")
             / "cache"
@@ -528,7 +528,7 @@ class SolarEngine:
 
             print(f"{month.strftime('%m-%Y')} : {value_text:>10} kWh")
 
-    def statistics_report(self):
+    def production_statistics_report(self):
 
         if not self.solar_statistics:
 
@@ -536,148 +536,135 @@ class SolarEngine:
                 "Solar statistics have not been calculated."
             )
 
-        print()
+        ReportPrinter.title("SOLAR PRODUCTION REPORT")
+        ReportPrinter.blank()
 
-        print("=========================================")
-        print("PRODUCCIÓN FOTOVOLTAICA")
-        print("=========================================")
-        print()
+        # Configuración FV
+        ReportPrinter.text(
+            "Tecnología FV",
+            self.configuration.pv_technology
+        )
 
-        print(f"Potencia instalada      : {self.configuration.installed_power_kwp:.2f} kWp")
-        print(f"Tecnología FV           : {self.configuration.pv_technology}")
-        print(f"Inclinación             : {self.configuration.tilt}°")
-        print(f"Orientación             : {self.configuration.azimuth}°")
-        print(f"Pérdidas consideradas   : {self.configuration.losses:.1f} %")
+        ReportPrinter.energy(
+            "Potencia instalada",
+            self.configuration.installed_power_kwp
+        )
 
-        print()
+        ReportPrinter.text(
+            "Inclinación",
+            f"{self.configuration.tilt}°"
+        )
 
-        print("-----------------------------------------")
+        ReportPrinter.text(
+            "Orientación",
+            f"{self.configuration.azimuth}°"
+        )
+
+        ReportPrinter.percent(
+            "Pérdidas consideradas",
+            self.configuration.losses,
+            decimals=1
+        )
+
+        ReportPrinter.blank()
+
+        print("-" * 55)
         print("PRODUCCIÓN")
-        print("-----------------------------------------")
+        print("-" * 55)
 
-        print(f"Horas simuladas         : {self.solar_statistics['hours']}")
-        print(f"Producción simulada     : {self.solar_statistics['annual_production']:.2f} kWh/año")
-        print(f"Producción media diaria : {self.solar_statistics['daily_average']:.2f} kWh")
-        print(f"Potencia máxima         : {self.solar_statistics['maximum_power']:.2f} kW")
-        print(f"Potencia mínima (>0)    : {self.solar_statistics['minimum_power']:.2f} kW")
-        print(f"Horas equivalentes      : {self.solar_statistics['equivalent_hours']:.2f} h")
-        print(f"Factor de capacidad     : {self.solar_statistics['capacity_factor']:.2f} %")
+        ReportPrinter.count(
+            "Horas simuladas",
+            self.solar_statistics["hours"]
+        )
 
+        ReportPrinter.energy(
+            "Producción simulada",
+            self.solar_statistics["annual_production"]
+        )
+
+        ReportPrinter.energy(
+            "Producción media diaria",
+            self.solar_statistics["daily_average"]
+        )
+
+        ReportPrinter.text(
+            "Potencia máxima",
+            f"{self.solar_statistics['maximum_power']:.2f} kW"
+        )
+
+        ReportPrinter.text(
+            "Potencia mínima (>0)",
+            f"{self.solar_statistics['minimum_power']:.2f} kW"
+        )
+
+        ReportPrinter.text(
+            "Horas equivalentes",
+            f"{self.solar_statistics['equivalent_hours']:.2f} h"
+        )
+
+        ReportPrinter.percent(
+            "Factor de capacidad",
+            self.solar_statistics["capacity_factor"]
+        )
+        
     def energy_balance_report(self):
 
-        if self.energy_balance is None:
-
-            raise ValueError(
-                "Energy balance has not been calculated."
-            )
-
         if self.solar_statistics is None:
-
-            raise ValueError(
-                "Solar statistics have not been calculated."
-            )
-
-        stats = self.solar_statistics
-
-        print()
-        
-        print(f"Autoconsumo total      : {stats['self_consumption']:10.2f} kWh")
-        print(f"Importación de red     : {stats['grid_import']:10.2f} kWh")
-        print(f"Exportación a red      : {stats['grid_export']:10.2f} kWh")
-        print()
-
-        print(f"Autosuficiencia        : {stats['self_sufficiency']:10.2f} %")
-        print(f"Autoconsumo FV         : {stats['self_consumption_ratio']:10.2f} %")
-        print(f"Cobertura FV           : {stats['coverage_ratio']:10.2f} %")
-        print(f"Excedentes             : {stats['surplus_ratio']:10.2f} %")
-
-    def calculate_energy_statistics(self):
-
-        """
-        Calcula los indicadores energéticos de la instalación FV.
-        """
-
-        if self.energy_balance is None:
-
-            raise RuntimeError(
-                "Energy balance has not been calculated."
-            )
-
-        balance = self.energy_balance
-
-        consumption = balance["consumption_kwh"].sum()
-
-        production = balance["production_kwh"].sum()
-
-        self_consumption = balance["self_consumption_kwh"].sum()
-
-        grid_import = balance["grid_import_kwh"].sum()
-
-        grid_export = balance["grid_export_kwh"].sum()
-
-        if consumption > 0:
-
-            self_sufficiency = (
-                self_consumption / consumption
-            ) * 100
-
-        else:
-
-            self_sufficiency = 0
-
-        if production > 0:
-
-            self_consumption_ratio = (
-                self_consumption / production
-            ) * 100
-
-        else:
-
-            self_consumption_ratio = 0
-
-        self.energy_statistics = {
-
-            "consumption_kwh": consumption,
-
-            "production_kwh": production,
-
-            "self_consumption_kwh": self_consumption,
-
-            "grid_import_kwh": grid_import,
-
-            "grid_export_kwh": grid_export,
-
-            "self_sufficiency": self_sufficiency,
-
-            "self_consumption_ratio": self_consumption_ratio
-
-        }
-
-    def energy_statistics_report(self):
-
-        if self.energy_statistics is None:
 
             raise RuntimeError(
                 "Energy statistics have not been calculated."
             )
 
-        s = self.energy_statistics
+        s = self.solar_statistics
 
-        print()
+        ReportPrinter.title("ENERGY BALANCE")
+        ReportPrinter.blank()
 
-        print("=" * 41)
-        print("BALANCE ENERGÉTICO")
-        print("=" * 41)
-        print()
+        ReportPrinter.energy(
+            "Consumo total periodo",
+            s["consumption"]
+        )
 
-        print(f"Consumo total periodo  : {s['consumption_kwh']:10.2f} kWh")
-        print(f"Producción periodo     : {s['production_kwh']:10.2f} kWh")
-        print()
+        ReportPrinter.energy(
+            "Producción periodo",
+            s["annual_production"]
+        )
 
-        print(f"Autoconsumo total      : {s['self_consumption_kwh']:10.2f} kWh")
-        print(f"Importación de red     : {s['grid_import_kwh']:10.2f} kWh")
-        print(f"Exportación a red      : {s['grid_export_kwh']:10.2f} kWh")
-        print()
+        ReportPrinter.blank()
 
-        print(f"Autosuficiencia        : {s['self_sufficiency']:10.2f} %")
-        print(f"Autoconsumo FV         : {s['self_consumption_ratio']:10.2f} %")
+        ReportPrinter.energy(
+            "Autoconsumo total",
+            s["self_consumption"]
+        )
+
+        ReportPrinter.energy(
+            "Importación de red",
+            s["grid_import"]
+        )
+
+        ReportPrinter.energy(
+            "Exportación a red",
+            s["grid_export"]
+        )
+
+        ReportPrinter.blank()
+
+        ReportPrinter.percent(
+            "Autosuficiencia",
+            s["self_sufficiency"]
+        )
+
+        ReportPrinter.percent(
+            "Autoconsumo FV",
+            s["self_consumption_ratio"]
+        )
+
+        ReportPrinter.percent(
+            "Cobertura FV",
+            s["coverage_ratio"]
+        )
+
+        ReportPrinter.percent(
+            "Excedentes",
+            s["surplus_ratio"]
+        )

@@ -1,4 +1,5 @@
 import pandas as pd
+from helios.reports.printer import ReportPrinter
 
 
 class ConsumptionComparisons:
@@ -37,36 +38,39 @@ class ConsumptionComparisons:
         comparison.columns.name = None
 
         return comparison
+    
     def monthly_comparison_report(self, comparison):
 
-        print()
-        print("=============================================")
-        print("HELIOS - MONTHLY YEAR COMPARISON")
-        print("=============================================")
-        print()
+        ReportPrinter.title(
+            "MONTHLY YEAR COMPARISON"
+        )
 
-        # Cabecera
-        print(f"{'Mes':<12}", end="")
+        ReportPrinter.blank()
 
-        for year in comparison.columns:
-            print(f"{year:>12}", end="")
+        widths = [16] + [12] * len(comparison.columns)
 
-        print()
-        print("-" * (12 + 12 * len(comparison.columns)))
+        ReportPrinter.table_header(
+            ["Mes"] + [str(year) for year in comparison.columns],
+            widths,
+            ["left"] + ["right"] * len(comparison.columns)
+        )
 
-        # Filas
         for month, row in comparison.iterrows():
 
-            print(f"{month:<12}", end="")
+            values = [month]
 
             for value in row:
 
                 if pd.isna(value):
-                    print(f"{'---':>12}", end="")
+                    values.append("---")
                 else:
-                    print(f"{value:>12.2f}", end="")
+                    values.append(f"{value:.2f}")
 
-            print()
+            ReportPrinter.table_row(
+                values,
+                widths,
+                ["left"] + ["right"] * len(comparison.columns)
+            )
 
     def calculate_variation(self, comparison):
 
@@ -86,35 +90,36 @@ class ConsumptionComparisons:
     
     def monthly_variation_report(self, variation):
 
-        print()
-        print("=============================================")
-        print("HELIOS - MONTHLY VARIATION REPORT")
-        print("=============================================")
-        print()
+        ReportPrinter.title(
+            "MONTHLY VARIATION REPORT"
+        )
 
-        # Cabecera
-        print(f"{'Mes':<12}", end="")
+        ReportPrinter.blank()
 
-        for column in variation.columns:
-            print(f"{column:>18}", end="")
+        widths = [16] + [18] * len(variation.columns)
 
-        print()
-        print("-" * (12 + 18 * len(variation.columns)))
+        ReportPrinter.table_header(
+            ["Mes"] + list(variation.columns),
+            widths,
+            ["left"] + ["right"] * len(variation.columns)
+        )
 
-        # Datos
         for month, row in variation.iterrows():
 
-            print(f"{month:<12}", end="")
+            values = [month]
 
             for value in row:
 
                 if pd.isna(value):
-                    print(f"{'---':>18}", end="")
+                    values.append("---")
                 else:
-                    print(f"{value:>17.2f}%", end="")
+                    values.append(f"{value:.2f}%")
 
-            print()
-
+            ReportPrinter.table_row(
+                values,
+                widths,
+                ["left"] + ["right"] * len(variation.columns)
+            )
     def compare_years(self, df):
 
         comparison = (
@@ -125,20 +130,32 @@ class ConsumptionComparisons:
 
         return comparison
     
-    def yearly_comparison_report(self, comparison):
+    def yearly_comparison_report(self, yearly):
 
-        print()
-        print("=============================================")
-        print("HELIOS - YEARLY COMPARISON")
-        print("=============================================")
-        print()
+        ReportPrinter.title(
+            "YEARLY COMPARISON"
+        )
 
-        print(f"{'Año':<10}{'Consumo':>15}")
-        print("-" * 25)
+        ReportPrinter.blank()
 
-        for year, value in comparison.items():
+        widths = [10, 16]
 
-            print(f"{year:<10}{value:>15.2f} kWh")
+        ReportPrinter.table_header(
+            ["Año", "Consumo"],
+            widths,
+            ["left", "right"]
+        )
+
+        for year, value in yearly.items():
+
+            ReportPrinter.table_row(
+                [
+                    str(year),
+                    f"{value:.2f} kWh"
+                ],
+                widths,
+                ["left", "right"]
+            )
 
     def compare_weeks_by_year(self, df):
 
@@ -163,63 +180,69 @@ class ConsumptionComparisons:
         comparison.columns.name = None
 
         return comparison
+    
     def weekly_comparison_report(self, comparison):
 
-        print()
-        print("=============================================")
-        print("HELIOS - WEEKLY YEAR COMPARISON")
-        print("=============================================")
-        print()
+        ReportPrinter.title(
+            "WEEKLY YEAR COMPARISON"
+        )
 
-        # Cabecera
-        print(f"{'Semana':<10}", end="")
+        ReportPrinter.blank()
 
-        for year in comparison.columns:
-            print(f"{year:>12}", end="")
+        widths = [10] + [12] * len(comparison.columns)
 
-        print()
+        ReportPrinter.table_header(
+            ["Semana"] + [str(year) for year in comparison.columns],
+            widths,
+            ["left"] + ["right"] * len(comparison.columns)
+        )
 
-        print("-" * (10 + 12 * len(comparison.columns)))
-
-        # Datos
         for week, row in comparison.iterrows():
 
-            print(f"{week:<10}", end="")
+            values = [week]
 
             for value in row:
 
                 if pd.isna(value):
-                    print(f"{'---':>12}", end="")
+                    values.append("---")
                 else:
-                    print(f"{value:>12.2f}", end="")
+                    values.append(f"{value:.2f}")
 
-            print()
+            ReportPrinter.table_row(
+                values,
+                widths,
+                ["left"] + ["right"] * len(comparison.columns)
+            )
 
     def weekly_variation_report(self, variation):
 
-        print()
-        print("=============================================")
-        print("HELIOS - WEEKLY VARIATION REPORT")
-        print("=============================================")
-        print()
+        ReportPrinter.title(
+            "WEEKLY VARIATION REPORT"
+        )
 
-        print(f"{'Semana':<10}", end="")
+        ReportPrinter.blank()
 
-        for column in variation.columns:
-            print(f"{column:>18}", end="")
+        widths = [10] + [18] * len(variation.columns)
 
-        print()
-        print("-" * (10 + 18 * len(variation.columns)))
+        ReportPrinter.table_header(
+            ["Semana"] + list(variation.columns),
+            widths,
+            ["left"] + ["right"] * len(variation.columns)
+        )
 
         for week, row in variation.iterrows():
 
-            print(f"{week:<10}", end="")
+            values = [week]
 
             for value in row:
 
                 if pd.isna(value):
-                    print(f"{'---':>18}", end="")
+                    values.append("---")
                 else:
-                    print(f"{value:>17.2f}%", end="")
+                    values.append(f"{value:.2f}%")
 
-            print()
+            ReportPrinter.table_row(
+                values,
+                widths,
+                ["left"] + ["right"] * len(variation.columns)
+            )

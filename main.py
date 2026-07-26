@@ -19,9 +19,9 @@ def main():
     # 2. VALIDACIÓN
     # ==================================================
 
-    analyzer.validate_timeseries()
+    """analyzer.validate_timeseries()
     analyzer.find_missing_hours()
-    analyzer.quality_report()
+    analyzer.quality_report()"""
 
 
     # ==================================================
@@ -66,7 +66,6 @@ def main():
     analyzer.calculate_monthly_solar_production()
     analyzer.calculate_yearly_solar_production()
     analyzer.calculate_energy_balance()
-    analyzer.calculate_energy_statistics()
     analyzer.calculate_solar_statistics()
     
 
@@ -88,7 +87,7 @@ def main():
 
     analyzer.statistics_report()
 
-    """analyzer.daily_report()
+    analyzer.daily_report()
     analyzer.monthly_report()
     analyzer.yearly_report()
 
@@ -119,6 +118,8 @@ def main():
 
     analyzer.monthly_solar_production_report()
 
+    analyzer.solar_statistics_report()
+
     analyzer.energy_balance_report()
 
     analyzer.energy_statistics_report()
@@ -144,7 +145,7 @@ def main():
     # 6. VISUALIZACIÓN
     # ==================================================
 
-    analyzer.show_plots()"""
+    #analyzer.show_plots()
 
 
 if __name__ == "__main__":

@@ -68,6 +68,17 @@ class ConsumptionAnalyzer:
 
         #print(f"Registros cargados: {len(self.dataset)}")
 
+    def clean_data(self):
+
+        self.dataset = self.cleaner.mark_missing_data(self.dataset)
+        self.dataset = self.cleaner.classify_gaps(self.dataset)
+
+        missing = (self.dataset["data_status"] == "missing").sum()
+        blocks = self.dataset["gap_id"].nunique()
+
+        #print(f"Registros perdidos..... {missing}")
+        #print(f"Bloques detectados..... {blocks}")
+
     def inspect_gap(self, gap_id: int):
 
         gap = self.dataset[self.dataset["gap_id"] == gap_id]
@@ -142,19 +153,7 @@ class ConsumptionAnalyzer:
             "coverage": coverage
 
         }
-    def clean_data(self):
-
-        print("\n=== LIMPIEZA DE DATOS ===")
-
-        self.dataset = self.cleaner.mark_missing_data(self.dataset)
-        self.dataset = self.cleaner.classify_gaps(self.dataset)
-
-        missing = (self.dataset["data_status"] == "missing").sum()
-        blocks = self.dataset["gap_id"].nunique()
-
-        print(f"Registros perdidos..... {missing}")
-        print(f"Bloques detectados..... {blocks}")
-        
+            
     def build_datetime(self):
 
         """
@@ -164,8 +163,11 @@ class ConsumptionAnalyzer:
 
         self.dataset = (
             self.dataset
-            .groupby("Fecha", group_keys=False)
-            .apply(self._build_day_datetime)
+                .groupby("Fecha", group_keys=False)
+                .apply(
+                    self._build_day_datetime,
+                    include_groups=False
+                )
         )
 
         self.dataset.set_index("datetime", inplace=True)
@@ -577,23 +579,54 @@ class ConsumptionAnalyzer:
     def daily_report(self):
 
         if self.daily_consumption is None:
+
             print("No hay consumos diarios calculados.")
             return
 
-        print()
-        print("=" * 45)
-        print("HELIOS - DAILY CONSUMPTION REPORT")
-        print("=" * 45)
+        ReportPrinter.title(
+            "DAILY CONSUMPTION REPORT"
+        )
 
-        print(f"Días analizados......... {len(self.daily_consumption)}")
-        print(f"Consumo total........... {self.daily_consumption.sum():.2f} kWh")
-        print(f"Consumo diario medio.... {self.daily_consumption.mean():.2f} kWh")
+        ReportPrinter.blank()
 
-        print(f"Consumo máximo diario... {self.daily_consumption.max():.2f} kWh")
-        print(f"Fecha del máximo........ {self.daily_consumption.idxmax():%d/%m/%Y}")
+        ReportPrinter.count(
+            "Días analizados",
+            len(self.daily_consumption)
+        )
 
-        print(f"Consumo mínimo diario... {self.daily_consumption.min():.2f} kWh")
-        print(f"Fecha del mínimo........ {self.daily_consumption.idxmin():%d/%m/%Y}")
+        ReportPrinter.energy(
+            "Consumo total",
+            self.daily_consumption.sum()
+        )
+
+        ReportPrinter.energy(
+            "Consumo diario medio",
+            self.daily_consumption.mean()
+        )
+
+        ReportPrinter.blank()
+
+        ReportPrinter.energy(
+            "Consumo máximo diario",
+            self.daily_consumption.max(),
+            decimals=3
+        )
+
+        ReportPrinter.day(
+            "Fecha del máximo",
+            self.daily_consumption.idxmax()
+        )
+
+        ReportPrinter.energy(
+            "Consumo mínimo diario",
+            self.daily_consumption.min(),
+            decimals=3
+        )
+
+        ReportPrinter.day(
+            "Fecha del mínimo",
+            self.daily_consumption.idxmin()
+        )
 
     def calculate_monthly_consumption(self):
 
@@ -606,32 +639,54 @@ class ConsumptionAnalyzer:
     def monthly_report(self):
 
         if self.monthly_consumption is None:
+
             print("No hay consumos mensuales calculados.")
             return
 
-        print()
-        print("=" * 45)
-        print("HELIOS - MONTHLY CONSUMPTION REPORT")
-        print("=" * 45)
-
-        print(f"Meses analizados........ {len(self.monthly_consumption)}")
-        print(f"Consumo total........... {self.monthly_consumption.sum():.2f} kWh")
-        print(f"Consumo mensual medio... {self.monthly_consumption.mean():.2f} kWh")
-
-        print()
-
-        print(f"Consumo máximo mensual.. {self.monthly_consumption.max():.2f} kWh")
-        print(
-            f"Fecha del máximo........ "
-            f"{self.monthly_consumption.idxmax():%m/%Y}"
+        ReportPrinter.title(
+            "MONTHLY CONSUMPTION REPORT"
         )
 
-        print()
+        ReportPrinter.blank()
 
-        print(f"Consumo mínimo mensual.. {self.monthly_consumption.min():.2f} kWh")
-        print(
-            f"Fecha del mínimo........ "
-            f"{self.monthly_consumption.idxmin():%m/%Y}"
+        ReportPrinter.count(
+            "Meses analizados",
+            len(self.monthly_consumption)
+        )
+
+        ReportPrinter.energy(
+            "Consumo total",
+            self.monthly_consumption.sum(),
+            decimals=3
+        )
+
+        ReportPrinter.energy(
+            "Consumo mensual medio",
+            self.monthly_consumption.mean()
+        )
+
+        ReportPrinter.blank()
+
+        ReportPrinter.energy(
+            "Consumo máximo mensual",
+            self.monthly_consumption.max(),
+            decimals=3
+        )
+
+        ReportPrinter.month(
+            "Mes del máximo",
+            self.monthly_consumption.idxmax()
+        )
+
+        ReportPrinter.energy(
+            "Consumo mínimo mensual",
+            self.monthly_consumption.min(),
+            decimals=3
+        )
+
+        ReportPrinter.month(
+            "Mes del mínimo",
+            self.monthly_consumption.idxmin()
         )
 
     def calculate_yearly_consumption(self):
@@ -645,32 +700,54 @@ class ConsumptionAnalyzer:
     def yearly_report(self):
 
         if self.yearly_consumption is None:
+
             print("No hay consumos anuales calculados.")
             return
 
-        print()
-        print("=" * 45)
-        print("HELIOS - YEARLY CONSUMPTION REPORT")
-        print("=" * 45)
-
-        print(f"Años analizados......... {len(self.yearly_consumption)}")
-        print(f"Consumo total........... {self.yearly_consumption.sum():.2f} kWh")
-        print(f"Consumo anual medio..... {self.yearly_consumption.mean():.2f} kWh")
-
-        print()
-
-        print(f"Consumo máximo anual.... {self.yearly_consumption.max():.2f} kWh")
-        print(
-            f"Año del máximo.......... "
-            f"{self.yearly_consumption.idxmax():%Y}"
+        ReportPrinter.title(
+            "YEARLY CONSUMPTION REPORT"
         )
 
-        print()
+        ReportPrinter.blank()
 
-        print(f"Consumo mínimo anual.... {self.yearly_consumption.min():.2f} kWh")
-        print(
-            f"Año del mínimo.......... "
-            f"{self.yearly_consumption.idxmin():%Y}"
+        ReportPrinter.count(
+            "Años analizados",
+            len(self.yearly_consumption)
+        )
+
+        ReportPrinter.energy(
+            "Consumo total",
+            self.yearly_consumption.sum(),
+            decimals=3
+        )
+
+        ReportPrinter.energy(
+            "Consumo anual medio",
+            self.yearly_consumption.mean()
+        )
+
+        ReportPrinter.blank()
+
+        ReportPrinter.energy(
+            "Consumo máximo anual",
+            self.yearly_consumption.max(),
+            decimals=3
+        )
+
+        ReportPrinter.year(
+            "Año del máximo",
+            self.yearly_consumption.idxmax()
+        )
+
+        ReportPrinter.energy(
+            "Consumo mínimo anual",
+            self.yearly_consumption.min(),
+            decimals=3
+        )
+
+        ReportPrinter.year(
+            "Año del mínimo",
+            self.yearly_consumption.idxmin()
         )
 
     def calculate_hourly_profile(self):
@@ -687,35 +764,65 @@ class ConsumptionAnalyzer:
             print("No hay perfil horario calculado.")
             return
 
-        print()
-        print("=" * 45)
-        print("HELIOS - HOURLY PROFILE REPORT")
-        print("=" * 45)
+        ReportPrinter.title("HOURLY PROFILE REPORT")
+        ReportPrinter.blank()
 
-        print(f"Horas analizadas........ {len(self.hourly_profile)}")
-        print(f"Consumo medio........... {self.hourly_profile.mean():.3f} kWh")
+        # Resumen general
+        ReportPrinter.count(
+            "Horas analizadas",
+            len(self.hourly_profile)
+        )
 
-        print()
+        ReportPrinter.energy(
+            "Consumo medio horario",
+            self.hourly_profile.mean(),
+            decimals=3
+        )
 
-        print(f"Hora de mayor consumo... {self.hourly_profile.idxmax():02d}:00")
-        print(f"Consumo máximo.......... {self.hourly_profile.max():.3f} kWh")
+        ReportPrinter.blank()
 
-        print()
+        # Máximos y mínimos
+        ReportPrinter.text(
+            "Hora de mayor consumo",
+            f"{self.hourly_profile.idxmax():02d}:00"
+        )
 
-        print(f"Hora de menor consumo... {self.hourly_profile.idxmin():02d}:00")
-        print(f"Consumo mínimo.......... {self.hourly_profile.min():.3f} kWh")
+        ReportPrinter.energy(
+            "Consumo máximo",
+            self.hourly_profile.max(),
+            decimals=3
+        )
 
-        print()
+        ReportPrinter.blank()
+
+        ReportPrinter.text(
+            "Hora de menor consumo",
+            f"{self.hourly_profile.idxmin():02d}:00"
+        )
+
+        ReportPrinter.energy(
+            "Consumo mínimo",
+            self.hourly_profile.min(),
+            decimals=3
+        )
+
+        ReportPrinter.blank()
+
+        # Top 5 horas
         print("Top 5 horas de consumo")
-        print("-" * 30)
+        print("-" * 55)
 
-        print(f"{'Hora':<8}{'Consumo':>12}")
-        print("-" * 30) 
-
-        top5 = self.hourly_profile.sort_values(ascending=False).head(5)
+        top5 = (
+            self.hourly_profile
+            .sort_values(ascending=False)
+            .head(5)
+        )
 
         for hour, value in top5.items():
-            print(f"{hour:02d}:00    {value:>12.3f} kWh")
+            ReportPrinter.text(
+                f"Hora {hour:02d}:00",
+                f"{value:.3f} kWh"
+            )
 
     def calculate_weekday_profile(self):
 
@@ -730,47 +837,85 @@ class ConsumptionAnalyzer:
         if self.weekday_profile is None:
             print("No hay perfil semanal calculado.")
             return
+
         laborables = self.weekday_profile.iloc[:5].mean()
         fin_semana = self.weekday_profile.iloc[5:].mean()
 
         incremento = (
-            (fin_semana - laborables)
-            / laborables
-            * 100
+            (fin_semana - laborables) /
+            laborables * 100
         )
 
-        print()
-        print("=" * 45)
-        print("HELIOS - WEEKDAY PROFILE REPORT")
-        print("=" * 45)
+        ReportPrinter.title("WEEKDAY PROFILE REPORT")
+        ReportPrinter.blank()
 
-        print(f"Consumo medio........... {self.weekday_profile.mean():.3f} kWh")
+        # Resumen general
+        ReportPrinter.energy(
+            "Consumo medio semanal",
+            self.weekday_profile.mean(),
+            decimals=3
+        )
 
-        print()
+        ReportPrinter.blank()
 
-        print(f"Media laborables........ {laborables:.3f} kWh")
-        print(f"Media fin de semana..... {fin_semana:.3f} kWh")
-        print(f"Incremento.............. {incremento:+.1f} %")
-        
+        # Laborables vs fin de semana
+        ReportPrinter.energy(
+            "Media laborables",
+            laborables,
+            decimals=3
+        )
 
-        print()
+        ReportPrinter.energy(
+            "Media fin de semana",
+            fin_semana,
+            decimals=3
+        )
 
-        print(f"Día de mayor consumo.... {self.weekday_profile.idxmax()}")
-        print(f"Consumo máximo.......... {self.weekday_profile.max():.3f} kWh")
+        ReportPrinter.percent(
+            "Incremento fin de semana",
+            incremento,
+            decimals=1
+        )
 
-        print()
+        ReportPrinter.blank()
 
-        print(f"Día de menor consumo.... {self.weekday_profile.idxmin()}")
-        print(f"Consumo mínimo.......... {self.weekday_profile.min():.3f} kWh")
+        # Máximos y mínimos
+        ReportPrinter.text(
+            "Día de mayor consumo",
+            self.weekday_profile.idxmax()
+        )
 
-        print()
+        ReportPrinter.energy(
+            "Consumo máximo",
+            self.weekday_profile.max(),
+            decimals=3
+        )
+
+        ReportPrinter.blank()
+
+        ReportPrinter.text(
+            "Día de menor consumo",
+            self.weekday_profile.idxmin()
+        )
+
+        ReportPrinter.energy(
+            "Consumo mínimo",
+            self.weekday_profile.min(),
+            decimals=3
+        )
+
+        ReportPrinter.blank()
+
+        # Consumo medio por día
         print("Consumo medio por día")
-        print("-" * 30)
-        print(f"{'Día':<12}{'Consumo':>10}")
-        print("-" * 30)
+        print("-" * 55)
 
         for day, value in self.weekday_profile.items():
-            print(f"{day:<12}{value:>10.3f} kWh")
+            ReportPrinter.text(
+                f"{day}",
+                f"{value:.3f} kWh"
+            )
+
 
     def calculate_monthly_profile(self):
 
@@ -786,40 +931,69 @@ class ConsumptionAnalyzer:
             print("No hay perfil mensual calculado.")
             return
 
+        # Variación estacional
         incremento = (
             (self.monthly_profile.max() - self.monthly_profile.min())
             / self.monthly_profile.min()
             * 100
         )
 
-        print()
-        print("=" * 45)
-        print("HELIOS - MONTHLY PROFILE REPORT")
-        print("=" * 45)
+        # Meses de máximo y mínimo (siempre promedios multianuales)
+        mes_max = f"{self.monthly_profile.idxmax()} (promedio multianual)"
+        mes_min = f"{self.monthly_profile.idxmin()} (promedio multianual)"
 
-        print()
+        valor_max = self.monthly_profile.max()
+        valor_min = self.monthly_profile.min()
 
-        print(f"Mes de mayor consumo.... {self.monthly_profile.idxmax()}")
-        print(f"Consumo máximo.......... {self.monthly_profile.max():.3f} kWh")
+        # Informe
+        ReportPrinter.title("MONTHLY PROFILE REPORT")
+        ReportPrinter.blank()
 
-        print()
+        # Máximos y mínimos
+        ReportPrinter.text(
+            "Mes de mayor consumo",
+            mes_max
+        )
 
-        print(f"Mes de menor consumo.... {self.monthly_profile.idxmin()}")
-        print(f"Consumo mínimo.......... {self.monthly_profile.min():.3f} kWh")
+        ReportPrinter.energy(
+            "Consumo máximo",
+            valor_max,
+            decimals=3
+        )
 
-        print()
+        ReportPrinter.blank()
 
-        print(f"Variación estacional... {incremento:+.1f} %")
+        ReportPrinter.text(
+            "Mes de menor consumo",
+            mes_min
+        )
 
-        print()
+        ReportPrinter.energy(
+            "Consumo mínimo",
+            valor_min,
+            decimals=3
+        )
+
+        ReportPrinter.blank()
+
+        # Variación estacional
+        ReportPrinter.percent(
+            "Variación estacional",
+            incremento,
+            decimals=1
+        )
+
+        ReportPrinter.blank()
+
+        # Consumo medio por mes
         print("Consumo medio por mes")
-        print()
-        print("-" * 30)
-        print(f"{'Mes':<15}{'Consumo':>10}")
-        print("-" * 30)
+        print("-" * 55)
 
         for month, value in self.monthly_profile.items():
-            print(f"{month:<15}{value:>10.3f} kWh")
+            ReportPrinter.text(
+                f"{month}",
+                f"{value:.3f} kWh"
+            )
 
     def calculate_seasonal_profile(self):
 
@@ -835,38 +1009,69 @@ class ConsumptionAnalyzer:
             print("No hay perfil estacional calculado.")
             return
 
+        # Variación estacional
         incremento = (
             (self.seasonal_profile.max() - self.seasonal_profile.min())
             / self.seasonal_profile.min()
             * 100
         )
 
-        print()
-        print("=" * 45)
-        print("HELIOS - SEASONAL PROFILE REPORT")
-        print("=" * 45)
+        # Estaciones de máximo y mínimo (siempre promedios multianuales)
+        estacion_max = f"{self.seasonal_profile.idxmax()} (promedio multianual)"
+        estacion_min = f"{self.seasonal_profile.idxmin()} (promedio multianual)"
 
-        print(f"Estación de mayor consumo... {self.seasonal_profile.idxmax()}")
-        print(f"Consumo máximo.............. {self.seasonal_profile.max():.3f} kWh")
+        valor_max = self.seasonal_profile.max()
+        valor_min = self.seasonal_profile.min()
 
-        print()
+        # Informe
+        ReportPrinter.title("SEASONAL PROFILE REPORT")
+        ReportPrinter.blank()
 
-        print(f"Estación de menor consumo... {self.seasonal_profile.idxmin()}")
-        print(f"Consumo mínimo.............. {self.seasonal_profile.min():.3f} kWh")
+        # Máximos y mínimos
+        ReportPrinter.text(
+            "Estación de mayor consumo",
+            estacion_max
+        )
 
-        print()
+        ReportPrinter.energy(
+            "Consumo máximo",
+            valor_max,
+            decimals=3
+        )
 
-        print(f"Variación estacional........ {incremento:+.1f} %")
+        ReportPrinter.blank()
 
-        print()
+        ReportPrinter.text(
+            "Estación de menor consumo",
+            estacion_min
+        )
+
+        ReportPrinter.energy(
+            "Consumo mínimo",
+            valor_min,
+            decimals=3
+        )
+
+        ReportPrinter.blank()
+
+        # Variación estacional
+        ReportPrinter.percent(
+            "Variación estacional",
+            incremento,
+            decimals=1
+        )
+
+        ReportPrinter.blank()
+
+        # Consumo medio por estación
         print("Consumo medio por estación")
-        print()
-        print("-" * 35)
-        print(f"{'Estación':<15}{'Consumo':>10}")
-        print("-" * 35)
+        print("-" * 55)
 
         for season, value in self.seasonal_profile.items():
-            print(f"{season:<15}{value:>10.3f} kWh")
+            ReportPrinter.text(
+                f"{season}",
+                f"{value:.3f} kWh"
+            )
 
     def show_plots(self):
 
@@ -941,20 +1146,18 @@ class ConsumptionAnalyzer:
         self.visualizer.plot_monthly_variation(
             self.monthly_variation
         )
-    
-    def compare_years(self):
-
-        self.yearly_comparison = (
-            self.comparisons_engine.compare_years(
-                self.valid_dataset()
-            )
-        )
 
     def yearly_comparison_report(self):
 
         self.comparisons_engine.yearly_comparison_report(
             self.yearly_comparison
         )
+
+    def compare_years(self):
+        self.yearly_comparison = self.comparisons_engine.compare_years(
+            self.valid_dataset()
+        )
+
 
     def plot_yearly_comparison(self):
 
@@ -1027,35 +1230,32 @@ class ConsumptionAnalyzer:
 
     def mean_consumption_report(self):
 
-        print()
-        print("=" * 45)
-        print("HELIOS - MEAN CONSUMPTION")
-        print("=" * 45)
-        print()
+        ReportPrinter.title(
+            "MEAN CONSUMPTION"
+        )
+
+        ReportPrinter.blank()
 
         labels = {
 
             "hourly": "Consumo medio horario",
-
             "daily": "Consumo medio diario",
-
             "weekly": "Consumo medio semanal",
-
             "monthly": "Consumo medio mensual",
-
             "yearly": "Consumo medio anual",
-
             "workday": "Consumo medio laborable",
-
             "weekend": "Consumo medio fin de semana"
+
         }
 
         for key, label in labels.items():
 
-            print(
-                f"{label:.<32}"
-                f"{self.mean_consumption[key]:>10.3f} kWh"
+            ReportPrinter.energy(
+                label,
+                self.mean_consumption[key],
+                decimals=3
             )
+            
     def calculate_extremes(self):
 
         self.extremes = (
@@ -1083,11 +1283,11 @@ class ConsumptionAnalyzer:
     
     def extremes_report(self):
 
-        print()
-        print("=" * 45)
-        print("HELIOS - CONSUMPTION EXTREMES")
-        print("=" * 45)
-        print()
+        ReportPrinter.title(
+            "CONSUMPTION EXTREMES"
+        )
+
+        ReportPrinter.blank()
 
         self._print_extreme(
             "Mayor consumo horario",
@@ -1200,17 +1400,17 @@ class ConsumptionAnalyzer:
 
     def base_load_report(self):
 
-        print()
-        print("=" * 45)
-        print("HELIOS - BASE LOAD")
-        print("=" * 45)
-        print()
+        ReportPrinter.title(
+            "BASE LOAD"
+        )
 
-        print(
-            f"Carga base{'':.<24}"
+        ReportPrinter.blank()
+
+        ReportPrinter.text(
+            "Carga base",
             f"{self.base_load:.3f} kWh/h"
         )
-    
+        
     def calculate_tariff_periods(self):
 
         self.period_consumption = (
@@ -1227,33 +1427,32 @@ class ConsumptionAnalyzer:
     
     def tariff_periods_report(self):
 
-        print()
-
-        print("=" * 45)
-        print("HELIOS - TARIFF PERIODS")
-        print("=" * 45)
-        print()
-
-        print(
-            f"{'Periodo':<10}"
-            f"{'Consumo':>18}"
-            f"{'%':>10}"
+        ReportPrinter.title(
+        "TARIFF PERIODS"
         )
 
-        print("-" * 40)
+        ReportPrinter.blank()
+
+        widths = [10, 18, 10]
+
+        ReportPrinter.table_header(
+        ["Periodo", "Consumo", "%"],
+        widths,
+        ["left", "right", "right"]
+        )
 
         for period in self.tariff_engine.PERIODS:
 
-            consumption = self.period_consumption[period]
-
-            percentage = self.period_percentage[period]
-
-            print(
-                f"{period:<10}"
-                f"{consumption:>12.2f} kWh"
-                f"{percentage:>9.2f}%"
+            ReportPrinter.table_row(
+            [
+                period,
+                f"{self.period_consumption[period]:.2f} kWh",
+                f"{self.period_percentage[period]:.2f} %"
+            ],
+            widths,
+            ["left", "right", "right"]
             )
-    
+
     def calculate_solar_production(
         self,
         configuration
@@ -1299,6 +1498,10 @@ class ConsumptionAnalyzer:
             consumption
         )
 
+    def solar_statistics_report(self):
+
+        self.solar_engine.production_statistics_report()
+
     def energy_balance_report(self):
 
         self.solar_engine.energy_balance_report()
@@ -1311,10 +1514,6 @@ class ConsumptionAnalyzer:
 
         self.solar_engine.calculate_yearly_production()
 
-    def calculate_energy_statistics(self):
-
-        self.solar_engine.calculate_energy_statistics()
-
     def energy_statistics_report(self):
 
-        self.solar_engine.energy_statistics_report()
+        self.solar_engine.energy_balance_report()
