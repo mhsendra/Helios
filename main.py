@@ -1,5 +1,5 @@
 from helios.core.analyzer import ConsumptionAnalyzer
-from helios.core.solar import SolarConfiguration
+from helios.solar.configuration import SolarConfiguration
 
 def main():
 

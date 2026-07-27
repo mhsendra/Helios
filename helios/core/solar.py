@@ -5,29 +5,8 @@ import requests
 
 import pandas as pd
 from helios.reports.printer import ReportPrinter
-
-
-@dataclass
-class SolarConfiguration:
-
-    installed_power_kwp: float
-
-    latitude: float
-
-    longitude: float
-
-    tilt: int
-
-    azimuth: int
-
-    reference_year: int = 2023
-
-    losses: float = 14
-
-    pv_technology: str = "crystSi"
-
-    mounting_place: str = "building"
-
+from helios.solar.configuration import SolarConfiguration
+from helios.solar.production import SolarProductionEngine
 
 class SolarEngine:
 
@@ -90,10 +69,6 @@ class SolarEngine:
     
     def calculate_daily_production(self):
 
-        """
-        Calcula la producción diaria a partir de la producción horaria.
-        """
-
         if self.hourly_production is None:
 
             raise RuntimeError(
@@ -101,9 +76,9 @@ class SolarEngine:
             )
 
         self.daily_production = (
-            self.hourly_production["production_kwh"]
-            .resample("D")
-            .sum()
+            SolarProductionEngine.daily(
+                self.hourly_production
+            )
         )
 
     def _build_cache_filename(
@@ -470,36 +445,29 @@ class SolarEngine:
             "import_ratio": import_ratio
 
         }
-    def calculate_monthly_production(self):
 
-        """
-        Calcula la producción mensual.
-        """
+    def calculate_monthly_production(self):
 
         if self.daily_production is None:
 
             self.calculate_daily_production()
 
         self.monthly_production = (
+            SolarProductionEngine.monthly(
                 self.daily_production
-                .resample("ME")
-                .sum()
             )
+        )
 
     def calculate_yearly_production(self):
-
-        """
-        Calcula la producción anual.
-        """
 
         if self.monthly_production is None:
 
             self.calculate_monthly_production()
 
         self.yearly_production = (
-            self.monthly_production
-            .resample("YE")
-            .sum()
+            SolarProductionEngine.yearly(
+                self.monthly_production
+            )
         )
 
     def calculate_energy_balance(

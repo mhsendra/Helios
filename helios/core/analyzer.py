@@ -10,7 +10,8 @@ from helios.reports.visualizer import ConsumptionVisualizer
 from helios.core.comparisons import ConsumptionComparisons
 from helios.core.indicators import IndicatorsEngine
 from helios.core.tariffs import TariffEngine
-from helios.core.solar import (SolarEngine, SolarConfiguration)
+from helios.core.solar import SolarEngine
+from helios.solar.configuration import SolarConfiguration
 from helios.reports.consumption_reports import ConsumptionReports
 from helios.core.quality import DataQualityEngine
 from helios.core.validation import ValidationEngine
