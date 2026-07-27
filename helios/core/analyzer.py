@@ -11,12 +11,19 @@ from helios.core.comparisons import ConsumptionComparisons
 from helios.core.indicators import IndicatorsEngine
 from helios.core.tariffs import TariffEngine
 from helios.core.solar import (SolarEngine, SolarConfiguration)
-from helios.reports.printer import ReportPrinter
+from helios.reports.consumption_reports import ConsumptionReports
+from helios.core.quality import DataQualityEngine
+from helios.core.validation import ValidationEngine
+
 import pandas as pd
 import calendar
 
 
 class ConsumptionAnalyzer:
+
+    # ==================================================
+    # Inicialización
+    # ==================================================
 
     def __init__(self):
 
@@ -27,23 +34,28 @@ class ConsumptionAnalyzer:
         self.daily_consumption = None
         self.monthly_consumption = None
         self.yearly_consumption = None
-        self.profiles = None
+
         self.hourly_profile = None
         self.weekday_profile = None
         self.monthly_profile = None
         self.seasonal_profile = None
+
         self.monthly_comparison = None
         self.monthly_variation = None
         self.yearly_comparison = None
         self.weekly_comparison = None
         self.weekly_variation = None
+
         self.mean_consumption = None
         self.extremes = None
         self.base_load = None
+
         self.period_consumption = None
         self.period_percentage = None
-        self.solar_configuration = None
+
         self.solar_production = None
+        self.quality = None
+        self.gap_summary = None
         
 
         # Motores de procesamiento
@@ -53,20 +65,25 @@ class ConsumptionAnalyzer:
         self.comparisons_engine = ConsumptionComparisons()
         self.indicators_engine = IndicatorsEngine()
         self.tariff_engine = TariffEngine()   
-        self.solar_engine = SolarEngine()    
+        self.solar_engine = SolarEngine()
+        self.reporter = ConsumptionReports()
+        self.quality_engine = DataQualityEngine()
+        self.validation_engine = ValidationEngine()
+
+
+
+
+    # ==================================================
+    # Carga y preparación de datos
+    # ==================================================
 
     def load_excel(self, path: str | Path):
 
-        #xls = pd.ExcelFile(path)
-
-        #print("Hojas encontradas:", xls.sheet_names)
-
         self.dataset = pd.read_excel(
-        path,
-        sheet_name="18_06_2025"
+            path,
+            sheet_name="18_06_2025"
         )
 
-        #print(f"Registros cargados: {len(self.dataset)}")
 
     def clean_data(self):
 
@@ -76,84 +93,7 @@ class ConsumptionAnalyzer:
         missing = (self.dataset["data_status"] == "missing").sum()
         blocks = self.dataset["gap_id"].nunique()
 
-        #print(f"Registros perdidos..... {missing}")
-        #print(f"Bloques detectados..... {blocks}")
 
-    def inspect_gap(self, gap_id: int):
-
-        gap = self.dataset[self.dataset["gap_id"] == gap_id]
-
-        if gap.empty:
-            print(f"No existe el bloque de huecos {gap_id}.")
-            return
-
-        print("\n")
-        print("=" * 45)
-        print(f"HELIOS - GAP #{gap_id}")
-        print("=" * 45)
-
-        print(f"Inicio.......... {gap.index.min()}")
-        print(f"Fin............. {gap.index.max()}")
-        print(f"Duración........ {gap['gap_size'].iloc[0]} horas")
-
-        print("\nRegistros:")
-
-        print(gap[["Fecha", "Hora", "AE_kWh"]])
-
-    def inspect_data(self):
-
-        print("\n=== Calidad de los datos ===")
-
-        print(f"Registros totales: {len(self.dataset)}")
-
-        print(f"Valores nulos:\n{self.dataset.isnull().sum()}")
-
-        print(f"\nDuplicados: {self.dataset.duplicated().sum()}")
-
-    def valid_dataset(self) -> pd.DataFrame:
-
-        """
-        Devuelve únicamente los registros válidos
-        para realizar cálculos estadísticos.
-
-        No modifica self.dataset.
-        """
-
-        return self.dataset[
-            self.dataset["data_status"] != "missing"
-        ]
-
-    def dataset_quality(self) -> dict:
-
-        """
-        Devuelve un resumen de la calidad del dataset.
-        """
-
-        total_hours = len(self.dataset)
-
-        valid_hours = len(
-            self.valid_dataset()
-        )
-
-        missing_hours = total_hours - valid_hours
-
-        coverage = (
-            valid_hours /
-            total_hours
-        ) * 100
-
-        return {
-
-            "total_hours": total_hours,
-
-            "valid_hours": valid_hours,
-
-            "missing_hours": missing_hours,
-
-            "coverage": coverage
-
-        }
-            
     def build_datetime(self):
 
         """
@@ -172,7 +112,590 @@ class ConsumptionAnalyzer:
 
         self.dataset.set_index("datetime", inplace=True)
 
+
+    def valid_dataset(self) -> pd.DataFrame:
+
+        """
+        Devuelve únicamente los registros válidos
+        para realizar cálculos estadísticos.
+
+        No modifica self.dataset.
+        """
+
+        return self.dataset[
+            self.dataset["data_status"] != "missing"
+        ]
+    
+        # ==================================================
+    # Validación y calidad de datos
+    # ==================================================
+
+    def validate_timeseries(self):
+
+        print("\n=== VALIDACIÓN TEMPORAL ===")
+
+        print(f"Primer registro : {self.dataset.index.min()}")
+        print(f"Último registro : {self.dataset.index.max()}")
+
+    def calculate_quality(self):
+
+        self.quality = (
+            self.quality_engine.calculate(
+                self.dataset
+            )
+        )
+
+    def quality_report(self):
+
+        self.reporter.quality(
+            self.quality
+        )
+
+    def find_missing_hours(self):
+
+        print("\n=== VALIDACIÓN DE HORAS POR DÍA ===")
+
+        errors = 0
+
+        for fecha, day_df in self.dataset.groupby(self.dataset.index.normalize()):
+
+            expected = self._expected_hours_for_day(fecha)
+
+            existing = set(day_df["Hora"])
+
+            missing = sorted(expected - existing)
+
+            extra = sorted(existing - expected)
+
+            if missing or extra:
+
+                errors += 1
+
+                print(f"\n{fecha.date()}")
+
+                if missing:
+                    print(f"  Horas ausentes : {missing}")
+
+                if extra:
+                    print(f"  Horas inesperadas: {extra}")
+
+        if errors == 0:
+            print("Todos los días tienen la secuencia horaria correcta.")
+
+        return {
+            "valid": errors == 0,
+            "errors": errors
+        }
+
+
+    def find_duplicate_timestamps(self):
+
+        self.duplicates = (
+            self.validation_engine
+            .find_duplicate_timestamps(
+                self.dataset
+            )
+        )
+
+    def duplicate_report(self):
+
+        self.reporter.duplicates(
+            self.duplicates
+        )
+
+    def calculate_gap_summary(self):
+
+        self.gap_summary = (
+            self.validation_engine.calculate_gap_summary(
+                self.dataset
+            )
+        )
+
+    def gap_report(self):
+
+        self.reporter.gap(
+            self.gap_summary
+        )
+
+    def inspect_gap(self, gap_id: int):
+
+        gap = self.dataset[
+            self.dataset["gap_id"] == gap_id
+        ]
+
+        if gap.empty:
+            print(f"No existe el bloque de huecos {gap_id}.")
+            return
+
+        print("\n")
+        print("=" * 45)
+        print(f"HELIOS - GAP #{gap_id}")
+        print("=" * 45)
+
+        print(f"Inicio.......... {gap.index.min()}")
+        print(f"Fin............. {gap.index.max()}")
+        print(f"Duración........ {gap['gap_size'].iloc[0]} horas")
+
+        print("\nRegistros:")
+
+        print(
+            gap[
+                ["Fecha", "Hora", "AE_kWh"]
+            ]
+        )
+
+
+    def inspect_data(self):
+
+        print("\n=== Calidad de los datos ===")
+
+        print(
+            f"Registros totales: {len(self.dataset)}"
+        )
+
+        print(
+            f"Valores nulos:\n{self.dataset.isnull().sum()}"
+        )
+
+        print(
+            f"\nDuplicados: {self.dataset.duplicated().sum()}"
+        )
+
+        # ==================================================
+    # Estadísticas de consumo
+    # ==================================================
+
+    def calculate_statistics(self):
+
+        self.statistics = self.statistics_engine.calculate(
+            self.valid_dataset()
+        )
+    
+    def calculate_daily_consumption(self):
+
+        self.daily_consumption = (
+            self.statistics_engine.calculate_daily_consumption(
+                self.valid_dataset()
+            )
+        )
+
+    def calculate_monthly_consumption(self):
+
+        self.monthly_consumption = (
+            self.statistics_engine.calculate_monthly_consumption(
+                self.valid_dataset()
+            )
+        )
+
+    def calculate_yearly_consumption(self):
+
+        self.yearly_consumption = (
+            self.statistics_engine.calculate_yearly_consumption(
+                self.valid_dataset()
+            )
+        )
+
+    def statistics_report(self):
+
+        self.reporter.statistics(
+            self.statistics
+        )
+
+
+    def daily_report(self):
+
+        self.reporter.daily(
+            self.daily_consumption
+        )
+
+
+    def monthly_report(self):
+
+        self.reporter.monthly(
+            self.monthly_consumption
+        )
+
+
+    def yearly_report(self):
+
+        self.reporter.yearly(
+            self.yearly_consumption
+        )
+    # ==================================================
+    # Perfiles de consumo
+    # ==================================================
+
+    def calculate_hourly_profile(self):
+
+        self.hourly_profile = (
+            self.statistics_engine.calculate_hourly_profile(
+                self.valid_dataset()
+            )
+        )
+
+    def hourly_profile_report(self):
+
+        self.reporter.hourly_profile(
+            self.hourly_profile
+        )
+
+    def calculate_weekday_profile(self):
+
+        self.weekday_profile = (
+            self.statistics_engine.calculate_weekday_profile(
+                self.valid_dataset()
+            )
+        )
+
+    def weekday_profile_report(self):
+
+        self.reporter.weekday_profile(
+            self.weekday_profile
+        )
+
+    def calculate_monthly_profile(self):
+
+        self.monthly_profile = (
+            self.statistics_engine.calculate_monthly_profile(
+                self.valid_dataset()
+            )
+        )
+
+    def monthly_profile_report(self):
+
+        self.reporter.monthly_profile(
+            self.monthly_profile
+        )
+
+    def calculate_seasonal_profile(self):
+
+        self.seasonal_profile = (
+            self.statistics_engine.calculate_seasonal_profile(
+                self.monthly_profile
+            )
+        )
+
+    def seasonal_profile_report(self):
+
+        self.reporter.seasonal_profile(
+            self.seasonal_profile
+        )
+
+    def compare_months_by_year(self):
+
+        self.monthly_comparison = (
+            self.comparisons_engine.compare_months_by_year(
+                self.valid_dataset()
+            )
+        )
+
+    # ==================================================
+    # Comparativas
+    # ==================================================
+
+    def monthly_comparison_report(self):
+
+        self.comparisons_engine.monthly_comparison_report(
+            self.monthly_comparison
+        )
+
+
+    def calculate_monthly_variation(self):
+
+        self.monthly_variation = (
+            self.comparisons_engine.calculate_variation(
+                self.monthly_comparison
+            )
+        )
+
+
+    def monthly_variation_report(self):
+
+        self.comparisons_engine.monthly_variation_report(
+            self.monthly_variation
+        )
+
+
+    def compare_weeks_by_year(self):
+
+        self.weekly_comparison = (
+            self.comparisons_engine.compare_weeks_by_year(
+                self.valid_dataset()
+            )
+        )
+
+
+    def weekly_comparison_report(self):
+
+        self.comparisons_engine.weekly_comparison_report(
+            self.weekly_comparison
+        )
+
+
+    def calculate_weekly_variation(self):
+
+        self.weekly_variation = (
+            self.comparisons_engine.calculate_variation(
+                self.weekly_comparison
+            )
+        )
+
+
+    def weekly_variation_report(self):
+
+        self.comparisons_engine.weekly_variation_report(
+            self.weekly_variation
+        )
+
+
+    def compare_years(self):
+
+        self.yearly_comparison = (
+            self.comparisons_engine.compare_years(
+                self.valid_dataset()
+            )
+        )
+
+
+    def yearly_comparison_report(self):
+
+        self.comparisons_engine.yearly_comparison_report(
+            self.yearly_comparison
+        )
+
+
+    # ==================================================
+    # Indicadores energéticos
+    # ==================================================
+
+    def calculate_mean_consumption(self):
+
+        self.mean_consumption = (
+            self.indicators_engine.calculate_mean_consumption(
+                self.valid_dataset()
+            )
+        )
+
+    def mean_consumption_report(self):
+
+        self.reporter.mean_consumption(
+            self.mean_consumption
+        )    
+
+    def calculate_extremes(self):
+
+        self.extremes = (
+            self.indicators_engine.calculate_extremes(
+                dataset=self.valid_dataset(),
+                daily=self.daily_consumption,
+                monthly=self.monthly_consumption,
+                weekly=self.weekly_comparison
+            )
+        )
+
+    def extremes_report(self):
+
+        self.reporter.extremes(
+            self.extremes
+        )
+
+    def calculate_base_load(self):
+
+        self.base_load = (
+            self.indicators_engine.calculate_base_load(
+                self.valid_dataset()
+            )
+        )
+
+    def base_load_report(self):
+
+        self.reporter.base_load(
+            self.base_load
+        )
+
+    # ==================================================
+    # Tarifas
+    # ==================================================
+
+    def calculate_tariff_periods(self):
+
+        self.period_consumption = (
+            self.tariff_engine.calculate_period_consumption(
+                self.valid_dataset()
+            )
+        )
+
+        self.period_percentage = (
+            self.tariff_engine.calculate_period_percentage(
+                self.period_consumption
+            )
+        )
+
+    def tariff_periods_report(self):
+
+        self.reporter.tariff_periods(
+            self.period_consumption,
+            self.period_percentage,
+            self.tariff_engine.PERIODS
+        )
+
+    # ==================================================
+    # Solar
+    # ==================================================
+
+    def calculate_solar_production(
+        self,
+        configuration
+    ):
+
+        self.solar_production = (
+            self.solar_engine.calculate_hourly_production(
+                configuration
+            )
+        )
+
+
+    def calculate_solar_statistics(self):
+
+        self.solar_engine.calculate_statistics()
+
+
+    def calculate_daily_solar_production(self):
+
+        self.solar_engine.calculate_daily_production()
+
+
+    def calculate_monthly_solar_production(self):
+
+        self.solar_engine.calculate_monthly_production()
+
+
+    def calculate_yearly_solar_production(self):
+
+        self.solar_engine.calculate_yearly_production()
+
+
+    def calculate_energy_balance(self):
+
+        consumption = self.valid_dataset()["AE_kWh"]
+
+        self.solar_engine.calculate_energy_balance(
+            consumption
+        )
+
+
+    def solar_statistics_report(self):
+
+        self.solar_engine.production_statistics_report()
+
+
+    def monthly_solar_production_report(self):
+
+        self.solar_engine.monthly_production_report()
+
+
+    def energy_balance_report(self):
+
+        self.solar_engine.energy_balance_report()
+
+
+    def energy_statistics_report(self):
+
+        self.solar_engine.energy_balance_report()
+
+
+    # ==================================================
+    # Gráficas
+    # ==================================================
+
+    def show_plots(self):
+
+        self.visualizer.show()
+
+
+    def plot_hourly_profile(self):
+
+        self.visualizer.plot_series(
+            self.hourly_profile,
+            title="Perfil horario de consumo",
+            xlabel="Hora",
+            ylabel="Consumo medio (kWh)"
+        )
+
+
+    def plot_weekday_profile(self):
+
+        self.visualizer.plot_weekday_profile(
+            self.weekday_profile
+        )
+
+
+    def plot_monthly_profile(self):
+
+        self.visualizer.plot_monthly_profile(
+            self.monthly_profile
+        )
+
+
+    def plot_seasonal_profile(self):
+
+        self.visualizer.plot_seasonal_profile(
+            self.seasonal_profile
+        )
+
+
+    def plot_monthly_comparison(self):
+
+        self.visualizer.plot_comparison_lines(
+            dataframe=self.monthly_comparison,
+            title="Comparativa mensual",
+            xlabel="Mes",
+            ylabel="Consumo (kWh)"
+        )
+
+
+    def plot_yearly_comparison(self):
+
+        self.visualizer.plot_yearly_comparison(
+            self.yearly_comparison
+        )
+
+
+    def plot_weekly_comparison(self):
+
+        self.visualizer.plot_comparison_lines(
+            dataframe=self.weekly_comparison,
+            title="Comparativa semanal",
+            xlabel="Semana",
+            ylabel="Consumo (kWh)"
+        )
+
+
+    def plot_monthly_variation(self):
+
+        self.visualizer.plot_variation_bars(
+            dataframe=self.monthly_variation,
+            title="Variación mensual",
+            xlabel="Mes",
+            ylabel="Variación (%)"
+        )
+
+
+    def plot_weekly_variation(self):
+
+        self.visualizer.plot_variation_bars(
+            dataframe=self.weekly_variation,
+            title="Variación semanal",
+            xlabel="Semana",
+            ylabel="Variación (%)"
+        )
+
+        # ==================================================
+    # Métodos privados y auxiliares
+    # ==================================================
+
     def _build_day_datetime(self, day_df):
+
         """
         Construye la columna datetime para un único día.
 
@@ -203,8 +726,10 @@ class ConsumptionAnalyzer:
         day_df["datetime"] = datetimes
 
         return day_df
-    
+
+
     def _expected_hours_for_day(self, day):
+
         """
         Devuelve el conjunto de horas esperadas para una fecha
         según el calendario español (23, 24 o 25 horas).
@@ -214,11 +739,17 @@ class ConsumptionAnalyzer:
 
         # Último domingo de marzo
         march = calendar.monthcalendar(year, 3)
-        last_sunday_march = max(week[calendar.SUNDAY] for week in march)
+        last_sunday_march = max(
+            week[calendar.SUNDAY]
+            for week in march
+        )
 
         # Último domingo de octubre
         october = calendar.monthcalendar(year, 10)
-        last_sunday_october = max(week[calendar.SUNDAY] for week in october)
+        last_sunday_october = max(
+            week[calendar.SUNDAY]
+            for week in october
+        )
 
         # Cambio a horario de verano
         if day.month == 3 and day.day == last_sunday_march:
@@ -230,1290 +761,3 @@ class ConsumptionAnalyzer:
 
         # Día normal
         return set(range(1, 25))
-
-    def find_missing_hours(self):
-
-        print("\n=== VALIDACIÓN DE HORAS POR DÍA ===")
-
-        errors = 0
-
-        for fecha, day_df in self.dataset.groupby("Fecha"):
-
-            expected = self._expected_hours_for_day(fecha)
-
-            existing = set(day_df["Hora"])
-
-            missing = sorted(expected - existing)
-
-            extra = sorted(existing - expected)
-
-            if missing or extra:
-
-                errors += 1
-
-                print(f"\n{fecha.date()}")
-
-                if missing:
-                    print(f"  Horas ausentes : {missing}")
-
-                if extra:
-                    print(f"  Horas inesperadas: {extra}")
-
-        if errors == 0:
-            print("Todos los días tienen la secuencia horaria correcta.")
-
-        return {
-        "valid": errors == 0,
-        "errors": errors
-    }
-
-    def find_duplicate_timestamps(self):
-
-        duplicates = self.dataset.index[self.dataset.index.duplicated()]
-
-        print("\n=== FECHAS DUPLICADAS ===")
-
-        if len(duplicates) == 0:
-            print("No existen.")
-        else:
-
-            for dt in duplicates:
-                print(dt)
-
-                print(self.dataset.loc[dt])
-
-    def inspect_dst_days(self):
-
-        dates = [
-            "2024-03-31",
-            "2024-10-27",
-            "2025-03-30",
-            "2025-10-26",
-            "2026-03-29"
-        ]
-
-        for d in dates:
-
-            print(f"\n===== {d} =====")
-
-            print(
-                self.dataset[
-                    self.dataset["Fecha"] == d
-                ][["Fecha", "Hora", "AE_kWh"]]
-            )
-
-    def validate_timeseries(self):
-
-        print("\n=== VALIDACIÓN TEMPORAL ===")
-
-        print(f"Primer registro : {self.dataset.index.min()}")
-        print(f"Último registro : {self.dataset.index.max()}")
-
-    def dataset_quality(self):
-
-        total_hours = len(self.dataset)
-
-        missing_hours = (
-            self.dataset["data_status"] == "missing"
-        ).sum()
-
-        valid_hours = total_hours - missing_hours
-
-        duplicates = self.dataset.index.duplicated().sum()
-
-        coverage = (
-            valid_hours / total_hours
-        ) * 100
-
-        if coverage >= 99:
-            quality = "EXCELENTE"
-        elif coverage >= 97:
-            quality = "MUY BUENA"
-        elif coverage >= 95:
-            quality = "BUENA"
-        else:
-            quality = "REVISAR"
-
-        return {
-            "total_hours": total_hours,
-            "valid_hours": valid_hours,
-            "missing_hours": missing_hours,
-            "duplicates": duplicates,
-            "coverage": coverage,
-            "quality": quality
-        }
-
-    def quality_report(self):
-
-        quality = self.dataset_quality()
-
-        ReportPrinter.title("DATA QUALITY REPORT")
-
-        ReportPrinter.blank()
-
-        ReportPrinter.count(
-            "Registros totales",
-            quality["total_hours"]
-        )
-
-        ReportPrinter.hours(
-            "Horas válidas",
-            quality["valid_hours"]
-        )
-
-        ReportPrinter.hours(
-            "Horas omitidas",
-            quality["missing_hours"]
-        )
-
-        ReportPrinter.percent(
-            "Cobertura",
-            quality["coverage"]
-        )
-
-        ReportPrinter.blank()
-
-        ReportPrinter.count(
-            "Duplicados",
-            quality["duplicates"]
-        )
-
-        ReportPrinter.quality(
-            "Calidad",
-            quality["quality"]
-        )
-
-    def gap_report(self):
-
-        print("\n")
-        print("=" * 45)
-        print("HELIOS - GAP REPORT")
-        print("=" * 45)
-
-        gaps = self.dataset[self.dataset["gap_id"].notna()]
-
-        summary = (
-            gaps
-            .groupby("gap_id")
-            .agg(
-                start=("gap_size", lambda s: s.index.min()),
-                end=("gap_size", lambda s: s.index.max()),
-                hours=("gap_size", "first"),
-                gap_type=("gap_type", "first")
-            )
-        )
-
-        if gaps.empty:
-            print("No se han detectado huecos.")
-            return
-
-        total_missing = (self.dataset["data_status"] == "missing").sum()
-        total_blocks = len(summary)
-
-        print(f"Registros perdidos..... {total_missing}")
-        print(f"Bloques detectados..... {total_blocks}")
-        print(f"Mayor hueco............ {gaps['gap_size'].max()} horas")
-        small = (summary["gap_type"] == "small").sum()
-        large = (summary["gap_type"] == "large").sum()
-        print(f"Huecos pequeños........ {small}")
-        print(f"Huecos grandes......... {large}")
-
-        print("\nDistribución de huecos")
-
-        distribution = (
-            summary["hours"]
-            .value_counts()
-            .sort_index()
-        )
-
-        for size, count in distribution.items():
-            print(f"{size:>2} horas............. {count}")
-
-        print("\nDetalle de bloques")
-        print("-" * 78)
-        print(f"{'ID':>3} {'Inicio':<20} {'Fin':<20} {'Horas':>7} {'Tipo':>8}")
-        print("-" * 78)
-
-        for gap_id, gap in (
-            self.dataset[self.dataset["gap_id"].notna()]
-            .groupby("gap_id")
-        ):
-
-            start = gap.index.min()
-            end = gap.index.max()
-
-            print(
-                f"{int(gap_id):>3} "
-                f"{start.strftime('%Y-%m-%d %H:%M'):<20} "
-                f"{end.strftime('%Y-%m-%d %H:%M'):<20} "
-                f"{gap['gap_size'].iloc[0]:>7} "
-                f"{gap['gap_type'].iloc[0]:>8}"
-            )
-
-    def statistics_report(self):
-
-        if self.statistics is None:
-            print("No hay estadísticas calculadas.")
-            return
-        
-        ReportPrinter.title(
-            "STATISTICS REPORT"
-        )
-        
-        ReportPrinter.energy(
-            "Consumo total",
-            self.statistics["total_consumption"]
-        )
-
-        ReportPrinter.energy(
-            "Consumo medio horario",
-            self.statistics["mean_hourly"],
-            decimals=3
-        )
-
-
-        ReportPrinter.energy(
-            "Consumo máximo",
-            self.statistics["max_consumption"],
-            decimals=3
-        )
-
-        ReportPrinter.datetime(
-            "Fecha del máximo",
-            self.statistics["max_consumption_time"]
-        )
-
-        ReportPrinter.energy(
-            "Consumo mínimo",
-            self.statistics["min_consumption"],
-            decimals=3
-        )
-
-        ReportPrinter.datetime(
-            "Fecha del mínimo",
-            self.statistics["min_consumption_time"]
-        )
-
-        ReportPrinter.energy(
-            "Desv. estándar",
-            self.statistics["std_consumption"],
-            decimals=3
-        )
-
-    def gap_report(self):
-
-        gaps = self.dataset[
-            self.dataset["data_status"] == "missing"
-        ]
-
-        if len(gaps) == 0:
-            print("\n=== GAP REPORT ===")
-            print("No existen huecos.")
-            return
-
-
-        summary = (
-            gaps
-            .groupby("gap_id")
-            .agg(
-                start=("gap_size", lambda s: s.index.min()),
-                end=("gap_size", lambda s: s.index.max()),
-                hours=("gap_size", "first"),
-                gap_type=("gap_type", "first")
-            )
-        )
-
-
-        largest = summary["hours"].max()
-
-
-        print()
-        print("=" * 45)
-        print("HELIOS - GAP REPORT")
-        print("=" * 45)
-
-        print(f"Registros faltantes..... {len(gaps)}")
-        print(f"Bloques detectados...... {len(summary)}")
-        print(f"Mayor hueco............. {largest} horas")
-
-
-        print()
-        print("Detalle de bloques")
-        print("-" * 75)
-
-        print(
-            f"{'ID':>3} "
-            f"{'Inicio':<20} "
-            f"{'Fin':<20} "
-            f"{'Horas':>8} "
-            f"{'Tipo':>10}"
-        )
-
-        print("-" * 75)
-
-
-        for gap_id, row in summary.iterrows():
-
-            print(
-                f"{int(gap_id):>3} "
-                f"{row['start'].strftime('%Y-%m-%d %H:%M'):<20} "
-                f"{row['end'].strftime('%Y-%m-%d %H:%M'):<20} "
-                f"{row['hours']:>8} "
-                f"{row['gap_type']:>10}"
-            )
-
-    def calculate_statistics(self):
-
-        self.statistics = self.statistics_engine.calculate(
-            self.valid_dataset()
-        )
-
-    def calculate_daily_consumption(self):
-
-        self.daily_consumption = (
-            self.statistics_engine.calculate_daily_consumption(
-                self.valid_dataset()
-            )
-        )
-
-    def daily_report(self):
-
-        if self.daily_consumption is None:
-
-            print("No hay consumos diarios calculados.")
-            return
-
-        ReportPrinter.title(
-            "DAILY CONSUMPTION REPORT"
-        )
-
-        ReportPrinter.blank()
-
-        ReportPrinter.count(
-            "Días analizados",
-            len(self.daily_consumption)
-        )
-
-        ReportPrinter.energy(
-            "Consumo total",
-            self.daily_consumption.sum()
-        )
-
-        ReportPrinter.energy(
-            "Consumo diario medio",
-            self.daily_consumption.mean()
-        )
-
-        ReportPrinter.blank()
-
-        ReportPrinter.energy(
-            "Consumo máximo diario",
-            self.daily_consumption.max(),
-            decimals=3
-        )
-
-        ReportPrinter.day(
-            "Fecha del máximo",
-            self.daily_consumption.idxmax()
-        )
-
-        ReportPrinter.energy(
-            "Consumo mínimo diario",
-            self.daily_consumption.min(),
-            decimals=3
-        )
-
-        ReportPrinter.day(
-            "Fecha del mínimo",
-            self.daily_consumption.idxmin()
-        )
-
-    def calculate_monthly_consumption(self):
-
-        self.monthly_consumption = (
-            self.statistics_engine.calculate_monthly_consumption(
-                self.valid_dataset()
-            )
-        )
-
-    def monthly_report(self):
-
-        if self.monthly_consumption is None:
-
-            print("No hay consumos mensuales calculados.")
-            return
-
-        ReportPrinter.title(
-            "MONTHLY CONSUMPTION REPORT"
-        )
-
-        ReportPrinter.blank()
-
-        ReportPrinter.count(
-            "Meses analizados",
-            len(self.monthly_consumption)
-        )
-
-        ReportPrinter.energy(
-            "Consumo total",
-            self.monthly_consumption.sum(),
-            decimals=3
-        )
-
-        ReportPrinter.energy(
-            "Consumo mensual medio",
-            self.monthly_consumption.mean()
-        )
-
-        ReportPrinter.blank()
-
-        ReportPrinter.energy(
-            "Consumo máximo mensual",
-            self.monthly_consumption.max(),
-            decimals=3
-        )
-
-        ReportPrinter.month(
-            "Mes del máximo",
-            self.monthly_consumption.idxmax()
-        )
-
-        ReportPrinter.energy(
-            "Consumo mínimo mensual",
-            self.monthly_consumption.min(),
-            decimals=3
-        )
-
-        ReportPrinter.month(
-            "Mes del mínimo",
-            self.monthly_consumption.idxmin()
-        )
-
-    def calculate_yearly_consumption(self):
-
-        self.yearly_consumption = (
-            self.statistics_engine.calculate_yearly_consumption(
-                self.valid_dataset()
-            )
-        )
-    
-    def yearly_report(self):
-
-        if self.yearly_consumption is None:
-
-            print("No hay consumos anuales calculados.")
-            return
-
-        ReportPrinter.title(
-            "YEARLY CONSUMPTION REPORT"
-        )
-
-        ReportPrinter.blank()
-
-        ReportPrinter.count(
-            "Años analizados",
-            len(self.yearly_consumption)
-        )
-
-        ReportPrinter.energy(
-            "Consumo total",
-            self.yearly_consumption.sum(),
-            decimals=3
-        )
-
-        ReportPrinter.energy(
-            "Consumo anual medio",
-            self.yearly_consumption.mean()
-        )
-
-        ReportPrinter.blank()
-
-        ReportPrinter.energy(
-            "Consumo máximo anual",
-            self.yearly_consumption.max(),
-            decimals=3
-        )
-
-        ReportPrinter.year(
-            "Año del máximo",
-            self.yearly_consumption.idxmax()
-        )
-
-        ReportPrinter.energy(
-            "Consumo mínimo anual",
-            self.yearly_consumption.min(),
-            decimals=3
-        )
-
-        ReportPrinter.year(
-            "Año del mínimo",
-            self.yearly_consumption.idxmin()
-        )
-
-    def calculate_hourly_profile(self):
-
-        self.hourly_profile = (
-            self.statistics_engine.calculate_hourly_profile(
-                self.valid_dataset()
-            )
-        )
-
-    def hourly_profile_report(self):
-
-        if self.hourly_profile is None:
-            print("No hay perfil horario calculado.")
-            return
-
-        ReportPrinter.title("HOURLY PROFILE REPORT")
-        ReportPrinter.blank()
-
-        # Resumen general
-        ReportPrinter.count(
-            "Horas analizadas",
-            len(self.hourly_profile)
-        )
-
-        ReportPrinter.energy(
-            "Consumo medio horario",
-            self.hourly_profile.mean(),
-            decimals=3
-        )
-
-        ReportPrinter.blank()
-
-        # Máximos y mínimos
-        ReportPrinter.text(
-            "Hora de mayor consumo",
-            f"{self.hourly_profile.idxmax():02d}:00"
-        )
-
-        ReportPrinter.energy(
-            "Consumo máximo",
-            self.hourly_profile.max(),
-            decimals=3
-        )
-
-        ReportPrinter.blank()
-
-        ReportPrinter.text(
-            "Hora de menor consumo",
-            f"{self.hourly_profile.idxmin():02d}:00"
-        )
-
-        ReportPrinter.energy(
-            "Consumo mínimo",
-            self.hourly_profile.min(),
-            decimals=3
-        )
-
-        ReportPrinter.blank()
-
-        # Top 5 horas
-        print("Top 5 horas de consumo")
-        print("-" * 55)
-
-        top5 = (
-            self.hourly_profile
-            .sort_values(ascending=False)
-            .head(5)
-        )
-
-        for hour, value in top5.items():
-            ReportPrinter.text(
-                f"Hora {hour:02d}:00",
-                f"{value:.3f} kWh"
-            )
-
-    def calculate_weekday_profile(self):
-
-        self.weekday_profile = (
-            self.statistics_engine.calculate_weekday_profile(
-                self.valid_dataset()
-            )
-        )
-
-    def weekday_profile_report(self):
-
-        if self.weekday_profile is None:
-            print("No hay perfil semanal calculado.")
-            return
-
-        laborables = self.weekday_profile.iloc[:5].mean()
-        fin_semana = self.weekday_profile.iloc[5:].mean()
-
-        incremento = (
-            (fin_semana - laborables) /
-            laborables * 100
-        )
-
-        ReportPrinter.title("WEEKDAY PROFILE REPORT")
-        ReportPrinter.blank()
-
-        # Resumen general
-        ReportPrinter.energy(
-            "Consumo medio semanal",
-            self.weekday_profile.mean(),
-            decimals=3
-        )
-
-        ReportPrinter.blank()
-
-        # Laborables vs fin de semana
-        ReportPrinter.energy(
-            "Media laborables",
-            laborables,
-            decimals=3
-        )
-
-        ReportPrinter.energy(
-            "Media fin de semana",
-            fin_semana,
-            decimals=3
-        )
-
-        ReportPrinter.percent(
-            "Incremento fin de semana",
-            incremento,
-            decimals=1
-        )
-
-        ReportPrinter.blank()
-
-        # Máximos y mínimos
-        ReportPrinter.text(
-            "Día de mayor consumo",
-            self.weekday_profile.idxmax()
-        )
-
-        ReportPrinter.energy(
-            "Consumo máximo",
-            self.weekday_profile.max(),
-            decimals=3
-        )
-
-        ReportPrinter.blank()
-
-        ReportPrinter.text(
-            "Día de menor consumo",
-            self.weekday_profile.idxmin()
-        )
-
-        ReportPrinter.energy(
-            "Consumo mínimo",
-            self.weekday_profile.min(),
-            decimals=3
-        )
-
-        ReportPrinter.blank()
-
-        # Consumo medio por día
-        print("Consumo medio por día")
-        print("-" * 55)
-
-        for day, value in self.weekday_profile.items():
-            ReportPrinter.text(
-                f"{day}",
-                f"{value:.3f} kWh"
-            )
-
-
-    def calculate_monthly_profile(self):
-
-        self.monthly_profile = (
-            self.statistics_engine.calculate_monthly_profile(
-                self.valid_dataset()
-            )
-        )
-    
-    def monthly_profile_report(self):
-
-        if self.monthly_profile is None:
-            print("No hay perfil mensual calculado.")
-            return
-
-        # Variación estacional
-        incremento = (
-            (self.monthly_profile.max() - self.monthly_profile.min())
-            / self.monthly_profile.min()
-            * 100
-        )
-
-        # Meses de máximo y mínimo (siempre promedios multianuales)
-        mes_max = f"{self.monthly_profile.idxmax()} (promedio multianual)"
-        mes_min = f"{self.monthly_profile.idxmin()} (promedio multianual)"
-
-        valor_max = self.monthly_profile.max()
-        valor_min = self.monthly_profile.min()
-
-        # Informe
-        ReportPrinter.title("MONTHLY PROFILE REPORT")
-        ReportPrinter.blank()
-
-        # Máximos y mínimos
-        ReportPrinter.text(
-            "Mes de mayor consumo",
-            mes_max
-        )
-
-        ReportPrinter.energy(
-            "Consumo máximo",
-            valor_max,
-            decimals=3
-        )
-
-        ReportPrinter.blank()
-
-        ReportPrinter.text(
-            "Mes de menor consumo",
-            mes_min
-        )
-
-        ReportPrinter.energy(
-            "Consumo mínimo",
-            valor_min,
-            decimals=3
-        )
-
-        ReportPrinter.blank()
-
-        # Variación estacional
-        ReportPrinter.percent(
-            "Variación estacional",
-            incremento,
-            decimals=1
-        )
-
-        ReportPrinter.blank()
-
-        # Consumo medio por mes
-        print("Consumo medio por mes")
-        print("-" * 55)
-
-        for month, value in self.monthly_profile.items():
-            ReportPrinter.text(
-                f"{month}",
-                f"{value:.3f} kWh"
-            )
-
-    def calculate_seasonal_profile(self):
-
-        self.seasonal_profile = (
-            self.statistics_engine.calculate_seasonal_profile(
-                self.monthly_profile
-            )
-        )
-
-    def seasonal_profile_report(self):
-
-        if self.seasonal_profile is None:
-            print("No hay perfil estacional calculado.")
-            return
-
-        # Variación estacional
-        incremento = (
-            (self.seasonal_profile.max() - self.seasonal_profile.min())
-            / self.seasonal_profile.min()
-            * 100
-        )
-
-        # Estaciones de máximo y mínimo (siempre promedios multianuales)
-        estacion_max = f"{self.seasonal_profile.idxmax()} (promedio multianual)"
-        estacion_min = f"{self.seasonal_profile.idxmin()} (promedio multianual)"
-
-        valor_max = self.seasonal_profile.max()
-        valor_min = self.seasonal_profile.min()
-
-        # Informe
-        ReportPrinter.title("SEASONAL PROFILE REPORT")
-        ReportPrinter.blank()
-
-        # Máximos y mínimos
-        ReportPrinter.text(
-            "Estación de mayor consumo",
-            estacion_max
-        )
-
-        ReportPrinter.energy(
-            "Consumo máximo",
-            valor_max,
-            decimals=3
-        )
-
-        ReportPrinter.blank()
-
-        ReportPrinter.text(
-            "Estación de menor consumo",
-            estacion_min
-        )
-
-        ReportPrinter.energy(
-            "Consumo mínimo",
-            valor_min,
-            decimals=3
-        )
-
-        ReportPrinter.blank()
-
-        # Variación estacional
-        ReportPrinter.percent(
-            "Variación estacional",
-            incremento,
-            decimals=1
-        )
-
-        ReportPrinter.blank()
-
-        # Consumo medio por estación
-        print("Consumo medio por estación")
-        print("-" * 55)
-
-        for season, value in self.seasonal_profile.items():
-            ReportPrinter.text(
-                f"{season}",
-                f"{value:.3f} kWh"
-            )
-
-    def show_plots(self):
-
-        self.visualizer.show()
-
-    def plot_hourly_profile(self):
-
-        self.visualizer.plot_series(
-            self.hourly_profile,
-            title="Perfil horario de consumo",
-            xlabel="Hora",
-            ylabel="Consumo medio (kWh)"
-        )
-
-    def plot_weekday_profile(self):
-
-        self.visualizer.plot_weekday_profile(
-            self.weekday_profile
-        )
-
-    def plot_monthly_profile(self):
-
-        self.visualizer.plot_monthly_profile(
-            self.monthly_profile
-        )
-
-
-    def plot_seasonal_profile(self):
-
-        self.visualizer.plot_seasonal_profile(
-            self.seasonal_profile
-        )
-    def compare_months_by_year(self):
-
-        self.monthly_comparison = (
-            self.comparisons_engine.compare_months_by_year(
-                self.valid_dataset()
-            )
-        )
-    def monthly_comparison_report(self):
-
-        self.comparisons_engine.monthly_comparison_report(
-            self.monthly_comparison
-        )
-    
-    def calculate_monthly_variation(self):
-
-        self.monthly_variation = (
-            self.comparisons_engine.calculate_variation(
-                self.monthly_comparison
-            )
-        )
-
-    def monthly_variation_report(self):
-
-        self.comparisons_engine.monthly_variation_report(
-            self.monthly_variation
-        )
-
-    def plot_monthly_comparison(self):
-
-        self.visualizer.plot_comparison_lines(
-            dataframe=self.monthly_comparison,
-            title="Comparativa mensual",
-            xlabel="Mes",
-            ylabel="Consumo (kWh)"
-        )
-
-
-    def plot_monthly_variation(self):
-
-        self.visualizer.plot_monthly_variation(
-            self.monthly_variation
-        )
-
-    def yearly_comparison_report(self):
-
-        self.comparisons_engine.yearly_comparison_report(
-            self.yearly_comparison
-        )
-
-    def compare_years(self):
-        self.yearly_comparison = self.comparisons_engine.compare_years(
-            self.valid_dataset()
-        )
-
-
-    def plot_yearly_comparison(self):
-
-        self.visualizer.plot_yearly_comparison(
-            self.yearly_comparison
-        )
-
-    def compare_weeks_by_year(self):
-
-        self.weekly_comparison = (
-            self.comparisons_engine.compare_weeks_by_year(
-                self.valid_dataset()
-            )
-        )
-    
-    def weekly_comparison_report(self):
-
-        self.comparisons_engine.weekly_comparison_report(
-            self.weekly_comparison
-        )
-
-    def calculate_weekly_variation(self):
-
-        self.weekly_variation = (
-            self.comparisons_engine.calculate_variation(
-                self.weekly_comparison
-            )
-        )
-    
-    def weekly_variation_report(self):
-
-        self.comparisons_engine.weekly_variation_report(
-            self.weekly_variation
-        )
-
-    def plot_weekly_variation(self):
-
-        self.visualizer.plot_variation_bars(
-            dataframe=self.weekly_variation,
-            title="Variación semanal",
-            xlabel="Semana",
-            ylabel="Variación (%)"
-        )
-
-    def plot_monthly_variation(self):
-
-        self.visualizer.plot_variation_bars(
-            dataframe=self.monthly_variation,
-            title="Variación mensual",
-            xlabel="Mes",
-            ylabel="Variación (%)"
-        )
-
-    def plot_weekly_comparison(self):
-
-        self.visualizer.plot_comparison_lines(
-            dataframe=self.weekly_comparison,
-            title="Comparativa semanal",
-            xlabel="Semana",
-            ylabel="Consumo (kWh)"
-        )
-
-    def calculate_mean_consumption(self):
-
-        self.mean_consumption = (
-            self.indicators_engine.calculate_mean_consumption(
-                self.valid_dataset()
-            )
-        )
-
-    def mean_consumption_report(self):
-
-        ReportPrinter.title(
-            "MEAN CONSUMPTION"
-        )
-
-        ReportPrinter.blank()
-
-        labels = {
-
-            "hourly": "Consumo medio horario",
-            "daily": "Consumo medio diario",
-            "weekly": "Consumo medio semanal",
-            "monthly": "Consumo medio mensual",
-            "yearly": "Consumo medio anual",
-            "workday": "Consumo medio laborable",
-            "weekend": "Consumo medio fin de semana"
-
-        }
-
-        for key, label in labels.items():
-
-            ReportPrinter.energy(
-                label,
-                self.mean_consumption[key],
-                decimals=3
-            )
-            
-    def calculate_extremes(self):
-
-        self.extremes = (
-            self.indicators_engine.calculate_extremes(
-                dataset=self.valid_dataset(),
-                daily=self.daily_consumption,
-                monthly=self.monthly_consumption,
-                weekly=self.weekly_comparison
-            )
-        )
-
-    def _print_extreme(
-        self,
-        title: str,
-        key: str,
-        formatter
-    ):
-
-        index, value = self.extremes[key]
-
-        print(title)
-        print(f"  {formatter(index)}")
-        print(f"  {value:.3f} kWh")
-        print()
-    
-    def extremes_report(self):
-
-        ReportPrinter.title(
-            "CONSUMPTION EXTREMES"
-        )
-
-        ReportPrinter.blank()
-
-        self._print_extreme(
-            "Mayor consumo horario",
-            "hourly_max",
-            self._format_datetime
-        )
-
-        self._print_extreme(
-            "Menor consumo horario",
-            "hourly_min",
-            self._format_datetime
-        )
-
-        self._print_extreme(
-            "Mayor consumo diario",
-            "daily_max",
-            self._format_date
-        )
-
-        self._print_extreme(
-            "Menor consumo diario",
-            "daily_min",
-            self._format_date
-        )
-
-        self._print_extreme(
-            "Mayor consumo semanal",
-            "weekly_max",
-            self._format_week
-        )
-
-        self._print_extreme(
-            "Menor consumo semanal",
-            "weekly_min",
-            self._format_week
-        )
-
-        self._print_extreme(
-            "Mayor consumo mensual",
-            "monthly_max",
-            self._format_month
-        )
-
-        self._print_extreme(
-            "Menor consumo mensual",
-            "monthly_min",
-            self._format_month
-        )
-
-    def _format_datetime(
-        self,
-        timestamp
-    ) -> str:
-
-        return timestamp.strftime(
-            "%d/%m/%Y %H:%M"
-        )
-    
-    def _format_date(
-        self,
-        timestamp
-    ) -> str:
-
-        return timestamp.strftime(
-            "%d/%m/%Y"
-        )
-    
-    def _format_week(
-        self,
-        week
-    ) -> str:
-
-        year, week_number = week
-
-        return f"{week_number} ({year})"
-    
-    def _format_month(
-        self,
-        timestamp
-    ) -> str:
-
-        months = [
-            "Enero",
-            "Febrero",
-            "Marzo",
-            "Abril",
-            "Mayo",
-            "Junio",
-            "Julio",
-            "Agosto",
-            "Septiembre",
-            "Octubre",
-            "Noviembre",
-            "Diciembre"
-        ]
-
-        month = months[
-            timestamp.month - 1
-        ]
-
-        return f"{month} {timestamp.year}"
-    
-    def calculate_base_load(self):
-
-        self.base_load = (
-            self.indicators_engine.calculate_base_load(
-                self.valid_dataset()
-            )
-        )
-
-    def base_load_report(self):
-
-        ReportPrinter.title(
-            "BASE LOAD"
-        )
-
-        ReportPrinter.blank()
-
-        ReportPrinter.text(
-            "Carga base",
-            f"{self.base_load:.3f} kWh/h"
-        )
-        
-    def calculate_tariff_periods(self):
-
-        self.period_consumption = (
-            self.tariff_engine.calculate_period_consumption(
-                self.valid_dataset()
-            )
-        )
-
-        self.period_percentage = (
-            self.tariff_engine.calculate_period_percentage(
-                self.period_consumption
-            )
-        )
-    
-    def tariff_periods_report(self):
-
-        ReportPrinter.title(
-        "TARIFF PERIODS"
-        )
-
-        ReportPrinter.blank()
-
-        widths = [10, 18, 10]
-
-        ReportPrinter.table_header(
-        ["Periodo", "Consumo", "%"],
-        widths,
-        ["left", "right", "right"]
-        )
-
-        for period in self.tariff_engine.PERIODS:
-
-            ReportPrinter.table_row(
-            [
-                period,
-                f"{self.period_consumption[period]:.2f} kWh",
-                f"{self.period_percentage[period]:.2f} %"
-            ],
-            widths,
-            ["left", "right", "right"]
-            )
-
-    def calculate_solar_production(
-        self,
-        configuration
-    ):
-
-        self.solar_production = (
-            self.solar_engine.calculate_hourly_production(
-                configuration
-            )
-        )
-
-    def solar_production_report(self):
-
-        print()
-
-        print("=== PRODUCCIÓN SOLAR ===")
-
-        print()
-
-        print(self.solar_production.head())
-
-    def calculate_solar_statistics(self):
-
-        self.solar_engine.calculate_statistics()
-    
-    def calculate_monthly_solar_production(self):
-
-        self.solar_engine.calculate_monthly_production()
-
-    def monthly_solar_production_report(self):
-
-        self.solar_engine.monthly_production_report()
-
-    def solar_statistics_report(self):
-
-        self.solar_engine.statistics_report()
-
-    def calculate_energy_balance(self):
-
-        consumption = self.valid_dataset()["AE_kWh"]
-
-        self.solar_engine.calculate_energy_balance(
-            consumption
-        )
-
-    def solar_statistics_report(self):
-
-        self.solar_engine.production_statistics_report()
-
-    def energy_balance_report(self):
-
-        self.solar_engine.energy_balance_report()
-
-    def calculate_daily_solar_production(self):
-
-        self.solar_engine.calculate_daily_production()
-
-    def calculate_yearly_solar_production(self):
-
-        self.solar_engine.calculate_yearly_production()
-
-    def energy_statistics_report(self):
-
-        self.solar_engine.energy_balance_report()

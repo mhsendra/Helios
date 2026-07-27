@@ -19,10 +19,13 @@ def main():
     # 2. VALIDACIÓN
     # ==================================================
 
-    """analyzer.validate_timeseries()
+    analyzer.validate_timeseries()
     analyzer.find_missing_hours()
-    analyzer.quality_report()"""
-
+    analyzer.find_duplicate_timestamps()
+    analyzer.calculate_quality()
+    analyzer.quality_report()
+    analyzer.calculate_gap_summary()
+    analyzer.gap_report()
 
     # ==================================================
     # 3. CÁLCULOS
@@ -85,6 +88,7 @@ def main():
     # 4. INFORMES
     # ==================================================
 
+    analyzer.duplicate_report()
     analyzer.statistics_report()
 
     analyzer.daily_report()
@@ -112,17 +116,11 @@ def main():
 
     analyzer.tariff_periods_report()
 
-    #analyzer.solar_production_report()
-
     analyzer.solar_statistics_report()
 
     analyzer.monthly_solar_production_report()
 
-    analyzer.solar_statistics_report()
-
     analyzer.energy_balance_report()
-
-    analyzer.energy_statistics_report()
 
     # ==================================================
     # 5. GRÁFICOS
@@ -145,7 +143,7 @@ def main():
     # 6. VISUALIZACIÓN
     # ==================================================
 
-    #analyzer.show_plots()
+    analyzer.show_plots()
 
 
 if __name__ == "__main__":
