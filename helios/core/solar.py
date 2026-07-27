@@ -7,6 +7,7 @@ import pandas as pd
 from helios.reports.printer import ReportPrinter
 from helios.solar.configuration import SolarConfiguration
 from helios.solar.production import SolarProductionEngine
+from helios.solar.pvgis import PVGISClient
 
 class SolarEngine:
 
@@ -19,51 +20,24 @@ class SolarEngine:
         self.daily_production: pd.Series | None = None
         self.monthly_production: pd.Series | None = None
         self.yearly_production: pd.Series | None = None
-        
-        self.cache_directory = (
-            Path("data")
-            / "cache"
-            / "solar"
-        )
-
-        self.cache_directory.mkdir(
-            parents=True,
-            exist_ok=True
-        )
+        self.client = PVGISClient()
 
     def calculate_hourly_production(
         self,
         configuration: SolarConfiguration
     ) -> pd.DataFrame:
-        
+
         self.configuration = configuration
 
-        cache_file = self._build_cache_filename(
+        response = self.client.fetch(
             configuration
         )
 
-        if cache_file.exists():
-
-            response = self._load_cache(
-                cache_file
-            )
-
-        else:
-
-            response = self._fetch_pvgis(
-                configuration
-            )
-
-            self._save_cache(
-                cache_file,
+        self.hourly_production = (
+            self._parse_pvgis_response(
                 response
             )
-
-        dataframe = self._parse_pvgis_response(
-            response
         )
-
-        self.hourly_production = dataframe
 
         return self.hourly_production
     
@@ -131,60 +105,6 @@ class SolarEngine:
                 indent=4,
                 ensure_ascii=False
             )
-
-    def _fetch_pvgis(
-        self,
-        configuration: SolarConfiguration
-    ):
-
-        url = (
-            "https://re.jrc.ec.europa.eu/api/v5_3/seriescalc"
-        )
-
-        params = {
-
-            "lat": configuration.latitude,
-
-            "lon": configuration.longitude,
-
-            "pvcalculation": 1,
-
-            "peakpower": configuration.installed_power_kwp,
-
-            "loss": configuration.losses,
-
-            "angle": configuration.tilt,
-
-            "aspect": configuration.azimuth,
-
-            "startyear": configuration.reference_year,
-
-            "endyear": configuration.reference_year,
-
-            "pvtechchoice": configuration.pv_technology,
-
-            "mountingplace": configuration.mounting_place,
-
-            "outputformat": "json"
-
-        }
-
-        response = requests.get(
-            url,
-            params=params,
-            timeout=60
-        )
-
-        print("======================================")
-        print("PVGIS REQUEST")
-        print("======================================")
-        print(response.url)
-        print()
-        print("Status:", response.status_code)
-
-        response.raise_for_status()
-
-        return response.json()
 
     def _parse_pvgis_response(self, response):
 
