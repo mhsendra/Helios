@@ -7,6 +7,8 @@ import pandas as pd
 from helios.reports.printer import ReportPrinter
 from helios.solar.configuration import SolarConfiguration
 from helios.solar.production import SolarProductionEngine
+from helios.solar.balance import SolarBalanceEngine
+from helios.solar.statistics import SolarStatisticsEngine
 from helios.solar.pvgis import PVGISClient
 
 class SolarEngine:
@@ -21,6 +23,7 @@ class SolarEngine:
         self.monthly_production: pd.Series | None = None
         self.yearly_production: pd.Series | None = None
         self.client = PVGISClient()
+        self.production_engine = SolarProductionEngine()
 
     def calculate_hourly_production(
         self,
@@ -54,6 +57,8 @@ class SolarEngine:
                 self.hourly_production
             )
         )
+
+        return self.daily_production
 
     def _build_cache_filename(
         self,
@@ -164,207 +169,15 @@ class SolarEngine:
                 "Energy balance has not been calculated."
             )
 
-        # ==========================================
-        # Balance energético del periodo analizado
-        # ==========================================
-
-        balance = self.energy_balance
-
-        valid_balance = balance.dropna(
-            subset=["consumption_kwh"]
-        )
-
-        # ==========================================
-        # Producción anual de referencia (PVGIS)
-        # ==========================================
-
-        reference_production = (
-            self.hourly_production["production_kwh"]
-            .sum()
-        )
-
-        production = valid_balance["production_kwh"]
-
-        consumption = (
-            valid_balance["consumption_kwh"]
-            .sum()
-        )
-
-        period_production = (
-            production.sum()
-        )
-
-        number_of_days = (
-            valid_balance.index
-            .normalize()
-            .nunique()
-        )
-
-        number_of_months = (
-            valid_balance.index
-            .to_period("M")
-            .nunique()
-        )
-
-        # ==========================================
-        # Producción fotovoltaica
-        # ==========================================
-
-        installed_power = (
-            self.configuration.installed_power_kwp
-        )
-
-        productive_hours = (
-            production > 0
-        ).sum()
-
-        zero_production_hours = (
-            production == 0
-        ).sum()
-
-        hourly_average = (
-            production.mean()
-        )
-
-        daily_average = (
-            period_production /
-            number_of_days
-        )
-
-        monthly_average = (
-            period_production /
-            number_of_months
-        )
-
-        equivalent_hours = (
-            period_production /
-            installed_power
-        )
-
-        specific_yield = (
-            period_production /
-            installed_power
-        )
-
-        capacity_factor = (
-            period_production /
-            (
-                installed_power *
-                len(valid_balance)
+        self.solar_statistics = (
+            SolarStatisticsEngine.calculate(
+                self.hourly_production,
+                self.energy_balance,
+                self.configuration
             )
-        ) * 100
-
-        maximum_power = (
-            production.max()
         )
 
-        if productive_hours > 0:
-
-            minimum_power = (
-                production[
-                    production > 0
-                ].min()
-            )
-
-        else:
-
-            minimum_power = 0.0
-
-        # ==========================================
-        # Balance energético
-        # ==========================================
-
-        self_consumption = (
-            valid_balance["self_consumption_kwh"]
-            .sum()
-        )
-
-        grid_import = (
-            valid_balance["grid_import_kwh"]
-            .sum()
-        )
-
-        grid_export = (
-            valid_balance["grid_export_kwh"]
-            .sum()
-        )
-
-        self_consumption_ratio = (
-            self_consumption /
-            period_production
-        ) * 100
-
-        self_sufficiency = (
-            self_consumption /
-            consumption
-        ) * 100
-
-        coverage_ratio = (
-            period_production /
-            consumption
-        ) * 100
-
-        surplus_ratio = (
-            grid_export /
-            period_production
-        ) * 100
-
-        import_ratio = (
-            grid_import /
-            consumption
-        ) * 100
-
-        # ==========================================
-        # Resultados
-        # ==========================================
-
-        self.solar_statistics = {
-
-            "hours": len(valid_balance),
-
-            "productive_hours": productive_hours,
-
-            "zero_production_hours": zero_production_hours,
-
-            "period_production": period_production,
-
-            "annual_production": reference_production,
-
-            "daily_average": daily_average,
-
-            "monthly_average": monthly_average,
-
-            "hourly_average": hourly_average,
-
-            "maximum_power": maximum_power,
-
-            "minimum_power": minimum_power,
-
-            "equivalent_hours": equivalent_hours,
-
-            "specific_yield": specific_yield,
-
-            "capacity_factor": capacity_factor,
-
-            "consumption": consumption,
-
-            "self_consumption": self_consumption,
-
-            "grid_import": grid_import,
-
-            "grid_export": grid_export,
-
-            "self_consumption_ratio": self_consumption_ratio,
-
-            "self_sufficiency": self_sufficiency,
-
-            "coverage_ratio": coverage_ratio,
-
-            "surplus_ratio": surplus_ratio,
-
-            "import_ratio": import_ratio
-
-        }
+        return self.solar_statistics
 
     def calculate_monthly_production(self):
 
@@ -378,6 +191,8 @@ class SolarEngine:
             )
         )
 
+        return self.monthly_production
+
     def calculate_yearly_production(self):
 
         if self.monthly_production is None:
@@ -390,74 +205,27 @@ class SolarEngine:
             )
         )
 
+        return self.yearly_production
+
     def calculate_energy_balance(
         self,
         consumption: pd.Series
     ):
-
-        """
-        Calcula el balance energético horario entre
-        consumo y producción fotovoltaica.
-
-        Parámetros
-        ----------
-        consumption
-            Serie horaria de consumo (kWh).
-
-        """
 
         if self.hourly_production is None:
 
             raise RuntimeError(
                 "Hourly production has not been calculated."
             )
-        
-        # Producción horaria
-        production = self.hourly_production["production_kwh"]
 
-        # Clave MM-DD-HH de la producción
-        production_lookup = production.copy()
-        production_lookup.index = production_lookup.index.strftime("%m-%d-%H")
-
-        # Balance con el índice REAL del consumo
-        balance = pd.DataFrame(index=consumption.index)
-
-        balance["consumption_kwh"] = consumption.values
-
-        # Buscar la producción correspondiente al mismo perfil horario
-        profile_key = balance.index.strftime("%m-%d-%H")
-
-        balance["production_kwh"] = (
-            pd.Series(profile_key, index=balance.index)
-            .map(production_lookup)
-            .fillna(0.0)
+        self.energy_balance = (
+            SolarBalanceEngine.calculate(
+                consumption,
+                self.hourly_production
+            )
         )
 
-        balance["self_consumption_kwh"] = (
-            balance[
-                [
-                    "consumption_kwh",
-                    "production_kwh"
-                ]
-            ].min(axis=1)
-        )
-
-        balance["grid_import_kwh"] = (
-            balance["consumption_kwh"]
-            - balance["self_consumption_kwh"]
-        )
-
-        balance["grid_export_kwh"] = (
-            balance["production_kwh"]
-            - balance["self_consumption_kwh"]
-        )
-        
-        self.energy_balance = balance
-
-        # Solo horas con consumo válido
-        valid_balance = balance.dropna(subset=["consumption_kwh"])
-
-        consumption = valid_balance["consumption_kwh"].sum()
+        return self.energy_balance
 
     def monthly_production_report(self):
 
