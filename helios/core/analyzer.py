@@ -6,7 +6,7 @@ Consumption Analyzer
 from pathlib import Path
 from helios.core.cleaning import ConsumptionCleaner
 from helios.core.statistics import ConsumptionStatistics
-from helios.reports.visualizer import ConsumptionVisualizer
+from helios.plots.plotter import Plotter
 from helios.core.comparisons import ConsumptionComparisons
 from helios.core.indicators import IndicatorsEngine
 from helios.core.tariffs import TariffEngine
@@ -62,7 +62,7 @@ class ConsumptionAnalyzer:
         # Motores de procesamiento
         self.cleaner = ConsumptionCleaner()
         self.statistics_engine = ConsumptionStatistics()
-        self.visualizer = ConsumptionVisualizer()
+        self.plotter = Plotter()
         self.comparisons_engine = ConsumptionComparisons()
         self.indicators_engine = IndicatorsEngine()
         self.tariff_engine = TariffEngine()   
@@ -70,9 +70,6 @@ class ConsumptionAnalyzer:
         self.reporter = ConsumptionReports()
         self.quality_engine = DataQualityEngine()
         self.validation_engine = ValidationEngine()
-
-
-
 
     # ==================================================
     # Carga y preparación de datos
@@ -85,7 +82,6 @@ class ConsumptionAnalyzer:
             sheet_name="18_06_2025"
         )
 
-
     def clean_data(self):
 
         self.dataset = self.cleaner.mark_missing_data(self.dataset)
@@ -93,7 +89,6 @@ class ConsumptionAnalyzer:
 
         missing = (self.dataset["data_status"] == "missing").sum()
         blocks = self.dataset["gap_id"].nunique()
-
 
     def build_datetime(self):
 
@@ -112,7 +107,6 @@ class ConsumptionAnalyzer:
         )
 
         self.dataset.set_index("datetime", inplace=True)
-
 
     def valid_dataset(self) -> pd.DataFrame:
 
@@ -188,7 +182,6 @@ class ConsumptionAnalyzer:
             "errors": errors
         }
 
-
     def find_duplicate_timestamps(self):
 
         self.duplicates = (
@@ -245,7 +238,6 @@ class ConsumptionAnalyzer:
             ]
         )
 
-
     def inspect_data(self):
 
         print("\n=== Calidad de los datos ===")
@@ -265,7 +257,6 @@ class ConsumptionAnalyzer:
         # ==================================================
     # Estadísticas de consumo
     # ==================================================
-
     def calculate_statistics(self):
 
         self.statistics = self.statistics_engine.calculate(
@@ -302,20 +293,17 @@ class ConsumptionAnalyzer:
             self.statistics
         )
 
-
     def daily_report(self):
 
         self.reporter.daily(
             self.daily_consumption
         )
 
-
     def monthly_report(self):
 
         self.reporter.monthly(
             self.monthly_consumption
         )
-
 
     def yearly_report(self):
 
@@ -400,7 +388,6 @@ class ConsumptionAnalyzer:
             self.monthly_comparison
         )
 
-
     def calculate_monthly_variation(self):
 
         self.monthly_variation = (
@@ -409,13 +396,11 @@ class ConsumptionAnalyzer:
             )
         )
 
-
     def monthly_variation_report(self):
 
         self.comparisons_engine.monthly_variation_report(
             self.monthly_variation
         )
-
 
     def compare_weeks_by_year(self):
 
@@ -425,13 +410,11 @@ class ConsumptionAnalyzer:
             )
         )
 
-
     def weekly_comparison_report(self):
 
         self.comparisons_engine.weekly_comparison_report(
             self.weekly_comparison
         )
-
 
     def calculate_weekly_variation(self):
 
@@ -440,7 +423,6 @@ class ConsumptionAnalyzer:
                 self.weekly_comparison
             )
         )
-
 
     def weekly_variation_report(self):
 
@@ -611,85 +593,74 @@ class ConsumptionAnalyzer:
 
     def show_plots(self):
 
-        self.visualizer.show()
+        self.plotter.show()
 
 
     def plot_hourly_profile(self):
 
-        self.visualizer.plot_series(
-            self.hourly_profile,
-            title="Perfil horario de consumo",
-            xlabel="Hora",
-            ylabel="Consumo medio (kWh)"
+        self.plotter.profiles.plot_hourly_profile(
+            self.hourly_profile
         )
-
 
     def plot_weekday_profile(self):
 
-        self.visualizer.plot_weekday_profile(
-            self.weekday_profile
+        self.plotter.profiles.plot_weekday_profile(
+        self.weekday_profile
         )
 
 
     def plot_monthly_profile(self):
 
-        self.visualizer.plot_monthly_profile(
+        self.plotter.profiles.plot_monthly_profile(
             self.monthly_profile
         )
 
 
     def plot_seasonal_profile(self):
 
-        self.visualizer.plot_seasonal_profile(
+        self.plotter.profiles.plot_seasonal_profile(
             self.seasonal_profile
         )
 
 
     def plot_monthly_comparison(self):
 
-        self.visualizer.plot_comparison_lines(
-            dataframe=self.monthly_comparison,
-            title="Comparativa mensual",
-            xlabel="Mes",
-            ylabel="Consumo (kWh)"
-        )
+        self.plotter.comparisons.plot_monthly_comparison(
+        self.monthly_comparison
+    )
 
 
     def plot_yearly_comparison(self):
 
-        self.visualizer.plot_yearly_comparison(
-            self.yearly_comparison
-        )
+        self.plotter.comparisons.plot_yearly_comparison(
+        self.yearly_comparison
+    )
 
 
     def plot_weekly_comparison(self):
 
-        self.visualizer.plot_comparison_lines(
-            dataframe=self.weekly_comparison,
-            title="Comparativa semanal",
-            xlabel="Semana",
-            ylabel="Consumo (kWh)"
+        self.plotter.variations.plot_monthly_variation(
+        self.monthly_variation
+    )
+
+
+    def plot_monthly_comparison(self):
+
+        self.plotter.comparisons.plot_monthly_comparison(
+            self.monthly_comparison
         )
-
-
-    def plot_monthly_variation(self):
-
-        self.visualizer.plot_variation_bars(
-            dataframe=self.monthly_variation,
-            title="Variación mensual",
-            xlabel="Mes",
-            ylabel="Variación (%)"
-        )
-
 
     def plot_weekly_variation(self):
 
-        self.visualizer.plot_variation_bars(
-            dataframe=self.weekly_variation,
-            title="Variación semanal",
-            xlabel="Semana",
-            ylabel="Variación (%)"
-        )
+        self.plotter.variations.plot_weekly_variation(
+        self.weekly_variation
+    )
+
+    def plot_monthly_variation(self):
+
+        self.plotter.variations.plot_monthly_variation(
+        self.monthly_variation
+    )
 
         # ==================================================
     # Métodos privados y auxiliares
