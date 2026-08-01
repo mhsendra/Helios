@@ -1,8 +1,11 @@
 from helios.core.analyzer import ConsumptionAnalyzer
 from helios.solar.configuration import SolarConfiguration
+from dotenv import load_dotenv
 
 
 def main():
+
+    load_dotenv()
 
     analyzer = ConsumptionAnalyzer()
 

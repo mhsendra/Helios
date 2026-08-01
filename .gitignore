@@ -17,3 +17,5 @@ reports/
 *.xlsx
 
 *.csv
+
+.env
