@@ -11,9 +11,13 @@ from helios.core.comparisons import ConsumptionComparisons
 from helios.core.indicators import IndicatorsEngine
 from helios.core.tariffs import TariffEngine
 from helios.core.solar import SolarEngine
-from helios.reports.consumption_reports import ConsumptionReports
 from helios.core.quality import DataQualityEngine
 from helios.core.validation import ValidationEngine
+from helios.reports.statistics import StatisticsReports
+from helios.reports.profiles import ProfilesReports
+from helios.reports.quality import QualityReports
+from helios.reports.indicators import IndicatorsReports
+from helios.reports.tariffs import TariffReports
 
 import pandas as pd
 import calendar
@@ -38,9 +42,17 @@ class ConsumptionAnalyzer:
         self.indicators_engine = IndicatorsEngine()
         self.tariff_engine = TariffEngine()   
         self.solar_engine = SolarEngine()
-        self.reporter = ConsumptionReports()
         self.quality_engine = DataQualityEngine()
         self.validation_engine = ValidationEngine()
+        self.statistics_reporter = StatisticsReports()
+
+        self.profile_reporter = ProfilesReports()
+
+        self.quality_reporter = QualityReports()
+
+        self.indicator_reporter = IndicatorsReports()
+
+        self.tariff_reporter = TariffReports()
 
         # Relaciones entre motores
         self.indicators_engine.statistics = self.statistics_engine
@@ -85,8 +97,6 @@ class ConsumptionAnalyzer:
 
         self.dataset.set_index("datetime", inplace=True)
 
-        self._update_engines()
-
     def valid_dataset(self) -> pd.DataFrame:
 
         """
@@ -121,7 +131,7 @@ class ConsumptionAnalyzer:
 
     def quality_report(self):
 
-        self.reporter.quality(
+        self.quality_reporter.quality(
             self.quality
         )
 
@@ -172,7 +182,7 @@ class ConsumptionAnalyzer:
 
     def duplicate_report(self):
 
-        self.reporter.duplicates(
+        self.quality_reporter.duplicates(
             self.duplicates
         )
 
@@ -186,7 +196,7 @@ class ConsumptionAnalyzer:
 
     def gap_report(self):
 
-        self.reporter.gap(
+        self.quality_reporter.gap(
             self.gap_summary
         )
 
@@ -246,12 +256,12 @@ class ConsumptionAnalyzer:
         self.calculate_gap_summary()
 
     def validation_reports(self):
-
-        self.duplicate_report()
-
+        
         self.quality_report()
 
         self.gap_report()
+
+        self.duplicate_report()
 
     # ==================================================
     # Estadísticas de consumo
@@ -294,34 +304,26 @@ class ConsumptionAnalyzer:
 
     def statistics_report(self):
 
-        self.reporter.statistics(
+        self.statistics_reporter.statistics(
             self.statistics_engine.statistics
         )
 
     def daily_report(self):
 
-        self.reporter.daily(self.statistics_engine.daily_consumption)
+        self.statistics_reporter.daily(self.statistics_engine.daily_consumption)
 
 
     def monthly_report(self):
 
-        self.reporter.monthly(
+        self.statistics_reporter.monthly(
             self.statistics_engine.monthly_consumption
         )
 
     def yearly_report(self):
 
-        self.reporter.yearly(
+        self.statistics_reporter.yearly(
             self.statistics_engine.yearly_consumption
         )
-
-    def calculate_statistics_pipeline(self):
-
-        self.calculate_statistics()
-
-        self.calculate_daily_consumption()
-        self.calculate_monthly_consumption()
-        self.calculate_yearly_consumption()
 
     def statistics_reports(self):
 
@@ -343,7 +345,7 @@ class ConsumptionAnalyzer:
 
     def hourly_profile_report(self):
 
-        self.reporter.hourly_profile(
+        self.profile_reporter.hourly_profile(
             self.statistics_engine.hourly_profile
         )
 
@@ -355,7 +357,7 @@ class ConsumptionAnalyzer:
 
     def weekday_profile_report(self):
 
-        self.reporter.weekday_profile(
+        self.profile_reporter.weekday_profile(
             self.statistics_engine.weekday_profile
         )
 
@@ -367,7 +369,7 @@ class ConsumptionAnalyzer:
 
     def monthly_profile_report(self):
 
-        self.reporter.monthly_profile(
+        self.profile_reporter.monthly_profile(
             self.statistics_engine.monthly_profile
         )
 
@@ -377,7 +379,7 @@ class ConsumptionAnalyzer:
         
     def seasonal_profile_report(self):
 
-        self.reporter.seasonal_profile(
+        self.profile_reporter.seasonal_profile(
             self.statistics_engine.seasonal_profile
         )
 
@@ -494,7 +496,7 @@ class ConsumptionAnalyzer:
 
     def mean_consumption_report(self):
 
-        self.reporter.mean_consumption(
+        self.indicator_reporter.mean_consumption(
             self.indicators_engine.mean_consumption
         )    
 
@@ -509,7 +511,7 @@ class ConsumptionAnalyzer:
 
     def extremes_report(self):
 
-        self.reporter.extremes(
+        self.indicator_reporter.extremes(
             self.indicators_engine.extremes
         )
 
@@ -521,7 +523,7 @@ class ConsumptionAnalyzer:
 
     def base_load_report(self):
 
-        self.reporter.base_load(
+        self.indicator_reporter.base_load(
             self.indicators_engine.base_load
         )
 
@@ -555,7 +557,7 @@ class ConsumptionAnalyzer:
 
     def tariff_periods_report(self):
 
-        self.reporter.tariff_periods(
+        self.tariff_reporter.tariff_periods(
             self.tariff_engine.period_consumption,
             self.tariff_engine.period_percentage,
             self.tariff_engine.PERIODS
@@ -811,13 +813,3 @@ class ConsumptionAnalyzer:
 
         # Día normal
         return set(range(1, 25))
-
-    def _update_engines(self):
-
-        valid = self.valid_dataset()
-
-        self.statistics_engine.dataset = valid
-        self.comparisons_engine.dataset = valid
-        self.indicators_engine.dataset = valid
-        self.tariff_engine.dataset = valid
-        self.solar_engine.dataset = valid
