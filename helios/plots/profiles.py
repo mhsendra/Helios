@@ -44,6 +44,22 @@ class ProfilesPlots:
             ylabel="Consumo medio (kWh)"
         )
 
+    def plot_workday_vs_weekend_profile(self, profile):
+        df = pd.DataFrame({
+            "Consumo": [
+                profile["workdays"],
+                profile["weekend"]
+            ]
+        }, index=["Laborables", "Fin de semana"])
+
+        self.plotter.plot_variation_bars(
+            dataframe=df,
+            title="Consumo: Laborables vs Fin de semana",
+            xlabel="Tipo de día",
+            ylabel="kWh"
+        )
+
+
     def plot_monthly_profile(
         self,
         profile: pd.Series

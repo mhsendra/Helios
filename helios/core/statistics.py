@@ -181,5 +181,36 @@ class ConsumptionStatistics:
         self.seasonal_profile = pd.Series(profile)
 
         return self.seasonal_profile
+    
+    def calculate_workday_vs_weekend_profile(self, dataset):
+        """
+        Calcula el consumo medio en laborables vs fin de semana.
+        Devuelve un dict con dos claves: 'workdays' y 'weekend'.
+        """
+
+        dataset = dataset.copy()
+        dataset["weekday"] = dataset.index.weekday
+
+        workdays = dataset[dataset["weekday"] < 5]["AE_kWh"].mean()
+        weekend = dataset[dataset["weekday"] >= 5]["AE_kWh"].mean()
+
+        self.workday_vs_weekend_profile = {
+            "workdays": workdays,
+            "weekend": weekend
+        }
+
+    def calculate_workday_vs_weekend_profile(self, dataset):
+        dataset = dataset.copy()
+        dataset["weekday"] = dataset.index.weekday
+
+        workdays = dataset[dataset["weekday"] < 5]["AE_kWh"].mean()
+        weekend = dataset[dataset["weekday"] >= 5]["AE_kWh"].mean()
+
+        self.workday_vs_weekend_profile = {
+            "workdays": workdays,
+            "weekend": weekend
+        }
+
+
         
     
