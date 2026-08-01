@@ -55,8 +55,6 @@ class SolarManager:
             response
         )
 
-        return self.hourly_production
-
     def calculate_daily_production(self):
     
             if self.hourly_production is None:
@@ -71,8 +69,6 @@ class SolarManager:
                 )
             )
     
-            return self.daily_production
-
     def calculate_monthly_production(self):
 
         if self.daily_production is None:
@@ -84,8 +80,6 @@ class SolarManager:
                 self.daily_production
             )
         )
-
-        return self.monthly_production
 
     def calculate_yearly_production(self):
     
@@ -99,8 +93,6 @@ class SolarManager:
                 )
             )
     
-            return self.yearly_production
-
     def calculate_energy_balance(
         self,
         consumption: pd.Series
@@ -118,8 +110,6 @@ class SolarManager:
                 self.hourly_production
             )
         )
-
-        return self.energy_balance
 
     def calculate_statistics(self):
 
@@ -142,8 +132,6 @@ class SolarManager:
                 self.configuration
             )
         )
-
-        return self.statistics
 
     def production_statistics_report(self):
 

@@ -4,6 +4,10 @@ from pathlib import Path
 
 from datetime import datetime
 
+from collections.abc import Mapping
+
+import pandas as pd
+
 class TariffEngine:
 
     PERIODS = (
@@ -17,6 +21,10 @@ class TariffEngine:
         self.national_holidays = set()
 
         self.load_national_holidays()
+
+        self.period_consumption = None
+        
+        self.period_percentage = None
 
     def is_national_holiday(
     self,
@@ -69,9 +77,9 @@ class TariffEngine:
         )
 
     def calculate_period_consumption(
-    self,
-    dataset
-    ):
+        self,
+        dataset: pd.DataFrame
+    ) -> dict[str, float]:
 
         data = dataset.copy()
 
@@ -81,44 +89,32 @@ class TariffEngine:
             )
         )
 
-        #print(data["Periodo"].value_counts(dropna=False))
-
-        consumption = (
+        self.period_consumption = (
             data
             .groupby("Periodo")["AE_kWh"]
             .sum()
         )
 
-        consumption = (
-            consumption
-            .reindex(
-                self.PERIODS
-            )
+        self.period_consumption = (
+            self.period_consumption
+            .reindex(self.PERIODS)
             .fillna(0)
+            .to_dict()
         )
 
-        return consumption.to_dict()
+        return self.period_consumption
 
-    def calculate_period_percentage(
-    self,
-    period_consumption
-    ):
+    def calculate_period_percentage(self):
 
-        total = sum(
-            period_consumption.values()
-        )
+        total = sum(self.period_consumption.values())
 
-        return {
-
-            period:
-
-            consumption / total * 100
-
+        self.period_percentage = {
+            period: consumption / total * 100
             for period, consumption
-
-            in period_consumption.items()
-
+            in self.period_consumption.items()
         }
+
+        return self.period_percentage
     
     def load_national_holidays(self):
 

@@ -5,59 +5,63 @@ from helios.reports.printer import ReportPrinter
 
 class ConsumptionComparisons:
 
-    def compare_months_by_year(self, df):
+    def __init__(self):
 
-        comparison = (
-            df["AE_kWh"]
+        self.monthly_comparison = None
+        self.monthly_variation = None
+
+        self.weekly_comparison = None
+        self.weekly_variation = None
+
+        self.yearly_comparison = None
+
+    def compare_months_by_year(
+        self,
+        dataset
+    ):
+
+        self.monthly_comparison = (
+            dataset["AE_kWh"]
             .groupby([
-                df.index.year,
-                df.index.month
+                dataset.index.year,
+                dataset.index.month
             ])
             .sum()
             .unstack(level=0)
         )
 
-        comparison.index = [
+        self.monthly_comparison.index = [
             "Enero", "Febrero", "Marzo", "Abril",
             "Mayo", "Junio", "Julio", "Agosto",
             "Septiembre", "Octubre", "Noviembre", "Diciembre"
         ]
 
-        comparison.index.name = None
-        comparison.columns.name = None
+        self.monthly_comparison.index.name = None
+        self.monthly_comparison.columns.name = None
 
-        return comparison
+        return self.monthly_comparison
 
-    def calculate_variation(self, comparison):
+    def compare_years(
+        self,
+        df
+    ):
 
-        variation = (
-            comparison
-            .pct_change(axis=1, fill_method=None)
-            * 100
-        )
-
-        variation = variation.iloc[:, 1:]
-
-        variation.columns = [
-            f"{year} vs {year - 1}"
-            for year in variation.columns
-        ]
-
-        return variation
-
-    def compare_years(self, df):
-
-        return (
+        self.yearly_comparison = (
             df["AE_kWh"]
             .groupby(df.index.year)
             .sum()
         )
 
-    def compare_weeks_by_year(self, df):
+        return self.yearly_comparison
+
+    def compare_weeks_by_year(
+        self,
+        df
+    ):
 
         iso = df.index.isocalendar()
 
-        comparison = (
+        self.weekly_comparison = (
             df["AE_kWh"]
             .groupby([
                 iso.year,
@@ -67,15 +71,15 @@ class ConsumptionComparisons:
             .unstack(level=0)
         )
 
-        comparison.index = [
+        self.weekly_comparison.index = [
             f"S{week:02d}"
-            for week in comparison.index
+            for week in self.weekly_comparison.index
         ]
 
-        comparison.index.name = None
-        comparison.columns.name = None
+        self.weekly_comparison.index.name = None
+        self.weekly_comparison.columns.name = None
 
-        return comparison
+        return self.weekly_comparison
 
     # ==========================================================
     # REPORTS
@@ -224,3 +228,39 @@ class ConsumptionComparisons:
                 widths,
                 ["left"] + ["right"] * len(variation.columns)
             )
+
+    def calculate_monthly_variation(self):
+
+        self.monthly_variation = self.calculate_variation(
+            self.monthly_comparison
+        )
+
+        return self.monthly_variation
+
+    def calculate_weekly_variation(self):
+
+        self.weekly_variation = self.calculate_variation(
+            self.weekly_comparison
+        )
+
+        return self.weekly_variation
+
+    def calculate_variation(
+    self,
+    comparison
+):
+
+        variation = (
+            comparison
+            .pct_change(axis=1, fill_method=None)
+            * 100
+        )
+
+        variation = variation.iloc[:, 1:]
+
+        variation.columns = [
+            f"{year} vs {year - 1}"
+            for year in variation.columns
+        ]
+
+        return variation

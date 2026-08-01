@@ -1,114 +1,94 @@
+import pandas as pd
 class ValidationEngine:
 
     def __init__(self):
-        self.quality = None
+        self.gap_summary = None
+        self.duplicates = None
 
     def calculate_gap_summary(
-            self,
-            dataset
-        ):
+    self,
+    dataset: pd.DataFrame
+):
 
-            gaps = dataset[
-                dataset["gap_id"].notna()
-            ]
+        gaps = dataset[
+            dataset["gap_id"].notna()
+        ]
 
-            if gaps.empty:
-                return None
+        if gaps.empty:
 
-            summary = (
-                gaps
-                .groupby("gap_id")
-                .agg(
-                    start=("gap_size", lambda s: s.index.min()),
-                    end=("gap_size", lambda s: s.index.max()),
-                    hours=("gap_size", "first"),
-                    gap_type=("gap_type", "first")
-                )
+            self.gap_summary = None
+
+            return self.gap_summary
+
+        summary = (
+            gaps
+            .groupby("gap_id")
+            .agg(
+                start=("gap_size", lambda s: s.index.min()),
+                end=("gap_size", lambda s: s.index.max()),
+                hours=("gap_size", "first"),
+                gap_type=("gap_type", "first")
             )
+        )
 
-            distribution = (
-                summary["hours"]
-                .value_counts()
-                .sort_index()
-            )
+        distribution = (
+            summary["hours"]
+            .value_counts()
+            .sort_index()
+        )
 
-            return {
+        self.gap_summary = {
 
-                "gaps": gaps,
+            "gaps": gaps,
 
-                "summary": summary,
+            "summary": summary,
 
-                "total_missing": (
-                    dataset["data_status"] == "missing"
-                ).sum(),
-
-                "total_blocks": len(summary),
-
-                "largest_gap": gaps["gap_size"].max(),
-
-                "small": (
-                    summary["gap_type"] == "small"
-                ).sum(),
-
-                "large": (
-                    summary["gap_type"] == "large"
-                ).sum(),
-
-                "distribution": distribution
-
-            }
-        
-    def calculate(self, dataset):
-
-            total_hours = len(dataset)
-
-            missing_hours = (
+            "total_missing": (
                 dataset["data_status"] == "missing"
-            ).sum()
+            ).sum(),
 
-            valid_hours = total_hours - missing_hours
+            "total_blocks": len(summary),
 
-            duplicates = dataset.index.duplicated().sum()
+            "largest_gap": gaps["gap_size"].max(),
 
-            coverage = (valid_hours / total_hours) * 100
+            "small": (
+                summary["gap_type"] == "small"
+            ).sum(),
 
-            if coverage >= 99:
-                quality = "EXCELENTE"
-            elif coverage >= 97:
-                quality = "MUY BUENA"
-            elif coverage >= 95:
-                quality = "BUENA"
-            else:
-                quality = "REVISAR"
+            "large": (
+                summary["gap_type"] == "large"
+            ).sum(),
 
-            self.quality = {
-                "total_hours": total_hours,
-                "valid_hours": valid_hours,
-                "missing_hours": missing_hours,
-                "duplicates": duplicates,
-                "coverage": coverage,
-                "quality": quality
-            }
+            "distribution": distribution
 
-            return self.quality
+        }
+
+        return self.gap_summary
     
-    def find_duplicate_timestamps(self, dataset):
+    def find_duplicate_timestamps(
+    self,
+    dataset: pd.DataFrame
+):
 
-        duplicates = dataset.index[
+        duplicated_index = dataset.index[
             dataset.index.duplicated(keep=False)
         ]
 
-        if len(duplicates) == 0:
+        if len(duplicated_index) == 0:
 
-            return {
+            self.duplicates = {
                 "count": 0,
                 "duplicates": None
             }
 
-        return {
+            return self.duplicates
 
-            "count": len(duplicates),
+        self.duplicates = {
 
-            "duplicates": dataset.loc[duplicates]
+            "count": len(duplicated_index),
+
+            "duplicates": dataset.loc[duplicated_index]
 
         }
+
+        return self.duplicates

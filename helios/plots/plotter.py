@@ -12,8 +12,6 @@ class Plotter:
 
         self.profiles = ProfilesPlots(self)
         self.comparisons = ComparisonPlots(self)
-        self.profiles = ProfilesPlots(self)
-        self.comparisons = ComparisonPlots(self)
         self.variations = VariationPlots(self)
 
     def plot_series(
