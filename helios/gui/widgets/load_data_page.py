@@ -87,9 +87,11 @@ class LoadDataPage(QWidget):
 
             self.analyzer.calculate_quality()
 
+            self.analyzer.calculate_statistics()
+
             self.update_project_info()
 
-            self.main_window.validation_page.update_data()
+            self.main_window.update_project_pages()
             
             self.main_window.set_project_loaded(True)
 

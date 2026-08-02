@@ -41,37 +41,6 @@ class ValidationPage(QWidget):
 
     def update_data(self):
 
-        if self.analyzer.quality is None:
-            return
-
-        quality = self.analyzer.quality
-
-        self.quality_label.setText(
-            quality["quality"]
-        )
-
-        self.coverage_label.setText(
-            f'{quality["coverage"]:.2f} %'
-        )
-
-        self.records_label.setText(
-            str(quality["total_hours"])
-        )
-
-        self.valid_hours_label.setText(
-            str(quality["valid_hours"])
-        )
-
-        self.missing_hours_label.setText(
-            str(quality["missing_hours"])
-        )
-
-        self.duplicates_label.setText(
-            str(quality["duplicates"])
-        )
-
-    def update_data(self):
-
         quality = self.analyzer.quality
 
         if quality is None:

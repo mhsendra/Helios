@@ -12,6 +12,7 @@ from PySide6.QtCore import Qt
 from helios.gui.widgets.home_page import HomePage
 from helios.gui.widgets.load_data_page import LoadDataPage
 from helios.gui.widgets.validation_page import ValidationPage
+from helios.gui.widgets.statistics_page import StatisticsPage
 from helios.core.analyzer import ConsumptionAnalyzer
 
 
@@ -94,6 +95,10 @@ class MainWindow(QMainWindow):
 
         self.pages.addWidget(self.validation_page)
 
+        self.statistics_page = StatisticsPage(self.analyzer)
+        
+        self.pages.addWidget(self.statistics_page)
+
     # ==================================================
     # Árbol de navegación
     # ==================================================
@@ -106,7 +111,7 @@ class MainWindow(QMainWindow):
 
         self.analysis_item = QTreeWidgetItem(["Análisis"])
 
-        self.results_item = QTreeWidgetItem(["self.results_item"])
+        self.results_item = QTreeWidgetItem(["Resultados"])
 
         QTreeWidgetItem(self.project_item, ["Cargar datos"])
         QTreeWidgetItem(self.project_item, ["Configuración solar"])
@@ -132,6 +137,7 @@ class MainWindow(QMainWindow):
         self.page_map["Inicio"] = self.home_page
         self.page_map["Cargar datos"] = self.load_page
         self.page_map["Validación"] = self.validation_page
+        self.page_map["Estadísticas"] = self.statistics_page
 
         self.set_project_loaded(False)
 
@@ -164,3 +170,8 @@ class MainWindow(QMainWindow):
         if page is not None:
 
             self.pages.setCurrentWidget(page)
+
+    def update_project_pages(self):
+
+        self.validation_page.update_data()
+        self.statistics_page.update_data()
