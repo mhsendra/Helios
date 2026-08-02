@@ -16,6 +16,7 @@ from helios.gui.widgets.statistics_page import StatisticsPage
 from helios.gui.widgets.profiles_page import ProfilesPage
 from helios.gui.widgets.comparisons_page import ComparisonsPage
 from helios.gui.widgets.indicators_page import IndicatorsPage
+from helios.gui.widgets.solar_page import SolarPage
 from helios.core.analyzer import ConsumptionAnalyzer
 
 
@@ -71,6 +72,8 @@ class MainWindow(QMainWindow):
 
         self.navigation.setHeaderHidden(True)
 
+        self.navigation.setMinimumWidth(240)
+
         splitter.addWidget(self.navigation)
 
         self.pages = QStackedWidget()
@@ -114,7 +117,9 @@ class MainWindow(QMainWindow):
 
         self.pages.addWidget(self.indicators_page)
 
+        self.solar_page = SolarPage(self.analyzer)
 
+        self.pages.addWidget(self.solar_page)
 
     # ==================================================
     # Árbol de navegación
@@ -158,6 +163,7 @@ class MainWindow(QMainWindow):
         self.page_map["Perfiles"] = self.profiles_page
         self.page_map["Comparativas"] = self.comparisons_page
         self.page_map["Indicadores"] = self.indicators_page
+        self.page_map["Solar"] = self.solar_page
 
         self.set_project_loaded(False)
 
