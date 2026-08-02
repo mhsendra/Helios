@@ -3,11 +3,11 @@ from PySide6.QtWidgets import QWidget, QLabel, QVBoxLayout
 
 class HomePage(QWidget):
 
-    def __init__(self, analyzer):
+    def __init__(self, project):
 
         super().__init__()
 
-        self.analyzer = analyzer
+        self.project = project
 
         layout = QVBoxLayout(self)
 

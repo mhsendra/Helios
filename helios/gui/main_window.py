@@ -17,7 +17,7 @@ from helios.gui.widgets.profiles_page import ProfilesPage
 from helios.gui.widgets.comparisons_page import ComparisonsPage
 from helios.gui.widgets.indicators_page import IndicatorsPage
 from helios.gui.widgets.solar_page import SolarPage
-from helios.core.analyzer import ConsumptionAnalyzer
+from helios.core.project import HeliosProject
 
 
 class MainWindow(QMainWindow):
@@ -26,7 +26,7 @@ class MainWindow(QMainWindow):
 
         super().__init__()
 
-        self.analyzer = ConsumptionAnalyzer()
+        self.project = HeliosProject()
 
         self.page_map = {}
 
@@ -89,35 +89,35 @@ class MainWindow(QMainWindow):
 
     def build_pages(self):
 
-        self.home_page = HomePage(self.analyzer)
+        self.home_page = HomePage(self.project)
 
         self.pages.addWidget(self.home_page)
 
-        self.load_page = LoadDataPage(self.analyzer, self)
+        self.load_page = LoadDataPage(self.project, self)
 
         self.pages.addWidget(self.load_page)
 
-        self.validation_page = ValidationPage(self.analyzer)
+        self.validation_page = ValidationPage(self.project)
 
         self.pages.addWidget(self.validation_page)
 
-        self.statistics_page = StatisticsPage(self.analyzer)
+        self.statistics_page = StatisticsPage(self.project)
         
         self.pages.addWidget(self.statistics_page)
 
-        self.profiles_page = ProfilesPage(self.analyzer)
+        self.profiles_page = ProfilesPage(self.project)
 
         self.pages.addWidget(self.profiles_page)
 
-        self.comparisons_page = ComparisonsPage(self.analyzer)
+        self.comparisons_page = ComparisonsPage(self.project)
 
         self.pages.addWidget(self.comparisons_page)
 
-        self.indicators_page = IndicatorsPage(self.analyzer)
+        self.indicators_page = IndicatorsPage(self.project)
 
         self.pages.addWidget(self.indicators_page)
 
-        self.solar_page = SolarPage(self.analyzer)
+        self.solar_page = SolarPage(self.project)
 
         self.pages.addWidget(self.solar_page)
 

@@ -11,11 +11,12 @@ from pathlib import Path
 
 class LoadDataPage(QWidget):
 
-    def __init__(self, analyzer, main_window):
+    def __init__(self, project, main_window):
 
         super().__init__()
 
-        self.analyzer = analyzer
+        self.project = project
+        self.analyzer = project.analyzer
         self.main_window = main_window
         
         layout = QVBoxLayout(self)

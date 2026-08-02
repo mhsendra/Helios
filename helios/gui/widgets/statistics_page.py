@@ -6,11 +6,12 @@ from PySide6.QtWidgets import (
 )
 class StatisticsPage(QWidget):
 
-    def __init__(self, analyzer):
+    def __init__(self, project):
 
         super().__init__()
 
-        self.analyzer = analyzer
+        self.project = project
+        self.analyzer = project.analyzer
 
         layout = QVBoxLayout(self)
 

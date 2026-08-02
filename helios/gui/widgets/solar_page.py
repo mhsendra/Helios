@@ -7,19 +7,22 @@ from PySide6.QtWidgets import (
     QDoubleSpinBox,
     QComboBox,
     QPushButton,
-    QSpinBox
+    QSpinBox,
+    QLabel
 )
 
 class SolarPage(QWidget):
 
-    def __init__(self, analyzer):
+    def __init__(self, project):
         super().__init__()
 
-        self.analyzer = analyzer
+        self.project = project
 
         self.setup_ui()
 
         self.configure_widgets()
+
+        self.connect_signals()
 
     def setup_ui(self):
 
@@ -55,6 +58,8 @@ class SolarPage(QWidget):
         self.configure_latitude()
         self.configure_longitude()
 
+        self.configure_production_page()
+
     def configure_peak_power(self):
 
         self.peak_power_spinbox.setRange(0.10, 100.00)
@@ -74,8 +79,13 @@ class SolarPage(QWidget):
         layout.addWidget(self.create_calculate_button())
 
     def build_production_tab(self):
-        pass
 
+        layout = QVBoxLayout(self.production_tab)
+
+        layout.addWidget(self.create_production_status_group())
+        layout.addWidget(self.create_production_summary_group())
+
+        layout.addStretch()
 
     def build_balance_tab(self):
         pass
@@ -183,6 +193,141 @@ class SolarPage(QWidget):
             "Integrado en edificio",
             "building"
         )
+
+    def create_production_status_group(self):
+
+        group = QGroupBox("Estado de la producción")
+
+        layout = QFormLayout(group)
+
+        self.source_label = QLabel("-")
+        self.database_label = QLabel("-")
+        self.reference_year_label = QLabel("-")
+        self.last_update_label = QLabel("-")
+        self.production_status_label = QLabel("-")
+
+        layout.addRow("Fuente", self.source_label)
+        layout.addRow("Base de datos", self.database_label)
+        layout.addRow("Año de referencia", self.reference_year_label)
+        layout.addRow("Última actualización", self.last_update_label)
+        layout.addRow("Estado", self.production_status_label)
+
+        self.calculate_production_button = QPushButton(
+            "Calcular producción"
+        )
+
+        layout.addRow("", self.calculate_production_button)
+
+        return group
+
+    def create_production_summary_group(self):
+
+        group = QGroupBox("Resumen")
+
+        layout = QFormLayout(group)
+
+        self.annual_production_label = QLabel("-")
+        self.specific_production_label = QLabel("-")
+        self.coverage_label = QLabel("-")
+
+        layout.addRow(
+            "Producción anual",
+            self.annual_production_label
+        )
+
+        layout.addRow(
+            "Producción específica",
+            self.specific_production_label
+        )
+
+        layout.addRow(
+            "Cobertura",
+            self.coverage_label
+        )
+
+        return group
+
+    def configure_production_page(self):
+
+        self.source_label.setText("PVGIS")
+
+        self.database_label.setText("SARAH3")
+
+        self.reference_year_label.setText("-")
+
+        self.last_update_label.setText("Nunca")
+
+        self.production_status_label.setText("No calculada")
+
+        self.annual_production_label.setText("-")
+
+        self.specific_production_label.setText("-")
+
+        self.coverage_label.setText("-")
+
+        self.calculate_production_button.setMinimumHeight(40)
+
+        self.calculate_production_button.setToolTip(
+            "Obtiene la producción fotovoltaica desde PVGIS."
+        )
+
+    def update_production_status(
+        self,
+        source: str,
+        database: str,
+        reference_year: int | None,
+        last_update: str,
+        status: str,
+        annual_production: float | None,
+        specific_production: float | None,
+        coverage: float | None,
+    ):
+
+        self.source_label.setText(source)
+
+        self.database_label.setText(database)
+
+        self.reference_year_label.setText(
+            "-" if reference_year is None else str(reference_year)
+        )
+
+        self.last_update_label.setText(last_update)
+
+        self.production_status_label.setText(status)
+
+        self.annual_production_label.setText(
+            "-"
+            if annual_production is None
+            else f"{annual_production:,.1f} kWh"
+        )
+
+        self.specific_production_label.setText(
+            "-"
+            if specific_production is None
+            else f"{specific_production:,.1f} kWh/kWp"
+        )
+
+        self.coverage_label.setText(
+            "-"
+            if coverage is None
+            else f"{coverage:.1f} %"
+        )
+
+    def connect_signals(self):
+
+        self.calculate_production_button.clicked.connect(
+            self.calculate_production
+        )
+
+        self.load_location_button.clicked.connect(
+            self.load_project_location
+        )
+
+    def calculate_production(self):
+        pass
+
+    def load_project_location(self):
+        pass
 
     def create_calculate_button(self):
 
