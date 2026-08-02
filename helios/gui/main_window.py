@@ -11,6 +11,7 @@ from PySide6.QtCore import Qt
 
 from helios.gui.widgets.home_page import HomePage
 from helios.gui.widgets.load_data_page import LoadDataPage
+from helios.gui.widgets.validation_page import ValidationPage
 from helios.core.analyzer import ConsumptionAnalyzer
 
 
@@ -89,6 +90,10 @@ class MainWindow(QMainWindow):
 
         self.pages.addWidget(self.load_page)
 
+        self.validation_page = ValidationPage(self.analyzer)
+
+        self.pages.addWidget(self.validation_page)
+
     # ==================================================
     # Árbol de navegación
     # ==================================================
@@ -126,6 +131,7 @@ class MainWindow(QMainWindow):
 
         self.page_map["Inicio"] = self.home_page
         self.page_map["Cargar datos"] = self.load_page
+        self.page_map["Validación"] = self.validation_page
 
         self.set_project_loaded(False)
 

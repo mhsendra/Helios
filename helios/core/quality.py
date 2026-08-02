@@ -17,13 +17,13 @@ class DataQualityEngine:
         coverage = (valid_hours / total_hours) * 100
 
         if coverage >= 99:
-            quality = "EXCELENTE"
+            rating = "EXCELENTE"
         elif coverage >= 97:
-            quality = "MUY BUENA"
+            rating = "MUY BUENA"
         elif coverage >= 95:
-            quality = "BUENA"
+            rating = "BUENA"
         else:
-            quality = "REVISAR"
+            rating = "REVISAR"
 
         self.quality = {
             "total_hours": total_hours,
@@ -31,7 +31,7 @@ class DataQualityEngine:
             "missing_hours": missing_hours,
             "duplicates": duplicates,
             "coverage": coverage,
-            "rating": quality
+            "rating": rating
         }
 
         return self.quality
