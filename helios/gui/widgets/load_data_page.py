@@ -89,6 +89,8 @@ class LoadDataPage(QWidget):
 
             self.analyzer.calculate_statistics()
 
+            self.analyzer.calculate_comparisons()
+
             self.update_project_info()
 
             self.main_window.update_project_pages()
