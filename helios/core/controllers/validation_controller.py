@@ -121,6 +121,14 @@ class ValidationController:
         self.analyzer.calculate_quality()
         self.calculate_gap_summary()
 
+        self.analyzer.validation_stats = {
+            "missing_pct": self.analyzer.quality.get("missing_pct", 0),
+            "corrected_pct": self.analyzer.quality.get("corrected_pct", 0),
+            "zero_days": self.analyzer.quality.get("zero_days", 0),
+            "anomaly_days": self.analyzer.quality.get("anomaly_days", 0)
+        }
+
+
     def reports(self):
         """
         Genera todos los informes de validación.

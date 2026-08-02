@@ -15,6 +15,7 @@ from helios.gui.widgets.validation_page import ValidationPage
 from helios.gui.widgets.statistics_page import StatisticsPage
 from helios.gui.widgets.profiles_page import ProfilesPage
 from helios.gui.widgets.comparisons_page import ComparisonsPage
+from helios.gui.widgets.indicators_page import IndicatorsPage
 from helios.core.analyzer import ConsumptionAnalyzer
 
 
@@ -109,6 +110,11 @@ class MainWindow(QMainWindow):
 
         self.pages.addWidget(self.comparisons_page)
 
+        self.indicators_page = IndicatorsPage(self.analyzer)
+
+        self.pages.addWidget(self.indicators_page)
+
+
 
     # ==================================================
     # Árbol de navegación
@@ -151,6 +157,7 @@ class MainWindow(QMainWindow):
         self.page_map["Estadísticas"] = self.statistics_page
         self.page_map["Perfiles"] = self.profiles_page
         self.page_map["Comparativas"] = self.comparisons_page
+        self.page_map["Indicadores"] = self.indicators_page
 
         self.set_project_loaded(False)
 
@@ -190,3 +197,5 @@ class MainWindow(QMainWindow):
         self.statistics_page.update_data()
         self.profiles_page.update_data()
         self.comparisons_page.update_data()
+        self.indicators_page.update_data()
+
