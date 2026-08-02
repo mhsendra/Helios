@@ -31,7 +31,7 @@ class DataQualityEngine:
             "missing_hours": missing_hours,
             "duplicates": duplicates,
             "coverage": coverage,
-            "quality": quality
+            "rating": quality
         }
 
         return self.quality
