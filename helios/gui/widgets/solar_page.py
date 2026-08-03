@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QLabel
 )
 
+from helios.solar.configuration import SolarConfiguration
 class SolarPage(QWidget):
 
     def __init__(self, project):
@@ -324,10 +325,105 @@ class SolarPage(QWidget):
         )
 
     def calculate_production(self):
-        pass
+
+        configuration = self.get_configuration()
+
+        self.update_production_status(
+            source="PVGIS",
+            database="SARAH3",
+            reference_year=configuration.reference_year,
+            last_update="Calculando...",
+            status="Calculando...",
+            annual_production=None,
+            specific_production=None,
+            coverage=None,
+        )
+
+        try:
+
+            self.project.solar.calculate(configuration)
+
+        except Exception as error:
+
+            self.update_production_status(
+                source="PVGIS",
+                database="SARAH3",
+                reference_year=configuration.reference_year,
+                last_update="-",
+                status=f"Error: {error}",
+                annual_production=None,
+                specific_production=None,
+                coverage=None,
+            )
+
+            raise
+
+        self.refresh_production_results()
 
     def load_project_location(self):
         pass
+
+    def get_configuration(self) -> SolarConfiguration:
+
+        return SolarConfiguration(
+
+            installed_power_kwp=(
+                self.peak_power_spinbox.value()
+            ),
+
+            latitude=(
+                self.latitude_spinbox.value()
+            ),
+
+            longitude=(
+                self.longitude_spinbox.value()
+            ),
+
+            tilt=(
+                self.tilt_spinbox.value()
+            ),
+
+            azimuth=(
+                self.azimuth_spinbox.value()
+            ),
+
+            reference_year=2023,
+
+            losses=(
+                self.system_losses_spinbox.value()
+            ),
+
+            pv_technology=(
+                self.pv_technology_combobox.currentData()
+            ),
+
+            mounting_place=(
+                self.mounting_place_combobox.currentData()
+            )
+        )
+
+    def refresh_production_results(self):
+
+        solar = self.project.solar
+
+        self.update_production_status(
+
+            source="PVGIS",
+
+            database="SARAH3",
+
+            reference_year=self.get_configuration().reference_year,
+
+            last_update="Ahora",
+
+            status="Disponible",
+
+            annual_production=solar.annual_production,
+
+            specific_production=solar.specific_production,
+
+            coverage=None,
+        )
 
     def create_calculate_button(self):
 

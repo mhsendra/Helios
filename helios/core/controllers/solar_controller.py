@@ -11,6 +11,55 @@ class SolarController:
         self.analyzer = analyzer
 
     # ==================================================
+    # Propiedades
+    # ==================================================
+
+    @property
+    def hourly_production(self):
+        return self.analyzer.solar_engine.hourly_production
+
+    @property
+    def daily_production(self):
+        return self.analyzer.solar_engine.daily_production
+
+    @property
+    def monthly_production(self):
+        return self.analyzer.solar_engine.monthly_production
+
+    @property
+    def yearly_production(self):
+        return self.analyzer.solar_engine.yearly_production
+
+    @property
+    def statistics(self):
+        return self.analyzer.solar_engine.statistics
+
+    @property
+    def energy_balance(self):
+        return self.analyzer.solar_engine.energy_balance
+
+    @property
+    def annual_production(self) -> float | None:
+
+        yearly = self.yearly_production
+
+        if yearly is None or yearly.empty:
+            return None
+
+        return float(yearly.iloc[-1])
+
+    @property
+    def specific_production(self) -> float | None:
+
+        annual = self.annual_production
+
+        if annual is None:
+            return None
+
+        configuration = self.analyzer.solar_engine.configuration
+
+        return annual / configuration.installed_power_kwp
+    # ==================================================
     # Cálculos de producción solar
     # ==================================================
 
