@@ -39,6 +39,23 @@ class SolarController:
         return self.analyzer.solar_engine.energy_balance
 
     @property
+    def coverage(self) -> float | None:
+
+        balance = self.energy_balance
+
+        if balance is None or balance.empty:
+            return None
+
+        consumption = balance["consumption_kwh"].sum()
+
+        if consumption == 0:
+            return None
+
+        self_consumption = balance["self_consumption_kwh"].sum()
+
+        return 100 * self_consumption / consumption
+
+    @property
     def annual_production(self) -> float | None:
 
         yearly = self.yearly_production
@@ -48,6 +65,36 @@ class SolarController:
 
         return float(yearly.iloc[-1])
 
+    @property
+    def self_consumption(self) -> float | None:
+
+        balance = self.energy_balance
+
+        if balance is None:
+            return None
+
+        return float(balance["self_consumption_kwh"].sum())
+
+    @property
+    def grid_import(self) -> float | None:
+
+        balance = self.energy_balance
+
+        if balance is None:
+            return None
+
+        return float(balance["grid_import_kwh"].sum())
+
+    @property
+    def grid_export(self) -> float | None:
+
+        balance = self.energy_balance
+
+        if balance is None:
+            return None
+
+        return float(balance["grid_export_kwh"].sum())
+    
     @property
     def specific_production(self) -> float | None:
 

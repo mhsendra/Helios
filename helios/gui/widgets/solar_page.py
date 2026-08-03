@@ -8,8 +8,12 @@ from PySide6.QtWidgets import (
     QComboBox,
     QPushButton,
     QSpinBox,
-    QLabel
+    QLabel,
+    QTableWidget,
+    QAbstractItemView
 )
+
+import traceback
 
 from helios.solar.configuration import SolarConfiguration
 class SolarPage(QWidget):
@@ -85,6 +89,7 @@ class SolarPage(QWidget):
 
         layout.addWidget(self.create_production_status_group())
         layout.addWidget(self.create_production_summary_group())
+        layout.addWidget(self.create_monthly_production_group())
 
         layout.addStretch()
 
@@ -324,9 +329,15 @@ class SolarPage(QWidget):
             self.load_project_location
         )
 
+        self.calculate_button.clicked.connect(
+            self.calculate_production
+        )
+
     def calculate_production(self):
 
         configuration = self.get_configuration()
+
+        print(configuration)
 
         self.update_production_status(
             source="PVGIS",
@@ -343,6 +354,8 @@ class SolarPage(QWidget):
 
             self.project.solar.calculate(configuration)
 
+            self.refresh_production_results()
+
         except Exception as error:
 
             self.update_production_status(
@@ -356,9 +369,10 @@ class SolarPage(QWidget):
                 coverage=None,
             )
 
-            raise
+            
+            traceback.print_exc()
 
-        self.refresh_production_results()
+        
 
     def load_project_location(self):
         pass
@@ -422,8 +436,57 @@ class SolarPage(QWidget):
 
             specific_production=solar.specific_production,
 
-            coverage=None,
+            coverage=solar.coverage,
         )
+
+        self.update_monthly_production()
+
+    def create_monthly_production_group(self):
+
+        group = QGroupBox("Producción mensual")
+
+        layout = QVBoxLayout(group)
+
+        self.monthly_table = QTableWidget()
+
+        layout.addWidget(self.monthly_table)
+
+        return group
+
+    def configure_monthly_table(self):
+
+        self.monthly_table.setColumnCount(2)
+
+        self.monthly_table.setHorizontalHeaderLabels(
+            [
+                "Mes",
+                "Producción (kWh)"
+            ]
+        )
+
+        self.monthly_table.verticalHeader().setVisible(False)
+
+        self.monthly_table.setEditTriggers(
+            QAbstractItemView.NoEditTriggers
+        )
+
+        self.monthly_table.setSelectionMode(
+            QAbstractItemView.NoSelection
+        )
+
+        self.monthly_table.horizontalHeader().setStretchLastSection(True)
+
+    def update_monthly_production(self):
+
+        solar = self.project.solar
+
+        monthly = solar.monthly_production
+
+        if monthly is None:
+
+            self.monthly_table.setRowCount(0)
+
+            return
 
     def create_calculate_button(self):
 
