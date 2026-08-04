@@ -10,10 +10,14 @@ from PySide6.QtWidgets import (
     QSpinBox,
     QLabel,
     QTableWidget,
-    QAbstractItemView
+    QAbstractItemView,
+    QTableWidgetItem,
 )
 
 import traceback
+import pandas as pd
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QFont
 
 from helios.solar.configuration import SolarConfiguration
 class SolarPage(QWidget):
@@ -64,6 +68,7 @@ class SolarPage(QWidget):
         self.configure_longitude()
 
         self.configure_production_page()
+        self.configure_monthly_production_table()
 
     def configure_peak_power(self):
 
@@ -337,8 +342,6 @@ class SolarPage(QWidget):
 
         configuration = self.get_configuration()
 
-        print(configuration)
-
         self.update_production_status(
             source="PVGIS",
             database="SARAH3",
@@ -439,6 +442,8 @@ class SolarPage(QWidget):
             coverage=solar.coverage,
         )
 
+        print(self.project.solar.monthly_production)
+
         self.update_monthly_production()
 
     def create_monthly_production_group(self):
@@ -447,46 +452,132 @@ class SolarPage(QWidget):
 
         layout = QVBoxLayout(group)
 
-        self.monthly_table = QTableWidget()
+        self.monthly_production_table = QTableWidget()
 
-        layout.addWidget(self.monthly_table)
+        layout.addWidget(self.monthly_production_table)
 
         return group
 
-    def configure_monthly_table(self):
+    def configure_monthly_production_table(self):
 
-        self.monthly_table.setColumnCount(2)
+        table = self.monthly_production_table
 
-        self.monthly_table.setHorizontalHeaderLabels(
+        table.setColumnCount(2)
+
+        table.setHorizontalHeaderLabels(
             [
                 "Mes",
                 "Producción (kWh)"
             ]
         )
 
-        self.monthly_table.verticalHeader().setVisible(False)
+        table.verticalHeader().setVisible(False)
+        table.verticalHeader().setDefaultSectionSize(24)
 
-        self.monthly_table.setEditTriggers(
+        table.setEditTriggers(
             QAbstractItemView.NoEditTriggers
         )
 
-        self.monthly_table.setSelectionMode(
+        table.setSelectionMode(
             QAbstractItemView.NoSelection
         )
 
-        self.monthly_table.horizontalHeader().setStretchLastSection(True)
+        table.setAlternatingRowColors(True)
 
+        table.horizontalHeader().setStretchLastSection(True)
+
+        table.horizontalHeader().setDefaultAlignment(
+            Qt.AlignCenter
+        )
+
+        table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        table.setSelectionMode(QAbstractItemView.NoSelection)
+        table.setFocusPolicy(Qt.NoFocus)
+
+    def populate_monthly_table(
+        self,
+        table: QTableWidget,
+        series: pd.Series
+    ):
+
+        if series is None or series.empty:
+
+            table.setRowCount(0)
+
+            return
+
+        months = [
+            "Enero",
+            "Febrero",
+            "Marzo",
+            "Abril",
+            "Mayo",
+            "Junio",
+            "Julio",
+            "Agosto",
+            "Septiembre",
+            "Octubre",
+            "Noviembre",
+            "Diciembre",
+        ]
+
+        table.setRowCount(len(series) + 1)
+
+        total = 0.0
+
+        for row, (date, value) in enumerate(series.items()):
+
+            total += value
+
+            month_item = QTableWidgetItem(
+                months[date.month - 1]
+            )
+
+            month_item.setTextAlignment(
+                Qt.AlignCenter
+            )
+
+            value_item = QTableWidgetItem(
+                f"{value:.2f}"
+            )
+
+            value_item.setTextAlignment(
+                Qt.AlignRight | Qt.AlignVCenter
+            )
+
+            table.setItem(row, 0, month_item)
+            table.setItem(row, 1, value_item)
+
+        table.resizeColumnsToContents()
+
+        total_row = len(series)
+
+        total_label = QTableWidgetItem("TOTAL")
+        total_value = QTableWidgetItem(f"{total:.2f}")
+
+        font = QFont()
+        font.setBold(True)
+
+        total_label.setFont(font)
+        total_value.setFont(font)
+
+        total_value.setTextAlignment(
+            Qt.AlignRight | Qt.AlignVCenter
+        )
+
+        table.setItem(total_row, 0, total_label)
+        table.setItem(total_row, 1, total_value)
+        table.resizeColumnsToContents()
+        table.resizeRowsToContents()
+        
     def update_monthly_production(self):
 
         solar = self.project.solar
 
-        monthly = solar.monthly_production
-
-        if monthly is None:
-
-            self.monthly_table.setRowCount(0)
-
-            return
+        self.populate_monthly_table(
+            self.monthly_production_table,
+            solar.monthly_production
+        )
 
     def create_calculate_button(self):
 

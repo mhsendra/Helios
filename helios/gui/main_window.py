@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
     QSplitter
 )
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor
 
 from helios.gui.widgets.home_page import HomePage
 from helios.gui.widgets.load_data_page import LoadDataPage
@@ -135,19 +136,60 @@ class MainWindow(QMainWindow):
 
         self.results_item = QTreeWidgetItem(["Resultados"])
 
-        QTreeWidgetItem(self.project_item, ["Cargar datos"])
-        QTreeWidgetItem(self.project_item, ["Configuración solar"])
+        self.load_item = QTreeWidgetItem(
+            self.project_item,
+            ["Cargar datos"]
+        )
 
-        QTreeWidgetItem(self.analysis_item, ["Validación"])
-        QTreeWidgetItem(self.analysis_item, ["Estadísticas"])
-        QTreeWidgetItem(self.analysis_item, ["Perfiles"])
-        QTreeWidgetItem(self.analysis_item, ["Comparativas"])
-        QTreeWidgetItem(self.analysis_item, ["Indicadores"])
-        QTreeWidgetItem(self.analysis_item, ["Tarifas"])
-        QTreeWidgetItem(self.analysis_item, ["Solar"])
+        self.configuration_item = QTreeWidgetItem(
+            self.project_item,
+            ["Configuración solar"]
+        )
 
-        QTreeWidgetItem(self.results_item, ["Informes"])
-        QTreeWidgetItem(self.results_item, ["Gráficas"])
+        self.validation_item = QTreeWidgetItem(
+            self.analysis_item,
+            ["Validación"]
+        )
+
+        self.statistics_item = QTreeWidgetItem(
+            self.analysis_item,
+            ["Estadísticas"]
+        )
+
+        self.profiles_item = QTreeWidgetItem(
+            self.analysis_item,
+            ["Perfiles"]
+        )
+
+        self.comparisons_item = QTreeWidgetItem(
+            self.analysis_item,
+            ["Comparativas"]
+        )
+
+        self.indicators_item = QTreeWidgetItem(
+            self.analysis_item,
+            ["Indicadores"]
+        )
+
+        self.tariffs_item = QTreeWidgetItem(
+            self.analysis_item,
+            ["Tarifas"]
+        )
+
+        self.solar_item = QTreeWidgetItem(
+            self.analysis_item,
+            ["Solar"]
+        )
+
+        self.reports_item = QTreeWidgetItem(
+            self.results_item,
+            ["Informes"]
+        )
+
+        self.charts_item = QTreeWidgetItem(
+            self.results_item,
+            ["Gráficas"]
+        )
 
         self.navigation.addTopLevelItem(self.home_item)
         self.navigation.addTopLevelItem(self.project_item)
@@ -171,9 +213,29 @@ class MainWindow(QMainWindow):
 
     def set_project_loaded(self, loaded: bool):
 
-        self.analysis_item.setDisabled(not loaded)
+        enabled_color = QColor("#FFFFFF")
+        disabled_color = QColor("#808080")
 
-        self.results_item.setDisabled(not loaded)
+        items = [
+            self.validation_item,
+            self.statistics_item,
+            self.profiles_item,
+            self.comparisons_item,
+            self.indicators_item,
+            self.tariffs_item,
+            self.solar_item,
+            self.reports_item,
+            self.charts_item,
+        ]
+
+        for item in items:
+
+            item.setDisabled(not loaded)
+
+            item.setForeground(
+                0,
+                enabled_color if loaded else disabled_color
+            )
 
     # ==================================================
     # Señales
@@ -191,10 +253,12 @@ class MainWindow(QMainWindow):
 
     def change_page(self, item):
 
+        if item.isDisabled():
+            return
+
         page = self.page_map.get(item.text(0))
 
         if page is not None:
-
             self.pages.setCurrentWidget(page)
 
     def update_project_pages(self):
