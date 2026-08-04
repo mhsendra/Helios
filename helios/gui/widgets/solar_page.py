@@ -56,6 +56,8 @@ class SolarPage(QWidget):
         self.build_balance_tab()
         self.build_statistics_tab()
 
+        self.set_results_available(False)
+
     def configure_widgets(self):
         self.configure_peak_power()
         self.configure_pv_technology()
@@ -86,8 +88,6 @@ class SolarPage(QWidget):
 
         layout.addStretch()
 
-        layout.addWidget(self.create_calculate_button())
-
     def build_production_tab(self):
 
         layout = QVBoxLayout(self.production_tab)
@@ -101,6 +101,10 @@ class SolarPage(QWidget):
     def build_balance_tab(self):
 
         layout = QVBoxLayout(self.balance_tab)
+
+        layout.addWidget(
+            self.create_balance_summary_group()
+        )
 
         layout.addWidget(
             self.create_balance_table()
@@ -143,11 +147,16 @@ class SolarPage(QWidget):
         layout.addRow("Latitud", self.latitude_spinbox)
         layout.addRow("Longitud", self.longitude_spinbox)
 
-        self.load_location_button = QPushButton(
-            "Usar ubicación del proyecto"
-        )
+        # Futuro:
+        # Cuando Helios disponga de una ubicación asociada al proyecto,
+        # este botón permitirá cargar automáticamente la latitud y la
+        # longitud en la configuración solar.
 
-        layout.addRow("", self.load_location_button)
+        # self.load_location_button = QPushButton(
+        #     "Usar ubicación del proyecto"
+        # )
+        #
+        # layout.addRow("", self.load_location_button)
 
         return group
 
@@ -334,13 +343,13 @@ class SolarPage(QWidget):
             self.calculate_production
         )
 
-        self.load_location_button.clicked.connect(
-            self.load_project_location
-        )
+        # self.load_location_button.clicked.connect(
+        #    self.load_project_location
+        # )
 
-        self.calculate_button.clicked.connect(
-            self.calculate_production
-        )
+        #self.calculate_button.clicked.connect(
+        #    self.calculate_production
+        #)
 
     def calculate_production(self):
 
@@ -360,8 +369,10 @@ class SolarPage(QWidget):
         try:
 
             self.project.solar.calculate(configuration)
-
+            
             self.refresh_production_results()
+
+            self.set_results_available(True)
 
         except Exception as error:
 
@@ -586,10 +597,13 @@ class SolarPage(QWidget):
 
         solar = self.project.solar
 
+        self.update_balance_summary()
+
         self.populate_balance_table(
             self.balance_table,
             solar.monthly_energy_balance
         )
+
     def create_balance_table(self):
 
         self.balance_table = QTableWidget()
@@ -723,6 +737,139 @@ class SolarPage(QWidget):
 
         table.resizeColumnsToContents()
         table.resizeRowsToContents()
+
+    def create_balance_summary_group(self):
+
+        group = QGroupBox("Resumen energético")
+
+        layout = QFormLayout(group)
+
+        self.total_consumption_label = QLabel("-")
+        self.total_production_label = QLabel("-")
+
+        self.self_consumption_label = QLabel("-")
+        self.grid_import_label = QLabel("-")
+        self.grid_export_label = QLabel("-")
+
+        self.coverage_label = QLabel("-")
+
+        layout.addRow(
+            "Consumo total",
+            self.total_consumption_label
+        )
+
+        layout.addRow(
+            "Producción FV",
+            self.total_production_label
+        )
+
+        layout.addRow(
+            "Autoconsumo directo",
+            self.self_consumption_label
+        )
+
+        layout.addRow(
+            "Importación de red",
+            self.grid_import_label
+        )
+
+        layout.addRow(
+            "Excedentes",
+            self.grid_export_label
+        )
+
+        layout.addRow(
+            "Cobertura",
+            self.coverage_label
+        )
+
+        return group
+
+    def update_balance_summary(self):
+
+        solar = self.project.solar
+
+        balance = solar.energy_balance
+
+        if balance is None or balance.empty:
+
+            self.total_consumption_label.setText("-")
+            self.total_production_label.setText("-")
+
+            self.self_consumption_label.setText("-")
+            self.grid_import_label.setText("-")
+            self.grid_export_label.setText("-")
+
+            self.coverage_label.setText("-")
+
+            return
+
+        total_consumption = (
+            balance["consumption_kwh"]
+            .sum()
+        )
+
+        total_production = (
+            balance["production_kwh"]
+            .sum()
+        )
+
+        self_consumption = (
+            balance["self_consumption_kwh"]
+            .sum()
+        )
+
+        grid_import = (
+            balance["grid_import_kwh"]
+            .sum()
+        )
+
+        grid_export = (
+            balance["grid_export_kwh"]
+            .sum()
+        )
+
+        self.total_consumption_label.setText(
+            f"{total_consumption:.2f} kWh"
+        )
+
+        self.total_production_label.setText(
+            f"{total_production:.2f} kWh"
+        )
+
+        self.self_consumption_label.setText(
+            f"{self_consumption:.2f} kWh"
+        )
+
+        self.grid_import_label.setText(
+            f"{grid_import:.2f} kWh"
+        )
+
+        self.grid_export_label.setText(
+            f"{grid_export:.2f} kWh"
+        )
+
+        if solar.coverage is not None:
+
+            self.coverage_label.setText(
+                f"{solar.coverage:.2f} %"
+            )
+
+        else:
+
+            self.coverage_label.setText("-")
+
+    def set_results_available(self, available: bool):
+
+        self.tabs.setTabEnabled(
+            self.tabs.indexOf(self.balance_tab),
+            available
+        )
+
+        self.tabs.setTabEnabled(
+            self.tabs.indexOf(self.statistics_tab),
+            available
+        )
         
     def create_calculate_button(self):
 
