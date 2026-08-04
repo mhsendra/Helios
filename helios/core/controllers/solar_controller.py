@@ -106,6 +106,16 @@ class SolarController:
         configuration = self.analyzer.solar_engine.configuration
 
         return annual / configuration.installed_power_kwp
+
+    @property
+    def monthly_energy_balance(self):
+
+        balance = self.energy_balance
+
+        if balance is None:
+            return None
+
+        return balance.resample("ME").sum()
     # ==================================================
     # Cálculos de producción solar
     # ==================================================

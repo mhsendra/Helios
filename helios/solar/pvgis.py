@@ -38,17 +38,8 @@ class PVGISClient:
 
         if cache_file.exists():
 
-            ReportPrinter.title("PVGIS CACHE")
-
-            ReportPrinter.text(
-                "Archivo",
-                cache_file.name
-            )
-
-            ReportPrinter.blank()
-
             return PVGISCache.load(
-               cache_file
+                cache_file
             )
 
         # ==========================================

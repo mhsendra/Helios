@@ -99,8 +99,12 @@ class SolarPage(QWidget):
         layout.addStretch()
 
     def build_balance_tab(self):
-        pass
 
+        layout = QVBoxLayout(self.balance_tab)
+
+        layout.addWidget(
+            self.create_balance_table()
+        )
 
     def build_statistics_tab(self):
         pass
@@ -442,9 +446,8 @@ class SolarPage(QWidget):
             coverage=solar.coverage,
         )
 
-        print(self.project.solar.monthly_production)
-
         self.update_monthly_production()
+        self.update_balance()
 
     def create_monthly_production_group(self):
 
@@ -579,6 +582,148 @@ class SolarPage(QWidget):
             solar.monthly_production
         )
 
+    def update_balance(self):
+
+        solar = self.project.solar
+
+        self.populate_balance_table(
+            self.balance_table,
+            solar.monthly_energy_balance
+        )
+    def create_balance_table(self):
+
+        self.balance_table = QTableWidget()
+
+        self.balance_table.setColumnCount(4)
+
+        self.balance_table.setHorizontalHeaderLabels(
+            [
+                "Mes",
+                "Autoconsumo",
+                "Importación",
+                "Excedentes"
+            ]
+        )
+
+        self.configure_balance_table()
+
+        return self.balance_table
+
+    def configure_balance_table(self):
+
+        table = self.balance_table
+
+        table.verticalHeader().setVisible(False)
+        table.horizontalHeader().setStretchLastSection(True)
+
+        table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        table.setSelectionMode(QAbstractItemView.NoSelection)
+        table.setFocusPolicy(Qt.NoFocus)
+        table.setAlternatingRowColors(True)
+
+        table.horizontalHeader().setDefaultAlignment(
+            Qt.AlignCenter
+        )
+
+    def populate_balance_table(
+        self,
+        table: QTableWidget,
+        balance: pd.DataFrame
+    ):
+
+        if balance is None or balance.empty:
+
+            table.setRowCount(0)
+
+            return
+
+        months = [
+            "Enero", "Febrero", "Marzo", "Abril",
+            "Mayo", "Junio", "Julio", "Agosto",
+            "Septiembre", "Octubre", "Noviembre", "Diciembre"
+        ]
+
+        table.setRowCount(len(balance) + 1)
+
+        total_self = 0.0
+        total_import = 0.0
+        total_export = 0.0
+
+        for row, (date, values) in enumerate(balance.iterrows()):
+
+            self_consumption = values["self_consumption_kwh"]
+            grid_import = values["grid_import_kwh"]
+            grid_export = values["grid_export_kwh"]
+
+            total_self += self_consumption
+            total_import += grid_import
+            total_export += grid_export
+
+            month_item = QTableWidgetItem(
+                months[date.month - 1]
+            )
+
+            month_item.setTextAlignment(
+                Qt.AlignCenter
+            )
+
+            self_item = QTableWidgetItem(
+                f"{self_consumption:.2f}"
+            )
+
+            import_item = QTableWidgetItem(
+                f"{grid_import:.2f}"
+            )
+
+            export_item = QTableWidgetItem(
+                f"{grid_export:.2f}"
+            )
+
+            for item in (
+                self_item,
+                import_item,
+                export_item
+            ):
+                item.setTextAlignment(
+                    Qt.AlignRight | Qt.AlignVCenter
+                )
+
+            table.setItem(row, 0, month_item)
+            table.setItem(row, 1, self_item)
+            table.setItem(row, 2, import_item)
+            table.setItem(row, 3, export_item)
+
+        total_row = len(balance)
+
+        font = QFont()
+        font.setBold(True)
+
+        total_label = QTableWidgetItem("TOTAL")
+        total_label.setFont(font)
+
+        table.setItem(total_row, 0, total_label)
+
+        totals = [
+            total_self,
+            total_import,
+            total_export
+        ]
+
+        for column, value in enumerate(totals, start=1):
+
+            item = QTableWidgetItem(f"{value:.2f}")
+
+            item.setFont(font)
+
+            item.setTextAlignment(
+                Qt.AlignRight | Qt.AlignVCenter
+            )
+
+            table.setItem(total_row, column, item)
+
+        table.resizeColumnsToContents()
+        table.resizeRowsToContents()
+        
     def create_calculate_button(self):
 
         self.calculate_button = QPushButton(
