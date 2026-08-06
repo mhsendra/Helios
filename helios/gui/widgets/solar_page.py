@@ -111,7 +111,85 @@ class SolarPage(QWidget):
         )
 
     def build_statistics_tab(self):
-        pass
+
+        layout = QVBoxLayout(self.statistics_tab)
+
+        group = QGroupBox("Indicadores técnicos")
+
+        form = QFormLayout(group)
+
+        self.stats_annual_production_label = QLabel("-")
+        self.stats_specific_production_label = QLabel("-")
+        self.stats_equivalent_hours_label = QLabel("-")
+        self.stats_capacity_factor_label = QLabel("-")
+
+        self.stats_coverage_label = QLabel("-")
+        self.stats_self_consumption_ratio_label = QLabel("-")
+        self.stats_self_sufficiency_ratio_label = QLabel("-")
+
+        self.stats_import_label = QLabel("-")
+        self.stats_export_label = QLabel("-")
+
+        self.stats_self_consumption_label = QLabel("-")
+        self.stats_total_consumption_label = QLabel("-")
+
+        form.addRow(
+            "Producción anual",
+            self.stats_annual_production_label
+        )
+
+        form.addRow(
+            "Producción específica",
+            self.stats_specific_production_label
+        )
+
+        form.addRow(
+            "Horas equivalentes",
+            self.stats_equivalent_hours_label
+        )
+
+        form.addRow(
+            "Factor de capacidad",
+            self.stats_capacity_factor_label
+        )
+
+        form.addRow(
+            "Cobertura",
+            self.stats_coverage_label
+        )
+
+        form.addRow(
+            "Ratio de autoconsumo",
+            self.stats_self_consumption_ratio_label
+        )
+
+        form.addRow(
+            "Ratio de autosuficiencia",
+            self.stats_self_sufficiency_ratio_label
+        )
+
+        form.addRow(
+            "Importación de red",
+            self.stats_import_label
+        )
+
+        form.addRow(
+            "Exportación a red",
+            self.stats_export_label
+        )
+
+        form.addRow(
+            "Autoconsumo",
+            self.stats_self_consumption_label
+        )
+
+        form.addRow(
+            "Consumo total",
+            self.stats_total_consumption_label
+        )
+
+        layout.addWidget(group)
+        layout.addStretch()
 
     def create_installation_group(self):
 
@@ -250,23 +328,23 @@ class SolarPage(QWidget):
 
         layout = QFormLayout(group)
 
-        self.annual_production_label = QLabel("-")
-        self.specific_production_label = QLabel("-")
-        self.coverage_label = QLabel("-")
+        self.production_annual_label = QLabel("-")
+        self.production_specific_label = QLabel("-")
+        self.production_coverage_label = QLabel("-")
 
         layout.addRow(
             "Producción anual",
-            self.annual_production_label
+            self.production_annual_label
         )
 
         layout.addRow(
             "Producción específica",
-            self.specific_production_label
+            self.production_specific_label
         )
 
         layout.addRow(
             "Cobertura",
-            self.coverage_label
+            self.production_coverage_label
         )
 
         return group
@@ -283,11 +361,11 @@ class SolarPage(QWidget):
 
         self.production_status_label.setText("No calculada")
 
-        self.annual_production_label.setText("-")
+        self.production_annual_label.setText("-")
 
-        self.specific_production_label.setText("-")
+        self.production_specific_label.setText("-")
 
-        self.coverage_label.setText("-")
+        self.production_coverage_label.setText("-")
 
         self.calculate_production_button.setMinimumHeight(40)
 
@@ -319,19 +397,19 @@ class SolarPage(QWidget):
 
         self.production_status_label.setText(status)
 
-        self.annual_production_label.setText(
+        self.production_annual_label.setText(
             "-"
             if annual_production is None
             else f"{annual_production:,.1f} kWh"
         )
 
-        self.specific_production_label.setText(
+        self.production_specific_label.setText(
             "-"
             if specific_production is None
             else f"{specific_production:,.1f} kWh/kWp"
         )
 
-        self.coverage_label.setText(
+        self.production_coverage_label.setText(
             "-"
             if coverage is None
             else f"{coverage:.1f} %"
@@ -459,6 +537,7 @@ class SolarPage(QWidget):
 
         self.update_monthly_production()
         self.update_balance()
+        self.update_statistics()
 
     def create_monthly_production_group(self):
 
@@ -744,43 +823,43 @@ class SolarPage(QWidget):
 
         layout = QFormLayout(group)
 
-        self.total_consumption_label = QLabel("-")
-        self.total_production_label = QLabel("-")
+        self.balance_total_consumption_label = QLabel("-")
+        self.balance_total_production_label = QLabel("-")
 
-        self.self_consumption_label = QLabel("-")
-        self.grid_import_label = QLabel("-")
-        self.grid_export_label = QLabel("-")
+        self.balance_self_consumption_label = QLabel("-")
+        self.balance_grid_import_label = QLabel("-")
+        self.balance_grid_export_label = QLabel("-")
 
-        self.coverage_label = QLabel("-")
+        self.balance_coverage_label = QLabel("-")
 
         layout.addRow(
             "Consumo total",
-            self.total_consumption_label
+            self.balance_total_consumption_label
         )
 
         layout.addRow(
             "Producción FV",
-            self.total_production_label
+            self.balance_total_production_label
         )
 
         layout.addRow(
             "Autoconsumo directo",
-            self.self_consumption_label
+            self.balance_self_consumption_label
         )
 
         layout.addRow(
             "Importación de red",
-            self.grid_import_label
+            self.balance_grid_import_label
         )
 
         layout.addRow(
             "Excedentes",
-            self.grid_export_label
+            self.balance_grid_export_label
         )
 
         layout.addRow(
             "Cobertura",
-            self.coverage_label
+            self.balance_coverage_label
         )
 
         return group
@@ -793,71 +872,66 @@ class SolarPage(QWidget):
 
         if balance is None or balance.empty:
 
-            self.total_consumption_label.setText("-")
-            self.total_production_label.setText("-")
+            self.balance_total_consumption_label.setText("-")
+            self.balance_total_production_label.setText("-")
 
-            self.self_consumption_label.setText("-")
-            self.grid_import_label.setText("-")
-            self.grid_export_label.setText("-")
+            self.balance_self_consumption_label.setText("-")
+            self.balance_grid_import_label.setText("-")
+            self.balance_grid_export_label.setText("-")
 
-            self.coverage_label.setText("-")
+            self.balance_coverage_label.setText("-")
 
             return
 
         total_consumption = (
-            balance["consumption_kwh"]
-            .sum()
+            balance["consumption_kwh"].sum()
         )
 
         total_production = (
-            balance["production_kwh"]
-            .sum()
+            balance["production_kwh"].sum()
         )
 
         self_consumption = (
-            balance["self_consumption_kwh"]
-            .sum()
+            balance["self_consumption_kwh"].sum()
         )
 
         grid_import = (
-            balance["grid_import_kwh"]
-            .sum()
+            balance["grid_import_kwh"].sum()
         )
 
         grid_export = (
-            balance["grid_export_kwh"]
-            .sum()
+            balance["grid_export_kwh"].sum()
         )
 
-        self.total_consumption_label.setText(
-            f"{total_consumption:.2f} kWh"
+        self.balance_total_consumption_label.setText(
+            f"{total_consumption:,.2f} kWh"
         )
 
-        self.total_production_label.setText(
-            f"{total_production:.2f} kWh"
+        self.balance_total_production_label.setText(
+            f"{total_production:,.2f} kWh"
         )
 
-        self.self_consumption_label.setText(
-            f"{self_consumption:.2f} kWh"
+        self.balance_self_consumption_label.setText(
+            f"{self_consumption:,.2f} kWh"
         )
 
-        self.grid_import_label.setText(
-            f"{grid_import:.2f} kWh"
+        self.balance_grid_import_label.setText(
+            f"{grid_import:,.2f} kWh"
         )
 
-        self.grid_export_label.setText(
-            f"{grid_export:.2f} kWh"
+        self.balance_grid_export_label.setText(
+            f"{grid_export:,.2f} kWh"
         )
 
         if solar.coverage is not None:
 
-            self.coverage_label.setText(
-                f"{solar.coverage:.2f} %"
+            self.balance_coverage_label.setText(
+                f"{solar.coverage:.1f} %"
             )
 
         else:
 
-            self.coverage_label.setText("-")
+            self.balance_coverage_label.setText("-")
 
     def set_results_available(self, available: bool):
 
@@ -869,6 +943,125 @@ class SolarPage(QWidget):
         self.tabs.setTabEnabled(
             self.tabs.indexOf(self.statistics_tab),
             available
+        )
+
+    def update_statistics(self):
+
+        solar = self.project.solar
+
+        if (
+            solar.energy_balance is None
+            or solar.energy_balance.empty
+        ):
+
+            self.stats_annual_production_label.setText("-")
+            self.stats_specific_production_label.setText("-")
+            self.stats_equivalent_hours_label.setText("-")
+            self.stats_capacity_factor_label.setText("-")
+
+            self.stats_coverage_label.setText("-")
+            self.stats_self_consumption_ratio_label.setText("-")
+            self.stats_self_sufficiency_ratio_label.setText("-")
+
+            self.stats_import_label.setText("-")
+            self.stats_export_label.setText("-")
+
+            self.stats_self_consumption_label.setText("-")
+            self.stats_total_consumption_label.setText("-")
+
+            return
+
+        balance = solar.energy_balance
+
+        annual_production = balance["production_kwh"].sum()
+
+        installed_power = (
+            self.get_configuration().installed_power_kwp
+        )
+
+        specific_production = (
+            annual_production
+            / installed_power
+        )
+
+        equivalent_hours = specific_production
+
+        capacity_factor = (
+            equivalent_hours
+            / 8760
+            * 100
+        )
+
+        total_consumption = (
+            balance["consumption_kwh"].sum()
+        )
+
+        self_consumption = (
+            balance["self_consumption_kwh"].sum()
+        )
+
+        grid_import = (
+            balance["grid_import_kwh"].sum()
+        )
+
+        grid_export = (
+            balance["grid_export_kwh"].sum()
+        )
+
+        self_consumption_ratio = (
+            self_consumption
+            / annual_production
+            * 100
+        )
+
+        self_sufficiency_ratio = (
+            self_consumption
+            / total_consumption
+            * 100
+        )
+
+        self.stats_annual_production_label.setText(
+            f"{annual_production:,.2f} kWh"
+        )
+
+        self.stats_specific_production_label.setText(
+            f"{specific_production:,.2f} kWh/kWp"
+        )
+
+        self.stats_equivalent_hours_label.setText(
+            f"{equivalent_hours:,.0f} h"
+        )
+
+        self.stats_capacity_factor_label.setText(
+            f"{capacity_factor:.1f} %"
+        )
+        print("Coverage:", solar.coverage)
+        self.stats_coverage_label.setText(
+            f"{solar.coverage:.1f} %"
+        )
+
+        self.stats_self_consumption_ratio_label.setText(
+            f"{self_consumption_ratio:.1f} %"
+        )
+
+        self.stats_self_sufficiency_ratio_label.setText(
+            f"{self_sufficiency_ratio:.1f} %"
+        )
+
+        self.stats_import_label.setText(
+            f"{grid_import:,.2f} kWh"
+        )
+
+        self.stats_export_label.setText(
+            f"{grid_export:,.2f} kWh"
+        )
+
+        self.stats_self_consumption_label.setText(
+            f"{self_consumption:,.2f} kWh"
+        )
+
+        self.stats_total_consumption_label.setText(
+            f"{total_consumption:,.2f} kWh"
         )
         
     def create_calculate_button(self):
