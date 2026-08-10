@@ -17,6 +17,7 @@ from helios.core.tariffs import TariffEngine
 from helios.core.solar import SolarEngine
 from helios.core.quality import DataQualityEngine
 from helios.core.validation import ValidationEngine
+from helios.core.economics import EconomicsEngine
 
 # Controladores
 from helios.core.controllers.validation_controller import ValidationController
@@ -25,6 +26,7 @@ from helios.core.controllers.comparisons_controller import ComparisonsController
 from helios.core.controllers.indicators_controller import IndicatorsController
 from helios.core.controllers.tariffs_controller import TariffsController
 from helios.core.controllers.solar_controller import SolarController
+from helios.core.controllers.economics_controller import EconomicsController
 
 # Reporteros
 from helios.reports.statistics import StatisticsReports
@@ -61,6 +63,7 @@ class ConsumptionAnalyzer:
         self.solar_engine = SolarEngine()
         self.quality_engine = DataQualityEngine()
         self.validation_engine = ValidationEngine()
+        self.economics_engine = EconomicsEngine()
 
         # Controladores
         self.validation = ValidationController(self)
@@ -69,6 +72,7 @@ class ConsumptionAnalyzer:
         self.indicators = IndicatorsController(self)
         self.tariffs = TariffsController(self)
         self.solar = SolarController(self)
+        self.economics = EconomicsController(self)
 
         # Reporteros
         self.statistics_reporter = StatisticsReports()
@@ -220,11 +224,20 @@ class ConsumptionAnalyzer:
     # ==================================================
 
     def calculate_tariffs(self):
+
         """Delegación al controlador de tarifas."""
+
         self.tariffs.calculate()
 
+    def calculate_economics(self):
+        """Delegación al controlador económico."""
+
+        self.economics.calculate()
+
     def tariff_reports(self):
+        
         """Delegación a reportes de tarifas."""
+
         self.tariffs.reports()
 
     # ==================================================

@@ -8,6 +8,8 @@ from collections.abc import Mapping
 
 import pandas as pd
 
+from helios.core.tariffs_model import TariffPrices
+
 class TariffEngine:
 
     PERIODS = (
@@ -25,6 +27,8 @@ class TariffEngine:
         self.period_consumption = None
         
         self.period_percentage = None
+
+        self.prices = TariffPrices()
 
     def is_national_holiday(
     self,
@@ -143,3 +147,49 @@ class TariffEngine:
             for date in holidays
 
         }
+
+    def assign_buy_prices(
+        self,
+        dataset,
+    ):
+        """
+        Assign purchase prices according to the tariff period.
+        """
+
+        period_prices = {
+            "P1": self.prices.buy_p1,
+            "P2": self.prices.buy_p2,
+            "P3": self.prices.buy_p3,
+        }
+
+        dataset["buy_price_eur_kwh"] = (
+            dataset["Periodo"]
+            .map(period_prices)
+            .fillna(0.0)
+        )
+        
+    def assign_sell_price(
+        self,
+        dataset,
+    ):
+        """
+        Assign export compensation price.
+        """
+
+        dataset["sell_price_eur_kwh"] = (
+            self.prices.sell_price
+        )
+
+    def assign_tariff_periods(
+        self,
+        dataset: pd.DataFrame
+    ):
+        """
+        Assign the tariff period to each dataset record.
+        """
+
+        dataset["Periodo"] = (
+            dataset.index.map(
+                self.classify_period
+            )
+        )

@@ -23,7 +23,18 @@ class TariffsController:
         """
         Ejecuta todos los cálculos de tarifas.
         """
+
         self.calculate_tariff_periods()
+
+        dataset = self.analyzer.dataset
+
+        self.analyzer.tariff_engine.assign_tariff_periods(
+            dataset
+        )
+
+        self.assign_buy_prices()
+
+        self.assign_sell_price()
 
     # ==================================================
     # Reportes de tarifas
@@ -41,3 +52,16 @@ class TariffsController:
         Genera todos los informes de tarifas.
         """
         self.tariff_periods_report()
+
+    def assign_buy_prices(self):
+
+        self.analyzer.tariff_engine.assign_buy_prices(
+            self.analyzer.dataset
+        )
+
+
+    def assign_sell_price(self):
+
+        self.analyzer.tariff_engine.assign_sell_price(
+            self.analyzer.dataset
+        )

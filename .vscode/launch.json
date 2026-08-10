@@ -1,0 +1,12 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Helios GUI",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "helios.gui.app",
+            "console": "integratedTerminal"
+        }
+    ]
+}

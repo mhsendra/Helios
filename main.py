@@ -96,6 +96,8 @@ def main():
 
     analyzer.solar_reports()
 
+    analyzer.calculate_economics()
+
 
     # ==================================================
     # VISUALIZACIÓN

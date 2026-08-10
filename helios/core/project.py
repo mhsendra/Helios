@@ -7,6 +7,7 @@ from helios.core.controllers.comparisons_controller import ComparisonsController
 from helios.core.controllers.indicators_controller import IndicatorsController
 from helios.core.controllers.tariffs_controller import TariffsController
 from helios.core.controllers.solar_controller import SolarController
+from helios.core.tariffs_model import TariffPrices
 
 
 class HeliosProject:
@@ -22,3 +23,4 @@ class HeliosProject:
         self.tariffs = TariffsController(self.analyzer)
 
         self.solar = SolarController(self.analyzer)
+        self.tariff_prices = TariffPrices()

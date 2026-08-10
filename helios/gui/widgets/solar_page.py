@@ -1035,7 +1035,7 @@ class SolarPage(QWidget):
         self.stats_capacity_factor_label.setText(
             f"{capacity_factor:.1f} %"
         )
-        print("Coverage:", solar.coverage)
+
         self.stats_coverage_label.setText(
             f"{solar.coverage:.1f} %"
         )
