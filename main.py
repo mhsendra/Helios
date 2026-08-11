@@ -94,10 +94,11 @@ def main():
 
     analyzer.calculate_solar(config)
 
-    analyzer.solar_reports()
-
     analyzer.calculate_economics()
 
+    analyzer.economics_reports()
+
+    analyzer.solar_reports()
 
     # ==================================================
     # VISUALIZACIÓN

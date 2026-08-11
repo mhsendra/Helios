@@ -26,9 +26,11 @@ class SolarReports:
             configuration.pv_technology
         )
 
-        ReportPrinter.energy(
+        ReportPrinter.value(
             "Potencia instalada",
-            configuration.installed_power_kwp
+            configuration.installed_power_kwp,
+            "kWp",
+            decimals=2
         )
 
         ReportPrinter.value(

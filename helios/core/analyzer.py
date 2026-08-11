@@ -240,6 +240,11 @@ class ConsumptionAnalyzer:
 
         self.tariffs.reports()
 
+    def economics_reports(self):
+        """Delegación a reportes económicos."""
+
+        self.economics.reports()
+
     # ==================================================
     # Solar
     # ==================================================

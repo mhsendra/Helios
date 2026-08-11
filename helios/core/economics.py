@@ -8,6 +8,8 @@ class EconomicsEngine:
         self.annual_savings = None
         self.export_income = None
 
+        self.annual_savings = None
+
     def calculate_cost_without_pv(
         self,
         dataset,
@@ -63,16 +65,14 @@ class EconomicsEngine:
             ]
         )
 
-        grid_cost = (
+        self.grid_import_cost = (
             data["grid_import_kwh"]
             * data["buy_price_eur_kwh"]
         ).sum()
 
-        export_income = self.export_income
-
         self.cost_with_pv = (
-            grid_cost
-            - export_income
+            self.grid_import_cost
+            - self.export_income
         )
 
         return self.cost_with_pv

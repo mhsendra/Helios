@@ -157,9 +157,9 @@ class TariffEngine:
         """
 
         period_prices = {
-            "P1": self.prices.buy_p1,
-            "P2": self.prices.buy_p2,
-            "P3": self.prices.buy_p3,
+        "Punta": self.prices.buy_p1,
+        "Llano": self.prices.buy_p2,
+        "Valle": self.prices.buy_p3,
         }
 
         dataset["buy_price_eur_kwh"] = (
