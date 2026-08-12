@@ -237,9 +237,17 @@ class EconomicsEngine:
                 * export_price_factor
             )
 
+            maintenance_cost = (
+                self.calculate_maintenance_cost(
+                    year,
+                    configuration
+                )
+            )
+
             annual_cash_flow = (
                 self_consumption_savings
                 + export_income
+                - maintenance_cost
             )
 
             cash_flow.append(
@@ -317,3 +325,20 @@ class EconomicsEngine:
             1
             + configuration.annual_export_price_growth
         ) ** (year - 1)
+        
+    def calculate_maintenance_cost(
+        self,
+        year: int,
+        configuration
+    ) -> float:
+
+        if year <= 0:
+            return 0.0
+
+        return (
+            configuration.annual_maintenance_cost
+            * (
+                1
+                + configuration.annual_maintenance_growth
+            ) ** (year - 1)
+        )

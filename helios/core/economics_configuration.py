@@ -16,3 +16,6 @@ class EconomicsConfiguration:
     annual_electricity_price_growth: float = 0.02
     
     annual_export_price_growth: float = 0.0
+    
+    annual_maintenance_cost: float = 0.0
+    annual_maintenance_growth: float = 0.02
