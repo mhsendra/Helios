@@ -110,30 +110,53 @@ class EconomicsEngine:
     
     def calculate_payback(self) -> float:
 
-        if self.net_investment is None:
+        if self.cash_flow is None:
             raise RuntimeError(
-                "Net investment has not been calculated."
+                "Cash flow has not been calculated."
             )
 
-        if self.annual_savings is None:
-            raise RuntimeError(
-                "Annual savings have not been calculated."
+        for i in range(1, len(self.cash_flow)):
+
+            previous_cumulative = (
+                self.cash_flow
+                .iloc[i - 1]["cumulative_cash_flow"]
             )
 
-        if self.annual_savings <= 0:
-            raise ValueError(
-                "Annual savings must be positive."
+            current_cumulative = (
+                self.cash_flow
+                .iloc[i]["cumulative_cash_flow"]
             )
 
-        self.payback_years = (
-            self.net_investment
-            / self.annual_savings
-        )
+            if (
+                previous_cumulative < 0
+                and current_cumulative >= 0
+            ):
+
+                recovery = -previous_cumulative
+
+                annual_cash_flow = (
+                    self.cash_flow
+                    .iloc[i]["cash_flow"]
+                )
+
+                fraction = (
+                    recovery / annual_cash_flow
+                )
+
+                self.payback_years = (
+                    self.cash_flow.iloc[i - 1]["year"]
+                    + fraction
+                )
+
+                return self.payback_years
+
+        self.payback_years = None
 
         return self.payback_years
     
     def calculate_cash_flow(
         self,
+        configuration,
         years: int = 25
     ) -> pd.DataFrame:
 
@@ -154,10 +177,25 @@ class EconomicsEngine:
 
         cash_flow = [
             -self.net_investment
-        ] + [
-            self.annual_savings
-            for _ in range(years)
         ]
+
+        for year in range(1, years + 1):
+
+            degradation_factor = (
+                self.calculate_degradation_factor(
+                    year,
+                    configuration
+                )
+            )
+
+            annual_cash_flow = (
+                self.annual_savings
+                * degradation_factor
+            )
+
+            cash_flow.append(
+                annual_cash_flow
+            )
 
         cumulative = []
         total = 0.0
@@ -178,3 +216,27 @@ class EconomicsEngine:
         self.cumulative_cash_flow = cumulative
 
         return self.cash_flow
+    
+    def calculate_degradation_factor(
+        self,
+        year: int,
+        configuration
+    ) -> float:
+
+        if year <= 0:
+            return 1.0
+
+        if year == 1:
+            return (
+                1
+                - configuration.first_year_degradation
+            )
+
+        return (
+            1
+            - configuration.first_year_degradation
+            - (
+                configuration.annual_degradation
+                * (year - 1)
+            )
+        )

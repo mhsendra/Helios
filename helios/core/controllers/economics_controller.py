@@ -52,9 +52,9 @@ class EconomicsController:
         self.calculate_cost_with_pv()
         self.calculate_annual_savings()
         self.calculate_net_investment()
-        self.calculate_payback()
         self.calculate_cash_flow()
-
+        self.calculate_payback()
+        
     def reports(self):
 
         economics = self.analyzer.economics_engine
@@ -93,5 +93,8 @@ class EconomicsController:
 
         return (
             self.analyzer.economics_engine
-            .calculate_cash_flow(years)
+            .calculate_cash_flow(
+                self.configuration,
+                years
+            )
         )
