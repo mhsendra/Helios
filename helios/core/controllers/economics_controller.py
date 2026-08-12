@@ -54,6 +54,7 @@ class EconomicsController:
         self.calculate_net_investment()
         self.calculate_cash_flow()
         self.calculate_payback()
+        self.calculate_npv()
         
     def reports(self):
 
@@ -67,7 +68,9 @@ class EconomicsController:
             economics.annual_savings,
             economics.net_investment,
             economics.payback_years,
-            economics.cash_flow
+            economics.cash_flow,
+            economics.npv,
+            self.configuration.discount_rate
         )
         
     def calculate_net_investment(self):
@@ -96,5 +99,14 @@ class EconomicsController:
             .calculate_cash_flow(
                 self.configuration,
                 years
+            )
+        )
+        
+    def calculate_npv(self):
+
+        return (
+            self.analyzer.economics_engine
+            .calculate_npv(
+                self.configuration.discount_rate
             )
         )

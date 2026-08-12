@@ -17,5 +17,7 @@ class EconomicsConfiguration:
     
     annual_export_price_growth: float = 0.0
     
-    annual_maintenance_cost: float = 0.0
+    annual_maintenance_cost: float = 150.0
     annual_maintenance_growth: float = 0.02
+    
+    discount_rate: float = 0.05

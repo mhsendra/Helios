@@ -19,6 +19,8 @@ class EconomicsEngine:
         self.cash_flow = None
         self.cumulative_cash_flow = None
         
+        self.npv = None
+        
     def calculate_cost_without_pv(
         self,
         dataset,
@@ -342,3 +344,29 @@ class EconomicsEngine:
                 + configuration.annual_maintenance_growth
             ) ** (year - 1)
         )
+        
+    def calculate_npv(
+        self,
+        discount_rate: float
+    ) -> float:
+
+        if self.cash_flow is None:
+            raise RuntimeError(
+                "Cash flow has not been calculated."
+            )
+
+        if discount_rate < 0:
+            raise ValueError(
+                "Discount rate cannot be negative."
+            )
+
+        discounted_cash_flows = (
+            self.cash_flow["cash_flow"]
+            / (
+                1 + discount_rate
+            ) ** self.cash_flow["year"]
+        )
+
+        self.npv = discounted_cash_flows.sum()
+
+        return self.npv

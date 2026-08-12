@@ -12,7 +12,9 @@ class EconomicsReports:
     annual_savings,
     net_investment,
     payback_years,
-    cash_flow
+    cash_flow,
+    npv,
+    discount_rate
 ):
 
         ReportPrinter.title(
@@ -111,8 +113,20 @@ class EconomicsReports:
             decimals=2
         )
         
-        ReportPrinter.blank()
+        ReportPrinter.percent(
+            "Tasa de descuento",
+            discount_rate * 100,
+        )
+                
+        ReportPrinter.value(
+            "Valor actual neto",
+            npv,
+            "€",
+            decimals=2
+        )
 
+        ReportPrinter.blank()
+        
         ReportPrinter.subtitle(
             "CASH FLOW"
         )
