@@ -11,7 +11,8 @@ class EconomicsReports:
     cost_with_pv,
     annual_savings,
     net_investment,
-    payback_years
+    payback_years,
+    cash_flow
 ):
 
         ReportPrinter.title(
@@ -109,3 +110,31 @@ class EconomicsReports:
             "años",
             decimals=2
         )
+        
+        ReportPrinter.blank()
+
+        ReportPrinter.subtitle(
+            "CASH FLOW"
+        )
+
+        ReportPrinter.blank()
+
+        widths = [10, 18, 22]
+
+        ReportPrinter.table_header(
+            ["Año", "Flujo", "Acumulado"],
+            widths,
+            ["right", "right", "right"]
+        )
+
+        for _, row in cash_flow.iterrows():
+
+            ReportPrinter.table_row(
+                [
+                    str(int(row["year"])),
+                    f"{row['cash_flow']:.2f} €",
+                    f"{row['cumulative_cash_flow']:.2f} €"
+                ],
+                widths,
+                ["right", "right", "right"]
+            )

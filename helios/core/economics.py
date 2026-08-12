@@ -1,3 +1,5 @@
+import pandas as pd
+
 class EconomicsEngine:
 
     def __init__(self):
@@ -13,6 +15,9 @@ class EconomicsEngine:
         self.net_investment = None
         
         self.payback_years = None
+        
+        self.cash_flow = None
+        self.cumulative_cash_flow = None
 
     def calculate_cost_without_pv(
         self,
@@ -126,3 +131,50 @@ class EconomicsEngine:
         )
 
         return self.payback_years
+    
+    def calculate_cash_flow(
+        self,
+        years: int = 25
+    ) -> pd.DataFrame:
+
+        if self.net_investment is None:
+            raise RuntimeError(
+                "Net investment has not been calculated."
+            )
+
+        if self.annual_savings is None:
+            raise RuntimeError(
+                "Annual savings have not been calculated."
+            )
+
+        if years <= 0:
+            raise ValueError(
+                "Years must be greater than zero."
+            )
+
+        cash_flow = [
+            -self.net_investment
+        ] + [
+            self.annual_savings
+            for _ in range(years)
+        ]
+
+        cumulative = []
+        total = 0.0
+
+        for value in cash_flow:
+
+            total += value
+            cumulative.append(total)
+
+        self.cash_flow = pd.DataFrame(
+            {
+                "year": range(0, years + 1),
+                "cash_flow": cash_flow,
+                "cumulative_cash_flow": cumulative,
+            }
+        )
+
+        self.cumulative_cash_flow = cumulative
+
+        return self.cash_flow
