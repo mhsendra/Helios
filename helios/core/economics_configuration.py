@@ -13,3 +13,4 @@ class EconomicsConfiguration:
     first_year_degradation: float = 0.01
     annual_degradation: float = 0.0035
     
+    annual_electricity_price_growth: float = 0.02

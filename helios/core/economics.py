@@ -9,16 +9,16 @@ class EconomicsEngine:
 
         self.annual_savings = None
         self.export_income = None
-
-        self.annual_savings = None
-
+        
+        self.self_consumption_savings = None
+        
         self.net_investment = None
         
         self.payback_years = None
         
         self.cash_flow = None
         self.cumulative_cash_flow = None
-
+        
     def calculate_cost_without_pv(
         self,
         dataset,
@@ -88,9 +88,32 @@ class EconomicsEngine:
 
     def calculate_annual_savings(self) -> float:
 
-        self.annual_savings = (
+        if self.cost_without_pv is None:
+            raise RuntimeError(
+                "Cost without PV has not been calculated."
+            )
+
+        if self.cost_with_pv is None:
+            raise RuntimeError(
+                "Cost with PV has not been calculated."
+            )
+
+        if self.export_income is None:
+            raise RuntimeError(
+                "Export income has not been calculated."
+            )
+
+        self.self_consumption_savings = (
             self.cost_without_pv
-            - self.cost_with_pv
+            - (
+                self.cost_with_pv
+                + self.export_income
+            )
+        )
+
+        self.annual_savings = (
+            self.self_consumption_savings
+            + self.export_income
         )
 
         return self.annual_savings
@@ -188,9 +211,27 @@ class EconomicsEngine:
                 )
             )
 
-            annual_cash_flow = (
-                self.annual_savings
+            electricity_price_factor = (
+                self.calculate_electricity_price_factor(
+                    year,
+                    configuration
+                )
+            )
+
+            self_consumption_savings = (
+                self.self_consumption_savings
                 * degradation_factor
+                * electricity_price_factor
+            )
+
+            export_income = (
+                self.export_income
+                * degradation_factor
+            )
+
+            annual_cash_flow = (
+                self_consumption_savings
+                + export_income
             )
 
             cash_flow.append(
@@ -240,3 +281,17 @@ class EconomicsEngine:
                 * (year - 1)
             )
         )
+        
+    def calculate_electricity_price_factor(
+        self,
+        year: int,
+        configuration
+    ) -> float:
+
+        if year <= 0:
+            return 1.0
+
+        return (
+            1
+            + configuration.annual_electricity_price_growth
+        ) ** (year - 1)
