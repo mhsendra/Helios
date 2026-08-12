@@ -14,3 +14,5 @@ class EconomicsConfiguration:
     annual_degradation: float = 0.0035
     
     annual_electricity_price_growth: float = 0.02
+    
+    annual_export_price_growth: float = 0.0

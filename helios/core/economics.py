@@ -224,9 +224,17 @@ class EconomicsEngine:
                 * electricity_price_factor
             )
 
+            export_price_factor = (
+                self.calculate_export_price_factor(
+                    year,
+                    configuration
+                )
+            )
+
             export_income = (
                 self.export_income
                 * degradation_factor
+                * export_price_factor
             )
 
             annual_cash_flow = (
@@ -294,4 +302,18 @@ class EconomicsEngine:
         return (
             1
             + configuration.annual_electricity_price_growth
+        ) ** (year - 1)
+        
+    def calculate_export_price_factor(
+        self,
+        year: int,
+        configuration
+    ) -> float:
+
+        if year <= 0:
+            return 1.0
+
+        return (
+            1
+            + configuration.annual_export_price_growth
         ) ** (year - 1)
