@@ -9,7 +9,9 @@ class EconomicsReports:
     grid_import_cost,
     export_income,
     cost_with_pv,
-    annual_savings
+    annual_savings,
+    net_investment,
+    payback_years
 ):
 
         ReportPrinter.title(
@@ -83,5 +85,27 @@ class EconomicsReports:
             "Ahorro anual total",
             annual_savings,
             "€",
+            decimals=2
+        )
+        
+        ReportPrinter.blank()
+
+        ReportPrinter.subtitle(
+            "INVESTMENT"
+        )
+
+        ReportPrinter.blank()
+
+        ReportPrinter.value(
+            "Inversión neta",
+            net_investment,
+            "€",
+            decimals=2
+        )
+        
+        ReportPrinter.value(
+            "Periodo de amortización",
+            payback_years,
+            "años",
             decimals=2
         )

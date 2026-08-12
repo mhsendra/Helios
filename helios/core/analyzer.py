@@ -49,7 +49,7 @@ class ConsumptionAnalyzer:
     # Inicialización
     # ==================================================
 
-    def __init__(self):
+    def __init__(self, economics_configuration):
 
         # Dataset principal
         self.dataset: pd.DataFrame | None = None
@@ -72,7 +72,7 @@ class ConsumptionAnalyzer:
         self.indicators = IndicatorsController(self)
         self.tariffs = TariffsController(self)
         self.solar = SolarController(self)
-        self.economics = EconomicsController(self)
+        self.economics = EconomicsController(self, economics_configuration)
 
         # Reporteros
         self.statistics_reporter = StatisticsReports()

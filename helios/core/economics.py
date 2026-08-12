@@ -10,6 +10,10 @@ class EconomicsEngine:
 
         self.annual_savings = None
 
+        self.net_investment = None
+        
+        self.payback_years = None
+
     def calculate_cost_without_pv(
         self,
         dataset,
@@ -85,3 +89,40 @@ class EconomicsEngine:
         )
 
         return self.annual_savings
+
+    def calculate_net_investment(
+        self,
+        configuration
+    ) -> float:
+
+        self.net_investment = (
+            configuration.installation_cost
+            - configuration.subsidies
+            - configuration.tax_deductions
+        )
+
+        return self.net_investment
+    
+    def calculate_payback(self) -> float:
+
+        if self.net_investment is None:
+            raise RuntimeError(
+                "Net investment has not been calculated."
+            )
+
+        if self.annual_savings is None:
+            raise RuntimeError(
+                "Annual savings have not been calculated."
+            )
+
+        if self.annual_savings <= 0:
+            raise ValueError(
+                "Annual savings must be positive."
+            )
+
+        self.payback_years = (
+            self.net_investment
+            / self.annual_savings
+        )
+
+        return self.payback_years

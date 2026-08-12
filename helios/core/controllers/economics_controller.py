@@ -1,9 +1,11 @@
 from helios.reports.economics import EconomicsReports
 class EconomicsController:
 
-    def __init__(self, analyzer):
+    def __init__(self, analyzer, configuration):
 
         self.analyzer = analyzer
+
+        self.configuration = configuration
 
         self.reports_engine = EconomicsReports()
 
@@ -49,6 +51,8 @@ class EconomicsController:
         self.calculate_export_income()
         self.calculate_cost_with_pv()
         self.calculate_annual_savings()
+        self.calculate_net_investment()
+        self.calculate_payback()
 
     def reports(self):
 
@@ -59,5 +63,23 @@ class EconomicsController:
             economics.grid_import_cost,
             economics.export_income,
             economics.cost_with_pv,
-            economics.annual_savings
+            economics.annual_savings,
+            economics.net_investment,
+            economics.payback_years
+        )
+        
+    def calculate_net_investment(self):
+
+        return (
+            self.analyzer.economics_engine
+            .calculate_net_investment(
+                self.configuration
+            )
+        )
+        
+    def calculate_payback(self):
+
+        return (
+            self.analyzer.economics_engine
+            .calculate_payback()
         )

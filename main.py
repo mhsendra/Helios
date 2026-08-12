@@ -1,13 +1,20 @@
 from helios.core.analyzer import ConsumptionAnalyzer
 from helios.solar.configuration import SolarConfiguration
+from helios.core.economics_configuration import EconomicsConfiguration
 from dotenv import load_dotenv
 
 
 def main():
+    
+    economics_config = EconomicsConfiguration(
+            installation_cost=12490.0
+        )
+    
+    analyzer = ConsumptionAnalyzer(
+        economics_config
+    )
 
     load_dotenv()
-
-    analyzer = ConsumptionAnalyzer()
 
     # ==================================================
     # CARGA Y PREPARACIÓN
@@ -95,9 +102,9 @@ def main():
     analyzer.calculate_solar(config)
 
     analyzer.calculate_economics()
-
+    
     analyzer.economics_reports()
-
+    
     analyzer.solar_reports()
 
     # ==================================================
