@@ -104,6 +104,16 @@ def main():
 
     analyzer.calculate_economics()
 
+    print(
+        "BASE SELF CONSUMPTION:",
+        analyzer.economics_engine.self_consumption_savings
+    )
+
+    print(
+        "BASE EXPORT:",
+        analyzer.economics_engine.export_income
+    )
+
     scenarios = default_economic_scenarios()
 
     analyzer.economics.calculate_scenarios(
