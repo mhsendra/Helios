@@ -1,5 +1,7 @@
 import pandas as pd
 import numpy_financial as npf
+from dataclasses import dataclass
+from helios.core.economic_scenarios import EconomicScenarioResult
 
 class EconomicsEngine:
 
@@ -121,6 +123,306 @@ class EconomicsEngine:
         )
 
         return self.annual_savings
+
+    def calculate_scenario_annual_savings(
+        self,
+        energy_balance,
+        tariff_data,
+        buy_price_factor: float = 1.0,
+        sell_price_factor: float = 1.0,
+    ) -> float:
+        """
+        Calculate annual savings for an economic scenario.
+
+        The original tariff data is not modified.
+        """
+
+        if energy_balance is None:
+            raise RuntimeError(
+                "Energy balance has not been calculated."
+            )
+
+        data = energy_balance.join(
+            tariff_data[
+                [
+                    "buy_price_eur_kwh",
+                    "sell_price_eur_kwh",
+                ]
+            ]
+        )
+
+        data["scenario_buy_price"] = (
+            data["buy_price_eur_kwh"]
+            * buy_price_factor
+        )
+
+        data["scenario_sell_price"] = (
+            data["sell_price_eur_kwh"]
+            * sell_price_factor
+        )
+
+        scenario_grid_import_cost = (
+            data["grid_import_kwh"]
+            * data["scenario_buy_price"]
+        ).sum()
+
+        scenario_export_income = (
+            data["grid_export_kwh"]
+            * data["scenario_sell_price"]
+        ).sum()
+
+        scenario_cost_with_pv = (
+            scenario_grid_import_cost
+            - scenario_export_income
+        )
+
+        scenario_self_consumption_savings = (
+            self.cost_without_pv
+            - (
+                scenario_cost_with_pv
+                + scenario_export_income
+            )
+        )
+
+        return (
+            scenario_self_consumption_savings
+            + scenario_export_income
+        )
+
+    def calculate_scenario(
+        self,
+        scenario,
+        configuration,
+        dataset,
+        energy_balance,
+        tariff_data,
+        years: int = 25,
+    ):
+
+        if self.net_investment is None:
+            raise RuntimeError(
+                "Net investment has not been calculated."
+            )
+
+        if self.self_consumption_savings is None:
+            raise RuntimeError(
+                "Self-consumption savings have not been calculated."
+            )
+
+        if self.export_income is None:
+            raise RuntimeError(
+                "Export income has not been calculated."
+            )
+
+        if years <= 0:
+            raise ValueError(
+                "Years must be greater than zero."
+            )
+
+        # --------------------------------------------------
+        # Parámetros del escenario
+        # --------------------------------------------------
+
+        annual_degradation = (
+            scenario.annual_degradation
+            if scenario.annual_degradation is not None
+            else configuration.annual_degradation
+        )
+
+        discount_rate = (
+            scenario.discount_rate
+            if scenario.discount_rate is not None
+            else configuration.discount_rate
+        )
+
+        # --------------------------------------------------
+        # Cash flow
+        # --------------------------------------------------
+
+        cash_flow = [
+            -self.net_investment
+        ]
+
+        cumulative = [
+            -self.net_investment
+        ]
+
+        for year in range(1, years + 1):
+
+            degradation_factor = (
+                self.calculate_degradation_factor(
+                    year,
+                    configuration,
+                    annual_degradation,
+                )
+            )
+
+            electricity_price_factor = (
+                self.calculate_electricity_price_factor(
+                    year,
+                    configuration,
+                )
+            )
+
+            # Precio de compra del escenario
+            electricity_price_factor *= (
+                scenario.buy_price_factor
+            )
+
+            self_consumption_savings = (
+                self.self_consumption_savings
+                * degradation_factor
+                * electricity_price_factor
+            )
+
+            export_price_factor = (
+                self.calculate_export_price_factor(
+                    year,
+                    configuration,
+                )
+            )
+
+            # Precio de venta del escenario
+            export_price_factor *= (
+                scenario.sell_price_factor
+            )
+
+            export_income = (
+                self.export_income
+                * degradation_factor
+                * export_price_factor
+            )
+
+            maintenance_cost = (
+                self.calculate_maintenance_cost(
+                    year,
+                    configuration,
+                )
+            )
+
+            if scenario.annual_maintenance is not None:
+
+                maintenance_growth_factor = (
+                    self.calculate_maintenance_cost(
+                        year,
+                        configuration,
+                    )
+                    / configuration.annual_maintenance_cost
+                )
+
+                maintenance_cost = (
+                    scenario.annual_maintenance
+                    * maintenance_growth_factor
+                )
+
+            annual_cash_flow = (
+                self_consumption_savings
+                + export_income
+                - maintenance_cost
+            )
+
+            cash_flow.append(
+                annual_cash_flow
+            )
+
+            cumulative.append(
+                cumulative[-1]
+                + annual_cash_flow
+            )
+
+        # --------------------------------------------------
+        # Payback
+        # --------------------------------------------------
+
+        payback_years = float("inf")
+
+        for year in range(1, len(cumulative)):
+
+            if cumulative[year] >= 0:
+
+                previous = cumulative[year - 1]
+                current = cumulative[year]
+
+                fraction = (
+                    -previous
+                    / (current - previous)
+                )
+
+                payback_years = (
+                    year - 1
+                    + fraction
+                )
+
+                break
+
+        # --------------------------------------------------
+        # VAN
+        # --------------------------------------------------
+
+        npv = sum(
+            cash_flow[year]
+            / (
+                (1 + discount_rate)
+                ** year
+            )
+            for year in range(
+                len(cash_flow)
+            )
+        )
+
+        # --------------------------------------------------
+        # TIR
+        # --------------------------------------------------
+
+        irr = npf.irr(
+            cash_flow
+        )
+
+        if irr is None:
+
+            raise RuntimeError(
+                f"IRR could not be calculated "
+                f"for scenario "
+                f"'{scenario.name}'."
+            )
+
+        return EconomicScenarioResult(
+            name=scenario.name,
+            annual_savings=(
+                self.self_consumption_savings
+                + self.export_income
+            ),
+            payback_years=payback_years,
+            npv=float(npv),
+            irr=float(irr),
+        )
+
+    def calculate_scenarios(
+        self,
+        scenarios,
+        configuration,
+        dataset,
+        energy_balance,
+        tariff_data,
+        years: int = 25,
+    ) -> list[EconomicScenarioResult]:
+
+        results = []
+
+        for scenario in scenarios:
+
+            result = self.calculate_scenario(
+                scenario,
+                configuration,
+                dataset,
+                energy_balance,
+                tariff_data,
+                years,
+            )
+
+            results.append(result)
+
+        return results
 
     def calculate_net_investment(
         self,
@@ -293,11 +595,17 @@ class EconomicsEngine:
     def calculate_degradation_factor(
         self,
         year: int,
-        configuration
+        configuration,
+        annual_degradation: float | None = None,
     ) -> float:
 
         if year <= 0:
             return 1.0
+
+        if annual_degradation is None:
+            annual_degradation = (
+                configuration.annual_degradation
+            )
 
         if year == 1:
             return (
@@ -309,7 +617,7 @@ class EconomicsEngine:
             1
             - configuration.first_year_degradation
             - (
-                configuration.annual_degradation
+                annual_degradation
                 * (year - 1)
             )
         )
@@ -457,3 +765,21 @@ class EconomicsEngine:
             )
 
         return self.cash_flow.copy()
+
+    def _apply_price_factors(
+        self,
+        tariff_data,
+        buy_price_factor: float,
+        sell_price_factor: float,
+    ):
+        data = tariff_data[
+            [
+                "buy_price_eur_kwh",
+                "sell_price_eur_kwh",
+            ]
+        ].copy()
+
+        data["buy_price_eur_kwh"] *= buy_price_factor
+        data["sell_price_eur_kwh"] *= sell_price_factor
+
+        return data

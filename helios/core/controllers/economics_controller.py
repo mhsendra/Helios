@@ -1,4 +1,5 @@
 from helios.reports.economics import EconomicsReports
+from helios.core.economic_scenarios import EconomicScenario
 class EconomicsController:
 
     def __init__(self, analyzer, configuration):
@@ -109,4 +110,37 @@ class EconomicsController:
         return (
             self.analyzer.economics_engine
             .economic_summary()
+        )
+
+    def calculate_scenario(
+        self,
+        scenario: EconomicScenario,
+    ):
+
+        return (
+            self.analyzer.economics_engine
+            .calculate_scenario(
+                scenario,
+                self.configuration,
+                self.analyzer.dataset,
+                self.analyzer.solar.energy_balance,
+                self.analyzer.dataset,
+            )
+        )
+
+    def calculate_scenarios(
+        self,
+        scenarios,
+        years: int = 25,
+    ):
+        return (
+            self.analyzer.economics_engine
+            .calculate_scenarios(
+                scenarios,
+                self.configuration,
+                self.analyzer.dataset,
+                self.analyzer.solar.energy_balance,
+                self.analyzer.dataset,
+                years,
+            )
         )

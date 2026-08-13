@@ -1,6 +1,7 @@
 from helios.core.analyzer import ConsumptionAnalyzer
 from helios.solar.configuration import SolarConfiguration
 from helios.core.economics_configuration import EconomicsConfiguration
+from helios.core.economic_scenarios import EconomicScenario
 from dotenv import load_dotenv
 
 
@@ -103,12 +104,36 @@ def main():
 
     analyzer.calculate_economics()
 
-    print(
-    analyzer.economics.economic_summary().to_string(
-        index=False,
-        float_format=lambda x: f"{x:,.2f}"
+    scenarios = [
+        EconomicScenario(
+            name="Conservador",
+            buy_price_factor=0.90,
+            sell_price_factor=0.90,
+            annual_maintenance=200.0,
+            annual_degradation=0.005,
+        ),
+        EconomicScenario(
+            name="Base",
+        ),
+        EconomicScenario(
+            name="Optimista",
+            buy_price_factor=1.10,
+            sell_price_factor=1.10,
+            annual_maintenance=100.0,
+            annual_degradation=0.0025,
+        ),
+    ]
+
+    scenario_results = analyzer.economics.calculate_scenarios(
+        scenarios
     )
-)    
+
+    print()
+    print("SCENARIOS")
+
+    for result in scenario_results:
+        print(result)
+    
     analyzer.economics_reports()
     
     analyzer.solar_reports()
