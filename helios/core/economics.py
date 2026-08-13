@@ -24,7 +24,10 @@ class EconomicsEngine:
         
         self.npv = None
         self.irr = None
-        
+
+        self.scenario_results = []
+
+
     def calculate_cost_without_pv(
         self,
         dataset,
@@ -407,7 +410,7 @@ class EconomicsEngine:
         years: int = 25,
     ) -> list[EconomicScenarioResult]:
 
-        results = []
+        self.scenario_results = []
 
         for scenario in scenarios:
 
@@ -420,9 +423,9 @@ class EconomicsEngine:
                 years,
             )
 
-            results.append(result)
+            self.scenario_results.append(result)
 
-        return results
+        return self.scenario_results
 
     def calculate_net_investment(
         self,

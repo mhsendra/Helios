@@ -158,3 +158,42 @@ class EconomicsReports:
                 widths,
                 ["right", "right", "right"]
             )
+
+    def economic_scenarios(
+        self,
+        scenario_results,
+    ):
+
+        ReportPrinter.subtitle(
+            "ECONOMIC SCENARIOS"
+        )
+
+        ReportPrinter.blank()
+
+        widths = [18, 18, 18, 18]
+
+        ReportPrinter.table_header(
+            [
+                "Escenario",
+                "Payback",
+                "VAN",
+                "TIR"
+            ],
+            widths,
+            ["left", "right", "right", "right"]
+        )
+
+        for result in scenario_results:
+
+            ReportPrinter.table_row(
+                [
+                    result.name,
+                    f"{result.payback_years:.2f} años",
+                    f"{result.npv:,.2f} €",
+                    f"{result.irr * 100:.2f} %",
+                ],
+                widths,
+                ["left", "right", "right", "right"]
+            )
+
+    

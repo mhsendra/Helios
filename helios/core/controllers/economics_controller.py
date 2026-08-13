@@ -73,6 +73,8 @@ class EconomicsController:
             self.configuration.discount_rate,
             economics.irr
         )
+
+        self.scenarios_report()
         
     def calculate_net_investment(self):
 
@@ -143,4 +145,10 @@ class EconomicsController:
                 self.analyzer.dataset,
                 years,
             )
+        )
+
+    def scenarios_report(self):
+
+        self.reports_engine.economic_scenarios(
+            self.analyzer.economics_engine.scenario_results
         )
