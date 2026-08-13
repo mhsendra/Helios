@@ -102,7 +102,13 @@ def main():
     analyzer.calculate_solar(config)
 
     analyzer.calculate_economics()
-        
+
+    print(
+    analyzer.economics.economic_summary().to_string(
+        index=False,
+        float_format=lambda x: f"{x:,.2f}"
+    )
+)    
     analyzer.economics_reports()
     
     analyzer.solar_reports()

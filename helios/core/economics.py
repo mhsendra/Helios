@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy_financial as npf
 
 class EconomicsEngine:
 
@@ -20,6 +21,7 @@ class EconomicsEngine:
         self.cumulative_cash_flow = None
         
         self.npv = None
+        self.irr = None
         
     def calculate_cost_without_pv(
         self,
@@ -200,9 +202,18 @@ class EconomicsEngine:
                 "Years must be greater than zero."
             )
 
-        cash_flow = [
-            -self.net_investment
+        rows = [
+            {
+                "year": 0,
+                "self_consumption_savings": 0.0,
+                "export_income": 0.0,
+                "maintenance_cost": 0.0,
+                "cash_flow": -self.net_investment,
+                "cumulative_cash_flow": -self.net_investment,
+            }
         ]
+
+        cumulative = -self.net_investment
 
         for year in range(1, years + 1):
 
@@ -252,27 +263,30 @@ class EconomicsEngine:
                 - maintenance_cost
             )
 
-            cash_flow.append(
-                annual_cash_flow
+            cumulative += annual_cash_flow
+
+            rows.append(
+                {
+                    "year": year,
+                    "self_consumption_savings":
+                        self_consumption_savings,
+                    "export_income":
+                        export_income,
+                    "maintenance_cost":
+                        maintenance_cost,
+                    "cash_flow":
+                        annual_cash_flow,
+                    "cumulative_cash_flow":
+                        cumulative,
+                }
             )
 
-        cumulative = []
-        total = 0.0
+        self.cash_flow = pd.DataFrame(rows)
 
-        for value in cash_flow:
-
-            total += value
-            cumulative.append(total)
-
-        self.cash_flow = pd.DataFrame(
-            {
-                "year": range(0, years + 1),
-                "cash_flow": cash_flow,
-                "cumulative_cash_flow": cumulative,
-            }
+        self.cumulative_cash_flow = (
+            self.cash_flow["cumulative_cash_flow"]
+            .tolist()
         )
-
-        self.cumulative_cash_flow = cumulative
 
         return self.cash_flow
     
@@ -370,3 +384,76 @@ class EconomicsEngine:
         self.npv = discounted_cash_flows.sum()
 
         return self.npv
+    
+    def calculate_irr(self) -> float:
+
+        if self.cash_flow is None:
+            raise RuntimeError(
+                "Cash flow has not been calculated."
+            )
+
+        cash_flows = (
+            self.cash_flow["cash_flow"]
+            .tolist()
+        )
+
+        # IRR requires at least one negative
+        # and one positive cash flow.
+        if not (
+            any(value < 0 for value in cash_flows)
+            and any(value > 0 for value in cash_flows)
+        ):
+            raise RuntimeError(
+                "IRR cannot be calculated: "
+                "cash flows must contain at least "
+                "one negative and one positive value."
+            )
+
+        try:
+            irr = npf.irr(cash_flows)
+        except Exception as exc:
+            raise RuntimeError(
+                "Unable to calculate IRR."
+            ) from exc
+
+        if irr is None or pd.isna(irr):
+            raise RuntimeError(
+                "IRR could not be calculated."
+            )
+
+        self.irr = float(irr)
+
+        return self.irr
+
+    def calculate_economic_indicators(
+        self,
+        discount_rate: float
+    ) -> dict:
+
+        if self.cash_flow is None:
+            raise RuntimeError(
+                "Cash flow has not been calculated."
+            )
+
+        self.calculate_payback()
+
+        self.calculate_npv(
+            discount_rate
+        )
+
+        self.calculate_irr()
+
+        return {
+            "payback_years": self.payback_years,
+            "npv": self.npv,
+            "irr": self.irr,
+        }
+
+    def economic_summary(self) -> pd.DataFrame:
+
+        if self.cash_flow is None:
+            raise RuntimeError(
+                "Cash flow has not been calculated."
+            )
+
+        return self.cash_flow.copy()

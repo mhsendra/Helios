@@ -14,7 +14,8 @@ class EconomicsReports:
     payback_years,
     cash_flow,
     npv,
-    discount_rate
+    discount_rate,
+    irr
 ):
 
         ReportPrinter.title(
@@ -123,6 +124,11 @@ class EconomicsReports:
             npv,
             "€",
             decimals=2
+        )
+        
+        ReportPrinter.percent(
+            "Tasa interna de retorno",
+            irr * 100,
         )
 
         ReportPrinter.blank()
