@@ -214,6 +214,17 @@ class ConsumptionAnalyzer:
 
         self.economics.calculate()
 
+    def calculate_economic_scenarios(
+        self,
+        scenarios,
+        years: int = 25,
+    ):
+        """Delegación al controlador económico."""
+        return self.economics.calculate_scenarios(
+            scenarios,
+            years
+        )
+
     def tariff_reports(self):
         
         """Delegación a reportes de tarifas."""

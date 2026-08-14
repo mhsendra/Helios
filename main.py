@@ -45,8 +45,6 @@ def main():
 
     analyzer.calculate_statistics()
 
-    analyzer.calculate_profiles()
-
     analyzer.statistics_reports()
 
 
@@ -118,9 +116,9 @@ def main():
 
     scenarios = default_economic_scenarios()
 
-    analyzer.economics.calculate_scenarios(
+    analyzer.calculate_economic_scenarios(
         scenarios
-    )   
+    )
 
     analyzer.economics_reports()
     
