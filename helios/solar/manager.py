@@ -47,6 +47,12 @@ class SolarManager:
 
         self.configuration = configuration
 
+        self.daily_production = None
+        self.monthly_production = None
+        self.yearly_production = None
+        self.energy_balance = None
+        self.statistics = None
+
         response = self.client.fetch(
             configuration
         )
