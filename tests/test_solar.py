@@ -114,3 +114,13 @@ class TestSolarEngine:
         self.engine.manager.energy_balance = value
 
         assert self.engine.energy_balance is value
+
+    def test_get_configuration(self):
+
+        configuration = MagicMock()
+
+        self.engine.manager.configuration = configuration
+
+        result = self.engine.get_configuration()
+
+        assert result is configuration
