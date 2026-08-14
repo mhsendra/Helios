@@ -41,7 +41,7 @@ class SolarController:
     @property
     def coverage(self) -> float | None:
 
-        balance = self.energy_balance
+        balance = self.analyzer.solar_engine.energy_balance
 
         if balance is None or balance.empty:
             return None
@@ -58,7 +58,7 @@ class SolarController:
     @property
     def annual_production(self) -> float | None:
 
-        yearly = self.yearly_production
+        yearly = self.analyzer.solar_engine.yearly_production
 
         if yearly is None or yearly.empty:
             return None
@@ -68,33 +68,39 @@ class SolarController:
     @property
     def self_consumption(self) -> float | None:
 
-        balance = self.energy_balance
+        balance = self.analyzer.solar_engine.energy_balance
 
         if balance is None:
             return None
 
-        return float(balance["self_consumption_kwh"].sum())
+        return float(
+            balance["self_consumption_kwh"].sum()
+        )
 
     @property
     def grid_import(self) -> float | None:
 
-        balance = self.energy_balance
+        balance = self.analyzer.solar_engine.energy_balance
 
         if balance is None:
             return None
 
-        return float(balance["grid_import_kwh"].sum())
+        return float(
+            balance["grid_import_kwh"].sum()
+        )
 
     @property
     def grid_export(self) -> float | None:
 
-        balance = self.energy_balance
+        balance = self.analyzer.solar_engine.energy_balance
 
         if balance is None:
             return None
 
-        return float(balance["grid_export_kwh"].sum())
-    
+        return float(
+            balance["grid_export_kwh"].sum()
+        )
+
     @property
     def specific_production(self) -> float | None:
 
@@ -105,17 +111,21 @@ class SolarController:
 
         configuration = self.analyzer.solar_engine.configuration
 
-        return annual / configuration.installed_power_kwp
+        return (
+            annual
+            / configuration.installed_power_kwp
+        )
 
     @property
     def monthly_energy_balance(self):
 
-        balance = self.energy_balance
+        balance = self.analyzer.solar_engine.energy_balance
 
         if balance is None:
             return None
 
         return balance.resample("ME").sum()
+    
     # ==================================================
     # Cálculos de producción solar
     # ==================================================

@@ -10,9 +10,6 @@ class SolarEngine:
     def configuration(self):
         return self.manager.configuration
 
-    def get_configuration(self):
-        return self.manager.configuration
-
     # Métodos de cálculo (sin return, como ya has dejado)
 
     def calculate_hourly_production(
