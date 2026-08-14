@@ -289,6 +289,7 @@ def test_calculate():
     controller.validate_timeseries = MagicMock()
     controller.find_missing_hours = MagicMock()
     controller.find_duplicate_timestamps = MagicMock()
+    controller.calculate_quality = MagicMock()
     controller.calculate_gap_summary = MagicMock()
 
     analyzer.quality = {
@@ -303,7 +304,7 @@ def test_calculate():
     controller.validate_timeseries.assert_called_once_with()
     controller.find_missing_hours.assert_called_once_with()
     controller.find_duplicate_timestamps.assert_called_once_with()
-    analyzer.calculate_quality.assert_called_once_with()
+    controller.calculate_quality.assert_called_once_with()
     controller.calculate_gap_summary.assert_called_once_with()
 
     assert analyzer.validation_stats == {
@@ -323,8 +324,12 @@ def test_reports():
 
     controller, analyzer = create_controller()
 
+    controller.quality_report = MagicMock()
+    controller.duplicate_report = MagicMock()
+    controller.gap_report = MagicMock()
+
     controller.reports()
 
-    analyzer.quality_report.assert_called_once_with()
-    analyzer.gap_report.assert_called_once_with()
-    analyzer.duplicate_report.assert_called_once_with()
+    controller.quality_report.assert_called_once_with()
+    controller.gap_report.assert_called_once_with()
+    controller.duplicate_report.assert_called_once_with()

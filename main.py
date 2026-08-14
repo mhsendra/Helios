@@ -45,6 +45,8 @@ def main():
 
     analyzer.calculate_statistics()
 
+    analyzer.calculate_profiles()
+
     analyzer.statistics_reports()
 
 

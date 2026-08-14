@@ -6,7 +6,6 @@ Coordinador principal del sistema de análisis energético.
 
 from pathlib import Path
 import pandas as pd
-import calendar
 
 # Motores principales
 from helios.core.cleaning import ConsumptionCleaner
@@ -27,6 +26,7 @@ from helios.core.controllers.indicators_controller import IndicatorsController
 from helios.core.controllers.tariffs_controller import TariffsController
 from helios.core.controllers.solar_controller import SolarController
 from helios.core.controllers.economics_controller import EconomicsController
+from helios.core.controllers.statistics_controller import StatisticsController
 
 # Reporteros
 from helios.reports.statistics import StatisticsReports
@@ -73,6 +73,7 @@ class ConsumptionAnalyzer:
         self.tariffs = TariffsController(self)
         self.solar = SolarController(self)
         self.economics = EconomicsController(self, economics_configuration)
+        self.statistics = StatisticsController(self)
 
         # Reporteros
         self.statistics_reporter = StatisticsReports()
@@ -130,54 +131,33 @@ class ConsumptionAnalyzer:
         """Delegación a reportes de validación."""
         self.validation.reports()
 
-    def calculate_quality(self):
-        """Calcula métricas de calidad de datos."""
-        self.quality = self.quality_engine.calculate(self.dataset)
-
-    def quality_report(self):
-        self.quality_reporter.quality(self.quality)
-
-    def duplicate_report(self):
-        self.quality_reporter.duplicates(self.duplicates)
-
-    def gap_report(self):
-        self.quality_reporter.gap(self.gap_summary)
-
     # ==================================================
     # Estadísticas de consumo
     # ==================================================
 
     def calculate_statistics(self):
-        """Calcula estadísticas generales y perfiles base."""
-        dataset = self.valid_dataset()
-
-        self.statistics_engine.calculate(dataset)
-        self.statistics_engine.calculate_daily_consumption(dataset)
-        self.statistics_engine.calculate_monthly_consumption(dataset)
-        self.statistics_engine.calculate_yearly_consumption(dataset)
-
-        self.statistics_engine.calculate_hourly_profile(dataset)
-        self.statistics_engine.calculate_weekday_profile(dataset)
-        self.statistics_engine.calculate_monthly_profile(dataset)
-        self.statistics_engine.calculate_seasonal_profile()
+        """Calcula las estadísticas de consumo."""
+        self.statistics.calculate()
 
     def statistics_report(self):
-        self.statistics_reporter.statistics(self.statistics_engine.statistics)
+        """Delegación al reporte de estadísticas."""
+        self.statistics.statistics_report()
 
     def daily_report(self):
-        self.statistics_reporter.daily(self.statistics_engine.daily_consumption)
+        """Delegación al reporte diario."""
+        self.statistics.daily_report()
 
     def monthly_report(self):
-        self.statistics_reporter.monthly(self.statistics_engine.monthly_consumption)
+        """Delegación al reporte mensual."""
+        self.statistics.monthly_report()
 
     def yearly_report(self):
-        self.statistics_reporter.yearly(self.statistics_engine.yearly_consumption)
+        """Delegación al reporte anual."""
+        self.statistics.yearly_report()
 
     def statistics_reports(self):
-        self.statistics_report()
-        self.daily_report()
-        self.monthly_report()
-        self.yearly_report()
+        """Delegación a todos los reportes de estadísticas."""
+        self.statistics.reports()
 
     # ==================================================
     # Perfiles de consumo
@@ -292,24 +272,3 @@ class ConsumptionAnalyzer:
         day_df = day_df.copy()
         day_df["datetime"] = datetimes
         return day_df
-
-    def _expected_hours_for_day(self, day):
-        """
-        Devuelve el conjunto de horas esperadas para una fecha
-        según el calendario español (23, 24 o 25 horas).
-        """
-        year = day.year
-
-        march = calendar.monthcalendar(year, 3)
-        last_sunday_march = max(week[calendar.SUNDAY] for week in march)
-
-        october = calendar.monthcalendar(year, 10)
-        last_sunday_october = max(week[calendar.SUNDAY] for week in october)
-
-        if day.month == 3 and day.day == last_sunday_march:
-            return set(range(1, 24))
-
-        if day.month == 10 and day.day == last_sunday_october:
-            return set(range(1, 26))
-
-        return set(range(1, 25))

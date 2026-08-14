@@ -107,6 +107,28 @@ class ValidationController:
         print(f"Valores nulos:\n{self.analyzer.dataset.isnull().sum()}")
         print(f"\nDuplicados: {self.analyzer.dataset.duplicated().sum()}")
 
+    def calculate_quality(self):
+        self.analyzer.quality = (
+            self.analyzer.quality_engine.calculate(
+                self.analyzer.dataset
+            )
+        )
+
+    def quality_report(self):
+        self.analyzer.quality_reporter.quality(
+            self.analyzer.quality
+        )
+
+    def duplicate_report(self):
+        self.analyzer.quality_reporter.duplicates(
+            self.analyzer.duplicates
+        )
+
+    def gap_report(self):
+        self.analyzer.quality_reporter.gap(
+            self.analyzer.gap_summary
+        )
+
     # ==================================================
     # Ejecución completa
     # ==================================================
@@ -118,7 +140,7 @@ class ValidationController:
         self.validate_timeseries()
         self.find_missing_hours()
         self.find_duplicate_timestamps()
-        self.analyzer.calculate_quality()
+        self.calculate_quality()
         self.calculate_gap_summary()
 
         self.analyzer.validation_stats = {
@@ -133,9 +155,9 @@ class ValidationController:
         """
         Genera todos los informes de validación.
         """
-        self.analyzer.quality_report()
-        self.analyzer.gap_report()
-        self.analyzer.duplicate_report()
+        self.quality_report()
+        self.gap_report()
+        self.duplicate_report()
 
     # ==================================================
     # Métodos auxiliares
