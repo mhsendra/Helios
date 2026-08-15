@@ -1138,3 +1138,33 @@ class TestConsumptionComparisons:
             "---",
             "12.25 %",
         ]
+
+    def test_weekly_trends_increasing(self):
+
+        self.comparisons.weekly_comparison = pd.DataFrame(
+            {
+                2024: [100.0, 120.0, 140.0],
+            },
+            index=["S01", "S02", "S03"]
+        )
+
+        result = self.comparisons.weekly_trends()
+
+        assert result[2024]["classification"] == "Creciente"
+        assert result[2024]["positive_steps"] == 2
+        assert result[2024]["negative_steps"] == 0
+
+    def test_weekly_trends_decreasing(self):
+
+        self.comparisons.weekly_comparison = pd.DataFrame(
+            {
+                2024: [140.0, 120.0, 100.0],
+            },
+            index=["S01", "S02", "S03"]
+        )
+
+        result = self.comparisons.weekly_trends()
+
+        assert result[2024]["classification"] == "Decreciente"
+        assert result[2024]["positive_steps"] == 0
+        assert result[2024]["negative_steps"] == 2
