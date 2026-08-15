@@ -3,9 +3,7 @@ import pandas as pd
 
 class IndicatorsEngine:
 
-    class IndicatorsEngine:
-
-        def __init__(self):
+    def __init__(self):
 
             self.dataset = None
 
@@ -100,7 +98,7 @@ class IndicatorsEngine:
         }
 
         return self.extremes
-    
+
     def calculate_base_load(
         self,
         dataset: pd.DataFrame

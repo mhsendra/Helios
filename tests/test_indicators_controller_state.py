@@ -78,3 +78,76 @@ class TestIndicatorsControllerState:
                 self.analyzer.indicators_engine.base_load
             ),
         ]
+
+    # ==========================================================
+# Cálculos individuales
+# ==========================================================
+
+    def test_calculate_mean_consumption(self):
+
+        self.controller.calculate_mean_consumption()
+
+        self.analyzer.indicators_engine.calculate_mean_consumption.assert_called_once_with(
+            self.analyzer.valid_dataset.return_value
+        )
+
+
+    def test_calculate_extremes(self):
+
+        self.controller.calculate_extremes()
+
+        self.analyzer.indicators_engine.calculate_extremes.assert_called_once_with(
+            dataset=self.analyzer.valid_dataset.return_value,
+            daily=(
+                self.analyzer.statistics_engine
+                .daily_consumption
+            ),
+            monthly=(
+                self.analyzer.statistics_engine
+                .monthly_consumption
+            ),
+            weekly=(
+                self.analyzer.comparisons_controller
+                .get_weekly_comparison.return_value
+            )
+        )
+
+
+    def test_calculate_base_load(self):
+
+        self.controller.calculate_base_load()
+
+        self.analyzer.indicators_engine.calculate_base_load.assert_called_once_with(
+            self.analyzer.valid_dataset.return_value
+        )
+
+
+# ==========================================================
+# Reportes individuales
+# ==========================================================
+
+    def test_mean_consumption_report(self):
+
+        self.controller.mean_consumption_report()
+
+        self.analyzer.indicator_reporter.mean_consumption.assert_called_once_with(
+            self.analyzer.indicators_engine.mean_consumption
+        )
+
+
+    def test_extremes_report(self):
+
+        self.controller.extremes_report()
+
+        self.analyzer.indicator_reporter.extremes.assert_called_once_with(
+            self.analyzer.indicators_engine.extremes
+        )
+
+
+    def test_base_load_report(self):
+
+        self.controller.base_load_report()
+
+        self.analyzer.indicator_reporter.base_load.assert_called_once_with(
+            self.analyzer.indicators_engine.base_load
+        )
