@@ -220,7 +220,7 @@ class ComparisonsPage(QWidget):
 
     def update_data(self):
 
-        comp = self.analyzer.comparisons_engine
+        comp = self.project.comparisons
 
         if (
             comp.weekly_comparison is None or

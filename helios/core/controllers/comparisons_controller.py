@@ -10,6 +10,26 @@ class ComparisonsController:
         """
         self.analyzer = analyzer
 
+    @property
+    def monthly_comparison(self):
+        return self.analyzer.comparisons_engine.monthly_comparison
+
+    @property
+    def monthly_variation(self):
+        return self.analyzer.comparisons_engine.monthly_variation
+
+    @property
+    def weekly_comparison(self):
+        return self.analyzer.comparisons_engine.weekly_comparison
+
+    @property
+    def weekly_variation(self):
+        return self.analyzer.comparisons_engine.weekly_variation
+
+    @property
+    def yearly_comparison(self):
+        return self.analyzer.comparisons_engine.yearly_comparison
+
     # ==================================================
     # Cálculos de comparativas
     # ==================================================
@@ -128,3 +148,39 @@ class ComparisonsController:
         self.plot_weekly_variation()
 
         self.plot_yearly_comparison()
+
+    def detailed_weekly_insights(self):
+        return self.analyzer.comparisons_engine.detailed_weekly_insights()
+
+    def weekly_stability_extremes(self):
+        return self.analyzer.comparisons_engine.weekly_stability_extremes()
+
+    def detect_monthly_anomalies(self):
+        return self.analyzer.comparisons_engine.detect_monthly_anomalies()
+
+    def monthly_stability_extremes(self):
+        return self.analyzer.comparisons_engine.monthly_stability_extremes()
+
+    def monthly_trends(self):
+        return self.analyzer.comparisons_engine.monthly_trends()
+
+    def yearly_trend(self):
+        return self.analyzer.comparisons_engine.yearly_trend()
+
+    def annual_stability(self):
+        return self.analyzer.comparisons_engine.annual_stability()
+
+    def get_monthly_comparison(self):
+        return self.analyzer.comparisons_engine.monthly_comparison
+
+    def get_monthly_variation(self):
+        return self.analyzer.comparisons_engine.monthly_variation
+
+    def get_weekly_comparison(self):
+        return self.analyzer.comparisons_engine.weekly_comparison
+
+    def get_weekly_variation(self):
+        return self.analyzer.comparisons_engine.weekly_variation
+
+    def get_yearly_comparison(self):
+        return self.analyzer.comparisons_engine.yearly_comparison

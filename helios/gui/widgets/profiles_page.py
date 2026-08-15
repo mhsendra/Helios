@@ -14,7 +14,6 @@ class ProfilesPage(QWidget):
         super().__init__()
 
         self.project = project
-        self.analyzer = project.analyzer
 
         layout = QVBoxLayout(self)
 
@@ -117,13 +116,13 @@ class ProfilesPage(QWidget):
 
     def update_data(self):
 
-        stats = self.analyzer.statistics_engine
+        profiles = self.project.profiles
 
         if (
-            stats.hourly_profile is None or
-            stats.weekday_profile is None or
-            stats.monthly_profile is None or
-            stats.seasonal_profile is None
+            profiles.hourly_profile is None or
+            profiles.weekday_profile is None or
+            profiles.monthly_profile is None or
+            profiles.seasonal_profile is None
         ):
             return
 
@@ -131,7 +130,7 @@ class ProfilesPage(QWidget):
         # Perfil horario
         # ==========================================
 
-        hourly = stats.hourly_profile
+        hourly = profiles.hourly_profile
 
         self.hour_max_label.setText(
             f'{hourly.idxmax():02d}:00'
@@ -145,7 +144,7 @@ class ProfilesPage(QWidget):
         # Perfil semanal
         # ==========================================
 
-        weekday = stats.weekday_profile
+        weekday = profiles.weekday_profile
 
         self.weekday_max_label.setText(
             str(weekday.idxmax())
@@ -159,7 +158,7 @@ class ProfilesPage(QWidget):
         # Perfil mensual
         # ==========================================
 
-        monthly = stats.monthly_profile
+        monthly = profiles.monthly_profile
 
         self.month_max_label.setText(
             str(monthly.idxmax())
@@ -173,7 +172,7 @@ class ProfilesPage(QWidget):
         # Perfil estacional
         # ==========================================
 
-        seasonal = stats.seasonal_profile
+        seasonal = profiles.seasonal_profile
 
         self.season_max_label.setText(
             str(seasonal.idxmax())

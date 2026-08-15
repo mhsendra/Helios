@@ -16,7 +16,6 @@ class LoadDataPage(QWidget):
         super().__init__()
 
         self.project = project
-        self.analyzer = project.analyzer
         self.main_window = main_window
         
         layout = QVBoxLayout(self)
@@ -80,39 +79,35 @@ class LoadDataPage(QWidget):
 
         try:
 
-            self.analyzer.load_excel(path)
+            self.project.load_data(path)
 
-            self.analyzer.clean_data()
-
-            self.analyzer.build_datetime()
-
-            self.analyzer.calculate_quality()
-
-            self.analyzer.calculate_statistics()
-
-            self.analyzer.calculate_comparisons()
+            self.project.analyze_data()
 
             self.update_project_info()
 
             self.main_window.update_project_pages()
-            
+
             self.main_window.set_project_loaded(True)
 
         except Exception as e:
 
+            import traceback
+
+            traceback.print_exc()
+
             self.info_label.setText(
-                f"Error: {e}"
+                f"Error: {type(e).__name__}: {e}"
             )
 
     def update_project_info(self):
 
-        if self.analyzer.dataset is None:
+        if self.project.dataset is None:
 
             self.info_label.setText("Ningún archivo cargado.")
 
             return
 
-        dataset = self.analyzer.dataset
+        dataset = self.project.dataset
 
         filename = Path(self.path_edit.text()).name
 
@@ -122,7 +117,7 @@ class LoadDataPage(QWidget):
 
         records = len(dataset)
 
-        quality = self.analyzer.quality
+        quality = self.project.quality
 
         self.info_label.setText(
             f"""

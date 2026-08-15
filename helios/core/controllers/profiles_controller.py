@@ -10,6 +10,22 @@ class ProfilesController:
         """
         self.analyzer = analyzer
 
+    @property
+    def hourly_profile(self):
+        return self.analyzer.statistics_engine.hourly_profile
+
+    @property
+    def weekday_profile(self):
+        return self.analyzer.statistics_engine.weekday_profile
+
+    @property
+    def monthly_profile(self):
+        return self.analyzer.statistics_engine.monthly_profile
+
+    @property
+    def seasonal_profile(self):
+        return self.analyzer.statistics_engine.seasonal_profile
+
     # ==================================================
     # Cálculos de perfiles
     # ==================================================

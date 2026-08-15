@@ -13,7 +13,6 @@ class ValidationPage(QWidget):
         super().__init__()
 
         self.project = project
-        self.analyzer = project.analyzer
 
         layout = QVBoxLayout(self)
 
@@ -42,11 +41,11 @@ class ValidationPage(QWidget):
 
     def update_data(self):
 
-        quality = self.analyzer.quality
+        quality = self.project.quality
 
         if quality is None:
             return
-
+        
         rating = quality["rating"]
 
         colors = {

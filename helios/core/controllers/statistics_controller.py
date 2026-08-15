@@ -10,6 +10,26 @@ class StatisticsController:
         con estadísticas generales, diarias, mensuales y anuales.
         """
         self.analyzer = analyzer
+        
+    # ==================================================
+    # Propiedades
+    # ==================================================
+
+    @property
+    def statistics(self):
+        return self.analyzer.statistics_engine.statistics
+
+    @property
+    def daily_consumption(self):
+        return self.analyzer.statistics_engine.daily_consumption
+
+    @property
+    def monthly_consumption(self):
+        return self.analyzer.statistics_engine.monthly_consumption
+
+    @property
+    def yearly_consumption(self):
+        return self.analyzer.statistics_engine.yearly_consumption
 
     # ==================================================
     # Cálculos de estadísticas

@@ -11,7 +11,6 @@ class StatisticsPage(QWidget):
         super().__init__()
 
         self.project = project
-        self.analyzer = project.analyzer
 
         layout = QVBoxLayout(self)
 
@@ -42,7 +41,7 @@ class StatisticsPage(QWidget):
 
     def update_data(self):
 
-        stats = self.analyzer.statistics_engine.statistics
+        stats = self.project.statistics.statistics
 
         if stats is None:
             return

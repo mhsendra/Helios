@@ -225,22 +225,3 @@ class IndicatorsPage(QWidget):
         self.kpi_max_decrease_label.setText(
             f"{yearly_trend['max_decrease']:.2f}%"
         )
-
-        # ==========================================================
-        # KPI: Calidad del dataset
-        # ==========================================================
-
-        # validation_stats se construye en ValidationController.calculate()
-        if not hasattr(analyzer, "validation_stats"):
-            return
-
-        qs = analyzer.validation_stats
-
-        # % de horas faltantes sobre el total
-        missing_pct = (qs["missing_hours"] / qs["total_hours"]) * 100
-        self.kpi_missing_pct_label.setText(f"{missing_pct:.2f}%")
-
-        # Estos indicadores no existen en tu arquitectura actual → marcamos N/A
-        self.kpi_corrected_pct_label.setText("N/A")
-        self.kpi_zero_days_label.setText("N/A")
-        self.kpi_anomaly_days_label.setText("N/A")
