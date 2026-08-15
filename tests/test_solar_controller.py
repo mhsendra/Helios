@@ -15,6 +15,10 @@ class TestSolarController:
             self.analyzer
         )
 
+    # ==================================================
+    # Propiedades
+    # ==================================================
+
     def test_coverage(self):
 
         self.analyzer.solar_engine.energy_balance = pd.DataFrame(
@@ -62,6 +66,12 @@ class TestSolarController:
             1500.0
         )
 
+    def test_annual_production_without_yearly_production(self):
+
+        self.analyzer.solar_engine.yearly_production = None
+
+        assert self.controller.annual_production is None
+
     def test_self_consumption_grid_import_and_export(self):
 
         self.analyzer.solar_engine.energy_balance = pd.DataFrame(
@@ -84,6 +94,14 @@ class TestSolarController:
             11.0
         )
 
+    def test_energy_balance_totals_without_balance(self):
+
+        self.analyzer.solar_engine.energy_balance = None
+
+        assert self.controller.self_consumption is None
+        assert self.controller.grid_import is None
+        assert self.controller.grid_export is None
+
     def test_specific_production(self):
 
         self.analyzer.solar_engine.yearly_production = pd.Series(
@@ -102,6 +120,12 @@ class TestSolarController:
         assert self.controller.specific_production == pytest.approx(
             1000.0
         )
+
+    def test_specific_production_without_annual_production(self):
+
+        self.analyzer.solar_engine.yearly_production = None
+
+        assert self.controller.specific_production is None
 
     def test_monthly_energy_balance(self):
 
@@ -135,6 +159,16 @@ class TestSolarController:
             "consumption_kwh"
         ] == pytest.approx(4.0)
 
+    def test_monthly_energy_balance_without_balance(self):
+
+        self.analyzer.solar_engine.energy_balance = None
+
+        assert self.controller.monthly_energy_balance is None
+
+    # ==================================================
+    # Cálculos
+    # ==================================================
+
     def test_calculate_calls_steps_in_order(self):
 
         configuration = MagicMock()
@@ -159,6 +193,10 @@ class TestSolarController:
             ),
             call.calculate_statistics(),
         ]
+
+    # ==================================================
+    # Reports
+    # ==================================================
 
     def test_reports_calls_steps_in_order(self):
 

@@ -333,3 +333,78 @@ def test_reports():
     controller.quality_report.assert_called_once_with()
     controller.gap_report.assert_called_once_with()
     controller.duplicate_report.assert_called_once_with()
+
+# ==========================================================
+# Quality
+# ==========================================================
+
+
+def test_calculate_quality():
+
+    controller, analyzer = create_controller()
+
+    quality = {
+        "missing_pct": 1.5,
+        "corrected_pct": 2.5,
+        "zero_days": 3,
+        "anomaly_days": 4
+    }
+
+    analyzer.quality_engine.calculate.return_value = quality
+
+    controller.calculate_quality()
+
+    analyzer.quality_engine.calculate.assert_called_once_with(
+        analyzer.dataset
+    )
+
+    assert analyzer.quality == quality
+
+
+# ==========================================================
+# Reports individuales
+# ==========================================================
+
+
+def test_quality_report():
+
+    controller, analyzer = create_controller()
+
+    analyzer.quality = {
+        "missing_pct": 1.5
+    }
+
+    controller.quality_report()
+
+    analyzer.quality_reporter.quality.assert_called_once_with(
+        analyzer.quality
+    )
+
+
+def test_duplicate_report():
+
+    controller, analyzer = create_controller()
+
+    analyzer.duplicates = ["duplicate_1"]
+
+    controller.duplicate_report()
+
+    analyzer.quality_reporter.duplicates.assert_called_once_with(
+        analyzer.duplicates
+    )
+
+
+def test_gap_report():
+
+    controller, analyzer = create_controller()
+
+    analyzer.gap_summary = {
+        "total_gaps": 3,
+        "total_missing": 5
+    }
+
+    controller.gap_report()
+
+    analyzer.quality_reporter.gap.assert_called_once_with(
+        analyzer.gap_summary
+    )

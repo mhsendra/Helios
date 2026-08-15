@@ -109,3 +109,31 @@ class TestComparisonsControllerState:
                 self.analyzer.comparisons_engine.yearly_comparison
             ),
         ]
+    def test_get_comparisons_returns_engine_state(self):
+
+        engine = self.analyzer.comparisons_engine
+
+        assert (
+            self.controller.get_monthly_comparison()
+            is engine.monthly_comparison
+        )
+
+        assert (
+            self.controller.get_monthly_variation()
+            is engine.monthly_variation
+        )
+
+        assert (
+            self.controller.get_weekly_comparison()
+            is engine.weekly_comparison
+        )
+
+        assert (
+            self.controller.get_weekly_variation()
+            is engine.weekly_variation
+        )
+
+        assert (
+            self.controller.get_yearly_comparison()
+            is engine.yearly_comparison
+        )

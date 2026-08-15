@@ -24,7 +24,7 @@ class IndicatorsController:
             dataset=self.analyzer.valid_dataset(),
             daily=self.analyzer.statistics_engine.daily_consumption,
             monthly=self.analyzer.statistics_engine.monthly_consumption,
-            weekly=self.analyzer.comparisons_engine.weekly_comparison
+            weekly=self.analyzer.comparisons_controller.get_weekly_comparison()
         )
 
     def calculate_base_load(self):

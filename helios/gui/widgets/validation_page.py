@@ -63,7 +63,7 @@ class ValidationPage(QWidget):
         }
 
         self.quality_label.setText(
-            f'{icons[rating]}  {rating}'
+            f'{icons[rating]} {rating}'
         )
 
         self.quality_label.setStyleSheet(

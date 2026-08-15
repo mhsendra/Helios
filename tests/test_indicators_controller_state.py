@@ -52,8 +52,8 @@ class TestIndicatorsControllerState:
                     .monthly_consumption
                 ),
                 weekly=(
-                    self.analyzer.comparisons_engine
-                    .weekly_comparison
+                    self.analyzer.comparisons_controller
+                    .get_weekly_comparison.return_value
                 )
             ),
             call.calculate_base_load(

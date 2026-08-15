@@ -107,7 +107,7 @@ class IndicatorsPage(QWidget):
         """
 
         analyzer = self.analyzer
-        comp = analyzer.comparisons_engine
+        comparisons = analyzer.comparisons
 
         # Consumo diario: viene de ConsumptionStatistics
         if not hasattr(analyzer.statistics_engine, "daily_consumption"):
@@ -120,9 +120,9 @@ class IndicatorsPage(QWidget):
 
         # Comparativas necesarias
         if (
-            comp.weekly_comparison is None or
-            comp.monthly_comparison is None or
-            comp.yearly_comparison is None
+            comparisons.get_weekly_comparison() is None or
+            comparisons.get_monthly_comparison() is None or
+            comparisons.get_yearly_comparison() is None
         ):
             return
 
@@ -153,8 +153,8 @@ class IndicatorsPage(QWidget):
         # KPI: Estabilidad (usa ComparisonsEngine)
         # ==========================================================
 
-        month_extremes = comp.monthly_stability_extremes()
-        week_extremes = comp.weekly_stability_extremes()
+        month_extremes = comparisons.monthly_stability_extremes()
+        week_extremes = comparisons.weekly_stability_extremes()
 
         if month_extremes:
             stable_m = month_extremes["stable"]
@@ -182,7 +182,7 @@ class IndicatorsPage(QWidget):
         # KPI: Anomalías
         # ==========================================================
 
-        anomalies = comp.detect_monthly_anomalies()
+        anomalies = comparisons.detect_monthly_anomalies()
 
         self.kpi_anomaly_count_label.setText(str(len(anomalies)))
 
@@ -210,7 +210,7 @@ class IndicatorsPage(QWidget):
         # KPI: Tendencias
         # ==========================================================
 
-        yearly_trend = comp.yearly_trend()
+        yearly_trend = comparisons.yearly_trend()
 
         self.kpi_year_trend_label.setText(
             f"{yearly_trend['classification']} "

@@ -222,18 +222,24 @@ class ComparisonsPage(QWidget):
 
         comp = self.project.comparisons
 
+        # ==========================================================
+        # Obtener comparativas a través del Controller
+        # ==========================================================
+
+        weekly = comp.get_weekly_comparison()
+        monthly = comp.get_monthly_comparison()
+        yearly = comp.get_yearly_comparison()
+
         if (
-            comp.weekly_comparison is None or
-            comp.monthly_comparison is None or
-            comp.yearly_comparison is None
+            weekly is None or
+            monthly is None or
+            yearly is None
         ):
             return
 
         # ------------------------------------------
         # Semanal
         # ------------------------------------------
-
-        weekly = comp.weekly_comparison
 
         week_max = weekly.stack().idxmax()
         week_min = weekly.stack().idxmin()
@@ -247,44 +253,51 @@ class ComparisonsPage(QWidget):
         )
 
         insights = comp.detailed_weekly_insights()
+
         peak = insights["max"]
         valley = insights["min"]
 
         if peak["variation_prev"] is not None:
-            prev_text = f"+{peak['variation_prev']:.2f}% vs año anterior"
+            prev_text = (
+                f"+{peak['variation_prev']:.2f}% vs año anterior"
+            )
         else:
             prev_text = "sin año anterior para comparar"
 
         self.week_peak_label.setText(
-            f"Semana {peak['week']} del {peak['year']} — {peak['value']:.2f} kWh "
+            f"Semana {peak['week']} del {peak['year']} — "
+            f"{peak['value']:.2f} kWh "
             f"({prev_text}, "
             f"+{peak['variation_mean']:.2f}% vs media anual)"
         )
 
         self.week_valley_label.setText(
-            f"Semana {valley['week']} del {valley['year']} — {valley['value']:.2f} kWh"
+            f"Semana {valley['week']} del {valley['year']} — "
+            f"{valley['value']:.2f} kWh"
         )
 
         week_extremes = comp.weekly_stability_extremes()
+
         if week_extremes:
+
             stable = week_extremes["stable"]
             volatile = week_extremes["volatile"]
 
             self.most_stable_week_label.setText(
                 f"{stable['week']} — CV {stable['cv']:.2f}, "
-                f"Desv. {stable['std']:.2f} ({stable['classification']})"
+                f"Desv. {stable['std']:.2f} "
+                f"({stable['classification']})"
             )
 
             self.most_volatile_week_label.setText(
                 f"{volatile['week']} — CV {volatile['cv']:.2f}, "
-                f"Desv. {volatile['std']:.2f} ({volatile['classification']})"
+                f"Desv. {volatile['std']:.2f} "
+                f"({volatile['classification']})"
             )
 
         # ------------------------------------------
         # Mensual
         # ------------------------------------------
-
-        monthly = comp.monthly_comparison
 
         month_max = monthly.stack().idxmax()
         month_min = monthly.stack().idxmin()
@@ -298,14 +311,19 @@ class ComparisonsPage(QWidget):
         )
 
         anomalies = comp.detect_monthly_anomalies()
+
         if anomalies:
+
             text = "<ul>"
+
             for a in anomalies:
                 text += (
                     f"<li><b>{a['month']} {a['year']}</b>: "
                     f"{a['detail']}</li>"
                 )
+
             text += "</ul>"
+
         else:
             text = "No se han detectado anomalías."
 
@@ -313,25 +331,27 @@ class ComparisonsPage(QWidget):
         self.summary_anomalies_label.setText(text)
 
         month_extremes = comp.monthly_stability_extremes()
+
         if month_extremes:
+
             stable = month_extremes["stable"]
             volatile = month_extremes["volatile"]
 
             self.most_stable_month_label.setText(
                 f"{stable['month']} — CV {stable['cv']:.2f}, "
-                f"Desv. {stable['std']:.2f} ({stable['classification']})"
+                f"Desv. {stable['std']:.2f} "
+                f"({stable['classification']})"
             )
 
             self.most_volatile_month_label.setText(
                 f"{volatile['month']} — CV {volatile['cv']:.2f}, "
-                f"Desv. {volatile['std']:.2f} ({volatile['classification']})"
+                f"Desv. {volatile['std']:.2f} "
+                f"({volatile['classification']})"
             )
 
         # ------------------------------------------
         # Anual
         # ------------------------------------------
-
-        yearly = comp.yearly_comparison
 
         year_max = yearly.idxmax()
         year_min = yearly.idxmin()
@@ -343,19 +363,31 @@ class ComparisonsPage(QWidget):
         yearly_trend = comp.yearly_trend()
 
         def format_trend(t):
+
             return (
                 f"{t['classification']} "
-                f"(+{t['positive_steps']} / -{t['negative_steps']}) — "
-                f"Max ↑ {t['max_increase']:.2f}, Max ↓ {t['max_decrease']:.2f}"
+                f"(+{t['positive_steps']} / "
+                f"-{t['negative_steps']}) — "
+                f"Max ↑ {t['max_increase']:.2f}, "
+                f"Max ↓ {t['max_decrease']:.2f}"
             )
 
-        self.trend_2024_label.setText(format_trend(monthly_trends.get(2024)))
-        self.trend_2025_label.setText(format_trend(monthly_trends.get(2025)))
-        self.trend_2026_label.setText(format_trend(monthly_trends.get(2026)))
+        self.trend_2024_label.setText(
+            format_trend(monthly_trends.get(2024))
+        )
+
+        self.trend_2025_label.setText(
+            format_trend(monthly_trends.get(2025))
+        )
+
+        self.trend_2026_label.setText(
+            format_trend(monthly_trends.get(2026))
+        )
 
         stability = comp.annual_stability()
 
         def format_stab(s):
+
             return (
                 f"{s['classification']} — "
                 f"Rango {s['range']:.2f} kWh, "
@@ -363,37 +395,58 @@ class ComparisonsPage(QWidget):
                 f"CV {s['cv']:.2f}"
             )
 
-        self.stab_2024_label.setText(format_stab(stability.get(2024)))
-        self.stab_2025_label.setText(format_stab(stability.get(2025)))
-        self.stab_2026_label.setText(format_stab(stability.get(2026)))
+        self.stab_2024_label.setText(
+            format_stab(stability.get(2024))
+        )
+
+        self.stab_2025_label.setText(
+            format_stab(stability.get(2025))
+        )
+
+        self.stab_2026_label.setText(
+            format_stab(stability.get(2026))
+        )
 
         # ------------------------------------------
-        # Resumen (tab Resumen)
+        # Resumen
         # ------------------------------------------
 
-        self.summary_year_max_label.setText(str(year_max))
-        self.summary_year_min_label.setText(str(year_min))
+        self.summary_year_max_label.setText(
+            str(year_max)
+        )
+
+        self.summary_year_min_label.setText(
+            str(year_min)
+        )
 
         if month_extremes:
+
             stable_m = month_extremes["stable"]
             volatile_m = month_extremes["volatile"]
 
             self.summary_stable_month_label.setText(
-                f"{stable_m['month']} — CV {stable_m['cv']:.2f}"
+                f"{stable_m['month']} — "
+                f"CV {stable_m['cv']:.2f}"
             )
+
             self.summary_volatile_month_label.setText(
-                f"{volatile_m['month']} — CV {volatile_m['cv']:.2f}"
+                f"{volatile_m['month']} — "
+                f"CV {volatile_m['cv']:.2f}"
             )
 
         if week_extremes:
+
             stable_w = week_extremes["stable"]
             volatile_w = week_extremes["volatile"]
 
             self.summary_stable_week_label.setText(
-                f"{stable_w['week']} — CV {stable_w['cv']:.2f}"
+                f"{stable_w['week']} — "
+                f"CV {stable_w['cv']:.2f}"
             )
+
             self.summary_volatile_week_label.setText(
-                f"{volatile_w['week']} — CV {volatile_w['cv']:.2f}"
+                f"{volatile_w['week']} — "
+                f"CV {volatile_w['cv']:.2f}"
             )
 
         # ------------------------------------------
@@ -403,13 +456,18 @@ class ComparisonsPage(QWidget):
         insights_text = (
             f"<b>Año de mayor consumo:</b> {year_max}<br>"
             f"<b>Año de menor consumo:</b> {year_min}<br><br>"
-            f"<b>Mes más estable:</b> {self.summary_stable_month_label.text()}<br>"
-            f"<b>Mes más volátil:</b> {self.summary_volatile_month_label.text()}<br><br>"
-            f"<b>Semana más tranquila:</b> {self.summary_stable_week_label.text()}<br>"
-            f"<b>Semana más crítica:</b> {self.summary_volatile_week_label.text()}<br><br>"
+            f"<b>Mes más estable:</b> "
+            f"{self.summary_stable_month_label.text()}<br>"
+            f"<b>Mes más volátil:</b> "
+            f"{self.summary_volatile_month_label.text()}<br><br>"
+            f"<b>Semana más tranquila:</b> "
+            f"{self.summary_stable_week_label.text()}<br>"
+            f"<b>Semana más crítica:</b> "
+            f"{self.summary_volatile_week_label.text()}<br><br>"
             f"<b>Tendencia anual:</b> "
             f"{yearly_trend['classification']} "
-            f"(+{yearly_trend['positive_steps']} / -{yearly_trend['negative_steps']})"
+            f"(+{yearly_trend['positive_steps']} / "
+            f"-{yearly_trend['negative_steps']})"
         )
 
         self.insights_text_label.setText(insights_text)
