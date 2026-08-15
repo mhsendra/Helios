@@ -66,15 +66,15 @@ class ValidationEngine:
         return self.gap_summary
     
     def find_duplicate_timestamps(
-    self,
-    dataset: pd.DataFrame
-):
+        self,
+        dataset: pd.DataFrame
+    ):
 
-        duplicated_index = dataset.index[
-            dataset.index.duplicated(keep=False)
-        ]
+        duplicated_mask = dataset.index.duplicated(
+            keep=False
+        )
 
-        if len(duplicated_index) == 0:
+        if not duplicated_mask.any():
 
             self.duplicates = {
                 "count": 0,
@@ -85,9 +85,9 @@ class ValidationEngine:
 
         self.duplicates = {
 
-            "count": len(duplicated_index),
+            "count": int(duplicated_mask.sum()),
 
-            "duplicates": dataset.loc[duplicated_index]
+            "duplicates": dataset.loc[duplicated_mask]
 
         }
 
