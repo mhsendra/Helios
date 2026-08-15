@@ -10,26 +10,6 @@ class ComparisonsController:
         """
         self.analyzer = analyzer
 
-    @property
-    def monthly_comparison(self):
-        return self.analyzer.comparisons_engine.monthly_comparison
-
-    @property
-    def monthly_variation(self):
-        return self.analyzer.comparisons_engine.monthly_variation
-
-    @property
-    def weekly_comparison(self):
-        return self.analyzer.comparisons_engine.weekly_comparison
-
-    @property
-    def weekly_variation(self):
-        return self.analyzer.comparisons_engine.weekly_variation
-
-    @property
-    def yearly_comparison(self):
-        return self.analyzer.comparisons_engine.yearly_comparison
-
     # ==================================================
     # Cálculos de comparativas
     # ==================================================

@@ -19,17 +19,12 @@ from helios.gui.widgets.comparisons_page import ComparisonsPage
 from helios.gui.widgets.indicators_page import IndicatorsPage
 from helios.gui.widgets.solar_page import SolarPage
 from helios.core.project import HeliosProject
-from helios.core.economics_configuration import EconomicsConfiguration
 
 class MainWindow(QMainWindow):
 
     def __init__(self, economics_configuration):
 
         super().__init__()
-
-        economics_configuration = EconomicsConfiguration(
-            installation_cost=12490.0
-        )
 
         self.project = HeliosProject(
             economics_configuration
