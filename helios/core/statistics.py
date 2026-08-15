@@ -25,6 +25,8 @@ class ConsumptionStatistics:
 
         self.seasonal_profile: pd.Series | None = None
 
+        self.workday_vs_weekend_profile: dict | None = None
+
     def calculate(
         self,
         df: pd.DataFrame
@@ -102,6 +104,7 @@ class ConsumptionStatistics:
             df["AE_kWh"]
             .groupby(df.index.dayofweek)
             .mean()
+            .reindex(range(7))
         )
 
         self.weekday_profile.index = [
@@ -125,6 +128,7 @@ class ConsumptionStatistics:
             df["AE_kWh"]
             .groupby(df.index.month)
             .mean()
+            .reindex(range(1, 13))
         )
 
         self.monthly_profile.index = [
@@ -185,32 +189,25 @@ class ConsumptionStatistics:
     def calculate_workday_vs_weekend_profile(self, dataset):
         """
         Calcula el consumo medio en laborables vs fin de semana.
-        Devuelve un dict con dos claves: 'workdays' y 'weekend'.
+
+        Devuelve un diccionario con dos claves:
+        'workdays' y 'weekend'.
         """
 
         dataset = dataset.copy()
         dataset["weekday"] = dataset.index.weekday
 
-        workdays = dataset[dataset["weekday"] < 5]["AE_kWh"].mean()
-        weekend = dataset[dataset["weekday"] >= 5]["AE_kWh"].mean()
+        workdays = (
+            dataset[dataset["weekday"] < 5]["AE_kWh"].mean()
+        )
+
+        weekend = (
+            dataset[dataset["weekday"] >= 5]["AE_kWh"].mean()
+        )
 
         self.workday_vs_weekend_profile = {
             "workdays": workdays,
             "weekend": weekend
         }
 
-    def calculate_workday_vs_weekend_profile(self, dataset):
-        dataset = dataset.copy()
-        dataset["weekday"] = dataset.index.weekday
-
-        workdays = dataset[dataset["weekday"] < 5]["AE_kWh"].mean()
-        weekend = dataset[dataset["weekday"] >= 5]["AE_kWh"].mean()
-
-        self.workday_vs_weekend_profile = {
-            "workdays": workdays,
-            "weekend": weekend
-        }
-
-
-        
-    
+        return self.workday_vs_weekend_profile

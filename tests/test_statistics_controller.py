@@ -155,3 +155,43 @@ def test_reports():
     controller.daily_report.assert_called_once_with()
     controller.monthly_report.assert_called_once_with()
     controller.yearly_report.assert_called_once_with()
+
+# ==========================================================
+# Propiedades
+# ==========================================================
+
+
+def test_statistics_property():
+
+    controller, analyzer = create_controller()
+
+    analyzer.statistics_engine.statistics = "statistics"
+
+    assert controller.statistics == "statistics"
+
+
+def test_daily_consumption_property():
+
+    controller, analyzer = create_controller()
+
+    analyzer.statistics_engine.daily_consumption = "daily_consumption"
+
+    assert controller.daily_consumption == "daily_consumption"
+
+
+def test_monthly_consumption_property():
+
+    controller, analyzer = create_controller()
+
+    analyzer.statistics_engine.monthly_consumption = "monthly_consumption"
+
+    assert controller.monthly_consumption == "monthly_consumption"
+
+
+def test_yearly_consumption_property():
+
+    controller, analyzer = create_controller()
+
+    analyzer.statistics_engine.yearly_consumption = "yearly_consumption"
+
+    assert controller.yearly_consumption == "yearly_consumption"
