@@ -2,7 +2,6 @@ import pandas as pd
 
 from helios.reports.printer import ReportPrinter
 
-
 class ConsumptionComparisons:
 
     def __init__(self):
@@ -28,6 +27,11 @@ class ConsumptionComparisons:
             ])
             .sum()
             .unstack(level=0)
+        )
+
+        self.monthly_comparison = (
+            self.monthly_comparison
+            .reindex(range(1, 13))
         )
 
         self.monthly_comparison.index = [
@@ -229,6 +233,10 @@ class ConsumptionComparisons:
                 ["left"] + ["right"] * len(variation.columns)
             )
 
+    # ==========================================================
+    # VARIATIONS
+    # ==========================================================
+
     def calculate_monthly_variation(self):
 
         self.monthly_variation = self.calculate_variation(
@@ -246,9 +254,9 @@ class ConsumptionComparisons:
         return self.weekly_variation
 
     def calculate_variation(
-    self,
-    comparison
-):
+        self,
+        comparison
+    ):
 
         variation = (
             comparison
@@ -265,7 +273,12 @@ class ConsumptionComparisons:
 
         return variation
 
+    # ==========================================================
+    # INSIGHTS
+    # ==========================================================
+
     def detailed_weekly_insights(self):
+
         weekly = self.weekly_comparison
 
         # (semana, año)
@@ -277,15 +290,27 @@ class ConsumptionComparisons:
 
         # Variación respecto al año anterior
         prev_year = max_week[1] - 1
+
         if prev_year in weekly.columns:
+
             prev_value = weekly.loc[max_week[0], prev_year]
-            variation_prev = ((max_value - prev_value) / prev_value) * 100
+
+            variation_prev = (
+                (max_value - prev_value)
+                / prev_value
+            ) * 100
+
         else:
+
             variation_prev = None
 
         # Media del año
         mean_year = weekly[max_week[1]].mean()
-        variation_mean = ((max_value - mean_year) / mean_year) * 100
+
+        variation_mean = (
+            (max_value - mean_year)
+            / mean_year
+        ) * 100
 
         return {
             "max": {
@@ -302,12 +327,18 @@ class ConsumptionComparisons:
             }
         }
 
+    # ==========================================================
+    # TRENDS
+    # ==========================================================
+
     def monthly_trends(self):
+
         monthly = self.monthly_comparison
 
         trends = {}
 
         for year in monthly.columns:
+
             series = monthly[year].dropna()
 
             diffs = series.diff().dropna()
@@ -316,10 +347,15 @@ class ConsumptionComparisons:
             negative = (diffs < 0).sum()
 
             if positive == len(diffs):
+
                 classification = "Creciente"
+
             elif negative == len(diffs):
+
                 classification = "Decreciente"
+
             else:
+
                 classification = "Irregular"
 
             trends[year] = {
@@ -333,11 +369,13 @@ class ConsumptionComparisons:
         return trends
 
     def weekly_trends(self):
+
         weekly = self.weekly_comparison
 
         trends = {}
 
         for year in weekly.columns:
+
             series = weekly[year].dropna()
 
             diffs = series.diff().dropna()
@@ -346,10 +384,15 @@ class ConsumptionComparisons:
             negative = (diffs < 0).sum()
 
             if positive == len(diffs):
+
                 classification = "Creciente"
+
             elif negative == len(diffs):
+
                 classification = "Decreciente"
+
             else:
+
                 classification = "Irregular"
 
             trends[year] = {
@@ -363,6 +406,7 @@ class ConsumptionComparisons:
         return trends
 
     def yearly_trend(self):
+
         yearly = self.yearly_comparison
 
         diffs = yearly.diff().dropna()
@@ -371,10 +415,15 @@ class ConsumptionComparisons:
         negative = (diffs < 0).sum()
 
         if positive == len(diffs):
+
             classification = "Creciente"
+
         elif negative == len(diffs):
+
             classification = "Decreciente"
+
         else:
+
             classification = "Irregular"
 
         return {
@@ -385,23 +434,33 @@ class ConsumptionComparisons:
             "max_decrease": diffs.min()
         }
 
+    # ==========================================================
+    # ANOMALIES
+    # ==========================================================
+
     def detect_monthly_anomalies(self):
+
         monthly = self.monthly_comparison
-        variation = self.monthly_variation  # 2025 vs 2024, 2026 vs 2025
+        variation = self.monthly_variation
 
         anomalies = []
 
         # 1. Variaciones extremas (> 50% o < -50%)
         for col in variation.columns:
+
             for month, value in variation[col].items():
+
                 if pd.isna(value):
+
                     anomalies.append({
                         "type": "missing",
                         "month": month,
                         "year": col.split(" vs ")[1],
                         "detail": "Valor faltante"
                     })
+
                 elif value > 50:
+
                     anomalies.append({
                         "type": "extreme_increase",
                         "month": month,
@@ -409,7 +468,9 @@ class ConsumptionComparisons:
                         "value": value,
                         "detail": f"Aumento extremo (+{value:.2f}%)"
                     })
+
                 elif value < -50:
+
                     anomalies.append({
                         "type": "extreme_decrease",
                         "month": month,
@@ -420,12 +481,16 @@ class ConsumptionComparisons:
 
         # 2. Picos y valles estadísticos
         for year in monthly.columns:
+
             series = monthly[year].dropna()
+
             mean = series.mean()
             std = series.std()
 
             for month, value in series.items():
+
                 if value > mean + 2 * std:
+
                     anomalies.append({
                         "type": "statistical_peak",
                         "month": month,
@@ -433,7 +498,9 @@ class ConsumptionComparisons:
                         "value": value,
                         "detail": "Pico estadístico (> 2σ)"
                     })
+
                 elif value < mean - 2 * std:
+
                     anomalies.append({
                         "type": "statistical_valley",
                         "month": month,
@@ -444,12 +511,18 @@ class ConsumptionComparisons:
 
         return anomalies
 
+    # ==========================================================
+    # ANNUAL STABILITY
+    # ==========================================================
+
     def annual_stability(self):
+
         monthly = self.monthly_comparison
 
         stability = {}
 
         for year in monthly.columns:
+
             series = monthly[year].dropna()
 
             min_val = series.min()
@@ -459,18 +532,31 @@ class ConsumptionComparisons:
             std_val = series.std()
             mean_val = series.mean()
 
-            cv = std_val / mean_val if mean_val != 0 else None
+            cv = (
+                std_val / mean_val
+                if mean_val != 0
+                else None
+            )
 
             # Clasificación
             if cv is None:
+
                 classification = "Indeterminado"
+
             elif cv < 0.10:
+
                 classification = "Muy estable"
+
             elif cv < 0.25:
+
                 classification = "Estable"
+
             elif cv < 0.40:
+
                 classification = "Moderadamente inestable"
+
             else:
+
                 classification = "Muy inestable"
 
             stability[year] = {
@@ -484,13 +570,19 @@ class ConsumptionComparisons:
 
         return stability
 
+    # ==========================================================
+    # MONTHLY STABILITY
+    # ==========================================================
+
     def monthly_stability(self):
+
         monthly = self.monthly_comparison
 
         stability = {}
 
         # Para cada mes (fila)
         for month, row in monthly.iterrows():
+
             series = row.dropna()
 
             if len(series) < 2:
@@ -509,11 +601,11 @@ class ConsumptionComparisons:
             # Clasificación
             if cv is None:
                 classification = "Indeterminado"
-            elif cv < 0.10:
+            elif cv < 0.05:
                 classification = "Muy estable"
-            elif cv < 0.25:
+            elif cv < 0.20:
                 classification = "Estable"
-            elif cv < 0.40:
+            elif cv < 0.30:
                 classification = "Moderadamente volátil"
             else:
                 classification = "Muy volátil"
@@ -527,18 +619,31 @@ class ConsumptionComparisons:
         return stability
 
     def monthly_stability_extremes(self):
+
         stability = self.monthly_stability()
 
         # Filtrar meses con CV válido
-        valid = {m: s for m, s in stability.items() if s["cv"] is not None}
+        valid = {
+            month: data
+            for month, data in stability.items()
+            if data["cv"] is not None
+        }
 
         if not valid:
+
             return None
 
         # Mes más estable → menor CV
-        most_stable = min(valid.items(), key=lambda x: x[1]["cv"])
+        most_stable = min(
+            valid.items(),
+            key=lambda x: x[1]["cv"]
+        )
+
         # Mes más volátil → mayor CV
-        most_volatile = max(valid.items(), key=lambda x: x[1]["cv"])
+        most_volatile = max(
+            valid.items(),
+            key=lambda x: x[1]["cv"]
+        )
 
         return {
             "stable": {
@@ -555,13 +660,19 @@ class ConsumptionComparisons:
             }
         }
 
+    # ==========================================================
+    # WEEKLY STABILITY
+    # ==========================================================
+
     def weekly_stability(self):
+
         weekly = self.weekly_comparison
 
         stability = {}
 
         # Para cada semana (fila)
         for week, row in weekly.iterrows():
+
             series = row.dropna()
 
             if len(series) < 2:
@@ -579,11 +690,11 @@ class ConsumptionComparisons:
             # Clasificación
             if cv is None:
                 classification = "Indeterminado"
-            elif cv < 0.10:
+            elif cv < 0.05:
                 classification = "Muy tranquila"
-            elif cv < 0.25:
+            elif cv < 0.20:
                 classification = "Tranquila"
-            elif cv < 0.40:
+            elif cv < 0.30:
                 classification = "Moderadamente crítica"
             else:
                 classification = "Muy crítica"
@@ -597,17 +708,30 @@ class ConsumptionComparisons:
         return stability
 
     def weekly_stability_extremes(self):
+
         stability = self.weekly_stability()
 
-        valid = {w: s for w, s in stability.items() if s["cv"] is not None}
+        valid = {
+            week: data
+            for week, data in stability.items()
+            if data["cv"] is not None
+        }
 
         if not valid:
+
             return None
 
         # Semana más tranquila → menor CV
-        most_stable = min(valid.items(), key=lambda x: x[1]["cv"])
+        most_stable = min(
+            valid.items(),
+            key=lambda x: x[1]["cv"]
+        )
+
         # Semana más crítica → mayor CV
-        most_volatile = max(valid.items(), key=lambda x: x[1]["cv"])
+        most_volatile = max(
+            valid.items(),
+            key=lambda x: x[1]["cv"]
+        )
 
         return {
             "stable": {
