@@ -142,6 +142,62 @@ def test_find_missing_hours_detects_missing_hour(capsys):
     assert "2025-01-01" in output
     assert "Horas ausentes" in output
 
+def test_find_missing_hours_detects_extra_hour(capsys):
+
+    controller, analyzer = create_controller()
+
+    index = pd.DatetimeIndex([
+        "2025-01-01 00:00:00",
+        "2025-01-01 01:00:00",
+        "2025-01-01 02:00:00",
+        "2025-01-01 03:00:00",
+        "2025-01-01 04:00:00",
+        "2025-01-01 05:00:00",
+        "2025-01-01 06:00:00",
+        "2025-01-01 07:00:00",
+        "2025-01-01 08:00:00",
+        "2025-01-01 09:00:00",
+        "2025-01-01 10:00:00",
+        "2025-01-01 11:00:00",
+        "2025-01-01 12:00:00",
+        "2025-01-01 13:00:00",
+        "2025-01-01 14:00:00",
+        "2025-01-01 15:00:00",
+        "2025-01-01 16:00:00",
+        "2025-01-01 17:00:00",
+        "2025-01-01 18:00:00",
+        "2025-01-01 19:00:00",
+        "2025-01-01 20:00:00",
+        "2025-01-01 21:00:00",
+        "2025-01-01 22:00:00",
+        "2025-01-01 23:00:00",
+    ])
+
+    analyzer.dataset = pd.DataFrame(
+        {
+            "Hora": list(range(1, 25))
+        },
+        index=index
+    )
+
+    analyzer.dataset.loc[
+        pd.Timestamp("2025-01-01 23:00:00"),
+        "Hora"
+    ] = 25
+
+    result = controller.find_missing_hours()
+
+    assert result == {
+        "valid": False,
+        "errors": 1
+    }
+
+    output = capsys.readouterr().out
+
+    assert "2025-01-01" in output
+    assert "Horas inesperadas" in output
+    assert "[25]" in output
+
 
 # ==========================================================
 # Duplicados
