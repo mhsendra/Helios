@@ -137,3 +137,101 @@ class TestComparisonsControllerState:
             self.controller.get_yearly_comparison()
             is engine.yearly_comparison
         )
+
+    def test_detailed_weekly_insights_delegates_to_engine(self):
+
+        engine = self.analyzer.comparisons_engine
+
+        expected = object()
+
+        engine.detailed_weekly_insights.return_value = expected
+
+        result = self.controller.detailed_weekly_insights()
+
+        engine.detailed_weekly_insights.assert_called_once_with()
+
+        assert result is expected
+
+    def test_weekly_stability_extremes_delegates_to_engine(self):
+
+        engine = self.analyzer.comparisons_engine
+
+        expected = object()
+
+        engine.weekly_stability_extremes.return_value = expected
+
+        result = self.controller.weekly_stability_extremes()
+
+        engine.weekly_stability_extremes.assert_called_once_with()
+
+        assert result is expected
+
+    def test_detect_monthly_anomalies_delegates_to_engine(self):
+
+        engine = self.analyzer.comparisons_engine
+
+        expected = object()
+
+        engine.detect_monthly_anomalies.return_value = expected
+
+        result = self.controller.detect_monthly_anomalies()
+
+        engine.detect_monthly_anomalies.assert_called_once_with()
+
+        assert result is expected
+
+    def test_monthly_stability_extremes_delegates_to_engine(self):
+
+        engine = self.analyzer.comparisons_engine
+
+        expected = object()
+
+        engine.monthly_stability_extremes.return_value = expected
+
+        result = self.controller.monthly_stability_extremes()
+
+        engine.monthly_stability_extremes.assert_called_once_with()
+
+        assert result is expected
+
+    def test_monthly_trends_delegates_to_engine(self):
+
+        engine = self.analyzer.comparisons_engine
+
+        expected = object()
+
+        engine.monthly_trends.return_value = expected
+
+        result = self.controller.monthly_trends()
+
+        engine.monthly_trends.assert_called_once_with()
+
+        assert result is expected
+
+    def test_yearly_trend_delegates_to_engine(self):
+
+        engine = self.analyzer.comparisons_engine
+
+        expected = object()
+
+        engine.yearly_trend.return_value = expected
+
+        result = self.controller.yearly_trend()
+
+        engine.yearly_trend.assert_called_once_with()
+
+        assert result is expected
+
+    def test_annual_stability_delegates_to_engine(self):
+
+        engine = self.analyzer.comparisons_engine
+
+        expected = object()
+
+        engine.annual_stability.return_value = expected
+
+        result = self.controller.annual_stability()
+
+        engine.annual_stability.assert_called_once_with()
+
+        assert result is expected
