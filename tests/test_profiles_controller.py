@@ -18,7 +18,46 @@ def create_controller():
 
     return ProfilesController(analyzer), analyzer
 
+# ==========================================================
+# Properties
+# ==========================================================
 
+
+def test_hourly_profile_property():
+
+    controller, analyzer = create_controller()
+
+    analyzer.statistics_engine.hourly_profile = "hourly_profile"
+
+    assert controller.hourly_profile == "hourly_profile"
+
+
+def test_weekday_profile_property():
+
+    controller, analyzer = create_controller()
+
+    analyzer.statistics_engine.weekday_profile = "weekday_profile"
+
+    assert controller.weekday_profile == "weekday_profile"
+
+
+def test_monthly_profile_property():
+
+    controller, analyzer = create_controller()
+
+    analyzer.statistics_engine.monthly_profile = "monthly_profile"
+
+    assert controller.monthly_profile == "monthly_profile"
+
+
+def test_seasonal_profile_property():
+
+    controller, analyzer = create_controller()
+
+    analyzer.statistics_engine.seasonal_profile = "seasonal_profile"
+
+    assert controller.seasonal_profile == "seasonal_profile"
+    
 # ==========================================================
 # Cálculos
 # ==========================================================
