@@ -240,6 +240,17 @@ class TestSolarReports:
                 33.33
             )
 
+    def test_energy_balance_requires_statistics(self):
+
+        with pytest.raises(
+            RuntimeError,
+            match="Energy statistics have not been calculated."
+        ):
+
+            self.reports.energy_balance(
+                None
+            )
+
     def test_monthly_production(self):
 
         monthly_production = pd.Series(
