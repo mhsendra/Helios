@@ -79,7 +79,7 @@ class TestMainWindow:
 
     def test_all_pages_are_added_to_stack(self):
 
-        assert self.window.pages.count() == 9
+        assert self.window.pages.count() == 10
 
         for page in [
             self.window.home_page,
@@ -169,6 +169,7 @@ class TestMainWindow:
             "Perfiles": self.window.profiles_page,
             "Comparativas": self.window.comparisons_page,
             "Indicadores": self.window.indicators_page,
+            "Tarifas": self.window.tariffs_page,
             "Solar": self.window.solar_page,
             "Economía": self.window.economics_page
         }
