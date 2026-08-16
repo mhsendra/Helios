@@ -246,3 +246,11 @@ class TestSolarStatisticsEngine:
         assert result["zero_production_hours"] == 2
 
         assert result["minimum_power"] == 0.0
+
+        assert result["self_consumption_ratio"] == 0.0
+
+        assert result["self_sufficiency"] == 0.0
+
+        assert result["coverage_ratio"] == 0.0
+
+        assert result["surplus_ratio"] == 0.0

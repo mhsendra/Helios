@@ -137,30 +137,46 @@ class SolarStatisticsEngine:
             .sum()
         )
 
-        self_consumption_ratio = (
-            self_consumption /
-            period_production
-        ) * 100
+        if period_production > 0:
 
-        self_sufficiency = (
-            self_consumption /
-            consumption
-        ) * 100
+            self_consumption_ratio = (
+                self_consumption /
+                period_production
+            ) * 100
 
-        coverage_ratio = (
-            period_production /
-            consumption
-        ) * 100
+            surplus_ratio = (
+                grid_export /
+                period_production
+            ) * 100
 
-        surplus_ratio = (
-            grid_export /
-            period_production
-        ) * 100
+        else:
 
-        import_ratio = (
-            grid_import /
-            consumption
-        ) * 100
+            self_consumption_ratio = 0.0
+            surplus_ratio = 0.0
+
+
+        if consumption > 0:
+
+            self_sufficiency = (
+                self_consumption /
+                consumption
+            ) * 100
+
+            coverage_ratio = (
+                period_production /
+                consumption
+            ) * 100
+
+            import_ratio = (
+                grid_import /
+                consumption
+            ) * 100
+
+        else:
+
+            self_sufficiency = 0.0
+            coverage_ratio = 0.0
+            import_ratio = 0.0
 
         # ==========================================
         # Resultados
