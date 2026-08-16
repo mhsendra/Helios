@@ -18,6 +18,8 @@ from helios.gui.widgets.profiles_page import ProfilesPage
 from helios.gui.widgets.comparisons_page import ComparisonsPage
 from helios.gui.widgets.indicators_page import IndicatorsPage
 from helios.gui.widgets.solar_page import SolarPage
+from helios.gui.widgets.economics_page import EconomicsPage
+
 from helios.core.project import HeliosProject
 
 class MainWindow(QMainWindow):
@@ -123,6 +125,10 @@ class MainWindow(QMainWindow):
 
         self.pages.addWidget(self.solar_page)
 
+        self.economics_page = EconomicsPage(self.project)
+
+        self.pages.addWidget(self.economics_page)
+
     # ==================================================
     # Árbol de navegación
     # ==================================================
@@ -182,6 +188,11 @@ class MainWindow(QMainWindow):
             ["Solar"]
         )
 
+        self.solar_item = QTreeWidgetItem(
+            self.analysis_item,
+            ["Economía"]
+        )
+
         self.reports_item = QTreeWidgetItem(
             self.results_item,
             ["Informes"]
@@ -207,6 +218,8 @@ class MainWindow(QMainWindow):
         self.page_map["Comparativas"] = self.comparisons_page
         self.page_map["Indicadores"] = self.indicators_page
         self.page_map["Solar"] = self.solar_page
+        self.page_map["Economía"] = self.economics_page
+        
 
         self.set_project_loaded(False)
 
