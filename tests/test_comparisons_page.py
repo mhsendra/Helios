@@ -318,6 +318,20 @@ class TestComparisonsPage:
             "Semana 1 del 2024 — 100.00 kWh"
         )
 
+
+    def test_update_data_weekly_insight_without_previous_year(self):
+
+        comparisons = self._prepare_comparisons()
+
+        comparisons.detailed_weekly_insights.return_value["max"][
+            "variation_prev"
+        ] = None
+
+        self.page.update_data()
+
+        assert "sin año anterior para comparar" in (
+            self.page.week_peak_label.text()
+        )
     def test_update_data_sets_weekly_stability(self):
 
         self._prepare_comparisons()
@@ -364,6 +378,24 @@ class TestComparisonsPage:
         assert "Caída extrema (-40.00%)" in text
 
         assert self.page.summary_anomalies_label.text() == text
+
+    def test_update_data_without_monthly_anomalies(self):
+
+        comparisons = self._prepare_comparisons()
+
+        comparisons.detect_monthly_anomalies.return_value = []
+
+        self.page.update_data()
+
+        assert (
+            self.page.anomalies_label.text()
+            == "No se han detectado anomalías."
+        )
+
+        assert (
+            self.page.summary_anomalies_label.text()
+            == "No se han detectado anomalías."
+        )
 
     def test_update_data_sets_monthly_stability(self):
 
