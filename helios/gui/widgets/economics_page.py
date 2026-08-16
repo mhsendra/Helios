@@ -236,9 +236,21 @@ class EconomicsPage(QWidget):
             len(cash_flow.columns)
         )
 
+        headers = {
+            "year": "Año",
+            "self_consumption_savings": "Ahorro autoconsumo",
+            "export_income": "Ingresos excedentes",
+            "maintenance_cost": "Mantenimiento",
+            "cash_flow": "Flujo de caja",
+            "cumulative_cash_flow": "Flujo acumulado",
+        }
+
         self.cash_flow_table.setHorizontalHeaderLabels(
             [
-                str(column)
+                headers.get(
+                    column,
+                    str(column)
+                )
                 for column in cash_flow.columns
             ]
         )

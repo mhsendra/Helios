@@ -188,7 +188,7 @@ class MainWindow(QMainWindow):
             ["Solar"]
         )
 
-        self.solar_item = QTreeWidgetItem(
+        self.economics_item = QTreeWidgetItem(
             self.analysis_item,
             ["Economía"]
         )
@@ -238,6 +238,7 @@ class MainWindow(QMainWindow):
             self.indicators_item,
             self.tariffs_item,
             self.solar_item,
+            self.economics_item,
             self.reports_item,
             self.charts_item,
         ]

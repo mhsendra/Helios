@@ -189,15 +189,17 @@ class TestEconomicsPage:
         assert table.rowCount() == 2
         assert table.columnCount() == 6
 
-        assert table.horizontalHeaderItem(0).text() == "year"
-        assert (
-            table.horizontalHeaderItem(1).text()
-            == "self_consumption_savings"
-        )
-        assert (
-            table.horizontalHeaderItem(4).text()
-            == "cash_flow"
-        )
+        assert [
+            table.horizontalHeaderItem(i).text()
+            for i in range(table.columnCount())
+            ] == [
+                "Año",
+                "Ahorro autoconsumo",
+                "Ingresos excedentes",
+                "Mantenimiento",
+                "Flujo de caja",
+                "Flujo acumulado",
+            ]
 
         assert table.item(0, 0).text() == "0"
         assert table.item(0, 1).text() == "0.00"
