@@ -114,3 +114,23 @@ class TestSolarEngine:
         self.engine.manager.energy_balance = value
 
         assert self.engine.energy_balance is value
+
+    def test_monthly_production_report(self):
+
+        self.engine.monthly_production_report()
+
+        self.engine.manager.monthly_production_report.assert_called_once_with()
+
+
+    def test_production_statistics_report(self):
+
+        self.engine.production_statistics_report()
+
+        self.engine.manager.production_statistics_report.assert_called_once_with()
+
+
+    def test_energy_balance_report(self):
+
+        self.engine.energy_balance_report()
+
+        self.engine.manager.energy_balance_report.assert_called_once_with()
