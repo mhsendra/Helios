@@ -84,3 +84,81 @@ class TestEconomicsController:
             0.05,
             0.188,
         )
+
+    def test_economic_summary_delegates_to_engine(self):
+
+        engine = self.analyzer.economics_engine
+
+        expected = object()
+
+        engine.economic_summary.return_value = expected
+
+        result = self.controller.economic_summary()
+
+        engine.economic_summary.assert_called_once_with()
+
+        assert result is expected
+
+    def test_calculate_scenario_delegates_to_engine(self):
+
+        engine = self.analyzer.economics_engine
+
+        scenario = MagicMock()
+        expected = object()
+
+        engine.calculate_scenario.return_value = expected
+
+        result = self.controller.calculate_scenario(
+        scenario
+        )
+
+        engine.calculate_scenario.assert_called_once_with(
+        scenario,
+        self.configuration,
+        self.analyzer.dataset,
+        self.analyzer.solar.energy_balance,
+        self.analyzer.dataset,
+        )
+
+        assert result is expected
+
+    def test_calculate_scenarios_delegates_to_engine(self):
+
+        engine = self.analyzer.economics_engine
+
+        scenarios = [MagicMock()]
+        expected = object()
+
+        engine.calculate_scenarios.return_value = expected
+
+        result = self.controller.calculate_scenarios(
+        scenarios
+        )
+
+        engine.calculate_scenarios.assert_called_once_with(
+        scenarios,
+        self.configuration,
+        self.analyzer.dataset,
+        self.analyzer.solar.energy_balance,
+        self.analyzer.dataset,
+        25,
+        )
+
+        assert result is expected
+
+    def test_scenarios_report_delegates_to_report_engine(self):
+
+        economics = self.analyzer.economics_engine
+
+        economics.scenario_results = [
+        MagicMock(),
+        MagicMock(),
+        ]
+
+        self.controller.reports_engine.economic_scenarios = MagicMock()
+
+        self.controller.scenarios_report()
+
+        self.controller.reports_engine.economic_scenarios.assert_called_once_with(
+        economics.scenario_results
+        )
