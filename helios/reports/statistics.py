@@ -45,12 +45,6 @@ class StatisticsReports:
             "Fecha del mínimo",
             statistics["min_consumption_time"]
         )
-
-        ReportPrinter.energy(
-            "Desv. estándar",
-            statistics["std_consumption"],
-            decimals=3
-        )
   
     def daily(self, daily_consumption):
 
