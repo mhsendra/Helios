@@ -63,8 +63,8 @@ class TestTariffsPage:
 
         assert page.project is project
 
-        assert page.period_table.rowCount() == 3
-        assert page.period_table.columnCount() == 4
+        assert page.period_table.rowCount() == 4
+        assert page.period_table.columnCount() == 5
 
         assert (
             page.period_table.horizontalHeaderItem(0).text()
@@ -85,6 +85,8 @@ class TestTariffsPage:
             page.period_table.horizontalHeaderItem(3).text()
             == "Precio de compra"
         )
+
+        assert page.period_table.horizontalHeaderItem(4).text() == "Gasto"
 
         assert page.sell_price_label.text() == "0.06 €/kWh"
 

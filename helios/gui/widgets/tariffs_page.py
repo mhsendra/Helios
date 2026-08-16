@@ -4,6 +4,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QTableWidget,
     QTableWidgetItem,
+    QHeaderView,
 )
 
 
@@ -35,7 +36,7 @@ class TariffsPage(QWidget):
 
         self.period_table = QTableWidget()
 
-        self.period_table.setColumnCount(4)
+        self.period_table.setColumnCount(5)
 
         self.period_table.setHorizontalHeaderLabels(
             [
@@ -43,10 +44,19 @@ class TariffsPage(QWidget):
                 "Consumo",
                 "Porcentaje",
                 "Precio de compra",
+                "Gasto"
             ]
         )
 
-        self.period_table.setRowCount(3)
+        header = self.period_table.horizontalHeader()
+
+        for column in range(5):
+            header.setSectionResizeMode(
+                column,
+                QHeaderView.Stretch
+            )
+
+        self.period_table.setRowCount(4)
 
         layout.addWidget(self.period_table)
 
@@ -74,12 +84,6 @@ class TariffsPage(QWidget):
     # Actualización
     # ==================================================
 
-    def update(self):
-
-        self.update_periods()
-
-        self.update_sell_price()
-
     def update_periods(self):
 
         tariff_engine = (
@@ -104,9 +108,11 @@ class TariffsPage(QWidget):
             ("Valle", prices.buy_p3),
         ]
 
-        self.period_table.setRowCount(
-            len(periods)
-        )
+        self.period_table.setRowCount(4)
+
+        total_consumption = 0.0
+        total_percentage = 0.0
+        total_expense = 0.0
 
         for row, (period, price) in enumerate(periods):
 
@@ -119,6 +125,14 @@ class TariffsPage(QWidget):
                 period,
                 0.0
             )
+
+            expense = (
+                consumption_value * price
+            )
+
+            total_consumption += consumption_value
+            total_percentage += percentage_value
+            total_expense += expense
 
             self.period_table.setItem(
                 row,
@@ -150,6 +164,54 @@ class TariffsPage(QWidget):
                 )
             )
 
+            self.period_table.setItem(
+                row,
+                4,
+                QTableWidgetItem(
+                    f"{expense:,.2f} €"
+                )
+            )
+
+        # ==================================================
+        # Total
+        # ==================================================
+
+        self.period_table.setItem(
+            3,
+            0,
+            QTableWidgetItem("Total")
+        )
+
+        self.period_table.setItem(
+            3,
+            1,
+            QTableWidgetItem(
+                f"{total_consumption:,.2f} kWh"
+            )
+        )
+
+        self.period_table.setItem(
+            3,
+            2,
+            QTableWidgetItem(
+                f"{total_percentage:.2f} %"
+            )
+        )
+
+        self.period_table.setItem(
+            3,
+            3,
+            QTableWidgetItem("—")
+        )
+
+        self.period_table.setItem(
+            3,
+            4,
+            QTableWidgetItem(
+                f"{total_expense:,.2f} €"
+            )
+        )
+
     def update_sell_price(self):
 
         tariff_engine = (
@@ -161,3 +223,8 @@ class TariffsPage(QWidget):
         self.sell_price_label.setText(
             f"{price:.2f} €/kWh"
         )
+
+    def update(self):
+
+        self.update_periods()
+        self.update_sell_price()
