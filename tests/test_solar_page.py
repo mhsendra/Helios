@@ -684,3 +684,21 @@ class TestSolarPage:
             self.page.production_coverage_label.text()
             == "65.0 %"
         )
+
+    def test_update_balance_summary_without_coverage(self):
+
+        self.project.solar.energy_balance = pd.DataFrame(
+            {
+                "consumption_kwh": [500.0],
+                "production_kwh": [400.0],
+                "self_consumption_kwh": [300.0],
+                "grid_import_kwh": [200.0],
+                "grid_export_kwh": [100.0],
+            }
+        )
+
+        self.project.solar.coverage = None
+
+        self.page.update_balance_summary()
+
+        assert self.page.balance_coverage_label.text() == "-"

@@ -468,11 +468,6 @@ class SolarPage(QWidget):
             
             traceback.print_exc()
 
-        
-
-    def load_project_location(self):
-        pass
-
     def get_configuration(self) -> SolarConfiguration:
 
         return SolarConfiguration(
@@ -1063,13 +1058,3 @@ class SolarPage(QWidget):
         self.stats_total_consumption_label.setText(
             f"{total_consumption:,.2f} kWh"
         )
-        
-    def create_calculate_button(self):
-
-        self.calculate_button = QPushButton(
-            "Calcular producción"
-        )
-
-        self.calculate_button.setMinimumHeight(40)
-
-        return self.calculate_button
