@@ -2,6 +2,8 @@ import pandas as pd
 
 from helios.core.comparisons import ConsumptionComparisons
 
+from helios.plots.comparisons import ComparisonPlots
+
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -929,7 +931,7 @@ class TestConsumptionComparisons:
 
         assert result is None
 
-        # ==================================================
+    # ==================================================
     # Reports
     # ==================================================
 
@@ -1168,3 +1170,95 @@ class TestConsumptionComparisons:
         assert result[2024]["classification"] == "Decreciente"
         assert result[2024]["positive_steps"] == 0
         assert result[2024]["negative_steps"] == 2
+
+    # ==================================================
+    # Comparison plots
+    # ==================================================
+
+# ==================================================
+# Comparison plots
+# ==================================================
+
+class TestComparisonPlots:
+
+    def setup_method(self):
+
+        self.plotter = MagicMock()
+
+        self.plots = ComparisonPlots(
+            self.plotter
+        )
+
+    # ==================================================
+    # Comparación mensual
+    # ==================================================
+
+    def test_plot_monthly_comparison(self):
+
+        comparison = pd.DataFrame(
+            {
+                2024: [100.0, 120.0],
+                2025: [110.0, 130.0],
+            },
+            index=["Enero", "Febrero"]
+        )
+
+        self.plots.plot_monthly_comparison(
+            comparison
+        )
+
+        self.plotter.plot_comparison_lines.assert_called_once_with(
+            dataframe=comparison,
+            title="Comparativa mensual",
+            xlabel="Mes",
+            ylabel="Consumo (kWh)"
+        )
+
+    # ==================================================
+    # Comparación semanal
+    # ==================================================
+
+    def test_plot_weekly_comparison(self):
+
+        comparison = pd.DataFrame(
+            {
+                2024: [100.0, 120.0],
+                2025: [110.0, 130.0],
+            },
+            index=["S01", "S02"]
+        )
+
+        self.plots.plot_weekly_comparison(
+            comparison
+        )
+
+        self.plotter.plot_comparison_lines.assert_called_once_with(
+            dataframe=comparison,
+            title="Comparativa semanal",
+            xlabel="Semana",
+            ylabel="Consumo (kWh)"
+        )
+
+    # ==================================================
+    # Comparación anual
+    # ==================================================
+
+    def test_plot_yearly_comparison(self):
+
+        comparison = pd.Series(
+            {
+                2024: 1200.0,
+                2025: 1500.0,
+            }
+        )
+
+        self.plots.plot_yearly_comparison(
+            comparison
+        )
+
+        self.plotter.plot_series.assert_called_once_with(
+            series=comparison,
+            title="Comparativa anual",
+            xlabel="Año",
+            ylabel="Consumo (kWh)"
+        )
