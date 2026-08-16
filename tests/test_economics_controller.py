@@ -162,3 +162,85 @@ class TestEconomicsController:
         self.controller.reports_engine.economic_scenarios.assert_called_once_with(
         economics.scenario_results
         )
+
+    def test_calculate_net_investment_delegates_to_engine(self):
+
+        engine = self.analyzer.economics_engine
+
+        expected = 10000.0
+
+        engine.calculate_net_investment.return_value = expected
+
+        result = self.controller.calculate_net_investment()
+
+        engine.calculate_net_investment.assert_called_once_with(
+            self.configuration
+        )
+
+        assert result == expected
+
+
+    def test_calculate_cash_flow_delegates_to_engine(self):
+
+        engine = self.analyzer.economics_engine
+
+        expected = object()
+
+        engine.calculate_cash_flow.return_value = expected
+
+        result = self.controller.calculate_cash_flow()
+
+        engine.calculate_cash_flow.assert_called_once_with(
+            self.configuration,
+            25
+        )
+
+        assert result is expected
+
+
+    def test_calculate_economic_indicators_delegates_to_engine(self):
+
+        engine = self.analyzer.economics_engine
+
+        expected = {
+            "payback_years": 5.34,
+            "npv": 22071.16,
+            "irr": 0.188,
+        }
+
+        engine.calculate_economic_indicators.return_value = expected
+
+        self.configuration.discount_rate = 0.05
+
+        result = self.controller.calculate_economic_indicators()
+
+        engine.calculate_economic_indicators.assert_called_once_with(
+            0.05
+        )
+
+        assert result is expected
+
+    def test_reports_calls_scenarios_report(self):
+
+        economics = self.analyzer.economics_engine
+
+        economics.cost_without_pv = 1000.0
+        economics.grid_import_cost = 500.0
+        economics.export_income = 200.0
+        economics.cost_with_pv = 300.0
+        economics.annual_savings = 700.0
+        economics.net_investment = 12490.0
+        economics.payback_years = 5.34
+        economics.cash_flow = MagicMock()
+        economics.npv = 22071.16
+        economics.irr = 0.188
+
+        self.configuration.discount_rate = 0.05
+
+        self.controller.reports_engine.annual_economics = MagicMock()
+
+        self.controller.scenarios_report = MagicMock()
+
+        self.controller.reports()
+
+        self.controller.scenarios_report.assert_called_once_with()

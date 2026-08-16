@@ -327,3 +327,47 @@ class TestEconomicsReports:
                 [18, 18, 18, 18],
                 ["left", "right", "right", "right"]
             )
+
+    def test_annual_economics_prints_sections(self):
+
+        with patch(
+            "helios.reports.economics.ReportPrinter"
+        ) as printer:
+
+            cash_flow = pd.DataFrame(
+                {
+                    "year": [0],
+                    "cash_flow": [-10000.0],
+                    "cumulative_cash_flow": [-10000.0],
+                }
+            )
+
+            self.reports.annual_economics(
+                cost_without_pv=2000.0,
+                grid_import_cost=1200.0,
+                export_income=300.0,
+                cost_with_pv=900.0,
+                annual_savings=1100.0,
+                net_investment=10000.0,
+                payback_years=5.0,
+                cash_flow=cash_flow,
+                npv=5000.0,
+                discount_rate=0.05,
+                irr=0.15,
+            )
+
+            printer.subtitle.assert_any_call(
+                "ANNUAL COST"
+            )
+
+            printer.subtitle.assert_any_call(
+                "SAVINGS"
+            )
+
+            printer.subtitle.assert_any_call(
+                "INVESTMENT"
+            )
+
+            printer.subtitle.assert_any_call(
+                "CASH FLOW"
+            )
