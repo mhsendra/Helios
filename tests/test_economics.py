@@ -1845,6 +1845,37 @@ class TestCalculateScenarios:
         assert result[0].name == "Base"
 
         assert "old_result" not in result
+
+    def test_default_economic_scenarios(self):
+
+        scenarios = EconomicScenarioResult.default_economic_scenarios()
+
+        assert len(scenarios) == 3
+
+        conservative = scenarios[0]
+
+        assert conservative.name == "Conservador"
+        assert conservative.buy_price_factor == 0.90
+        assert conservative.sell_price_factor == 0.90
+        assert conservative.annual_maintenance == 200.0
+        assert conservative.annual_degradation == 0.005
+
+        base = scenarios[1]
+
+        assert base.name == "Base"
+        assert base.buy_price_factor == 1.0
+        assert base.sell_price_factor == 1.0
+        assert base.annual_maintenance is None
+        assert base.annual_degradation is None
+        assert base.discount_rate is None
+
+        optimistic = scenarios[2]
+
+        assert optimistic.name == "Optimista"
+        assert optimistic.buy_price_factor == 1.10
+        assert optimistic.sell_price_factor == 1.10
+        assert optimistic.annual_maintenance == 100.0
+        assert optimistic.annual_degradation == 0.0025
 class TestNetInvestment:
 
     def setup_method(self):

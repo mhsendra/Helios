@@ -23,23 +23,23 @@ class EconomicScenarioResult:
     npv: float
     irr: float
 
-def default_economic_scenarios():
-    return [
-        EconomicScenario(
-            name="Conservador",
-            buy_price_factor=0.90,
-            sell_price_factor=0.90,
-            annual_maintenance=200.0,
-            annual_degradation=0.005,
-        ),
-        EconomicScenario(
-            name="Base",
-        ),
-        EconomicScenario(
-            name="Optimista",
-            buy_price_factor=1.10,
-            sell_price_factor=1.10,
-            annual_maintenance=100.0,
-            annual_degradation=0.0025,
-        ),
-    ]
+    def default_economic_scenarios():
+        return [
+            EconomicScenario(
+                name="Conservador",
+                buy_price_factor=0.90,
+                sell_price_factor=0.90,
+                annual_maintenance=200.0,
+                annual_degradation=0.005,
+            ),
+            EconomicScenario(
+                name="Base",
+            ),
+            EconomicScenario(
+                name="Optimista",
+                buy_price_factor=1.10,
+                sell_price_factor=1.10,
+                annual_maintenance=100.0,
+                annual_degradation=0.0025,
+            ),
+        ]
