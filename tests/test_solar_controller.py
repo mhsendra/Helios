@@ -165,6 +165,74 @@ class TestSolarController:
 
         assert self.controller.monthly_energy_balance is None
 
+    def test_hourly_production_property(self):
+
+        value = MagicMock()
+
+        self.analyzer.solar_engine.hourly_production = value
+
+        assert self.controller.hourly_production is value
+
+
+    def test_daily_production_property(self):
+
+        value = MagicMock()
+
+        self.analyzer.solar_engine.daily_production = value
+
+        assert self.controller.daily_production is value
+
+
+    def test_monthly_production_property(self):
+
+        value = MagicMock()
+
+        self.analyzer.solar_engine.monthly_production = value
+
+        assert self.controller.monthly_production is value
+
+
+    def test_yearly_production_property(self):
+
+        value = MagicMock()
+
+        self.analyzer.solar_engine.yearly_production = value
+
+        assert self.controller.yearly_production is value
+
+
+    def test_statistics_property(self):
+
+        value = MagicMock()
+
+        self.analyzer.solar_engine.statistics = value
+
+        assert self.controller.statistics is value
+
+
+    def test_energy_balance_property(self):
+
+        value = MagicMock()
+
+        self.analyzer.solar_engine.energy_balance = value
+
+        assert self.controller.energy_balance is value
+
+    def test_coverage_without_empty_balance(self):
+
+        self.analyzer.solar_engine.energy_balance = pd.DataFrame()
+
+        assert self.controller.coverage is None
+
+
+    def test_annual_production_without_empty_yearly_production(self):
+
+        self.analyzer.solar_engine.yearly_production = pd.Series(
+            dtype=float
+        )
+
+        assert self.controller.annual_production is None
+
     # ==================================================
     # Cálculos
     # ==================================================
