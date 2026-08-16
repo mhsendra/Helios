@@ -189,3 +189,60 @@ class TestSolarStatisticsEngine:
         assert result["import_ratio"] == pytest.approx(
             54.5454545455
         )
+
+    def test_calculate_statistics_without_production(self):
+
+        index = pd.to_datetime(
+            [
+                "2025-01-01 10:00",
+                "2025-01-01 11:00",
+            ]
+        )
+
+        hourly_production = pd.DataFrame(
+            {
+                "production_kwh": [
+                    0.0,
+                    0.0,
+                ]
+            },
+            index=index
+        )
+
+        energy_balance = pd.DataFrame(
+            {
+                "consumption_kwh": [
+                    2.0,
+                    3.0,
+                ],
+                "production_kwh": [
+                    0.0,
+                    0.0,
+                ],
+                "self_consumption_kwh": [
+                    0.0,
+                    0.0,
+                ],
+                "grid_import_kwh": [
+                    2.0,
+                    3.0,
+                ],
+                "grid_export_kwh": [
+                    0.0,
+                    0.0,
+                ],
+            },
+            index=index
+        )
+
+        result = SolarStatisticsEngine.calculate(
+            hourly_production,
+            energy_balance,
+            self.configuration
+        )
+
+        assert result["productive_hours"] == 0
+
+        assert result["zero_production_hours"] == 2
+
+        assert result["minimum_power"] == 0.0
