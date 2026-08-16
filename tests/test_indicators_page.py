@@ -406,3 +406,63 @@ class TestIndicatorsPage:
             self.page.kpi_max_decrease_label.text()
             == "-40.25%"
         )
+
+    def test_update_data_worst_anomaly_without_value(self):
+
+        import pandas as pd
+
+        daily = pd.Series(
+            [10.0, 20.0],
+            index=pd.to_datetime([
+                "2025-01-01",
+                "2025-01-02",
+            ])
+        )
+
+        self.analyzer.statistics_engine.daily_consumption = daily
+
+        comparisons = self.analyzer.comparisons
+
+        comparisons.weekly_comparison = MagicMock()
+        comparisons.monthly_comparison = MagicMock()
+        comparisons.yearly_comparison = MagicMock()
+
+        comparisons.monthly_stability_extremes.return_value = None
+        comparisons.weekly_stability_extremes.return_value = None
+
+        comparisons.detect_monthly_anomalies.return_value = [
+            {
+                "type": "statistical_peak",
+                "month": "Enero",
+                "year": "2025",
+                "detail": "Pico estadístico",
+            }
+        ]
+
+        comparisons.yearly_trend.return_value = {
+            "classification": "Creciente",
+            "positive_steps": 1,
+            "negative_steps": 0,
+            "max_increase": 20.0,
+            "max_decrease": 0.0,
+        }
+
+        self.page.update_data()
+
+        assert (
+            self.page.kpi_worst_anomaly_label.text()
+            == "Enero 2025 — Pico estadístico"
+        )
+
+        assert (
+            self.page.kpi_max_anomaly_pct_label.text()
+            == "N/A"
+        )
+
+    def test_update_data_returns_when_daily_consumption_attribute_is_missing(self):
+
+        del self.analyzer.statistics_engine.daily_consumption
+
+        self.page.update_data()
+
+        assert self.page.kpi_total_year_label.text() == "-"
