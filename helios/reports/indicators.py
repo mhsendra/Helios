@@ -33,7 +33,10 @@ class IndicatorsReports:
 
     def extremes(self, extremes):
 
-        ReportPrinter.title("CONSUMPTION EXTREMES")
+        ReportPrinter.title(
+            "CONSUMPTION EXTREMES"
+        )
+
         ReportPrinter.blank()
 
         # ==========================================
@@ -161,7 +164,7 @@ class IndicatorsReports:
             "Consumo",
             value
         )
-        
+
     def base_load(self, base_load):
 
         ReportPrinter.title(
@@ -242,4 +245,3 @@ class IndicatorsReports:
         ]
 
         return f"{month} {timestamp.year}"
-    
