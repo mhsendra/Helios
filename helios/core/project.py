@@ -76,4 +76,5 @@ class HeliosProject:
         self.analyzer.statistics.calculate()
         self.analyzer.profiles.calculate()
         self.analyzer.comparisons.calculate()
+        self.analyzer.indicators.calculate()
         self.analyzer.tariffs.calculate()
