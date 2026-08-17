@@ -5,7 +5,8 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QHBoxLayout,
     QLineEdit,
-    QFileDialog
+    QFileDialog,
+    QMessageBox
 )
 from pathlib import Path
 
@@ -82,6 +83,12 @@ class LoadDataPage(QWidget):
             self.project.load_data(path)
 
             self.project.analyze_data()
+
+            # Un nuevo dataset invalida los resultados solares
+            self.project.solar.reset()
+
+            # Resetear también la interfaz solar
+            self.main_window.solar_page.reset_results()
 
             self.update_project_info()
 

@@ -46,6 +46,18 @@ class TestMainWindow:
         assert self.window.navigation is not None
         assert self.window.pages is not None
 
+    def test_results_items_are_mapped_to_correct_pages(self):
+
+        assert (
+            self.window.page_map["Gráficas"]
+            is self.window.graphics_page
+        )
+
+        assert (
+            self.window.page_map["Informes"]
+            is self.window.reports_page
+        )
+
     # ==================================================
     # Páginas
     # ==================================================
@@ -151,9 +163,22 @@ class TestMainWindow:
             "Comparativas",
             "Indicadores",
             "Tarifas",
-            "Informes",
             "Solar",
             "Economía"
+        ]
+
+    def test_navigation_has_expected_results_items(self):
+
+        results_item = self.window.results_item
+
+        children = [
+            results_item.child(i).text(0)
+            for i in range(results_item.childCount())
+        ]
+
+        assert children == [
+            "Informes",
+            "Gráficas"
         ]
 
     # ==================================================
@@ -315,3 +340,28 @@ class TestMainWindow:
         self.window.profiles_page.update_data.assert_called_once()
         self.window.comparisons_page.update_data.assert_called_once()
         self.window.indicators_page.update_data.assert_called_once()
+
+    def test_economics_is_disabled_when_project_is_loaded_without_solar(self):
+
+        self.window.set_project_loaded(True)
+
+        assert self.window.economics_item.isDisabled()
+
+    def test_economics_is_enabled_after_solar_calculation(self):
+
+        self.window.set_project_loaded(True)
+
+        self.window.set_solar_calculated(True)
+
+        assert not self.window.economics_item.isDisabled()
+
+    def test_economics_is_disabled_when_solar_results_are_reset(self):
+
+        self.window.set_project_loaded(True)
+
+        self.window.set_solar_calculated(True)
+        assert not self.window.economics_item.isDisabled()
+
+        self.window.set_solar_calculated(False)
+
+        assert self.window.economics_item.isDisabled()

@@ -136,7 +136,7 @@ class MainWindow(QMainWindow):
 
         self.pages.addWidget(self.reports_page)
 
-        self.solar_page = SolarPage(self.project)
+        self.solar_page = SolarPage(self.project, self)
 
         self.pages.addWidget(self.solar_page)
 
@@ -198,11 +198,6 @@ class MainWindow(QMainWindow):
             ["Tarifas"]
         )
 
-        self.reports_item = QTreeWidgetItem(
-            self.analysis_item,
-            ["Informes"]
-        )
-
         self.solar_item = QTreeWidgetItem(
             self.analysis_item,
             ["Solar"]
@@ -261,7 +256,6 @@ class MainWindow(QMainWindow):
             self.indicators_item,
             self.tariffs_item,
             self.solar_item,
-            self.economics_item,
             self.reports_item,
             self.charts_item,
         ]
@@ -275,6 +269,23 @@ class MainWindow(QMainWindow):
                 enabled_color if loaded else disabled_color
             )
 
+        # Economía requiere resultados solares válidos
+        self.set_solar_calculated(False)
+
+    def set_solar_calculated(self, calculated: bool):
+
+        enabled_color = QColor("#FFFFFF")
+        disabled_color = QColor("#808080")
+
+        self.economics_item.setDisabled(
+            not calculated
+        )
+
+        self.economics_item.setForeground(
+            0,
+            enabled_color if calculated else disabled_color
+        )
+        
     # ==================================================
     # Señales
     # ==================================================

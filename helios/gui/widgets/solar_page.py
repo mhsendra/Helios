@@ -22,10 +22,11 @@ from PySide6.QtGui import QFont
 from helios.solar.configuration import SolarConfiguration
 class SolarPage(QWidget):
 
-    def __init__(self, project):
+    def __init__(self, project, main_window=None):
         super().__init__()
 
         self.project = project
+        self.main_window = main_window
 
         self.setup_ui()
 
@@ -451,6 +452,10 @@ class SolarPage(QWidget):
             self.refresh_production_results()
 
             self.set_results_available(True)
+
+            if self.main_window is not None:
+
+                self.main_window.set_solar_calculated(True)
 
         except Exception as error:
 
@@ -1058,3 +1063,43 @@ class SolarPage(QWidget):
         self.stats_total_consumption_label.setText(
             f"{total_consumption:,.2f} kWh"
         )
+
+    def reset_results(self):
+
+        self.update_production_status(
+            source="PVGIS",
+            database="SARAH3",
+            reference_year=None,
+            last_update="Nunca",
+            status="No calculada",
+            annual_production=None,
+            specific_production=None,
+            coverage=None,
+        )
+
+        self.monthly_production_table.setRowCount(0)
+
+        self.balance_total_consumption_label.setText("-")
+        self.balance_total_production_label.setText("-")
+        self.balance_self_consumption_label.setText("-")
+        self.balance_grid_import_label.setText("-")
+        self.balance_grid_export_label.setText("-")
+        self.balance_coverage_label.setText("-")
+
+        self.stats_annual_production_label.setText("-")
+        self.stats_specific_production_label.setText("-")
+        self.stats_equivalent_hours_label.setText("-")
+        self.stats_capacity_factor_label.setText("-")
+
+        self.stats_coverage_label.setText("-")
+        self.stats_self_consumption_ratio_label.setText("-")
+        self.stats_self_sufficiency_ratio_label.setText("-")
+
+        self.stats_import_label.setText("-")
+        self.stats_export_label.setText("-")
+        self.stats_self_consumption_label.setText("-")
+        self.stats_total_consumption_label.setText("-")
+
+        self.balance_table.setRowCount(0)
+
+        self.set_results_available(False)

@@ -137,6 +137,74 @@ class ReportsPage(QWidget):
         )
 
         # ==================================================
+        # Comparativas
+        # ==================================================
+
+        comparisons_group = QGroupBox(
+            "Comparativas"
+        )
+
+        comparisons_layout = QGridLayout()
+
+        self.monthly_comparison_button = QPushButton(
+            "Comparativa mensual"
+        )
+
+        self.monthly_variation_button = QPushButton(
+            "Variación mensual"
+        )
+
+        self.weekly_comparison_button = QPushButton(
+            "Comparativa semanal"
+        )
+
+        self.weekly_variation_button = QPushButton(
+            "Variación semanal"
+        )
+
+        self.yearly_comparison_button = QPushButton(
+            "Comparativa anual"
+        )
+
+        comparisons_layout.addWidget(
+            self.monthly_comparison_button,
+            0,
+            0
+        )
+
+        comparisons_layout.addWidget(
+            self.monthly_variation_button,
+            0,
+            1
+        )
+
+        comparisons_layout.addWidget(
+            self.weekly_comparison_button,
+            1,
+            0
+        )
+
+        comparisons_layout.addWidget(
+            self.weekly_variation_button,
+            1,
+            1
+        )
+
+        comparisons_layout.addWidget(
+            self.yearly_comparison_button,
+            2,
+            0
+        )
+
+        comparisons_group.setLayout(
+            comparisons_layout
+        )
+
+        layout.addWidget(
+            comparisons_group
+        )
+
+        # ==================================================
         # Área del informe
         # ==================================================
 
@@ -182,6 +250,26 @@ class ReportsPage(QWidget):
 
         self.base_load_button.clicked.connect(
             self.show_base_load_report
+        )
+
+        self.monthly_comparison_button.clicked.connect(
+            self.show_monthly_comparison_report
+        )
+
+        self.monthly_variation_button.clicked.connect(
+            self.show_monthly_variation_report
+        )
+
+        self.weekly_comparison_button.clicked.connect(
+            self.show_weekly_comparison_report
+        )
+
+        self.weekly_variation_button.clicked.connect(
+            self.show_weekly_variation_report
+        )
+
+        self.yearly_comparison_button.clicked.connect(
+            self.show_yearly_comparison_report
         )
 
     # ==================================================
@@ -249,4 +337,38 @@ class ReportsPage(QWidget):
 
         self._show_report(
             self.project.indicators.base_load_report
+        )
+
+    # ==================================================
+    # Informes de comparativas
+    # ==================================================
+
+    def show_monthly_comparison_report(self):
+
+        self._show_report(
+            self.project.comparisons.monthly_comparison_report
+        )
+
+    def show_monthly_variation_report(self):
+
+        self._show_report(
+            self.project.comparisons.monthly_variation_report
+        )
+
+    def show_weekly_comparison_report(self):
+
+        self._show_report(
+            self.project.comparisons.weekly_comparison_report
+        )
+
+    def show_weekly_variation_report(self):
+
+        self._show_report(
+            self.project.comparisons.weekly_variation_report
+        )
+
+    def show_yearly_comparison_report(self):
+
+        self._show_report(
+            self.project.comparisons.yearly_comparison_report
         )

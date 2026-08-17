@@ -182,3 +182,7 @@ class SolarController:
         self.production_statistics_report()
         self.monthly_production_report()
         self.energy_balance_report()
+
+    def reset(self):
+
+        self.analyzer.solar_engine.reset()

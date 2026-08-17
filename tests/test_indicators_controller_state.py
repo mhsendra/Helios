@@ -52,7 +52,7 @@ class TestIndicatorsControllerState:
                     .monthly_consumption
                 ),
                 weekly=(
-                    self.analyzer.comparisons_controller
+                    self.analyzer.comparisons
                     .get_weekly_comparison.return_value
                 )
             ),
@@ -107,7 +107,7 @@ class TestIndicatorsControllerState:
                 .monthly_consumption
             ),
             weekly=(
-                self.analyzer.comparisons_controller
+                self.analyzer.comparisons
                 .get_weekly_comparison.return_value
             )
         )
