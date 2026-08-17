@@ -44,7 +44,7 @@ class TestProfilesPlots:
 
         self.plots.plot_weekday_profile(profile)
 
-        assert self.plotter.plot_series.call_count == 2
+        assert self.plotter.plot_series.call_count == 1
 
         calls = self.plotter.plot_series.call_args_list
 
@@ -52,13 +52,6 @@ class TestProfilesPlots:
             "series": profile,
             "title": "Perfil semanal de consumo",
             "xlabel": "Día de la semana",
-            "ylabel": "Consumo medio (kWh)"
-        }
-
-        assert calls[1].kwargs == {
-            "series": profile,
-            "title": "Perfil laborables / fin de semana",
-            "xlabel": "Tipo de día",
             "ylabel": "Consumo medio (kWh)"
         }
 

@@ -20,6 +20,7 @@ from helios.gui.widgets.indicators_page import IndicatorsPage
 from helios.gui.widgets.solar_page import SolarPage
 from helios.gui.widgets.economics_page import EconomicsPage
 from helios.gui.widgets.tariffs_page import TariffsPage
+from helios.gui.widgets.graphics_page import GraphicsPage
 
 from helios.core.project import HeliosProject
 
@@ -126,6 +127,10 @@ class MainWindow(QMainWindow):
 
         self.pages.addWidget(self.tariffs_page)
 
+        self.graphics_page = GraphicsPage(self.project)
+
+        self.pages.addWidget(self.graphics_page)
+
         self.solar_page = SolarPage(self.project)
 
         self.pages.addWidget(self.solar_page)
@@ -223,6 +228,7 @@ class MainWindow(QMainWindow):
         self.page_map["Comparativas"] = self.comparisons_page
         self.page_map["Indicadores"] = self.indicators_page
         self.page_map["Tarifas"] = self.tariffs_page
+        self.page_map["Gráficas"] = self.graphics_page
         self.page_map["Solar"] = self.solar_page
         self.page_map["Economía"] = self.economics_page
         

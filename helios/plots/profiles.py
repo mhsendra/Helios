@@ -37,13 +37,6 @@ class ProfilesPlots:
             ylabel="Consumo medio (kWh)"
         )
 
-        self.plotter.plot_series(
-            series=profile,
-            title="Perfil laborables / fin de semana",
-            xlabel="Tipo de día",
-            ylabel="Consumo medio (kWh)"
-        )
-
     def plot_workday_vs_weekend_profile(self, profile):
         df = pd.DataFrame({
             "Consumo": [
