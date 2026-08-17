@@ -205,6 +205,130 @@ class ReportsPage(QWidget):
         )
 
         # ==================================================
+        # Estadísticas
+        # ==================================================
+
+        statistics_group = QGroupBox(
+            "Estadísticas"
+        )
+
+        statistics_layout = QGridLayout()
+
+        self.statistics_button = QPushButton(
+            "Estadísticas generales"
+        )
+
+        self.daily_statistics_button = QPushButton(
+            "Estadísticas diarias"
+        )
+
+        self.monthly_statistics_button = QPushButton(
+            "Estadísticas mensuales"
+        )
+
+        self.yearly_statistics_button = QPushButton(
+            "Estadísticas anuales"
+        )
+
+        statistics_layout.addWidget(
+            self.statistics_button,
+            0,
+            0
+        )
+
+        statistics_layout.addWidget(
+            self.daily_statistics_button,
+            0,
+            1
+        )
+
+        statistics_layout.addWidget(
+            self.monthly_statistics_button,
+            1,
+            0
+        )
+
+        statistics_layout.addWidget(
+            self.yearly_statistics_button,
+            1,
+            1
+        )
+
+        statistics_group.setLayout(
+            statistics_layout
+        )
+
+        layout.addWidget(
+            statistics_group
+        )
+
+        # ==================================================
+        # Tarifas
+        # ==================================================
+
+        tariffs_group = QGroupBox(
+            "Tarifas eléctricas"
+        )
+
+        tariffs_layout = QGridLayout()
+
+        self.tariff_periods_button = QPushButton(
+            "Periodos tarifarios"
+        )
+
+        tariffs_layout.addWidget(
+            self.tariff_periods_button,
+            0,
+            0
+        )
+
+        tariffs_group.setLayout(
+            tariffs_layout
+        )
+
+        layout.addWidget(
+            tariffs_group
+        )
+
+        # ==================================================
+        # Economía
+        # ==================================================
+
+        economics_group = QGroupBox(
+            "Economía"
+        )
+
+        economics_layout = QGridLayout()
+
+        self.annual_economics_button = QPushButton(
+            "Informe económico anual"
+        )
+
+        self.economic_scenarios_button = QPushButton(
+            "Escenarios económicos"
+        )
+
+        economics_layout.addWidget(
+            self.annual_economics_button,
+            0,
+            0
+        )
+
+        economics_layout.addWidget(
+            self.economic_scenarios_button,
+            0,
+            1
+        )
+
+        economics_group.setLayout(
+            economics_layout
+        )
+
+        layout.addWidget(
+            economics_group
+        )
+
+        # ==================================================
         # Área del informe
         # ==================================================
 
@@ -270,6 +394,34 @@ class ReportsPage(QWidget):
 
         self.yearly_comparison_button.clicked.connect(
             self.show_yearly_comparison_report
+        )
+
+        self.statistics_button.clicked.connect(
+            self.show_statistics_report
+        )
+
+        self.daily_statistics_button.clicked.connect(
+            self.show_daily_statistics_report
+        )
+
+        self.monthly_statistics_button.clicked.connect(
+            self.show_monthly_statistics_report
+        )
+
+        self.yearly_statistics_button.clicked.connect(
+            self.show_yearly_statistics_report
+        )
+
+        self.tariff_periods_button.clicked.connect(
+            self.show_tariff_periods_report
+        )
+
+        self.annual_economics_button.clicked.connect(
+            self.show_annual_economics_report
+        )
+
+        self.economic_scenarios_button.clicked.connect(
+            self.show_economic_scenarios_report
         )
 
     # ==================================================
@@ -371,4 +523,58 @@ class ReportsPage(QWidget):
 
         self._show_report(
             self.project.comparisons.yearly_comparison_report
+        )
+
+    # ==================================================
+    # Informes de estadísticas
+    # ==================================================
+
+    def show_statistics_report(self):
+
+        self._show_report(
+            self.project.statistics.statistics_report
+        )
+
+    def show_daily_statistics_report(self):
+
+        self._show_report(
+            self.project.statistics.daily_report
+        )
+
+    def show_monthly_statistics_report(self):
+
+        self._show_report(
+            self.project.statistics.monthly_report
+        )
+
+    def show_yearly_statistics_report(self):
+
+        self._show_report(
+            self.project.statistics.yearly_report
+        )
+
+    # ==================================================
+    # Informes de tarifas
+    # ==================================================
+
+    def show_tariff_periods_report(self):
+
+        self._show_report(
+            self.project.tariffs.tariff_periods_report
+        )
+
+    # ==================================================
+    # Informes de economía
+    # ==================================================
+
+    def show_annual_economics_report(self):
+
+        self._show_report(
+            self.project.economics.annual_economics_report
+        )
+
+    def show_economic_scenarios_report(self):
+
+        self._show_report(
+            self.project.economics.economic_scenarios_report
         )

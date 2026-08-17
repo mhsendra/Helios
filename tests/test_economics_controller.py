@@ -220,27 +220,12 @@ class TestEconomicsController:
 
         assert result is expected
 
-    def test_reports_calls_scenarios_report(self):
+    def test_reports_calls_report_methods(self):
 
-        economics = self.analyzer.economics_engine
-
-        economics.cost_without_pv = 1000.0
-        economics.grid_import_cost = 500.0
-        economics.export_income = 200.0
-        economics.cost_with_pv = 300.0
-        economics.annual_savings = 700.0
-        economics.net_investment = 12490.0
-        economics.payback_years = 5.34
-        economics.cash_flow = MagicMock()
-        economics.npv = 22071.16
-        economics.irr = 0.188
-
-        self.configuration.discount_rate = 0.05
-
-        self.controller.reports_engine.annual_economics = MagicMock()
-
-        self.controller.scenarios_report = MagicMock()
+        self.controller.annual_economics_report = MagicMock()
+        self.controller.economic_scenarios_report = MagicMock()
 
         self.controller.reports()
 
-        self.controller.scenarios_report.assert_called_once_with()
+        self.controller.annual_economics_report.assert_called_once_with()
+        self.controller.economic_scenarios_report.assert_called_once_with()

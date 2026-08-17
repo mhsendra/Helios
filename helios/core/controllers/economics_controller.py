@@ -58,23 +58,8 @@ class EconomicsController:
         
     def reports(self):
 
-        economics = self.analyzer.economics_engine
-
-        self.reports_engine.annual_economics(
-            economics.cost_without_pv,
-            economics.grid_import_cost,
-            economics.export_income,
-            economics.cost_with_pv,
-            economics.annual_savings,
-            economics.net_investment,
-            economics.payback_years,
-            economics.cash_flow,
-            economics.npv,
-            self.configuration.discount_rate,
-            economics.irr
-        )
-
-        self.scenarios_report()
+        self.annual_economics_report()
+        self.economic_scenarios_report()
         
     def calculate_net_investment(self):
 
@@ -148,6 +133,30 @@ class EconomicsController:
         )
 
     def scenarios_report(self):
+
+        self.reports_engine.economic_scenarios(
+            self.analyzer.economics_engine.scenario_results
+        )
+
+    def annual_economics_report(self):
+
+        economics = self.analyzer.economics_engine
+
+        self.reports_engine.annual_economics(
+            economics.cost_without_pv,
+            economics.grid_import_cost,
+            economics.export_income,
+            economics.cost_with_pv,
+            economics.annual_savings,
+            economics.net_investment,
+            economics.payback_years,
+            economics.cash_flow,
+            economics.npv,
+            self.configuration.discount_rate,
+            economics.irr
+        )
+
+    def economic_scenarios_report(self):
 
         self.reports_engine.economic_scenarios(
             self.analyzer.economics_engine.scenario_results
