@@ -152,7 +152,9 @@ class Plotter:
         dataframe: pd.DataFrame,
         title: str,
         xlabel: str,
-        ylabel: str
+        ylabel: str,
+        bar_width: float = 0.8,
+        bar_spacing: float = 1.0
     ) -> None:
 
         positive_color = "tab:green"
@@ -174,12 +176,16 @@ class Plotter:
 
             plt.figure(figsize=(12, 5))
 
-            x = list(range(len(series)))
+            x = [
+                i * bar_spacing
+                for i in range(len(series))
+            ]
 
             plt.bar(
                 x,
                 series.values,
-                color=colors
+                color=colors,
+                width=bar_width
             )
 
             plt.axhline(

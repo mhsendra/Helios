@@ -3,7 +3,7 @@ import pandas as pd
 import numpy_financial as npf
 
 from helios.core.economics import EconomicsEngine
-from helios.core.economic_scenarios import EconomicScenarioResult
+from helios.core.economic_scenarios import (EconomicScenarioResult, default_economic_scenarios)
 
 
 # ==========================================================
@@ -1848,7 +1848,7 @@ class TestCalculateScenarios:
 
     def test_default_economic_scenarios(self):
 
-        scenarios = EconomicScenarioResult.default_economic_scenarios()
+        scenarios = default_economic_scenarios()
 
         assert len(scenarios) == 3
 

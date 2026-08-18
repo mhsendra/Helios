@@ -84,10 +84,6 @@ class ReportsPage(QWidget):
             profiles_layout
         )
 
-        layout.addWidget(
-            profiles_group
-        )
-
         # ==================================================
         # Indicadores
         # ==================================================
@@ -130,10 +126,6 @@ class ReportsPage(QWidget):
 
         indicators_group.setLayout(
             indicators_layout
-        )
-
-        layout.addWidget(
-            indicators_group
         )
 
         # ==================================================
@@ -200,10 +192,6 @@ class ReportsPage(QWidget):
             comparisons_layout
         )
 
-        layout.addWidget(
-            comparisons_group
-        )
-
         # ==================================================
         # Estadísticas
         # ==================================================
@@ -258,10 +246,6 @@ class ReportsPage(QWidget):
             statistics_layout
         )
 
-        layout.addWidget(
-            statistics_group
-        )
-
         # ==================================================
         # Tarifas
         # ==================================================
@@ -284,10 +268,6 @@ class ReportsPage(QWidget):
 
         tariffs_group.setLayout(
             tariffs_layout
-        )
-
-        layout.addWidget(
-            tariffs_group
         )
 
         # ==================================================
@@ -324,10 +304,54 @@ class ReportsPage(QWidget):
             economics_layout
         )
 
-        layout.addWidget(
-            economics_group
+        # ==================================================
+        # Distribución de grupos
+        # ==================================================
+
+        groups_layout = QGridLayout()
+
+        groups_layout.addWidget(
+            profiles_group,
+            0,
+            0
         )
 
+        groups_layout.addWidget(
+            indicators_group,
+            0,
+            1
+        )
+
+        groups_layout.addWidget(
+            comparisons_group,
+            1,
+            0
+        )
+
+        groups_layout.addWidget(
+            statistics_group,
+            1,
+            1
+        )
+
+        groups_layout.addWidget(
+            tariffs_group,
+            2,
+            0
+        )
+
+        groups_layout.addWidget(
+            economics_group,
+            2,
+            1
+        )
+
+        groups_layout.setColumnStretch(0, 1)
+        groups_layout.setColumnStretch(1, 1)
+
+        layout.addLayout(
+            groups_layout
+        )
         # ==================================================
         # Área del informe
         # ==================================================
@@ -341,7 +365,8 @@ class ReportsPage(QWidget):
         self.report_output.setReadOnly(True)
 
         layout.addWidget(
-            self.report_output
+            self.report_output,
+            1
         )
 
         # ==================================================

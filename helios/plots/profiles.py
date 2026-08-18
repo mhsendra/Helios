@@ -49,7 +49,9 @@ class ProfilesPlots:
             dataframe=df,
             title="Consumo: Laborables vs Fin de semana",
             xlabel="Tipo de día",
-            ylabel="kWh"
+            ylabel="kWh",
+            bar_width=0.3,
+            bar_spacing=0.4
         )
 
 

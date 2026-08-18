@@ -9,6 +9,7 @@ class EconomicsEngine:
 
         self.cost_without_pv = None
         self.cost_with_pv = None
+        self.grid_import_cost = None
 
         self.annual_savings = None
         self.export_income = None

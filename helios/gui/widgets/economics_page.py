@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QTableWidgetItem,
 )
 
+from helios.core.economic_scenarios import default_economic_scenarios
 
 class EconomicsPage(QWidget):
 
@@ -159,6 +160,12 @@ class EconomicsPage(QWidget):
     def calculate(self):
 
         self.controller.calculate()
+
+        scenarios = default_economic_scenarios()
+
+        self.controller.calculate_scenarios(
+            scenarios
+        )
 
         self.update_summary()
         self.update_profitability()
