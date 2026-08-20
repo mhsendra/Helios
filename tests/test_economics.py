@@ -5,6 +5,9 @@ import numpy_financial as npf
 
 from helios.core.economics import EconomicsEngine
 from helios.core.economic_scenarios import (EconomicScenarioResult, default_economic_scenarios)
+from helios.core.economics_configuration import (
+    EconomicsConfiguration,
+)
 
 
 # ==========================================================
@@ -165,50 +168,6 @@ class TestEconomicsFactors:
         )
 
         assert result == pytest.approx(0.0)
-
-    def test_apply_price_factors(self):
-
-        tariff_data = pd.DataFrame(
-            {
-                "buy_price_eur_kwh": [
-                    0.20,
-                    0.30,
-                ],
-                "sell_price_eur_kwh": [
-                    0.06,
-                    0.07,
-                ],
-                "other": [
-                    1,
-                    2,
-                ],
-            }
-        )
-
-        result = self.engine._apply_price_factors(
-            tariff_data,
-            buy_price_factor=1.10,
-            sell_price_factor=0.50,
-        )
-
-        assert result["buy_price_eur_kwh"].tolist() == pytest.approx(
-            [0.22, 0.33]
-        )
-
-        assert result["sell_price_eur_kwh"].tolist() == pytest.approx(
-            [0.03, 0.035]
-        )
-
-        assert "other" not in result.columns
-
-        assert tariff_data["buy_price_eur_kwh"].tolist() == pytest.approx(
-            [0.20, 0.30]
-        )
-
-        assert tariff_data["sell_price_eur_kwh"].tolist() == pytest.approx(
-            [0.06, 0.07]
-        )
-
 
 # ==========================================================
 # Cash Flow
@@ -1065,30 +1024,6 @@ class TestEconomicsInvestment:
 
         self.engine = EconomicsEngine()
 
-    def test_calculate_net_investment(self):
-
-        class Configuration:
-
-            installation_cost = 12490.0
-            subsidies = 2000.0
-            tax_deductions = 1000.0
-
-        result = self.engine.calculate_net_investment(
-            Configuration()
-        )
-
-        expected = (
-            12490.0
-            - 2000.0
-            - 1000.0
-        )
-
-        assert result == pytest.approx(expected)
-
-        assert self.engine.net_investment == pytest.approx(
-            expected
-        )
-
 class TestEconomicsScenarios:
 
     def setup_method(self):
@@ -1152,39 +1087,6 @@ class TestEconomicsScenarios:
         )
 
         assert result.payback_years > 0
-
-        assert result.npv is not None
-
-        assert result.irr is not None
-
-    def test_calculate_scenario_with_custom_parameters(self):
-
-        class Scenario:
-
-            name = "Optimista"
-
-            annual_degradation = 0.002
-            discount_rate = 0.04
-
-            buy_price_factor = 1.10
-            sell_price_factor = 1.05
-
-            annual_maintenance = None
-
-        result = self.engine.calculate_scenario(
-            scenario=Scenario(),
-            configuration=self._configuration(),
-            dataset=None,
-            energy_balance=None,
-            tariff_data=None,
-            years=5,
-        )
-
-        assert result.name == "Optimista"
-
-        assert result.annual_savings == pytest.approx(
-            1200.0
-        )
 
         assert result.npv is not None
 
@@ -2025,6 +1927,24 @@ class TestCalculateScenario:
                 tariff_data=self._tariff_data(),
                 years=-1,
             )
+
+    def test_calculate_scenario_supports_one_year(self):
+
+        result = self._calculate_base_result(years=1)
+
+        assert isinstance(
+            result,
+            EconomicScenarioResult,
+        )
+
+        assert result.npv == pytest.approx(
+            -7738.095238095238,
+            rel=1e-9,
+        )
+
+        assert result.payback_years == float("inf")
+
+        assert np.isfinite(result.irr)
 class TestCalculateScenarios:
 
     def setup_method(self):
@@ -2155,6 +2075,60 @@ class TestCalculateScenarios:
         assert optimistic.sell_price_factor == 1.10
         assert optimistic.annual_maintenance == 100.0
         assert optimistic.annual_degradation == 0.0025
+
+    def test_default_economic_scenarios_produce_valid_results(self):
+
+        scenarios = default_economic_scenarios()
+
+        results = self.engine.calculate_scenarios(
+            scenarios=scenarios,
+            configuration=self._configuration(),
+            dataset=pd.DataFrame(),
+            energy_balance=pd.DataFrame(),
+            tariff_data=pd.DataFrame(),
+            years=5,
+        )
+
+        assert len(results) == 3
+
+        assert [result.name for result in results] == [
+            "Conservador",
+            "Base",
+            "Optimista",
+        ]
+
+        assert all(
+            isinstance(result, EconomicScenarioResult)
+            for result in results
+        )
+
+        assert all(
+            result.npv is not None
+            for result in results
+        )
+
+        assert all(
+            result.irr is not None
+            for result in results
+        )
+
+        assert all(
+            np.isfinite(result.payback_years)
+            for result in results
+        )
+
+        conservative = results[0]
+        base = results[1]
+        optimistic = results[2]
+
+        assert conservative.npv < base.npv
+        assert optimistic.npv > base.npv
+
+        assert conservative.irr < base.irr
+        assert optimistic.irr > base.irr
+
+        assert conservative.payback_years > base.payback_years
+        assert optimistic.payback_years < base.payback_years
 class TestNetInvestment:
 
     def setup_method(self):
@@ -2334,3 +2308,79 @@ class TestApplyPriceFactors:
                 energy_balance=None,
                 tariff_data=tariff_data,
             )
+
+class TestEconomicsConfiguration:
+
+    def test_default_values(self):
+
+        config = EconomicsConfiguration(
+            installation_cost=12490.0
+        )
+
+        assert config.installation_cost == 12490.0
+        assert config.subsidies == 0.0
+        assert config.tax_deductions == 0.0
+
+        assert config.first_year_degradation == 0.01
+        assert config.annual_degradation == 0.0035
+
+        assert (
+            config.annual_electricity_price_growth
+            == 0.02
+        )
+
+        assert (
+            config.annual_export_price_growth
+            == 0.0
+        )
+
+        assert config.annual_maintenance_cost == 150.0
+
+        assert (
+            config.annual_maintenance_growth
+            == 0.02
+        )
+
+        assert config.discount_rate == 0.05
+
+
+    def test_custom_values_are_preserved(self):
+
+        config = EconomicsConfiguration(
+            installation_cost=12490.0,
+            subsidies=1000.0,
+            tax_deductions=500.0,
+            first_year_degradation=0.02,
+            annual_degradation=0.004,
+            annual_electricity_price_growth=0.03,
+            annual_export_price_growth=0.01,
+            annual_maintenance_cost=200.0,
+            annual_maintenance_growth=0.025,
+            discount_rate=0.06,
+        )
+
+        assert config.installation_cost == 12490.0
+        assert config.subsidies == 1000.0
+        assert config.tax_deductions == 500.0
+
+        assert config.first_year_degradation == 0.02
+        assert config.annual_degradation == 0.004
+
+        assert (
+            config.annual_electricity_price_growth
+            == 0.03
+        )
+
+        assert (
+            config.annual_export_price_growth
+            == 0.01
+        )
+
+        assert config.annual_maintenance_cost == 200.0
+
+        assert (
+            config.annual_maintenance_growth
+            == 0.025
+        )
+
+        assert config.discount_rate == 0.06
