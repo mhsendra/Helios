@@ -305,3 +305,44 @@ class TestSolarManager:
         ):
 
             self.manager.monthly_production_report()
+
+    def test_second_calculation_invalidates_first_calculation(self):
+    
+            configuration_1 = MagicMock()
+            configuration_2 = MagicMock()
+    
+            hourly_1 = MagicMock()
+            hourly_2 = MagicMock()
+    
+            self.manager.client.fetch.side_effect = [
+                MagicMock(),
+                MagicMock(),
+            ]
+    
+            self.manager.parser.parse.side_effect = [
+                hourly_1,
+                hourly_2,
+            ]
+    
+            self.manager.calculate_hourly_production(
+                configuration_1
+            )
+    
+            self.manager.daily_production = MagicMock()
+            self.manager.monthly_production = MagicMock()
+            self.manager.yearly_production = MagicMock()
+            self.manager.energy_balance = MagicMock()
+            self.manager.statistics = MagicMock()
+    
+            self.manager.calculate_hourly_production(
+                configuration_2
+            )
+    
+            assert self.manager.configuration is configuration_2
+            assert self.manager.hourly_production is hourly_2
+    
+            assert self.manager.daily_production is None
+            assert self.manager.monthly_production is None
+            assert self.manager.yearly_production is None
+            assert self.manager.energy_balance is None
+            assert self.manager.statistics is None
