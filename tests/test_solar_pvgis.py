@@ -1,3 +1,5 @@
+import requests
+import pytest
 from unittest.mock import MagicMock, patch
 
 from helios.solar.pvgis import PVGISClient
@@ -184,3 +186,39 @@ class TestPVGISClient:
             )
 
             get.assert_not_called()
+
+    def test_fetch_raises_on_http_error(self):
+
+        client = PVGISClient()
+
+        response = MagicMock()
+
+        response.url = "https://example.com"
+        response.status_code = 500
+
+        error = requests.HTTPError("PVGIS error")
+        response.raise_for_status.side_effect = error
+
+        with patch(
+            "helios.solar.pvgis.PVGISCache.build_filename"
+        ) as build_filename, patch(
+            "helios.solar.pvgis.requests.get",
+            return_value=response,
+        ) as get, patch(
+            "helios.solar.pvgis.PVGISCache.save"
+        ) as save:
+
+            cache_file = MagicMock()
+            cache_file.exists.return_value = False
+
+            build_filename.return_value = cache_file
+
+            with pytest.raises(
+                requests.HTTPError,
+                match="PVGIS error",
+            ):
+                client.fetch(self.configuration)
+
+            get.assert_called_once()
+            response.raise_for_status.assert_called_once_with()
+            save.assert_not_called()

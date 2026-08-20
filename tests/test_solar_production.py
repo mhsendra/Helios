@@ -104,3 +104,52 @@ class TestSolarProductionEngine:
         assert result.loc[
             pd.Timestamp("2026-12-31")
         ] == pytest.approx(400.0)
+
+    def test_production_is_conserved_across_aggregations(self):
+
+        hourly = pd.DataFrame(
+            {
+                "production_kwh": [
+                    1.0,
+                    2.0,
+                    3.0,
+                    4.0,
+                    5.0,
+                    6.0,
+                ]
+            },
+            index=pd.to_datetime(
+                [
+                    "2025-01-31 22:00",
+                    "2025-01-31 23:00",
+                    "2025-02-01 00:00",
+                    "2025-02-01 01:00",
+                    "2025-12-31 22:00",
+                    "2026-01-01 00:00",
+                ]
+            ),
+        )
+
+        daily = SolarProductionEngine.daily(
+            hourly
+        )
+
+        monthly = SolarProductionEngine.monthly(
+            daily
+        )
+
+        yearly = SolarProductionEngine.yearly(
+            monthly
+        )
+
+        assert hourly["production_kwh"].sum() == pytest.approx(
+            daily.sum()
+        )
+
+        assert daily.sum() == pytest.approx(
+            monthly.sum()
+        )
+
+        assert monthly.sum() == pytest.approx(
+            yearly.sum()
+        )

@@ -92,3 +92,27 @@ class TestPVGISCache:
         )
 
         assert result == data
+
+    def test_build_filename_replaces_negative_coordinates(
+        self,
+        tmp_path,
+    ):
+
+        configuration = SolarConfiguration(
+            installed_power_kwp=8.1,
+            latitude=-33.45,
+            longitude=-70.66,
+            tilt=30,
+            azimuth=0,
+            losses=14,
+        )
+
+        result = PVGISCache.build_filename(
+            tmp_path,
+            configuration,
+        )
+
+        assert result == (
+            tmp_path
+            / "pvgis_m33.45000_m70.66000_8.10_30_0_14.0.json"
+        )

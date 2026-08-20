@@ -254,3 +254,203 @@ class TestSolarStatisticsEngine:
         assert result["coverage_ratio"] == 0.0
 
         assert result["surplus_ratio"] == 0.0
+
+    def test_calculate_statistics_ignores_rows_with_missing_consumption(self):
+
+        index = pd.to_datetime(
+            [
+                "2025-01-01 10:00",
+                "2025-01-01 11:00",
+            ]
+        )
+
+        hourly_production = pd.DataFrame(
+            {
+                "production_kwh": [
+                    1.0,
+                    2.0,
+                ]
+            },
+            index=index,
+        )
+
+        energy_balance = pd.DataFrame(
+            {
+                "consumption_kwh": [
+                    3.0,
+                    None,
+                ],
+                "production_kwh": [
+                    1.0,
+                    2.0,
+                ],
+                "self_consumption_kwh": [
+                    1.0,
+                    2.0,
+                ],
+                "grid_import_kwh": [
+                    2.0,
+                    0.0,
+                ],
+                "grid_export_kwh": [
+                    0.0,
+                    0.0,
+                ],
+            },
+            index=index,
+        )
+
+        result = SolarStatisticsEngine.calculate(
+            hourly_production,
+            energy_balance,
+            self.configuration,
+        )
+
+        assert result["hours"] == 1
+
+        assert result["consumption"] == pytest.approx(
+            3.0
+        )
+
+        assert result["period_production"] == pytest.approx(
+            1.0
+        )
+
+        # La producción de referencia procede
+        # directamente de hourly_production.
+        assert result["annual_production"] == pytest.approx(
+            3.0
+        )
+
+    def test_calculate_statistics_with_zero_consumption(self):
+
+        index = pd.to_datetime(
+            [
+                "2025-01-01 10:00",
+                "2025-01-01 11:00",
+            ]
+        )
+
+        hourly_production = pd.DataFrame(
+            {
+                "production_kwh": [
+                    2.0,
+                    3.0,
+                ]
+            },
+            index=index,
+        )
+
+        energy_balance = pd.DataFrame(
+            {
+                "consumption_kwh": [
+                    0.0,
+                    0.0,
+                ],
+                "production_kwh": [
+                    2.0,
+                    3.0,
+                ],
+                "self_consumption_kwh": [
+                    0.0,
+                    0.0,
+                ],
+                "grid_import_kwh": [
+                    0.0,
+                    0.0,
+                ],
+                "grid_export_kwh": [
+                    2.0,
+                    3.0,
+                ],
+            },
+            index=index,
+        )
+
+        result = SolarStatisticsEngine.calculate(
+            hourly_production,
+            energy_balance,
+            self.configuration,
+        )
+
+        assert result["consumption"] == pytest.approx(0.0)
+
+        assert result["self_sufficiency"] == pytest.approx(
+            0.0
+        )
+
+        assert result["coverage_ratio"] == pytest.approx(
+            0.0
+        )
+
+        assert result["import_ratio"] == pytest.approx(
+            0.0
+        )
+
+    def test_calculate_statistics_balance_totals_are_consistent(self):
+
+        index = pd.to_datetime(
+            [
+                "2025-01-01 10:00",
+                "2025-01-01 11:00",
+                "2025-01-01 12:00",
+            ]
+        )
+
+        hourly_production = pd.DataFrame(
+            {
+                "production_kwh": [
+                    2.0,
+                    5.0,
+                    0.0,
+                ]
+            },
+            index=index,
+        )
+
+        energy_balance = pd.DataFrame(
+            {
+                "consumption_kwh": [
+                    4.0,
+                    3.0,
+                    2.0,
+                ],
+                "production_kwh": [
+                    2.0,
+                    5.0,
+                    0.0,
+                ],
+                "self_consumption_kwh": [
+                    2.0,
+                    3.0,
+                    0.0,
+                ],
+                "grid_import_kwh": [
+                    2.0,
+                    0.0,
+                    2.0,
+                ],
+                "grid_export_kwh": [
+                    0.0,
+                    2.0,
+                    0.0,
+                ],
+            },
+            index=index,
+        )
+
+        result = SolarStatisticsEngine.calculate(
+            hourly_production,
+            energy_balance,
+            self.configuration,
+        )
+
+        assert result["consumption"] == pytest.approx(
+            result["self_consumption"]
+            + result["grid_import"]
+        )
+
+        assert result["period_production"] == pytest.approx(
+            result["self_consumption"]
+            + result["grid_export"]
+        )
