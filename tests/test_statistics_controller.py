@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, call
 
 from helios.core.controllers.statistics_controller import (
     StatisticsController
@@ -66,22 +66,38 @@ def test_calculate_yearly_consumption():
     )
 
 
-def test_calculate():
+def test_calculate_calls_steps_in_order():
 
     controller, _ = create_controller()
 
-    controller.calculate_statistics = MagicMock()
-    controller.calculate_daily_consumption = MagicMock()
-    controller.calculate_monthly_consumption = MagicMock()
-    controller.calculate_yearly_consumption = MagicMock()
+    calls = []
+
+    controller.calculate_statistics = MagicMock(
+        side_effect=lambda: calls.append("statistics")
+    )
+    controller.calculate_daily_consumption = MagicMock(
+        side_effect=lambda: calls.append("daily")
+    )
+    controller.calculate_monthly_consumption = MagicMock(
+        side_effect=lambda: calls.append("monthly")
+    )
+    controller.calculate_yearly_consumption = MagicMock(
+        side_effect=lambda: calls.append("yearly")
+    )
 
     controller.calculate()
+
+    assert calls == [
+        "statistics",
+        "daily",
+        "monthly",
+        "yearly",
+    ]
 
     controller.calculate_statistics.assert_called_once_with()
     controller.calculate_daily_consumption.assert_called_once_with()
     controller.calculate_monthly_consumption.assert_called_once_with()
     controller.calculate_yearly_consumption.assert_called_once_with()
-
 
 # ==========================================================
 # Reports
@@ -140,7 +156,7 @@ def test_yearly_report():
     )
 
 
-def test_reports():
+def test_reports_calls_steps_in_order():
 
     controller, _ = create_controller()
 
@@ -151,10 +167,22 @@ def test_reports():
 
     controller.reports()
 
-    controller.statistics_report.assert_called_once_with()
-    controller.daily_report.assert_called_once_with()
-    controller.monthly_report.assert_called_once_with()
-    controller.yearly_report.assert_called_once_with()
+    assert controller.statistics_report.mock_calls == [
+        call()
+    ]
+
+    assert controller.daily_report.mock_calls == [
+        call()
+    ]
+
+    assert controller.monthly_report.mock_calls == [
+        call()
+    ]
+
+    assert controller.yearly_report.mock_calls == [
+        call()
+    ]
+
 
 # ==========================================================
 # Propiedades
