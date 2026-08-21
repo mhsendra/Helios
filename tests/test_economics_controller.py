@@ -17,11 +17,13 @@ class TestEconomicsController:
             self.configuration
         )
 
+    # ==========================================================
+    # Orchestration
+    # ==========================================================
+
     def test_calculate_calls_steps_in_order(self):
 
-        engine = (
-            self.analyzer.economics_engine
-        )
+        engine = self.analyzer.economics_engine
 
         self.controller.calculate()
 
@@ -50,118 +52,83 @@ class TestEconomicsController:
             ),
         ]
 
-    def test_reports(self):
+    def test_reports_calls_report_methods(self):
 
-        economics = self.analyzer.economics_engine
-
-        economics.cost_without_pv = 1000.0
-        economics.grid_import_cost = 500.0
-        economics.export_income = 200.0
-        economics.cost_with_pv = 300.0
-        economics.annual_savings = 700.0
-        economics.net_investment = 12490.0
-        economics.payback_years = 5.34
-        economics.cash_flow = MagicMock()
-        economics.npv = 22071.16
-        economics.irr = 0.188
-
-        self.configuration.discount_rate = 0.05
-
-        self.controller.reports_engine.annual_economics = MagicMock()
+        self.controller.annual_economics_report = MagicMock()
+        self.controller.economic_scenarios_report = MagicMock()
 
         self.controller.reports()
 
-        self.controller.reports_engine.annual_economics.assert_called_once_with(
-            1000.0,
-            500.0,
-            200.0,
-            300.0,
-            700.0,
-            12490.0,
-            5.34,
-            economics.cash_flow,
-            22071.16,
-            0.05,
-            0.188,
-        )
+        self.controller.annual_economics_report.assert_called_once_with()
+        self.controller.economic_scenarios_report.assert_called_once_with()
 
-    def test_economic_summary_delegates_to_engine(self):
+    # ==========================================================
+    # Economic calculations
+    # ==========================================================
+
+    def test_calculate_cost_without_pv_delegates_to_engine(self):
 
         engine = self.analyzer.economics_engine
 
-        expected = object()
+        expected = 1500.0
 
-        engine.economic_summary.return_value = expected
+        engine.calculate_cost_without_pv.return_value = expected
 
-        result = self.controller.economic_summary()
+        result = self.controller.calculate_cost_without_pv()
 
-        engine.economic_summary.assert_called_once_with()
+        engine.calculate_cost_without_pv.assert_called_once_with(
+            self.analyzer.dataset
+        )
 
-        assert result is expected
+        assert result == expected
 
-    def test_calculate_scenario_delegates_to_engine(self):
+    def test_calculate_export_income_delegates_to_engine(self):
 
         engine = self.analyzer.economics_engine
 
-        scenario = MagicMock()
-        expected = object()
+        expected = 250.0
 
-        engine.calculate_scenario.return_value = expected
+        engine.calculate_export_income.return_value = expected
 
-        result = self.controller.calculate_scenario(
-        scenario
+        result = self.controller.calculate_export_income()
+
+        engine.calculate_export_income.assert_called_once_with(
+            self.analyzer.solar.energy_balance,
+            self.analyzer.dataset,
         )
 
-        engine.calculate_scenario.assert_called_once_with(
-        scenario,
-        self.configuration,
-        self.analyzer.dataset,
-        self.analyzer.solar.energy_balance,
-        self.analyzer.dataset,
-        )
+        assert result == expected
 
-        assert result is expected
-
-    def test_calculate_scenarios_delegates_to_engine(self):
+    def test_calculate_cost_with_pv_delegates_to_engine(self):
 
         engine = self.analyzer.economics_engine
 
-        scenarios = [MagicMock()]
-        expected = object()
+        expected = 900.0
 
-        engine.calculate_scenarios.return_value = expected
+        engine.calculate_cost_with_pv.return_value = expected
 
-        result = self.controller.calculate_scenarios(
-        scenarios
+        result = self.controller.calculate_cost_with_pv()
+
+        engine.calculate_cost_with_pv.assert_called_once_with(
+            self.analyzer.solar.energy_balance,
+            self.analyzer.dataset,
         )
 
-        engine.calculate_scenarios.assert_called_once_with(
-        scenarios,
-        self.configuration,
-        self.analyzer.dataset,
-        self.analyzer.solar.energy_balance,
-        self.analyzer.dataset,
-        25,
-        )
+        assert result == expected
 
-        assert result is expected
+    def test_calculate_annual_savings_delegates_to_engine(self):
 
-    def test_scenarios_report_delegates_to_report_engine(self):
+        engine = self.analyzer.economics_engine
 
-        economics = self.analyzer.economics_engine
+        expected = 600.0
 
-        economics.scenario_results = [
-        MagicMock(),
-        MagicMock(),
-        ]
+        engine.calculate_annual_savings.return_value = expected
 
-        self.controller.reports_engine.economic_scenarios = MagicMock()
+        result = self.controller.calculate_annual_savings()
 
-        self.controller.scenarios_report()
+        engine.calculate_annual_savings.assert_called_once_with()
 
-        self.controller.reports_engine.economic_scenarios.assert_called_once_with(
-        economics.scenario_results
-        )
+        assert result == expected
 
     def test_calculate_net_investment_delegates_to_engine(self):
 
@@ -178,7 +145,6 @@ class TestEconomicsController:
         )
 
         assert result == expected
-
 
     def test_calculate_cash_flow_delegates_to_engine(self):
 
@@ -197,6 +163,24 @@ class TestEconomicsController:
 
         assert result is expected
 
+    def test_calculate_cash_flow_passes_custom_years(self):
+
+        engine = self.analyzer.economics_engine
+
+        expected = object()
+
+        engine.calculate_cash_flow.return_value = expected
+
+        result = self.controller.calculate_cash_flow(
+            years=10
+        )
+
+        engine.calculate_cash_flow.assert_called_once_with(
+            self.configuration,
+            10
+        )
+
+        assert result is expected
 
     def test_calculate_economic_indicators_delegates_to_engine(self):
 
@@ -220,12 +204,148 @@ class TestEconomicsController:
 
         assert result is expected
 
-    def test_reports_calls_report_methods(self):
+    def test_economic_summary_delegates_to_engine(self):
 
-        self.controller.annual_economics_report = MagicMock()
-        self.controller.economic_scenarios_report = MagicMock()
+        engine = self.analyzer.economics_engine
 
-        self.controller.reports()
+        expected = object()
 
-        self.controller.annual_economics_report.assert_called_once_with()
-        self.controller.economic_scenarios_report.assert_called_once_with()
+        engine.economic_summary.return_value = expected
+
+        result = self.controller.economic_summary()
+
+        engine.economic_summary.assert_called_once_with()
+
+        assert result is expected
+
+    # ==========================================================
+    # Economic scenarios
+    # ==========================================================
+
+    def test_calculate_scenario_delegates_to_engine(self):
+
+        engine = self.analyzer.economics_engine
+
+        scenario = MagicMock()
+        expected = object()
+
+        engine.calculate_scenario.return_value = expected
+
+        result = self.controller.calculate_scenario(
+            scenario
+        )
+
+        engine.calculate_scenario.assert_called_once_with(
+            scenario,
+            self.configuration,
+            self.analyzer.dataset,
+            self.analyzer.solar.energy_balance,
+            self.analyzer.dataset,
+        )
+
+        assert result is expected
+
+    def test_calculate_scenarios_delegates_to_engine(self):
+
+        engine = self.analyzer.economics_engine
+
+        scenarios = [MagicMock()]
+        expected = object()
+
+        engine.calculate_scenarios.return_value = expected
+
+        result = self.controller.calculate_scenarios(
+            scenarios
+        )
+
+        engine.calculate_scenarios.assert_called_once_with(
+            scenarios,
+            self.configuration,
+            self.analyzer.dataset,
+            self.analyzer.solar.energy_balance,
+            self.analyzer.dataset,
+            25,
+        )
+
+        assert result is expected
+
+    def test_calculate_scenarios_passes_custom_years(self):
+
+        engine = self.analyzer.economics_engine
+
+        scenarios = [MagicMock()]
+        expected = object()
+
+        engine.calculate_scenarios.return_value = expected
+
+        result = self.controller.calculate_scenarios(
+            scenarios,
+            years=15
+        )
+
+        engine.calculate_scenarios.assert_called_once_with(
+            scenarios,
+            self.configuration,
+            self.analyzer.dataset,
+            self.analyzer.solar.energy_balance,
+            self.analyzer.dataset,
+            15,
+        )
+
+        assert result is expected
+
+    # ==========================================================
+    # Reports
+    # ==========================================================
+
+    def test_annual_economics_report_delegates_to_report_engine(self):
+
+        economics = self.analyzer.economics_engine
+
+        economics.cost_without_pv = 1000.0
+        economics.grid_import_cost = 500.0
+        economics.export_income = 200.0
+        economics.cost_with_pv = 300.0
+        economics.annual_savings = 700.0
+        economics.net_investment = 12490.0
+        economics.payback_years = 5.34
+        economics.cash_flow = object()
+        economics.npv = 22071.16
+        economics.irr = 0.188
+
+        self.configuration.discount_rate = 0.05
+
+        self.controller.reports_engine.annual_economics = MagicMock()
+
+        self.controller.annual_economics_report()
+
+        self.controller.reports_engine.annual_economics.assert_called_once_with(
+            1000.0,
+            500.0,
+            200.0,
+            300.0,
+            700.0,
+            12490.0,
+            5.34,
+            economics.cash_flow,
+            22071.16,
+            0.05,
+            0.188,
+        )
+
+    def test_economic_scenarios_report_delegates_to_report_engine(self):
+
+        economics = self.analyzer.economics_engine
+
+        economics.scenario_results = [
+            MagicMock(),
+            MagicMock(),
+        ]
+
+        self.controller.reports_engine.economic_scenarios = MagicMock()
+
+        self.controller.economic_scenarios_report()
+
+        self.controller.reports_engine.economic_scenarios.assert_called_once_with(
+            economics.scenario_results
+        )

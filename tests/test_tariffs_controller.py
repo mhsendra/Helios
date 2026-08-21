@@ -1,111 +1,162 @@
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, call
 
 from helios.core.controllers.tariffs_controller import (
     TariffsController
 )
 
 
-def create_controller():
+class TestTariffsController:
 
-    analyzer = MagicMock()
+    def setup_method(self):
 
-    analyzer.tariff_engine = MagicMock()
-    analyzer.tariff_reporter = MagicMock()
+        self.analyzer = MagicMock()
 
-    analyzer.valid_dataset.return_value = "valid_dataset"
-    analyzer.dataset = "dataset"
+        self.analyzer.valid_dataset.return_value = (
+            "valid_dataset"
+        )
 
-    return TariffsController(analyzer), analyzer
+        self.analyzer.dataset = "dataset"
 
+        self.controller = TariffsController(
+            self.analyzer
+        )
 
-# ==========================================================
-# Cálculos
-# ==========================================================
+    # ==================================================
+    # Estado
+    # ==================================================
 
+    def test_controller_stores_analyzer(self):
 
-def test_calculate_tariff_periods():
+        assert self.controller.analyzer is self.analyzer
 
-    controller, analyzer = create_controller()
+    def test_controller_does_not_store_tariff_state(self):
 
-    controller.calculate_tariff_periods()
+        assert not hasattr(
+            self.controller,
+            "period_consumption"
+        )
 
-    analyzer.tariff_engine.calculate_period_consumption.assert_called_once_with(
-        "valid_dataset"
-    )
+        assert not hasattr(
+            self.controller,
+            "period_percentage"
+        )
 
-    analyzer.tariff_engine.calculate_period_percentage.assert_called_once_with()
+    # ==================================================
+    # Cálculos individuales
+    # ==================================================
 
+    def test_calculate_tariff_periods_calls_steps_in_order(
+        self
+    ):
 
-def test_assign_buy_prices():
+        engine = self.analyzer.tariff_engine
 
-    controller, analyzer = create_controller()
+        self.controller.calculate_tariff_periods()
 
-    controller.assign_buy_prices()
+        assert engine.mock_calls == [
+            call.calculate_period_consumption(
+                self.analyzer.valid_dataset.return_value
+            ),
+            call.calculate_period_percentage(),
+        ]
 
-    analyzer.tariff_engine.assign_buy_prices.assert_called_once_with(
-        "dataset"
-    )
+    def test_assign_buy_prices_uses_dataset(self):
 
+        self.controller.assign_buy_prices()
 
-def test_assign_sell_price():
+        (
+            self.analyzer.tariff_engine
+            .assign_buy_prices
+            .assert_called_once_with(
+                self.analyzer.dataset
+            )
+        )
 
-    controller, analyzer = create_controller()
+    def test_assign_sell_price_uses_dataset(self):
 
-    controller.assign_sell_price()
+        self.controller.assign_sell_price()
 
-    analyzer.tariff_engine.assign_sell_price.assert_called_once_with(
-        "dataset"
-    )
+        (
+            self.analyzer.tariff_engine
+            .assign_sell_price
+            .assert_called_once_with(
+                self.analyzer.dataset
+            )
+        )
 
+    # ==================================================
+    # calculate()
+    # ==================================================
 
-def test_calculate():
+    def test_calculate_calls_all_steps_in_order(self):
 
-    controller, analyzer = create_controller()
+        engine = self.analyzer.tariff_engine
 
-    controller.calculate_tariff_periods = MagicMock()
-    controller.assign_buy_prices = MagicMock()
-    controller.assign_sell_price = MagicMock()
+        self.controller.calculate()
 
-    controller.calculate()
+        assert engine.mock_calls == [
+            call.calculate_period_consumption(
+                self.analyzer.valid_dataset.return_value
+            ),
+            call.calculate_period_percentage(),
+            call.assign_tariff_periods(
+                self.analyzer.dataset
+            ),
+            call.assign_buy_prices(
+                self.analyzer.dataset
+            ),
+            call.assign_sell_price(
+                self.analyzer.dataset
+            ),
+        ]
 
-    controller.calculate_tariff_periods.assert_called_once_with()
+    # ==================================================
+    # Report individual
+    # ==================================================
 
-    analyzer.tariff_engine.assign_tariff_periods.assert_called_once_with(
-        "dataset"
-    )
+    def test_tariff_periods_report_uses_engine_results(
+        self
+    ):
 
-    controller.assign_buy_prices.assert_called_once_with()
-    controller.assign_sell_price.assert_called_once_with()
+        engine = self.analyzer.tariff_engine
 
+        engine.period_consumption = (
+            "period_consumption"
+        )
 
-# ==========================================================
-# Reports
-# ==========================================================
+        engine.period_percentage = (
+            "period_percentage"
+        )
 
+        engine.PERIODS = "periods"
 
-def test_tariff_periods_report():
+        self.controller.tariff_periods_report()
 
-    controller, analyzer = create_controller()
+        (
+            self.analyzer.tariff_reporter
+            .tariff_periods
+            .assert_called_once_with(
+                engine.period_consumption,
+                engine.period_percentage,
+                engine.PERIODS
+            )
+        )
 
-    analyzer.tariff_engine.period_consumption = "period_consumption"
-    analyzer.tariff_engine.period_percentage = "period_percentage"
-    analyzer.tariff_engine.PERIODS = "periods"
+    # ==================================================
+    # reports()
+    # ==================================================
 
-    controller.tariff_periods_report()
+    def test_reports_calls_tariff_periods_report(self):
 
-    analyzer.tariff_reporter.tariff_periods.assert_called_once_with(
-        "period_consumption",
-        "period_percentage",
-        "periods"
-    )
+        self.controller.reports()
 
+        reporter = self.analyzer.tariff_reporter
+        engine = self.analyzer.tariff_engine
 
-def test_reports():
-
-    controller, _ = create_controller()
-
-    controller.tariff_periods_report = MagicMock()
-
-    controller.reports()
-
-    controller.tariff_periods_report.assert_called_once_with()
+        assert reporter.mock_calls == [
+            call.tariff_periods(
+                engine.period_consumption,
+                engine.period_percentage,
+                engine.PERIODS
+            )
+        ]
