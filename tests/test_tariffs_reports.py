@@ -1,4 +1,4 @@
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 from helios.reports.tariffs import TariffReports
 
@@ -55,37 +55,38 @@ class TestTariffReports:
             ["left", "right", "right"]
         )
 
-        assert (
-            printer.table_row.call_count
-            == 3
+        expected_rows = [
+            call(
+                [
+                    "P1",
+                    "100.00 kWh",
+                    "10.00 %",
+                ],
+                [10, 18, 10],
+                ["left", "right", "right"]
+            ),
+            call(
+                [
+                    "P2",
+                    "200.00 kWh",
+                    "20.00 %",
+                ],
+                [10, 18, 10],
+                ["left", "right", "right"]
+            ),
+            call(
+                [
+                    "P3",
+                    "300.00 kWh",
+                    "30.00 %",
+                ],
+                [10, 18, 10],
+                ["left", "right", "right"]
+            ),
+        ]
+
+        printer.table_row.assert_has_calls(
+            expected_rows
         )
 
-        printer.table_row.assert_any_call(
-            [
-                "P1",
-                "100.00 kWh",
-                "10.00 %",
-            ],
-            [10, 18, 10],
-            ["left", "right", "right"]
-        )
-
-        printer.table_row.assert_any_call(
-            [
-                "P2",
-                "200.00 kWh",
-                "20.00 %",
-            ],
-            [10, 18, 10],
-            ["left", "right", "right"]
-        )
-
-        printer.table_row.assert_any_call(
-            [
-                "P3",
-                "300.00 kWh",
-                "30.00 %",
-            ],
-            [10, 18, 10],
-            ["left", "right", "right"]
-        )
+        assert printer.table_row.call_count == 3

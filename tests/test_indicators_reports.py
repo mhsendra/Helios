@@ -1,4 +1,4 @@
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 import pandas as pd
 import pytest
@@ -77,14 +77,14 @@ class TestIndicatorsReports:
             ),
         ]
 
-        for call, expected in zip(
+        for printer_call, expected in zip(
             printer.energy.call_args_list,
             expected_calls
         ):
 
-            assert call.args[0] == expected[0]
-            assert call.args[1] == expected[1]
-            assert call.kwargs["decimals"] == 3
+            assert printer_call.args[0] == expected[0]
+            assert printer_call.args[1] == expected[1]
+            assert printer_call.kwargs["decimals"] == 3
 
     # ==================================================
     # base_load
@@ -196,6 +196,7 @@ class TestIndicatorsReports:
 
         assert result == expected
 
+
 class TestIndicatorsReportsExtremes:
 
     def setup_method(self):
@@ -245,10 +246,17 @@ class TestIndicatorsReportsExtremes:
             )
         }
 
+    # ==================================================
+    # extremes
+    # ==================================================
+
     @patch(
         "helios.reports.indicators.ReportPrinter"
     )
-    def test_extremes_prints_title(self, printer):
+    def test_extremes_prints_title(
+        self,
+        printer
+    ):
 
         self.report.extremes(
             self.extremes
@@ -261,7 +269,10 @@ class TestIndicatorsReportsExtremes:
     @patch(
         "helios.reports.indicators.ReportPrinter"
     )
-    def test_extremes_prints_blank_lines(self, printer):
+    def test_extremes_prints_blank_lines(
+        self,
+        printer
+    ):
 
         self.report.extremes(
             self.extremes
@@ -281,49 +292,75 @@ class TestIndicatorsReportsExtremes:
             self.extremes
         )
 
+        printer.energy.assert_has_calls(
+            [
+                call("Consumo", 12.345),
+                call("Consumo", 0.123),
+                call("Consumo", 45.678),
+                call("Consumo", 10.111),
+                call("Consumo", 250.123),
+                call("Consumo", 100.456),
+                call("Consumo", 900.789),
+                call("Consumo", 500.321),
+            ]
+        )
+
         assert printer.energy.call_count == 8
 
-        calls = printer.energy.call_args_list
+    @patch(
+        "helios.reports.indicators.ReportPrinter"
+    )
+    def test_extremes_prints_all_text_values(
+        self,
+        printer
+    ):
 
-        assert calls[0].args == (
-            "Consumo",
-            12.345
+        self.report.extremes(
+            self.extremes
         )
 
-        assert calls[1].args == (
-            "Consumo",
-            0.123
+        printer.text.assert_has_calls(
+            [
+                call(
+                    "Mayor consumo horario",
+                    "15/01/2025 18:00"
+                ),
+                call(
+                    "Menor consumo horario",
+                    "15/01/2025 03:00"
+                ),
+                call(
+                    "Mayor consumo diario",
+                    "20/01/2025"
+                ),
+                call(
+                    "Menor consumo diario",
+                    "05/01/2025"
+                ),
+                call(
+                    "Mayor consumo semanal",
+                    "4 (2025)"
+                ),
+                call(
+                    "Menor consumo semanal",
+                    "2 (2025)"
+                ),
+                call(
+                    "Mayor consumo mensual",
+                    "Marzo 2025"
+                ),
+                call(
+                    "Menor consumo mensual",
+                    "Enero 2025"
+                ),
+            ]
         )
 
-        assert calls[2].args == (
-            "Consumo",
-            45.678
-        )
+        assert printer.text.call_count == 8
 
-        assert calls[3].args == (
-            "Consumo",
-            10.111
-        )
-
-        assert calls[4].args == (
-            "Consumo",
-            250.123
-        )
-
-        assert calls[5].args == (
-            "Consumo",
-            100.456
-        )
-
-        assert calls[6].args == (
-            "Consumo",
-            900.789
-        )
-
-        assert calls[7].args == (
-            "Consumo",
-            500.321
-        )
+    # ==================================================
+    # formatters used by extremes
+    # ==================================================
 
     def test_format_datetime(self):
 
@@ -364,6 +401,10 @@ class TestIndicatorsReportsExtremes:
         )
 
         assert result == "Marzo 2025"
+
+    # ==================================================
+    # _print_extreme
+    # ==================================================
 
     def test_print_extreme(
         self,
