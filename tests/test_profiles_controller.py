@@ -1,12 +1,11 @@
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, call
 
 from helios.core.controllers.profiles_controller import (
-    ProfilesController
+    ProfilesController,
 )
 
 
 def create_controller():
-
     analyzer = MagicMock()
 
     analyzer.statistics_engine = MagicMock()
@@ -18,283 +17,301 @@ def create_controller():
 
     return ProfilesController(analyzer), analyzer
 
-# ==========================================================
-# Properties
-# ==========================================================
 
+class TestProfilesController:
 
-def test_hourly_profile_property():
+    # ==========================================================
+    # Properties
+    # ==========================================================
 
-    controller, analyzer = create_controller()
+    def test_hourly_profile_property(self):
 
-    analyzer.statistics_engine.hourly_profile = "hourly_profile"
+        controller, analyzer = create_controller()
 
-    assert controller.hourly_profile == "hourly_profile"
+        expected = object()
+        analyzer.statistics_engine.hourly_profile = expected
 
+        assert controller.hourly_profile is expected
 
-def test_weekday_profile_property():
+    def test_weekday_profile_property(self):
 
-    controller, analyzer = create_controller()
+        controller, analyzer = create_controller()
 
-    analyzer.statistics_engine.weekday_profile = "weekday_profile"
+        expected = object()
+        analyzer.statistics_engine.weekday_profile = expected
 
-    assert controller.weekday_profile == "weekday_profile"
+        assert controller.weekday_profile is expected
 
+    def test_monthly_profile_property(self):
 
-def test_monthly_profile_property():
+        controller, analyzer = create_controller()
 
-    controller, analyzer = create_controller()
+        expected = object()
+        analyzer.statistics_engine.monthly_profile = expected
 
-    analyzer.statistics_engine.monthly_profile = "monthly_profile"
+        assert controller.monthly_profile is expected
 
-    assert controller.monthly_profile == "monthly_profile"
+    def test_seasonal_profile_property(self):
 
+        controller, analyzer = create_controller()
 
-def test_seasonal_profile_property():
+        expected = object()
+        analyzer.statistics_engine.seasonal_profile = expected
 
-    controller, analyzer = create_controller()
+        assert controller.seasonal_profile is expected
 
-    analyzer.statistics_engine.seasonal_profile = "seasonal_profile"
+    # ==========================================================
+    # Cálculos individuales
+    # ==========================================================
 
-    assert controller.seasonal_profile == "seasonal_profile"
-    
-# ==========================================================
-# Cálculos
-# ==========================================================
+    def test_calculate_hourly_profile(self):
 
+        controller, analyzer = create_controller()
 
-def test_calculate_hourly_profile():
+        controller.calculate_hourly_profile()
 
-    controller, analyzer = create_controller()
+        analyzer.statistics_engine.calculate_hourly_profile.assert_called_once_with(
+            analyzer.valid_dataset.return_value
+        )
 
-    controller.calculate_hourly_profile()
+    def test_calculate_weekday_profile(self):
 
-    analyzer.statistics_engine.calculate_hourly_profile.assert_called_once_with(
-        "valid_dataset"
-    )
+        controller, analyzer = create_controller()
 
+        controller.calculate_weekday_profile()
 
-def test_calculate_weekday_profile():
+        analyzer.statistics_engine.calculate_weekday_profile.assert_called_once_with(
+            analyzer.valid_dataset.return_value
+        )
 
-    controller, analyzer = create_controller()
+    def test_calculate_monthly_profile(self):
 
-    controller.calculate_weekday_profile()
+        controller, analyzer = create_controller()
 
-    analyzer.statistics_engine.calculate_weekday_profile.assert_called_once_with(
-        "valid_dataset"
-    )
+        controller.calculate_monthly_profile()
 
+        analyzer.statistics_engine.calculate_monthly_profile.assert_called_once_with(
+            analyzer.valid_dataset.return_value
+        )
 
-def test_calculate_monthly_profile():
+    def test_calculate_seasonal_profile(self):
 
-    controller, analyzer = create_controller()
+        controller, analyzer = create_controller()
 
-    controller.calculate_monthly_profile()
+        controller.calculate_seasonal_profile()
 
-    analyzer.statistics_engine.calculate_monthly_profile.assert_called_once_with(
-        "valid_dataset"
-    )
+        analyzer.statistics_engine.calculate_seasonal_profile.assert_called_once_with()
 
+    def test_calculate_workday_vs_weekend_profile(self):
 
-def test_calculate_seasonal_profile():
+        controller, analyzer = create_controller()
 
-    controller, analyzer = create_controller()
+        controller.calculate_workday_vs_weekend_profile()
 
-    controller.calculate_seasonal_profile()
+        analyzer.statistics_engine.calculate_workday_vs_weekend_profile.assert_called_once_with(
+            analyzer.valid_dataset.return_value
+        )
 
-    analyzer.statistics_engine.calculate_seasonal_profile.assert_called_once_with()
+    # ==========================================================
+    # calculate()
+    # ==========================================================
 
+    def test_calculate_calls_all_steps_in_order(self):
 
-def test_calculate_workday_vs_weekend_profile():
+        controller, analyzer = create_controller()
 
-    controller, analyzer = create_controller()
+        controller.calculate()
 
-    controller.calculate_workday_vs_weekend_profile()
+        assert analyzer.statistics_engine.mock_calls == [
+            call.calculate_hourly_profile(
+                analyzer.valid_dataset.return_value
+            ),
+            call.calculate_weekday_profile(
+                analyzer.valid_dataset.return_value
+            ),
+            call.calculate_monthly_profile(
+                analyzer.valid_dataset.return_value
+            ),
+            call.calculate_seasonal_profile(),
+            call.calculate_workday_vs_weekend_profile(
+                analyzer.valid_dataset.return_value
+            ),
+        ]
 
-    analyzer.statistics_engine.calculate_workday_vs_weekend_profile.assert_called_once_with(
-        "valid_dataset"
-    )
+    # ==========================================================
+    # Reportes individuales
+    # ==========================================================
 
+    def test_hourly_profile_report(self):
 
-def test_calculate():
+        controller, analyzer = create_controller()
 
-    controller, _ = create_controller()
+        profile = object()
+        analyzer.statistics_engine.hourly_profile = profile
 
-    controller.calculate_hourly_profile = MagicMock()
-    controller.calculate_weekday_profile = MagicMock()
-    controller.calculate_monthly_profile = MagicMock()
-    controller.calculate_seasonal_profile = MagicMock()
-    controller.calculate_workday_vs_weekend_profile = MagicMock()
+        controller.hourly_profile_report()
 
-    controller.calculate()
+        analyzer.profile_reporter.hourly_profile.assert_called_once_with(
+            profile
+        )
 
-    controller.calculate_hourly_profile.assert_called_once_with()
-    controller.calculate_weekday_profile.assert_called_once_with()
-    controller.calculate_monthly_profile.assert_called_once_with()
-    controller.calculate_seasonal_profile.assert_called_once_with()
-    controller.calculate_workday_vs_weekend_profile.assert_called_once_with()
+    def test_weekday_profile_report(self):
 
+        controller, analyzer = create_controller()
 
-# ==========================================================
-# Reports
-# ==========================================================
+        profile = object()
+        analyzer.statistics_engine.weekday_profile = profile
 
+        controller.weekday_profile_report()
 
-def test_hourly_profile_report():
+        analyzer.profile_reporter.weekday_profile.assert_called_once_with(
+            profile
+        )
 
-    controller, analyzer = create_controller()
+    def test_monthly_profile_report(self):
 
-    analyzer.statistics_engine.hourly_profile = "hourly_profile"
+        controller, analyzer = create_controller()
 
-    controller.hourly_profile_report()
+        profile = object()
+        analyzer.statistics_engine.monthly_profile = profile
 
-    analyzer.profile_reporter.hourly_profile.assert_called_once_with(
-        "hourly_profile"
-    )
+        controller.monthly_profile_report()
 
+        analyzer.profile_reporter.monthly_profile.assert_called_once_with(
+            profile
+        )
 
-def test_weekday_profile_report():
+    def test_seasonal_profile_report(self):
 
-    controller, analyzer = create_controller()
+        controller, analyzer = create_controller()
 
-    analyzer.statistics_engine.weekday_profile = "weekday_profile"
+        profile = object()
+        analyzer.statistics_engine.seasonal_profile = profile
 
-    controller.weekday_profile_report()
+        controller.seasonal_profile_report()
 
-    analyzer.profile_reporter.weekday_profile.assert_called_once_with(
-        "weekday_profile"
-    )
+        analyzer.profile_reporter.seasonal_profile.assert_called_once_with(
+            profile
+        )
 
+    # ==========================================================
+    # reports()
+    # ==========================================================
 
-def test_monthly_profile_report():
+    def test_reports_calls_all_reports_in_order(self):
 
-    controller, analyzer = create_controller()
+        controller, analyzer = create_controller()
 
-    analyzer.statistics_engine.monthly_profile = "monthly_profile"
+        controller.reports()
 
-    controller.monthly_profile_report()
+        assert analyzer.profile_reporter.mock_calls == [
+            call.hourly_profile(
+                analyzer.statistics_engine.hourly_profile
+            ),
+            call.weekday_profile(
+                analyzer.statistics_engine.weekday_profile
+            ),
+            call.monthly_profile(
+                analyzer.statistics_engine.monthly_profile
+            ),
+            call.seasonal_profile(
+                analyzer.statistics_engine.seasonal_profile
+            ),
+        ]
 
-    analyzer.profile_reporter.monthly_profile.assert_called_once_with(
-        "monthly_profile"
-    )
+    # ==========================================================
+    # Gráficas individuales
+    # ==========================================================
 
+    def test_plot_hourly_profile(self):
 
-def test_seasonal_profile_report():
+        controller, analyzer = create_controller()
 
-    controller, analyzer = create_controller()
+        profile = object()
+        analyzer.statistics_engine.hourly_profile = profile
 
-    analyzer.statistics_engine.seasonal_profile = "seasonal_profile"
+        controller.plot_hourly_profile()
 
-    controller.seasonal_profile_report()
+        analyzer.plotter.profiles.plot_hourly_profile.assert_called_once_with(
+            profile
+        )
 
-    analyzer.profile_reporter.seasonal_profile.assert_called_once_with(
-        "seasonal_profile"
-    )
+    def test_plot_weekday_profile(self):
 
+        controller, analyzer = create_controller()
 
-def test_reports():
+        profile = object()
+        analyzer.statistics_engine.weekday_profile = profile
 
-    controller, _ = create_controller()
+        controller.plot_weekday_profile()
 
-    controller.hourly_profile_report = MagicMock()
-    controller.weekday_profile_report = MagicMock()
-    controller.monthly_profile_report = MagicMock()
-    controller.seasonal_profile_report = MagicMock()
+        analyzer.plotter.profiles.plot_weekday_profile.assert_called_once_with(
+            profile
+        )
 
-    controller.reports()
+    def test_plot_monthly_profile(self):
 
-    controller.hourly_profile_report.assert_called_once_with()
-    controller.weekday_profile_report.assert_called_once_with()
-    controller.monthly_profile_report.assert_called_once_with()
-    controller.seasonal_profile_report.assert_called_once_with()
+        controller, analyzer = create_controller()
 
+        profile = object()
+        analyzer.statistics_engine.monthly_profile = profile
 
-# ==========================================================
-# Gráficas
-# ==========================================================
+        controller.plot_monthly_profile()
 
+        analyzer.plotter.profiles.plot_monthly_profile.assert_called_once_with(
+            profile
+        )
 
-def test_plot_hourly_profile():
+    def test_plot_seasonal_profile(self):
 
-    controller, analyzer = create_controller()
+        controller, analyzer = create_controller()
 
-    analyzer.statistics_engine.hourly_profile = "hourly_profile"
+        profile = object()
+        analyzer.statistics_engine.seasonal_profile = profile
 
-    controller.plot_hourly_profile()
+        controller.plot_seasonal_profile()
 
-    analyzer.plotter.profiles.plot_hourly_profile.assert_called_once_with(
-        "hourly_profile"
-    )
+        analyzer.plotter.profiles.plot_seasonal_profile.assert_called_once_with(
+            profile
+        )
 
+    def test_plot_workday_vs_weekend_profile(self):
 
-def test_plot_weekday_profile():
+        controller, analyzer = create_controller()
 
-    controller, analyzer = create_controller()
+        profile = object()
+        analyzer.statistics_engine.workday_vs_weekend_profile = profile
 
-    analyzer.statistics_engine.weekday_profile = "weekday_profile"
+        controller.plot_workday_vs_weekend_profile()
 
-    controller.plot_weekday_profile()
+        analyzer.plotter.profiles.plot_workday_vs_weekend_profile.assert_called_once_with(
+            profile
+        )
 
-    analyzer.plotter.profiles.plot_weekday_profile.assert_called_once_with(
-        "weekday_profile"
-    )
+    # ==========================================================
+    # plots()
+    # ==========================================================
 
+    def test_plots_calls_all_plots_in_order(self):
 
-def test_plot_monthly_profile():
+        controller, analyzer = create_controller()
 
-    controller, analyzer = create_controller()
+        controller.plots()
 
-    analyzer.statistics_engine.monthly_profile = "monthly_profile"
-
-    controller.plot_monthly_profile()
-
-    analyzer.plotter.profiles.plot_monthly_profile.assert_called_once_with(
-        "monthly_profile"
-    )
-
-
-def test_plot_seasonal_profile():
-
-    controller, analyzer = create_controller()
-
-    analyzer.statistics_engine.seasonal_profile = "seasonal_profile"
-
-    controller.plot_seasonal_profile()
-
-    analyzer.plotter.profiles.plot_seasonal_profile.assert_called_once_with(
-        "seasonal_profile"
-    )
-
-
-def test_plot_workday_vs_weekend_profile():
-
-    controller, analyzer = create_controller()
-
-    analyzer.statistics_engine.workday_vs_weekend_profile = (
-        "workday_vs_weekend_profile"
-    )
-
-    controller.plot_workday_vs_weekend_profile()
-
-    analyzer.plotter.profiles.plot_workday_vs_weekend_profile.assert_called_once_with(
-        "workday_vs_weekend_profile"
-    )
-
-
-def test_plots():
-
-    controller, _ = create_controller()
-
-    controller.plot_hourly_profile = MagicMock()
-    controller.plot_workday_vs_weekend_profile = MagicMock()
-    controller.plot_weekday_profile = MagicMock()
-    controller.plot_monthly_profile = MagicMock()
-    controller.plot_seasonal_profile = MagicMock()
-
-    controller.plots()
-
-    controller.plot_hourly_profile.assert_called_once_with()
-    controller.plot_workday_vs_weekend_profile.assert_called_once_with()
-    controller.plot_weekday_profile.assert_called_once_with()
-    controller.plot_monthly_profile.assert_called_once_with()
-    controller.plot_seasonal_profile.assert_called_once_with()
+        assert analyzer.plotter.profiles.mock_calls == [
+            call.plot_hourly_profile(
+                analyzer.statistics_engine.hourly_profile
+            ),
+            call.plot_workday_vs_weekend_profile(
+                analyzer.statistics_engine.workday_vs_weekend_profile
+            ),
+            call.plot_weekday_profile(
+                analyzer.statistics_engine.weekday_profile
+            ),
+            call.plot_monthly_profile(
+                analyzer.statistics_engine.monthly_profile
+            ),
+            call.plot_seasonal_profile(
+                analyzer.statistics_engine.seasonal_profile
+            ),
+        ]

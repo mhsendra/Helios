@@ -8,7 +8,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 class TestConsumptionComparisons:
 
     def setup_method(self):
