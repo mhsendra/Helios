@@ -277,3 +277,11 @@ class TestSolarController:
             call.monthly_production_report(),
             call.energy_balance_report(),
         ]
+
+    def test_reset(self):
+
+        engine = self.analyzer.solar_engine
+
+        self.controller.reset()
+
+        engine.reset.assert_called_once_with()

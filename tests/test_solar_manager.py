@@ -346,3 +346,31 @@ class TestSolarManager:
             assert self.manager.yearly_production is None
             assert self.manager.energy_balance is None
             assert self.manager.statistics is None
+
+    # ==================================================
+    # Reset
+    # ==================================================
+
+    def test_reset_clears_all_state(self):
+
+        self.manager.configuration = MagicMock()
+
+        self.manager.hourly_production = MagicMock()
+        self.manager.daily_production = MagicMock()
+        self.manager.monthly_production = MagicMock()
+        self.manager.yearly_production = MagicMock()
+
+        self.manager.energy_balance = MagicMock()
+        self.manager.statistics = MagicMock()
+
+        self.manager.reset()
+
+        assert self.manager.configuration is None
+
+        assert self.manager.hourly_production is None
+        assert self.manager.daily_production is None
+        assert self.manager.monthly_production is None
+        assert self.manager.yearly_production is None
+
+        assert self.manager.energy_balance is None
+        assert self.manager.statistics is None

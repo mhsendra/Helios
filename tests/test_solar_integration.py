@@ -1,4 +1,5 @@
 import pandas as pd
+import pytest
 
 from helios.core.controllers.solar_controller import SolarController
 from helios.core.solar import SolarEngine
@@ -121,3 +122,67 @@ class TestSolarIntegration:
         assert controller.yearly_production is not None
         assert controller.energy_balance is not None
         assert controller.statistics is not None
+
+        # ------------------------------------------
+        # Production
+        # ------------------------------------------
+
+        assert controller.hourly_production[
+            "production_kwh"
+        ].sum() == pytest.approx(6.0)
+
+        assert controller.daily_production.loc[
+            pd.Timestamp("2025-01-01")
+        ] == pytest.approx(5.0)
+
+        assert controller.daily_production.loc[
+            pd.Timestamp("2025-01-02")
+        ] == pytest.approx(1.0)
+
+        # ------------------------------------------
+        # Energy balance
+        # ------------------------------------------
+
+        assert controller.energy_balance[
+            "consumption_kwh"
+        ].sum() == pytest.approx(6.0)
+
+        assert controller.energy_balance[
+            "production_kwh"
+        ].sum() == pytest.approx(6.0)
+
+        assert controller.energy_balance[
+            "self_consumption_kwh"
+        ].sum() == pytest.approx(4.0)
+
+        assert controller.energy_balance[
+            "grid_import_kwh"
+        ].sum() == pytest.approx(2.0)
+
+        assert controller.energy_balance[
+            "grid_export_kwh"
+        ].sum() == pytest.approx(2.0)
+
+        # ------------------------------------------
+        # Statistics
+        # ------------------------------------------
+
+        assert controller.statistics[
+            "period_production"
+        ] == pytest.approx(6.0)
+
+        assert controller.statistics[
+            "consumption"
+        ] == pytest.approx(6.0)
+
+        assert controller.statistics[
+            "self_consumption"
+        ] == pytest.approx(4.0)
+
+        assert controller.statistics[
+            "grid_import"
+        ] == pytest.approx(2.0)
+
+        assert controller.statistics[
+            "grid_export"
+        ] == pytest.approx(2.0)
