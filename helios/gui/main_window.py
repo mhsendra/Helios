@@ -22,6 +22,7 @@ from helios.gui.widgets.economics_page import EconomicsPage
 from helios.gui.widgets.tariffs_page import TariffsPage
 from helios.gui.widgets.graphics_page import GraphicsPage
 from helios.gui.widgets.reports_page import ReportsPage
+from helios.gui.widgets.solar_config_page import SolarConfigPage
 
 from helios.core.project import HeliosProject
 
@@ -103,6 +104,10 @@ class MainWindow(QMainWindow):
         self.load_page = LoadDataPage(self.project, self)
 
         self.pages.addWidget(self.load_page)
+
+        self.solar_config_page = SolarConfigPage(self.project, self)
+
+        self.pages.addWidget(self.solar_config_page)
 
         self.validation_page = ValidationPage(self.project)
 
@@ -227,6 +232,7 @@ class MainWindow(QMainWindow):
 
         self.page_map["Inicio"] = self.home_page
         self.page_map["Cargar datos"] = self.load_page
+        self.page_map["Configuración solar"] = self.solar_config_page
         self.page_map["Validación"] = self.validation_page
         self.page_map["Estadísticas"] = self.statistics_page
         self.page_map["Perfiles"] = self.profiles_page

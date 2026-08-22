@@ -4,6 +4,13 @@ from unittest.mock import MagicMock, call
 
 from helios.core.controllers.solar_controller import SolarController
 
+from helios.solar.installation_constraints import (
+    InstallationConstraints,
+)
+
+from helios.solar.solar_installation_sizing import (
+    SolarSizingResult,
+)
 
 class TestSolarController:
 
@@ -13,6 +20,13 @@ class TestSolarController:
 
         self.controller = SolarController(
             self.analyzer
+        )
+
+        self.constraints = InstallationConstraints(
+            available_area_m2=100.0,
+            panel_width_m=1.10,
+            panel_height_m=1.70,
+            panel_power_wp=500.0,
         )
 
     # ==================================================
@@ -200,7 +214,27 @@ class TestSolarController:
 
         assert self.controller.yearly_production is value
 
+    def test_recommend_installation_requires_dataset(self):
 
+        self.analyzer.valid_dataset.return_value = pd.DataFrame()
+
+        self.analyzer.solar_engine.yearly_production = pd.Series(
+            [10000.0],
+            index=pd.to_datetime(["2025-12-31"])
+        )
+
+        self.analyzer.solar_engine.configuration = MagicMock()
+
+        self.analyzer.solar_engine.configuration.installed_power_kwp = 5.0
+
+        with pytest.raises(
+            ValueError,
+            match="valid consumption dataset",
+        ):
+            self.controller.recommend_installation(
+                constraints=self.constraints
+            )
+            
     def test_statistics_property(self):
 
         value = MagicMock()
@@ -285,3 +319,157 @@ class TestSolarController:
         self.controller.reset()
 
         engine.reset.assert_called_once_with()
+
+        # ==================================================
+    # Dimensionamiento de instalación solar
+    # ==================================================
+
+    def _sizing_constraints(self):
+
+        return InstallationConstraints(
+            available_area_m2=50.0,
+            panel_width_m=1.134,
+            panel_height_m=1.722,
+            panel_power_wp=540.0,
+            min_panels=5,
+            max_panels=15,
+        )
+
+    def _configure_solar_reference(self):
+
+        self.analyzer.valid_dataset.return_value = pd.DataFrame(
+            {
+                "AE_kWh": [5_000.0],
+            }
+        )
+
+        self.analyzer.solar_engine.configuration = MagicMock()
+
+        self.analyzer.solar_engine.configuration.installed_power_kwp = (
+            5.4
+        )
+
+        self.analyzer.solar_engine.yearly_production = pd.Series(
+            [6_000.0],
+            index=pd.to_datetime(
+                ["2025-12-31"]
+            )
+        )
+
+    def test_recommend_installation_returns_result(self):
+
+        self._configure_solar_reference()
+
+        result = self.controller.recommend_installation(
+            self._sizing_constraints()
+        )
+
+        assert isinstance(
+            result,
+            SolarSizingResult,
+        )
+
+        assert result.panel_count >= 5
+        assert result.panel_count <= 15
+        assert result.installed_power_kwp > 0
+        assert result.annual_production_kwh > 0
+
+    def test_recommend_installation_selects_smallest_covering_configuration(
+        self,
+    ):
+
+        self._configure_solar_reference()
+
+        result = self.controller.recommend_installation(
+            self._sizing_constraints()
+        )
+
+        # Producción específica:
+        # 6000 / 5.4 = 1111.11 kWh/kWp
+        #
+        # 5 paneles  = 3000 kWh
+        # 6 paneles  = 3600 kWh
+        # ...
+        # 9 paneles  = 5400 kWh
+        #
+        # Por tanto, 9 es la primera configuración
+        # capaz de cubrir los 5000 kWh.
+
+        assert result.panel_count == 9
+
+        assert result.installed_power_kwp == pytest.approx(
+            4.86
+        )
+
+        assert result.annual_production_kwh == pytest.approx(
+            5_400.0
+        )
+
+    def test_recommend_installation_stores_result(self):
+
+        self._configure_solar_reference()
+
+        result = self.controller.recommend_installation(
+            self._sizing_constraints()
+        )
+
+        assert self.controller.sizing_result is result
+            
+    def test_recommend_installation_requires_solar_configuration(
+        self,
+    ):
+
+        self.analyzer.valid_dataset.return_value = pd.DataFrame(
+            {
+                "AE_kWh": [5_000.0],
+            }
+        )
+
+        self.analyzer.solar_engine.configuration = None
+
+        with pytest.raises(
+            ValueError,
+            match="solar configuration",
+        ):
+
+            self.controller.recommend_installation(
+                self._sizing_constraints()
+            )
+
+    def test_recommend_installation_requires_calculated_production(
+        self,
+    ):
+
+        self.analyzer.valid_dataset.return_value = pd.DataFrame(
+            {
+                "AE_kWh": [5_000.0],
+            }
+        )
+
+        self.analyzer.solar_engine.configuration = MagicMock()
+
+        self.analyzer.solar_engine.yearly_production = None
+
+        with pytest.raises(
+            ValueError,
+            match="Solar production must be calculated",
+        ):
+
+            self.controller.recommend_installation(
+                self._sizing_constraints()
+            )
+
+    def test_recommend_installation_requires_valid_constraints(
+        self,
+    ):
+
+        self._configure_solar_reference()
+
+        with pytest.raises(
+            TypeError,
+            match="InstallationConstraints",
+        ):
+
+            self.controller.recommend_installation(
+                MagicMock()
+            )

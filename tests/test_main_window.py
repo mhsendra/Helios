@@ -91,7 +91,7 @@ class TestMainWindow:
 
     def test_all_pages_are_added_to_stack(self):
 
-        assert self.window.pages.count() == 12
+        assert self.window.pages.count() == 13
 
         for page in [
             self.window.home_page,
@@ -190,6 +190,7 @@ class TestMainWindow:
         assert self.window.page_map == {
             "Inicio": self.window.home_page,
             "Cargar datos": self.window.load_page,
+            "Configuración solar": self.window.solar_config_page,
             "Validación": self.window.validation_page,
             "Estadísticas": self.window.statistics_page,
             "Perfiles": self.window.profiles_page,
@@ -308,9 +309,7 @@ class TestMainWindow:
             is current_page
         )
 
-    def test_change_page_ignores_item_without_page(self):
-
-        current_page = self.window.pages.currentWidget()
+    def test_change_page_changes_to_solar_configuration_page(self):
 
         self.window.change_page(
             self.window.configuration_item
@@ -318,10 +317,10 @@ class TestMainWindow:
 
         assert (
             self.window.pages.currentWidget()
-            is current_page
+            is self.window.solar_config_page
         )
-
-        # ==================================================
+        
+    # ==================================================
     # Actualización de páginas
     # ==================================================
 
@@ -365,3 +364,22 @@ class TestMainWindow:
         self.window.set_solar_calculated(False)
 
         assert self.window.economics_item.isDisabled()
+
+    def test_solar_pages_are_separate(self):
+
+        assert (
+            self.window.solar_config_page
+            is not self.window.solar_page
+        )
+
+    def test_solar_pages_use_same_project(self):
+
+        assert (
+            self.window.solar_config_page.project
+            is self.window.project
+        )
+
+        assert (
+            self.window.solar_page.project
+            is self.window.project
+        )
