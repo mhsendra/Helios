@@ -202,43 +202,88 @@ class InstallationCoordinator:
 
         for candidate in candidates:
 
-            evaluation = self.evaluator.evaluate(
+            layouts = self._generate_candidate_layouts(
                 candidate
             )
 
-            evaluations.append(
-                evaluation
-            )
+            if layouts:
+
+                # Keep one physical layout per panel count.
+                # Prefer the layout with the smallest occupied area,
+                # then the smallest occupied width and height.
+                best_layout = min(
+                    layouts,
+                    key=lambda layout: (
+                        layout.occupied_area_m2,
+                        layout.occupied_width_m,
+                        layout.occupied_height_m,
+                    ),
+                )
+
+                evaluation = self.evaluator.evaluate_layout(
+                    candidate,
+                    best_layout,
+                )
+
+            else:
+
+                # Without roof dimensions there is no geometric
+                # constraint to evaluate, so retain the legacy
+                # area-only evaluation behaviour.
+                if (
+                    self.optimizer.constraints.roof_width_m is None
+                    and self.optimizer.constraints.roof_height_m is None
+                ):
+                    evaluation = self.evaluator.evaluate(
+                        candidate
+                    )
+                else:
+                    # A rectangular roof was supplied, therefore a
+                    # candidate without a valid layout is physically
+                    # impossible and must be discarded.
+                    continue
+
+            evaluations.append(evaluation)
 
         if not evaluations:
-
             raise ValueError(
                 "No valid installation candidates "
-                "were generated."
+                "fit the available installation geometry."
             )
 
         return evaluations
 
-        evaluations = []
+    def _generate_candidate_layouts(
+        self,
+        candidate: InstallationCandidate,
+    ):
+        """Generate all physically valid layouts for a candidate."""
 
-        for candidate in candidates:
+        constraints = self.optimizer.constraints
 
-            evaluation = self.evaluator.evaluate(
-                candidate
+        if not constraints.maintenance_passage_required:
+            return self.optimizer.generate_layouts(
+                panel_count=candidate.panel_count,
+                walkway_width_m=0.0,
+                walkway_position=None,
             )
 
-            evaluations.append(
-                evaluation
+        layouts = []
+
+        for walkway_position in (
+            constraints.maintenance_passage_orientations
+        ):
+            layouts.extend(
+                self.optimizer.generate_layouts(
+                    panel_count=candidate.panel_count,
+                    walkway_width_m=(
+                        constraints.maintenance_passage_width_m
+                    ),
+                    walkway_position=walkway_position,
+                )
             )
 
-        if not evaluations:
-
-            raise ValueError(
-                "No valid installation candidates "
-                "were generated."
-            )
-
-        return evaluations
+        return layouts
 
     # ==================================================
     # Production
@@ -279,7 +324,6 @@ class InstallationCoordinator:
                 )
 
             if production < 0:
-
                 raise ValueError(
                     "Annual production cannot be negative."
                 )
@@ -328,7 +372,6 @@ class InstallationCoordinator:
             )
 
         if annual_consumption_kwh <= 0:
-
             raise ValueError(
                 "annual_consumption_kwh must be "
                 "greater than zero."
