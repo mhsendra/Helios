@@ -38,6 +38,71 @@ class InstallationRecommendation:
         return self.evaluation.area_utilization_percent
 
     # ==================================================
+    # Physical layout
+    # ==================================================
+
+    @property
+    def layout(self):
+
+        return self.evaluation.layout
+
+    @property
+    def rows(self) -> int | None:
+
+        if self.layout is None:
+            return None
+
+        return self.layout.rows
+
+    @property
+    def columns(self) -> int | None:
+
+        if self.layout is None:
+            return None
+
+        return self.layout.columns
+
+    @property
+    def orientation(self) -> str | None:
+
+        if self.layout is None:
+            return None
+
+        return self.layout.orientation
+
+    @property
+    def occupied_width_m(self) -> float | None:
+
+        if self.layout is None:
+            return None
+
+        return self.layout.occupied_width_m
+
+    @property
+    def occupied_height_m(self) -> float | None:
+
+        if self.layout is None:
+            return None
+
+        return self.layout.occupied_height_m
+
+    @property
+    def walkway_width_m(self) -> float | None:
+
+        if self.layout is None:
+            return None
+
+        return self.layout.walkway_width_m
+
+    @property
+    def walkway_position(self) -> str | None:
+
+        if self.layout is None:
+            return None
+
+        return self.layout.walkway_position
+
+    # ==================================================
     # Energy information
     # ==================================================
 
@@ -47,6 +112,32 @@ class InstallationRecommendation:
         return min(
             self.annual_consumption_kwh,
             self.annual_production_kwh,
+        )
+
+    @property
+    def self_sufficiency_percent(self) -> float:
+
+        if self.annual_consumption_kwh <= 0:
+            return 0.0
+
+        return min(
+            self.annual_production_kwh
+            / self.annual_consumption_kwh
+            * 100,
+            100.0,
+        )
+
+    @property
+    def production_coverage_percent(self) -> float:
+
+        if self.annual_production_kwh <= 0:
+            return 0.0
+
+        return min(
+            self.annual_consumption_kwh
+            / self.annual_production_kwh
+            * 100,
+            100.0,
         )
 
     @property
@@ -98,19 +189,21 @@ class InstallationRecommender:
             )
 
         panel_counts = [
-    evaluation.panel_count
-    for evaluation in evaluations
-]
+            evaluation.panel_count
+            for evaluation in evaluations
+        ]
 
         if len(panel_counts) != len(set(panel_counts)):
             raise ValueError(
                 "Duplicate panel count found in evaluations."
             )
 
-
-        if not isinstance(
-            annual_consumption_kwh,
-            (int, float),
+        if (
+            isinstance(annual_consumption_kwh, bool)
+            or not isinstance(
+                annual_consumption_kwh,
+                (int, float),
+            )
         ):
             raise TypeError(
                 "annual_consumption_kwh must be a number."
@@ -146,17 +239,14 @@ class InstallationRecommender:
 
             panel_count = evaluation.panel_count
 
-            if panel_count not in annual_productions_kwh:
-                raise ValueError(
-                    "Missing annual production for "
-                    f"{panel_count} panels."
-                )
-
             production = annual_productions_kwh[panel_count]
 
-            if not isinstance(
-                production,
-                (int, float),
+            if (
+                isinstance(production, bool)
+                or not isinstance(
+                    production,
+                    (int, float),
+                )
             ):
                 raise TypeError(
                     "Annual production must be a number."
