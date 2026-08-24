@@ -434,6 +434,23 @@ class SolarPage(QWidget):
 
         configuration = self.get_configuration()
 
+        self.project.solar.set_configuration(
+            configuration
+        )
+
+        print("========== AFTER SOLAR CALCULATION ==========")
+        print("project:", self.project)
+        print("solar:", self.project.solar)
+        print(
+            "solar.configuration:",
+            self.project.solar.configuration
+        )
+        print(
+            "engine.configuration:",
+            self.project.analyzer.solar_engine.configuration
+        )
+        print("============================================")
+
         self.update_production_status(
             source="PVGIS",
             database="SARAH3",
@@ -447,15 +464,18 @@ class SolarPage(QWidget):
 
         try:
 
-            self.project.solar.calculate(configuration)
-            
+            self.project.solar.calculate(
+                configuration
+            )
+
             self.refresh_production_results()
 
             self.set_results_available(True)
 
             if self.main_window is not None:
-
-                self.main_window.set_solar_calculated(True)
+                self.main_window.set_solar_calculated(
+                    True
+                )
 
         except Exception as error:
 
@@ -470,7 +490,6 @@ class SolarPage(QWidget):
                 coverage=None,
             )
 
-            
             traceback.print_exc()
 
     def get_configuration(self) -> SolarConfiguration:

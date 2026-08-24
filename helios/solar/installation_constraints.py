@@ -14,6 +14,12 @@ class InstallationConstraints:
     max_panels: int | None = None
 
     # ==================================================
+    # Panel orientation
+    # ==================================================
+
+    panel_orientation: str = "auto"
+
+    # ==================================================
     # Maintenance passage
     # ==================================================
 
@@ -72,6 +78,26 @@ class InstallationConstraints:
             raise ValueError(
                 "Maximum number of panels cannot be less "
                 "than minimum number of panels."
+            )
+
+        # ==================================================
+        # Panel orientation validation
+        # ==================================================
+
+        valid_panel_orientations = {
+            "horizontal",
+            "vertical",
+            "auto",
+        }
+
+        if (
+            self.panel_orientation
+            not in valid_panel_orientations
+        ):
+
+            raise ValueError(
+                "Panel orientation must be "
+                "'horizontal', 'vertical' or 'auto'."
             )
 
         # ==================================================

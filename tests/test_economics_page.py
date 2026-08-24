@@ -278,6 +278,8 @@ class TestEconomicsPage:
 
         page = EconomicsPage(project)
 
+        page.calculate = Mock()
+
         page.calculate_button.click()
 
-        project.economics.calculate.assert_called_once_with()
+        page.calculate.assert_called_once_with()

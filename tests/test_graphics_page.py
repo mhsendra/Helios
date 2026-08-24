@@ -5,6 +5,13 @@ from PySide6.QtWidgets import QApplication
 from helios.gui.widgets.graphics_page import GraphicsPage
 
 
+import pytest
+
+from PySide6.QtWidgets import QApplication
+
+from helios.gui.widgets.graphics_page import GraphicsPage
+
+
 class FakeProfiles:
 
     def __init__(self):
@@ -79,6 +86,17 @@ class FakeComparisons:
         )
 
 
+class FakeAnalyzer:
+
+    def __init__(self):
+
+        self.show_plots_calls = 0
+
+    def show_plots(self):
+
+        self.show_plots_calls += 1
+
+
 class FakeProject:
 
     def __init__(self):
@@ -86,6 +104,8 @@ class FakeProject:
         self.profiles = FakeProfiles()
 
         self.comparisons = FakeComparisons()
+
+        self.analyzer = FakeAnalyzer()
 
 
 @pytest.fixture
@@ -182,13 +202,9 @@ class TestGraphicsPage:
         project, page = self.create_page()
 
         page.hourly_button.click()
-
         page.weekday_button.click()
-
         page.workday_weekend_button.click()
-
         page.monthly_profile_button.click()
-
         page.seasonal_button.click()
 
         assert project.profiles.calls == [
@@ -199,14 +215,14 @@ class TestGraphicsPage:
             "plot_seasonal_profile",
         ]
 
+        assert project.analyzer.show_plots_calls == 5
+
     def test_comparison_buttons(self, app):
 
         project, page = self.create_page()
 
         page.monthly_comparison_button.click()
-
         page.weekly_comparison_button.click()
-
         page.yearly_comparison_button.click()
 
         assert project.comparisons.calls == [
@@ -215,15 +231,18 @@ class TestGraphicsPage:
             "plot_yearly_comparison",
         ]
 
+        assert project.analyzer.show_plots_calls == 3
+
     def test_variation_buttons(self, app):
 
         project, page = self.create_page()
 
         page.monthly_variation_button.click()
-
         page.weekly_variation_button.click()
 
         assert project.comparisons.calls == [
             "plot_monthly_variation",
             "plot_weekly_variation",
         ]
+
+        assert project.analyzer.show_plots_calls == 2

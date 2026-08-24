@@ -85,6 +85,14 @@ class SolarEngine:
 
         return self.manager.energy_balance_report()
 
+    def set_configuration(
+        self,
+        configuration,
+    ):
+        self.manager.set_configuration(
+            configuration
+        )
+
     def reset(self):
 
         self.manager.reset()

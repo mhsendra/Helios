@@ -112,11 +112,26 @@ class InstallationOptimizer:
 
             columns = panel_count // rows
 
-            orientations = (
-                [orientation]
-                if orientation is not None
-                else ["vertical", "horizontal"]
-            )
+            # ==================================================
+            # Orientación de los paneles
+            # ==================================================
+
+            if orientation is not None:
+
+                orientations = [orientation]
+
+            elif self.constraints.panel_orientation == "auto":
+
+                orientations = [
+                    "vertical",
+                    "horizontal",
+                ]
+
+            else:
+
+                orientations = [
+                    self.constraints.panel_orientation
+                ]
 
             for current_orientation in orientations:
 
@@ -136,9 +151,6 @@ class InstallationOptimizer:
                 ):
                     continue
 
-                # Surface area is only the first filter. When the actual
-                # rectangular roof dimensions are known, the complete
-                # layout must also fit within width and height.
                 if (
                     self.constraints.roof_width_m is not None
                     and layout.occupied_width_m

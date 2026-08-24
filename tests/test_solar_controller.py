@@ -1,6 +1,12 @@
 import pandas as pd
+
 import pytest
+
 from unittest.mock import MagicMock, call
+
+from helios.solar.installation_configuration import (
+    InstallationConfiguration,
+)
 
 from helios.core.controllers.solar_controller import SolarController
 
@@ -8,8 +14,8 @@ from helios.solar.installation_constraints import (
     InstallationConstraints,
 )
 
-from helios.solar.solar_installation_sizing import (
-    SolarSizingResult,
+from helios.solar.installation_recommendation import (
+    InstallationRecommendation,
 )
 
 class TestSolarController:
@@ -20,13 +26,6 @@ class TestSolarController:
 
         self.controller = SolarController(
             self.analyzer
-        )
-
-        self.constraints = InstallationConstraints(
-            available_area_m2=100.0,
-            panel_width_m=1.10,
-            panel_height_m=1.70,
-            panel_power_wp=500.0,
         )
 
     # ==================================================
@@ -213,27 +212,6 @@ class TestSolarController:
         self.analyzer.solar_engine.yearly_production = value
 
         assert self.controller.yearly_production is value
-
-    def test_recommend_installation_requires_dataset(self):
-
-        self.analyzer.valid_dataset.return_value = pd.DataFrame()
-
-        self.analyzer.solar_engine.yearly_production = pd.Series(
-            [10000.0],
-            index=pd.to_datetime(["2025-12-31"])
-        )
-
-        self.analyzer.solar_engine.configuration = MagicMock()
-
-        self.analyzer.solar_engine.configuration.installed_power_kwp = 5.0
-
-        with pytest.raises(
-            ValueError,
-            match="valid consumption dataset",
-        ):
-            self.controller.recommend_installation(
-                constraints=self.constraints
-            )
             
     def test_statistics_property(self):
 
@@ -324,9 +302,13 @@ class TestSolarController:
     # Dimensionamiento de instalación solar
     # ==================================================
 
-    def _sizing_constraints(self):
+    def _installation_configuration(self):
+        """
+        Configuración real de instalación utilizada
+        como entrada del flujo de dimensionamiento.
+        """
 
-        return InstallationConstraints(
+        return InstallationConfiguration(
             available_area_m2=50.0,
             panel_width_m=1.134,
             panel_height_m=1.722,
@@ -336,6 +318,10 @@ class TestSolarController:
         )
 
     def _configure_solar_reference(self):
+        """
+        Prepara una instalación solar de referencia
+        con producción específica conocida.
+        """
 
         self.analyzer.valid_dataset.return_value = pd.DataFrame(
             {
@@ -353,26 +339,302 @@ class TestSolarController:
             [6_000.0],
             index=pd.to_datetime(
                 ["2025-12-31"]
-            )
+            ),
         )
 
-    def test_recommend_installation_returns_result(self):
+    # --------------------------------------------------
+    # Validación de entrada
+    # --------------------------------------------------
+
+    def test_recommend_installation_requires_installation_configuration(
+        self,
+    ):
+
+        with pytest.raises(
+            TypeError,
+            match="InstallationConfiguration",
+        ):
+            self.controller.recommend_installation(
+                MagicMock()
+            )
+
+    def test_recommend_installation_rejects_none_configuration(
+        self,
+    ):
+
+        with pytest.raises(
+            TypeError,
+            match="InstallationConfiguration",
+        ):
+            self.controller.recommend_installation(None)
+
+    def test_recommend_installation_rejects_constraints_object(
+        self,
+    ):
+
+        constraints = InstallationConstraints(
+            available_area_m2=50.0,
+            panel_width_m=1.134,
+            panel_height_m=1.722,
+            panel_power_wp=540.0,
+            min_panels=5,
+            max_panels=15,
+        )
+
+        with pytest.raises(
+            TypeError,
+            match="InstallationConfiguration",
+        ):
+            self.controller.recommend_installation(
+                constraints
+            )
+
+    # --------------------------------------------------
+    # Producción solar
+    # --------------------------------------------------
+
+    def test_recommend_installation_requires_calculated_production(
+        self,
+    ):
+
+        configuration = self._installation_configuration()
+
+        self.analyzer.solar_engine.configuration = MagicMock()
+
+        self.analyzer.solar_engine.configuration.installed_power_kwp = (
+            5.4
+        )
+
+        self.analyzer.solar_engine.yearly_production = None
+
+        with pytest.raises(
+            ValueError,
+            match="Solar production must be calculated",
+        ):
+            self.controller.recommend_installation(
+                configuration
+            )
+
+    def test_recommend_installation_requires_positive_specific_production(
+        self,
+    ):
+
+        configuration = self._installation_configuration()
+
+        self.analyzer.solar_engine.configuration = MagicMock()
+
+        self.analyzer.solar_engine.configuration.installed_power_kwp = (
+            5.4
+        )
+
+        self.analyzer.solar_engine.yearly_production = pd.Series(
+            [0.0],
+            index=pd.to_datetime(
+                ["2025-12-31"]
+            ),
+        )
+
+        with pytest.raises(
+            ValueError,
+            match="Specific solar production must be greater than zero",
+        ):
+            self.controller.recommend_installation(
+                configuration
+            )
+
+    # --------------------------------------------------
+    # Dataset y consumo
+    # --------------------------------------------------
+
+    def test_recommend_installation_requires_dataset(
+        self,
+    ):
+
+        configuration = self._installation_configuration()
+
+        self.analyzer.valid_dataset.return_value = None
+
+        self.analyzer.solar_engine.configuration = MagicMock()
+
+        self.analyzer.solar_engine.configuration.installed_power_kwp = (
+            5.4
+        )
+
+        self.analyzer.solar_engine.yearly_production = pd.Series(
+            [6_000.0],
+            index=pd.to_datetime(
+                ["2025-12-31"]
+            ),
+        )
+
+        with pytest.raises(
+            ValueError,
+            match="valid consumption dataset",
+        ):
+            self.controller.recommend_installation(
+                configuration
+            )
+
+    def test_recommend_installation_requires_non_empty_dataset(
+        self,
+    ):
+
+        configuration = self._installation_configuration()
+
+        self.analyzer.valid_dataset.return_value = pd.DataFrame()
+
+        self.analyzer.solar_engine.configuration = MagicMock()
+
+        self.analyzer.solar_engine.configuration.installed_power_kwp = (
+            5.4
+        )
+
+        self.analyzer.solar_engine.yearly_production = pd.Series(
+            [6_000.0],
+            index=pd.to_datetime(
+                ["2025-12-31"]
+            ),
+        )
+
+        with pytest.raises(
+            ValueError,
+            match="valid consumption dataset",
+        ):
+            self.controller.recommend_installation(
+                configuration
+            )
+
+    def test_recommend_installation_requires_positive_consumption(
+        self,
+    ):
+
+        configuration = self._installation_configuration()
+
+        self.analyzer.valid_dataset.return_value = pd.DataFrame(
+            {
+                "AE_kWh": [0.0],
+            }
+        )
+
+        self.analyzer.solar_engine.configuration = MagicMock()
+
+        self.analyzer.solar_engine.configuration.installed_power_kwp = (
+            5.4
+        )
+
+        self.analyzer.solar_engine.yearly_production = pd.Series(
+            [6_000.0],
+            index=pd.to_datetime(
+                ["2025-12-31"]
+            ),
+        )
+
+        with pytest.raises(
+            ValueError,
+            match="Annual consumption must be greater than zero",
+        ):
+            self.controller.recommend_installation(
+                configuration
+            )
+
+    def test_recommend_installation_rejects_negative_consumption(
+        self,
+    ):
+
+        configuration = self._installation_configuration()
+
+        self.analyzer.valid_dataset.return_value = pd.DataFrame(
+            {
+                "AE_kWh": [-100.0],
+            }
+        )
+
+        self.analyzer.solar_engine.configuration = MagicMock()
+
+        self.analyzer.solar_engine.configuration.installed_power_kwp = (
+            5.4
+        )
+
+        self.analyzer.solar_engine.yearly_production = pd.Series(
+            [6_000.0],
+            index=pd.to_datetime(
+                ["2025-12-31"]
+            ),
+        )
+
+        with pytest.raises(
+            ValueError,
+            match="Annual consumption must be greater than zero",
+        ):
+            self.controller.recommend_installation(
+                configuration
+            )
+
+    # --------------------------------------------------
+    # Integración con InstallationConfiguration
+    # --------------------------------------------------
+
+    def test_recommend_installation_converts_configuration_to_constraints(
+        self,
+    ):
 
         self._configure_solar_reference()
 
+        configuration = self._installation_configuration()
+
+        constraints = configuration.to_constraints()
+
+        assert isinstance(
+            constraints,
+            InstallationConstraints,
+        )
+
+    # --------------------------------------------------
+    # Resultado
+    # --------------------------------------------------
+
+    def test_recommend_installation_returns_result(
+        self,
+    ):
+
+        self._configure_solar_reference()
+
+        configuration = self._installation_configuration()
+
         result = self.controller.recommend_installation(
-            self._sizing_constraints()
+            configuration
         )
 
         assert isinstance(
             result,
-            SolarSizingResult,
+            InstallationRecommendation,
         )
 
-        assert result.panel_count >= 5
-        assert result.panel_count <= 15
-        assert result.installed_power_kwp > 0
-        assert result.annual_production_kwh > 0
+        assert result.annual_consumption_kwh == pytest.approx(
+            5_000.0
+        )
+
+        assert result.annual_production_kwh == pytest.approx(
+            5_400.0
+        )
+
+        assert result.evaluation is not None
+
+        assert result.evaluation.candidate is not None
+
+        assert result.evaluation.candidate.panel_count == 9
+
+        assert result.evaluation.candidate.panel_power_wp == pytest.approx(
+            540.0
+        )
+
+        assert result.evaluation.candidate.installed_power_kwp == pytest.approx(
+            4.86
+        )
+
+    # --------------------------------------------------
+    # Selección óptima
+    # --------------------------------------------------
 
     def test_recommend_installation_selects_smallest_covering_configuration(
         self,
@@ -380,20 +642,33 @@ class TestSolarController:
 
         self._configure_solar_reference()
 
+        configuration = self._installation_configuration()
+
         result = self.controller.recommend_installation(
-            self._sizing_constraints()
+            configuration
         )
 
         # Producción específica:
+        #
         # 6000 / 5.4 = 1111.11 kWh/kWp
         #
-        # 5 paneles  = 3000 kWh
-        # 6 paneles  = 3600 kWh
-        # ...
-        # 9 paneles  = 5400 kWh
+        # Cada panel:
         #
-        # Por tanto, 9 es la primera configuración
-        # capaz de cubrir los 5000 kWh.
+        # 540 Wp = 0.54 kWp
+        #
+        # Producción por panel:
+        #
+        # 0.54 * 1111.11 = 600 kWh
+        #
+        # Consumo:
+        #
+        # 5000 kWh
+        #
+        # 8 paneles  -> 4800 kWh
+        # 9 paneles  -> 5400 kWh
+        #
+        # Por tanto, 9 paneles es la primera
+        # configuración que cubre el consumo.
 
         assert result.panel_count == 9
 
@@ -405,189 +680,68 @@ class TestSolarController:
             5_400.0
         )
 
-    def test_recommend_installation_stores_result(self):
+    # --------------------------------------------------
+    # Cálculo de producción de candidatos
+    # --------------------------------------------------
+
+    def test_calculate_installation_production(
+        self,
+    ):
 
         self._configure_solar_reference()
 
-        result = self.controller.recommend_installation(
-            self._sizing_constraints()
-        )
+        candidate = MagicMock()
 
-        assert self.controller.sizing_result is result
-            
-    def test_recommend_installation_requires_solar_configuration(
-        self,
-    ):
+        candidate.installed_power_kwp = 4.86
 
-        self.analyzer.valid_dataset.return_value = pd.DataFrame(
-            {
-                "AE_kWh": [5_000.0],
-            }
-        )
-
-        self.analyzer.solar_engine.configuration = None
-
-        with pytest.raises(
-            ValueError,
-            match="solar configuration",
-        ):
-
-            self.controller.recommend_installation(
-                self._sizing_constraints()
+        production = (
+            self.controller._calculate_installation_production(
+                candidate
             )
+        )
 
-    def test_recommend_installation_requires_calculated_production(
+        assert production == pytest.approx(
+            5_400.0
+        )
+
+    def test_calculate_installation_production_requires_solar_production(
         self,
     ):
-
-        self.analyzer.valid_dataset.return_value = pd.DataFrame(
-            {
-                "AE_kWh": [5_000.0],
-            }
-        )
 
         self.analyzer.solar_engine.configuration = MagicMock()
 
+        self.analyzer.solar_engine.configuration.installed_power_kwp = (
+            5.4
+        )
+
         self.analyzer.solar_engine.yearly_production = None
+
+        candidate = MagicMock()
+
+        candidate.installed_power_kwp = 4.86
 
         with pytest.raises(
             ValueError,
             match="Solar production must be calculated",
         ):
-
-            self.controller.recommend_installation(
-                self._sizing_constraints()
+            self.controller._calculate_installation_production(
+                candidate
             )
 
-    def test_recommend_installation_requires_valid_constraints(
+    # --------------------------------------------------
+    # Reset
+    # --------------------------------------------------
+
+    def test_reset_clears_sizing_result(
         self,
     ):
 
         self._configure_solar_reference()
 
-        with pytest.raises(
-            TypeError,
-            match="InstallationConstraints",
-        ):
-
-            self.controller.recommend_installation(
-                MagicMock()
-            )
-
-    def test_recommend_installation_rejects_none_constraints(self):
-
-        self._configure_solar_reference()
-
-        with pytest.raises(
-            TypeError,
-            match="InstallationConstraints",
-        ):
-            self.controller.recommend_installation(None)
-
-    def test_recommend_installation_requires_positive_specific_production(
-        self,
-    ):
-
-        self.analyzer.valid_dataset.return_value = pd.DataFrame(
-            {
-                "AE_kWh": [5_000.0],
-            }
-        )
-
-        self.analyzer.solar_engine.configuration = MagicMock()
-        self.analyzer.solar_engine.configuration.installed_power_kwp = 5.4
-
-        self.analyzer.solar_engine.yearly_production = pd.Series(
-            [0.0],
-            index=pd.to_datetime(["2025-12-31"]),
-        )
-
-        with pytest.raises(
-            ValueError,
-            match="Specific solar production must be greater than zero",
-        ):
-            self.controller.recommend_installation(
-                self._sizing_constraints()
-            )
-
-    def test_recommend_installation_requires_dataset(self):
-
-        self.analyzer.valid_dataset.return_value = None
-
-        self.analyzer.solar_engine.configuration = MagicMock()
-        self.analyzer.solar_engine.configuration.installed_power_kwp = 5.4
-
-        self.analyzer.solar_engine.yearly_production = pd.Series(
-            [6_000.0],
-            index=pd.to_datetime(["2025-12-31"]),
-        )
-
-        with pytest.raises(
-            ValueError,
-            match="valid consumption dataset",
-        ):
-            self.controller.recommend_installation(
-                self._sizing_constraints()
-            )
-
-    def test_recommend_installation_requires_positive_consumption(
-        self,
-    ):
-
-        self.analyzer.valid_dataset.return_value = pd.DataFrame(
-            {
-                "AE_kWh": [0.0],
-            }
-        )
-
-        self.analyzer.solar_engine.configuration = MagicMock()
-        self.analyzer.solar_engine.configuration.installed_power_kwp = 5.4
-
-        self.analyzer.solar_engine.yearly_production = pd.Series(
-            [6_000.0],
-            index=pd.to_datetime(["2025-12-31"]),
-        )
-
-        with pytest.raises(
-            ValueError,
-            match="Annual consumption must be greater than zero",
-        ):
-            self.controller.recommend_installation(
-                self._sizing_constraints()
-            )
-
-    def test_recommend_installation_rejects_negative_consumption(
-        self,
-    ):
-
-        self.analyzer.valid_dataset.return_value = pd.DataFrame(
-            {
-                "AE_kWh": [-100.0],
-            }
-        )
-
-        self.analyzer.solar_engine.configuration = MagicMock()
-        self.analyzer.solar_engine.configuration.installed_power_kwp = 5.4
-
-        self.analyzer.solar_engine.yearly_production = pd.Series(
-            [6_000.0],
-            index=pd.to_datetime(["2025-12-31"]),
-        )
-
-        with pytest.raises(
-            ValueError,
-            match="Annual consumption must be greater than zero",
-        ):
-            self.controller.recommend_installation(
-                self._sizing_constraints()
-            )
-
-    def test_reset_clears_sizing_result(self):
-
-        self._configure_solar_reference()
+        configuration = self._installation_configuration()
 
         self.controller.recommend_installation(
-            self._sizing_constraints()
+            configuration
         )
 
         assert self.controller.sizing_result is not None

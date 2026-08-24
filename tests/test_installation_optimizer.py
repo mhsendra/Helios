@@ -1079,3 +1079,85 @@ class TestInstallationOptimizer:
         )
 
         assert layouts == []
+
+    def test_generate_layouts_respects_vertical_orientation(self):
+
+        constraints = InstallationConstraints(
+            available_area_m2=100,
+            panel_width_m=1.134,
+            panel_height_m=1.99,
+            panel_power_wp=540,
+            panel_orientation="vertical",
+        )
+
+        optimizer = InstallationOptimizer(constraints)
+
+        layouts = optimizer.generate_layouts(
+            panel_count=6
+        )
+
+        assert layouts
+        assert all(
+            layout.orientation == "vertical"
+            for layout in layouts
+        )
+
+    def test_generate_layouts_respects_horizontal_orientation(self):
+
+        constraints = InstallationConstraints(
+            available_area_m2=100,
+            panel_width_m=1.134,
+            panel_height_m=1.99,
+            panel_power_wp=540,
+            panel_orientation="horizontal",
+        )
+
+        optimizer = InstallationOptimizer(constraints)
+
+        layouts = optimizer.generate_layouts(
+            panel_count=6
+        )
+
+        assert layouts
+        assert all(
+            layout.orientation == "horizontal"
+            for layout in layouts
+        )
+
+    def test_generate_layouts_auto_evaluates_both_orientations(self):
+
+        constraints = InstallationConstraints(
+            available_area_m2=100,
+            panel_width_m=1.134,
+            panel_height_m=1.99,
+            panel_power_wp=540,
+            panel_orientation="auto",
+        )
+
+        optimizer = InstallationOptimizer(constraints)
+
+        layouts = optimizer.generate_layouts(
+            panel_count=6
+        )
+
+        orientations = {
+            layout.orientation
+            for layout in layouts
+        }
+
+        assert orientations == {
+            "vertical",
+            "horizontal",
+        }
+
+    def test_invalid_panel_orientation_is_rejected(self):
+
+        with pytest.raises(ValueError):
+
+            InstallationConstraints(
+                available_area_m2=100,
+                panel_width_m=1.134,
+                panel_height_m=1.99,
+                panel_power_wp=540,
+                panel_orientation="diagonal",
+            )

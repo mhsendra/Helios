@@ -27,6 +27,12 @@ class InstallationConfiguration:
     max_panels: int | None = None
 
     # ==================================================
+    # Panel orientation
+    # ==================================================
+
+    panel_orientation: str = "auto"
+
+    # ==================================================
     # Maintenance passage
     # ==================================================
 
@@ -59,6 +65,8 @@ class InstallationConfiguration:
             panel_width_m=self.panel_width_m,
             panel_height_m=self.panel_height_m,
             panel_power_wp=self.panel_power_wp,
+
+            panel_orientation=self.panel_orientation,
 
             min_panels=self.min_panels,
             max_panels=self.max_panels,

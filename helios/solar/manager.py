@@ -178,6 +178,9 @@ class SolarManager:
 
     def reset(self):
 
+        print("!!!!!!!! SOLAR MANAGER RESET !!!!!!!")
+        print("configuration BEFORE RESET:", self.configuration)
+
         self.configuration = None
 
         self.hourly_production = None
@@ -187,3 +190,17 @@ class SolarManager:
 
         self.energy_balance = None
         self.statistics = None
+
+    def set_configuration(
+        self,
+        configuration: SolarConfiguration,
+    ):
+        if not isinstance(
+            configuration,
+            SolarConfiguration,
+        ):
+            raise TypeError(
+                "configuration must be a SolarConfiguration."
+            )
+
+        self.configuration = configuration

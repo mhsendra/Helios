@@ -1,7 +1,11 @@
 # helios/core/controllers/solar_controller.py
 
-from helios.solar.installation_constraints import (
-    InstallationConstraints,
+from helios.solar.installation_coordinator import (
+    InstallationCoordinator,
+)
+
+from helios.solar.installation_recommendation import (
+    InstallationRecommender,
 )
 
 from helios.solar.installation_optimizer import (
@@ -13,10 +17,10 @@ from helios.solar.installation_evaluation import (
 )
 
 from helios.solar.solar_installation_sizing import (
-    SolarInstallationSizing,
     SolarSizingResult,
 )
 
+from helios.solar.installation_configuration import InstallationConfiguration
 
 class SolarController:
 
@@ -32,6 +36,7 @@ class SolarController:
 
         # Resultado del último dimensionamiento
         self.sizing_result: SolarSizingResult | None = None
+        self.installation_result = None
 
     # ==================================================
     # Propiedades
@@ -60,6 +65,10 @@ class SolarController:
     @property
     def energy_balance(self):
         return self.analyzer.solar_engine.energy_balance
+
+    @property
+    def configuration(self):
+        return self.analyzer.solar_engine.configuration
 
     @property
     def coverage(self) -> float | None:
@@ -154,48 +163,42 @@ class SolarController:
         return balance.resample("ME").sum()
 
     # ==================================================
+    # Configuración
+    # ==================================================
+
+    def set_configuration(
+        self,
+        configuration,
+    ):
+        self.analyzer.solar_engine.set_configuration(
+            configuration
+        )
+
+    # ==================================================
     # Dimensionamiento de instalación
     # ==================================================
 
     def recommend_installation(
         self,
-        constraints: InstallationConstraints,
-    ) -> SolarSizingResult:
+        configuration,
+    ):
         """
         Recomienda la instalación fotovoltaica óptima
-        dentro de las restricciones indicadas.
-
-        Utiliza la producción específica obtenida del
-        cálculo solar existente para estimar la producción
-        de cada número de paneles candidato.
+        utilizando la producción solar ya calculada.
         """
 
         if not isinstance(
-            constraints,
-            InstallationConstraints,
+            configuration,
+            InstallationConfiguration,
         ):
             raise TypeError(
-                "constraints must be an "
-                "InstallationConstraints."
+                "configuration must be an "
+                "InstallationConfiguration."
             )
 
-        # --------------------------------------------------
-        # Producción solar de referencia
-        # --------------------------------------------------
+        constraints = configuration.to_constraints()
 
-        configuration = (
-            self.analyzer.solar_engine.configuration
-        )
-
-        if configuration is None:
-            raise ValueError(
-                "A solar configuration is required "
-                "to recommend an installation."
-            )
-
-        specific_production = (
-            self.specific_production
-        )
+        specific_production = self.specific_production
 
         if specific_production is None:
             raise ValueError(
@@ -208,10 +211,6 @@ class SolarController:
                 "Specific solar production must be "
                 "greater than zero."
             )
-
-        # --------------------------------------------------
-        # Consumo anual
-        # --------------------------------------------------
 
         dataset = self.analyzer.valid_dataset()
 
@@ -230,65 +229,23 @@ class SolarController:
                 "Annual consumption must be greater than zero."
             )
 
-        # --------------------------------------------------
-        # Generación de candidatos
-        # --------------------------------------------------
-
-        optimizer = InstallationOptimizer(
-            constraints
+        coordinator = InstallationCoordinator(
+            optimizer=InstallationOptimizer(
+                constraints
+            ),
+            evaluator=InstallationEvaluator(
+                constraints
+            ),
+            recommender=InstallationRecommender(),
+            production_calculator=(
+                self._calculate_installation_production
+            ),
         )
 
-        candidates = optimizer.generate_candidates()
-
-        if not candidates:
-            raise ValueError(
-                "No valid installation candidates "
-                "are available."
-            )
-
-        # --------------------------------------------------
-        # Evaluación de candidatos
-        # --------------------------------------------------
-
-        evaluator = InstallationEvaluator(
-            constraints
-        )
-
-        evaluations = [
-            evaluator.evaluate(candidate)
-            for candidate in candidates
-        ]
-
-        # --------------------------------------------------
-        # Producción anual de cada candidato
-        # --------------------------------------------------
-
-        annual_productions = {}
-
-        for evaluation in evaluations:
-
-            annual_productions[
-                evaluation.panel_count
-            ] = (
-                evaluation.installed_power_kwp
-                * specific_production
-            )
-
-        # --------------------------------------------------
-        # Selección de la instalación recomendada
-        # --------------------------------------------------
-
-        sizing = SolarInstallationSizing()
-
-        result = sizing.recommend(
-            evaluations=evaluations,
+        result = coordinator.recommend(
+            configuration=configuration,
             annual_consumption_kwh=annual_consumption,
-            annual_productions_kwh=annual_productions,
         )
-
-        # --------------------------------------------------
-        # Guardar resultado en el controller
-        # --------------------------------------------------
 
         self.sizing_result = result
 
@@ -388,3 +345,32 @@ class SolarController:
         self.sizing_result = None
 
         self.analyzer.solar_engine.reset()
+
+    def _calculate_installation_production(
+        self,
+        candidate,
+    ) -> float:
+        """
+        Calcula la producción anual estimada de una instalación
+        candidata a partir de la producción específica solar
+        ya calculada.
+        """
+
+        specific_production = self.specific_production
+
+        if specific_production is None:
+            raise ValueError(
+                "Solar production must be calculated "
+                "before recommending an installation."
+            )
+
+        if specific_production <= 0:
+            raise ValueError(
+                "Specific solar production must be "
+                "greater than zero."
+            )
+
+        return (
+            candidate.installed_power_kwp
+            * specific_production
+        )

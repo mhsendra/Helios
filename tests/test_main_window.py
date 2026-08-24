@@ -66,24 +66,35 @@ class TestMainWindow:
 
         assert self.window.home_page is not None
         assert self.window.load_page is not None
+        assert self.window.solar_config_page is not None
         assert self.window.validation_page is not None
         assert self.window.statistics_page is not None
         assert self.window.profiles_page is not None
         assert self.window.comparisons_page is not None
         assert self.window.indicators_page is not None
+        assert self.window.tariffs_page is not None
+        assert self.window.graphics_page is not None
+        assert self.window.reports_page is not None
         assert self.window.solar_page is not None
+        assert self.window.economics_page is not None
+
 
     def test_all_pages_use_same_project(self):
 
         pages = [
             self.window.home_page,
             self.window.load_page,
+            self.window.solar_config_page,
             self.window.validation_page,
             self.window.statistics_page,
             self.window.profiles_page,
             self.window.comparisons_page,
             self.window.indicators_page,
+            self.window.tariffs_page,
+            self.window.graphics_page,
+            self.window.reports_page,
             self.window.solar_page,
+            self.window.economics_page,
         ]
 
         for page in pages:
@@ -93,19 +104,26 @@ class TestMainWindow:
 
         assert self.window.pages.count() == 13
 
-        for page in [
+        pages = [
             self.window.home_page,
             self.window.load_page,
+            self.window.solar_config_page,
             self.window.validation_page,
             self.window.statistics_page,
             self.window.profiles_page,
             self.window.comparisons_page,
             self.window.indicators_page,
+            self.window.tariffs_page,
+            self.window.graphics_page,
+            self.window.reports_page,
             self.window.solar_page,
-        ]:
+            self.window.economics_page,
+        ]
+
+        for page in pages:
             assert self.window.pages.indexOf(page) != -1
 
-        # ==================================================
+    # ==================================================
     # Navegación
     # ==================================================
 
@@ -319,7 +337,38 @@ class TestMainWindow:
             self.window.pages.currentWidget()
             is self.window.solar_config_page
         )
-        
+
+    def test_change_page_changes_to_economics_page_after_solar_calculation(
+        self,
+    ):
+
+        self.window.set_project_loaded(True)
+
+        self.window.set_solar_calculated(True)
+
+        self.window.change_page(
+            self.window.economics_item
+        )
+
+        assert (
+            self.window.pages.currentWidget()
+            is self.window.economics_page
+        )
+
+    def test_solar_configuration_page_is_accessible_when_project_is_not_loaded(
+        self,
+    ):
+
+        assert not self.window.configuration_item.isDisabled()
+
+        self.window.change_page(
+            self.window.configuration_item
+        )
+
+        assert (
+            self.window.pages.currentWidget()
+            is self.window.solar_config_page
+        )
     # ==================================================
     # Actualización de páginas
     # ==================================================

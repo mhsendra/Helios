@@ -314,6 +314,10 @@ class MainWindow(QMainWindow):
         page = self.page_map.get(item.text(0))
 
         if page is not None:
+
+            if page is self.solar_config_page:
+                self.solar_config_page.update_data()
+
             self.pages.setCurrentWidget(page)
 
     def update_project_pages(self):
@@ -324,5 +328,6 @@ class MainWindow(QMainWindow):
         self.comparisons_page.update_data()
         self.indicators_page.update_data()
         self.tariffs_page.update()
+        self.solar_config_page.update_data()
         self.economics_page.update()
 
