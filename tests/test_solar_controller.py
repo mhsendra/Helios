@@ -290,6 +290,43 @@ class TestSolarController:
             call.energy_balance_report(),
         ]
 
+    def test_installation_simulation_report_delegates_to_engine(
+        self,
+        monkeypatch,
+    ):
+
+        engine = self.analyzer.solar_engine
+
+        configuration = object()
+        recommendation = object()
+        specific_production = 1500.0
+
+        self.controller.installation_configuration = (
+            configuration
+        )
+
+        self.controller.sizing_result = (
+            recommendation
+        )
+
+        monkeypatch.setattr(
+            type(self.controller),
+            "specific_production",
+            property(
+                lambda self: specific_production
+            ),
+        )
+
+        self.controller.installation_simulation_report()
+
+        assert engine.mock_calls == [
+            call.installation_simulation_report(
+                configuration=configuration,
+                recommendation=recommendation,
+                specific_production=specific_production,
+            ),
+        ]
+
     def test_reset(self):
 
         engine = self.analyzer.solar_engine
@@ -298,7 +335,7 @@ class TestSolarController:
 
         engine.reset.assert_called_once_with()
 
-        # ==================================================
+    # ==================================================
     # Dimensionamiento de instalación solar
     # ==================================================
 

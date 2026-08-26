@@ -6,7 +6,6 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QHBoxLayout,
     QFormLayout,
-    QGridLayout,
     QDoubleSpinBox,
     QSpinBox,
     QComboBox,
@@ -1140,6 +1139,14 @@ class SolarConfigPage(QWidget):
             "Buscar mejor instalación"
         )
 
+        self.simulation_report_button = QPushButton(
+            "Generar informe de simulación"
+        )
+
+        self.simulation_report_button.setEnabled(
+            False
+        )
+
         layout.addRow(
             "Estado",
             self.status_label,
@@ -1148,6 +1155,11 @@ class SolarConfigPage(QWidget):
         layout.addRow(
             "",
             self.optimize_button,
+        )
+
+        layout.addRow(
+            "",
+            self.simulation_report_button,
         )
 
         return group
@@ -1602,6 +1614,10 @@ class SolarConfigPage(QWidget):
             self.start_optimization
         )
 
+        self.simulation_report_button.clicked.connect(
+            self.generate_simulation_report
+        )
+
         self.walkway_slider.valueChanged.connect(
             self.on_walkway_position_changed
         )
@@ -1972,6 +1988,10 @@ class SolarConfigPage(QWidget):
             result
         )
 
+        self.simulation_report_button.setEnabled(
+            True
+        )
+
     # ==================================================
     # LAYOUT FÍSICO
     # ==================================================
@@ -2165,7 +2185,36 @@ class SolarConfigPage(QWidget):
     # ==================================================
     # OPTIMIZACIÓN
     # ==================================================
+    def generate_simulation_report(self):
 
+        recommendation = (
+            self.project.solar.sizing_result
+        )
+
+        if recommendation is None:
+
+            self.status_label.setText(
+                "No hay una simulación disponible."
+            )
+
+            return
+
+        try:
+
+            self.project.solar.installation_simulation_report()
+
+            self.status_label.setText(
+                "Informe de simulación generado."
+            )
+
+        except Exception as error:
+
+            traceback.print_exc()
+
+            self.status_label.setText(
+                f"Error al generar el informe: {error}"
+            )
+            
     def start_optimization(self):
 
         self.optimize_button.setEnabled(
@@ -2284,6 +2333,10 @@ class SolarConfigPage(QWidget):
             # Guardar
             # ------------------------------------------
 
+            self.project.solar.installation_configuration = (
+                configuration
+            )
+
             self.project.solar.sizing_result = result
 
             # ------------------------------------------
@@ -2381,6 +2434,10 @@ class SolarConfigPage(QWidget):
 
         self.optimize_button.setEnabled(
             True
+        )
+
+        self.simulation_report_button.setEnabled(
+            False
         )
 
         self.load_solar_basis()

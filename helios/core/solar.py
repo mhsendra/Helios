@@ -71,7 +71,9 @@ class SolarEngine:
     def energy_balance(self):
         return self.manager.energy_balance
 
-    # Informes (pasarela directa)
+    # ==================================================
+    # Informes
+    # ==================================================
 
     def monthly_production_report(self):
 
@@ -85,6 +87,21 @@ class SolarEngine:
 
         return self.manager.energy_balance_report()
 
+    def installation_simulation_report(
+        self,
+        configuration,
+        recommendation,
+        solar_configuration=None,
+        specific_production=None,
+    ):
+
+        return self.manager.installation_simulation_report(
+            configuration=configuration,
+            recommendation=recommendation,
+            solar_configuration=solar_configuration,
+            specific_production=specific_production,
+        )
+    
     def set_configuration(
         self,
         configuration,

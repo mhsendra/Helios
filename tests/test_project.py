@@ -1,5 +1,7 @@
+from unittest.mock import MagicMock
 from helios.core.project import HeliosProject
 from helios.core.economics_configuration import EconomicsConfiguration
+from helios.solar.configuration import SolarConfiguration
 
 
 def create_project():
@@ -73,9 +75,6 @@ def test_project_exposes_economics_controller():
 
     assert project.economics is project.analyzer.economics
 
-from unittest.mock import MagicMock
-
-
 def test_project_exposes_dataset():
 
     project = create_project()
@@ -132,3 +131,53 @@ def test_project_analyze_data():
     project.analyzer.profiles.calculate.assert_called_once_with()
 
     project.analyzer.comparisons.calculate.assert_called_once_with()
+
+def test_project_set_solar_configuration_stores_configuration_without_calculating():
+
+    project = create_project()
+
+    configuration = MagicMock()
+
+    solar = MagicMock()
+
+    project.analyzer.solar = solar
+
+    project.set_solar_configuration(
+        configuration
+    )
+
+    assert (
+        project.solar_configuration
+        is configuration
+    )
+
+    solar.set_configuration.assert_called_once_with(
+        configuration
+    )
+
+    solar.calculate.assert_not_called()
+
+def test_project_stores_solar_configuration():
+
+    project = create_project()
+
+    configuration = SolarConfiguration(
+        installed_power_kwp=8.10,
+        latitude=41.6,
+        longitude=2.1,
+        tilt=30,
+        azimuth=0,
+        reference_year=2023,
+        losses=14.0,
+        pv_technology="crystSi",
+        mounting_place="free",
+    )
+
+    project.set_solar_configuration(
+        configuration
+    )
+
+    assert (
+        project.solar_configuration
+        is configuration
+    )

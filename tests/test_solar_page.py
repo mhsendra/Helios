@@ -1,10 +1,14 @@
 import pandas as pd
 
+import pytest
+
 from unittest.mock import MagicMock
 
 from PySide6.QtWidgets import QApplication
 
 from helios.gui.widgets.solar_page import SolarPage
+
+from helios.solar.configuration import SolarConfiguration
 
 
 class TestSolarPage:
@@ -438,7 +442,17 @@ class TestSolarPage:
 
     def test_update_statistics(self):
 
-        self.page.peak_power_spinbox.setValue(8.0)
+        self.project.solar_configuration = SolarConfiguration(
+            installed_power_kwp=8.0,
+            latitude=41.6,
+            longitude=2.1,
+            tilt=30,
+            azimuth=0,
+            reference_year=2023,
+            losses=14.0,
+            pv_technology="crystSi",
+            mounting_place="free",
+        )
 
         self.project.solar.energy_balance = pd.DataFrame(
             {
@@ -576,9 +590,7 @@ class TestSolarPage:
 
         configuration = self.page.get_configuration()
 
-        self.page.get_configuration = MagicMock(
-            return_value=configuration
-        )
+        self.project.solar_configuration = configuration
 
         self.project.solar.calculate = MagicMock()
 
@@ -644,6 +656,18 @@ class TestSolarPage:
 
     def test_refresh_production_results(self):
 
+        self.project.solar_configuration = SolarConfiguration(
+            installed_power_kwp=8.0,
+            latitude=41.6,
+            longitude=2.1,
+            tilt=30,
+            azimuth=0,
+            reference_year=2023,
+            losses=14.0,
+            pv_technology="crystSi",
+            mounting_place="free",
+        )
+
         self.project.solar.annual_production = 12000.0
         self.project.solar.specific_production = 1500.0
         self.project.solar.coverage = 65.0
@@ -702,3 +726,81 @@ class TestSolarPage:
         self.page.update_balance_summary()
 
         assert self.page.balance_coverage_label.text() == "-"
+
+    # ==================================================
+    # Configuración solar
+    # ==================================================
+
+    def test_calculate_production_uses_project_configuration(
+        self,
+    ):
+
+        configuration = SolarConfiguration(
+            installed_power_kwp=8.10,
+            latitude=41.6,
+            longitude=2.1,
+            tilt=30,
+            azimuth=0,
+            reference_year=2023,
+            losses=14.0,
+            pv_technology="crystSi",
+            mounting_place="free",
+        )
+
+        self.project.solar_configuration = (
+            configuration
+        )
+
+        self.page.refresh_production_results = MagicMock()
+        self.page.set_results_available = MagicMock()
+
+        self.page.project.solar.calculate = MagicMock()
+
+        self.page.calculate_production()
+
+        self.page.project.solar.calculate.assert_called_once_with(
+            configuration
+        )
+
+    def test_calculate_production_does_not_create_configuration(
+        self,
+        monkeypatch,
+    ):
+
+        configuration = SolarConfiguration(
+            installed_power_kwp=8.10,
+            latitude=41.6,
+            longitude=2.1,
+            tilt=30,
+            azimuth=0,
+            reference_year=2023,
+            losses=14.0,
+            pv_technology="crystSi",
+            mounting_place="free",
+        )
+
+        self.project.solar_configuration = (
+            configuration
+        )
+
+        self.page.project.solar.calculate = MagicMock()
+
+        monkeypatch.setattr(
+            self.page,
+            "get_configuration",
+            lambda: (
+                pytest.fail(
+                    "SolarPage no debe crear "
+                    "la configuración solar"
+                )
+            ),
+        )
+
+        self.page.refresh_production_results = MagicMock()
+        self.page.set_results_available = MagicMock()
+
+        self.page.calculate_production()
+
+        self.page.project.solar.calculate.assert_called_once_with(
+            configuration
+        )

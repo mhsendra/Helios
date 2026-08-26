@@ -176,6 +176,62 @@ class SolarManager:
             self.monthly_production
         )
 
+    def installation_simulation_report(
+        self,
+        configuration,
+        recommendation,
+        solar_configuration=None,
+        specific_production=None,
+    ):
+        """
+        Genera el informe de una simulación de instalación
+        fotovoltaica.
+
+        El Manager coordina los datos necesarios y delega
+        la presentación en SolarReports.
+        """
+
+        if configuration is None:
+
+            raise ValueError(
+                "Installation configuration is not available."
+            )
+
+        if recommendation is None:
+
+            raise ValueError(
+                "Solar installation simulation "
+                "has not been calculated."
+            )
+
+        if solar_configuration is None:
+
+            solar_configuration = self.configuration
+
+        if specific_production is None:
+
+            if (
+                solar_configuration is not None
+                and solar_configuration.installed_power_kwp > 0
+                and self.yearly_production is not None
+            ):
+
+                annual_production = float(
+                    self.yearly_production.iloc[-1]
+                )
+
+                specific_production = (
+                    annual_production
+                    / solar_configuration.installed_power_kwp
+                )
+
+        return self.reporter.installation_simulation(
+            configuration=configuration,
+            recommendation=recommendation,
+            solar_configuration=solar_configuration,
+            specific_production=specific_production,
+        )
+
     def reset(self):
 
         print("!!!!!!!! SOLAR MANAGER RESET !!!!!!!")

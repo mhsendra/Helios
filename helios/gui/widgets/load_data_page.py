@@ -6,8 +6,16 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLineEdit,
     QFileDialog,
-    QMessageBox
+    QMessageBox,
+    QGroupBox,
+    QFormLayout,
+    QDoubleSpinBox,
+    QComboBox,
+    QSpinBox,
 )
+
+from helios.solar.configuration import SolarConfiguration
+
 from pathlib import Path
 
 class LoadDataPage(QWidget):
@@ -42,6 +50,16 @@ class LoadDataPage(QWidget):
         self.info_label = QLabel("Ningún archivo cargado")
 
         layout.addWidget(self.info_label)
+
+        layout.addWidget(
+            self.create_solar_configuration_group()
+        )
+
+        layout.addWidget(
+            self.create_location_group()
+        )
+
+        self.configure_solar_widgets()
 
         layout.addStretch()
 
@@ -83,6 +101,8 @@ class LoadDataPage(QWidget):
             self.project.load_data(path)
 
             self.project.analyze_data()
+
+            self.save_solar_configuration()
 
             # Un nuevo dataset invalida los resultados solares
             self.project.solar.reset()
@@ -143,4 +163,229 @@ class LoadDataPage(QWidget):
         <b>Calidad</b><br>
         {quality["rating"]}
         """
+        )
+
+    # ==================================================
+    # Configuración solar
+    # ==================================================
+
+    def create_solar_configuration_group(self):
+
+        group = QGroupBox(
+            "Configuración solar"
+        )
+
+        layout = QFormLayout(group)
+
+        self.peak_power_spinbox = QDoubleSpinBox()
+        self.pv_technology_combobox = QComboBox()
+        self.system_losses_spinbox = QDoubleSpinBox()
+        self.tilt_spinbox = QSpinBox()
+        self.azimuth_spinbox = QSpinBox()
+        self.mounting_place_combobox = QComboBox()
+
+        layout.addRow(
+            "Potencia instalada",
+            self.peak_power_spinbox
+        )
+
+        layout.addRow(
+            "Tecnología FV",
+            self.pv_technology_combobox
+        )
+
+        layout.addRow(
+            "Pérdidas del sistema",
+            self.system_losses_spinbox
+        )
+
+        layout.addRow(
+            "Inclinación",
+            self.tilt_spinbox
+        )
+
+        layout.addRow(
+            "Orientación",
+            self.azimuth_spinbox
+        )
+
+        layout.addRow(
+            "Montaje",
+            self.mounting_place_combobox
+        )
+
+        return group
+
+
+    def create_location_group(self):
+
+        group = QGroupBox(
+            "Ubicación de la instalación"
+        )
+
+        layout = QFormLayout(group)
+
+        self.latitude_spinbox = QDoubleSpinBox()
+        self.longitude_spinbox = QDoubleSpinBox()
+
+        layout.addRow(
+            "Latitud",
+            self.latitude_spinbox
+        )
+
+        layout.addRow(
+            "Longitud",
+            self.longitude_spinbox
+        )
+
+        return group
+
+
+    def configure_solar_widgets(self):
+
+        self.peak_power_spinbox.setRange(
+            0.10,
+            100.00
+        )
+
+        self.peak_power_spinbox.setDecimals(2)
+
+        self.peak_power_spinbox.setSingleStep(
+            0.10
+        )
+
+        self.peak_power_spinbox.setSuffix(
+            " kWp"
+        )
+
+        self.pv_technology_combobox.addItem(
+            "Silicio cristalino",
+            "crystSi"
+        )
+
+        self.pv_technology_combobox.addItem(
+            "CIS",
+            "CIS"
+        )
+
+        self.pv_technology_combobox.addItem(
+            "CdTe",
+            "CdTe"
+        )
+
+        self.system_losses_spinbox.setRange(
+            0.0,
+            100.0
+        )
+
+        self.system_losses_spinbox.setDecimals(1)
+
+        self.system_losses_spinbox.setSingleStep(
+            0.5
+        )
+
+        self.system_losses_spinbox.setSuffix(
+            " %"
+        )
+
+        self.tilt_spinbox.setRange(
+            0,
+            90
+        )
+
+        self.tilt_spinbox.setSuffix(
+            " °"
+        )
+
+        self.azimuth_spinbox.setRange(
+            -180,
+            180
+        )
+
+        self.azimuth_spinbox.setSuffix(
+            " °"
+        )
+
+        self.mounting_place_combobox.addItem(
+            "Estructura sobre el suelo",
+            "free"
+        )
+
+        self.mounting_place_combobox.addItem(
+            "Integrado en edificio",
+            "building"
+        )
+
+        self.latitude_spinbox.setRange(
+            -90.0,
+            90.0
+        )
+
+        self.latitude_spinbox.setDecimals(6)
+
+        self.latitude_spinbox.setSingleStep(
+            0.000001
+        )
+
+        self.longitude_spinbox.setRange(
+            -180.0,
+            180.0
+        )
+
+        self.longitude_spinbox.setDecimals(6)
+
+        self.longitude_spinbox.setSingleStep(
+            0.000001
+        )
+
+    def get_solar_configuration(
+        self,
+    ) -> SolarConfiguration:
+
+        return SolarConfiguration(
+
+            installed_power_kwp=(
+                self.peak_power_spinbox.value()
+            ),
+
+            latitude=(
+                self.latitude_spinbox.value()
+            ),
+
+            longitude=(
+                self.longitude_spinbox.value()
+            ),
+
+            tilt=(
+                self.tilt_spinbox.value()
+            ),
+
+            azimuth=(
+                self.azimuth_spinbox.value()
+            ),
+
+            reference_year=2023,
+
+            losses=(
+                self.system_losses_spinbox.value()
+            ),
+
+            pv_technology=(
+                self.pv_technology_combobox.currentData()
+            ),
+
+            mounting_place=(
+                self.mounting_place_combobox.currentData()
+            ),
+        )
+
+
+    def save_solar_configuration(self):
+
+        configuration = (
+            self.get_solar_configuration()
+        )
+
+        self.project.set_solar_configuration(
+            configuration
         )

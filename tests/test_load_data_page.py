@@ -6,6 +6,8 @@ from PySide6.QtWidgets import QApplication
 
 from helios.gui.widgets.load_data_page import LoadDataPage
 
+from helios.solar.configuration import SolarConfiguration
+
 
 class TestLoadDataPage:
 
@@ -225,3 +227,113 @@ class TestLoadDataPage:
         assert "03/01/2025" in text
         assert "99.43%" in text
         assert "EXCELENTE" in text
+
+        # ==================================================
+    # Configuración solar
+    # ==================================================
+
+    def test_get_solar_configuration(self):
+
+        self.page.peak_power_spinbox.setValue(8.10)
+
+        self.page.latitude_spinbox.setValue(
+            41.600000
+        )
+
+        self.page.longitude_spinbox.setValue(
+            2.100000
+        )
+
+        self.page.tilt_spinbox.setValue(30)
+
+        self.page.azimuth_spinbox.setValue(0)
+
+        self.page.system_losses_spinbox.setValue(
+            14.0
+        )
+
+        self.page.pv_technology_combobox.setCurrentIndex(
+            0
+        )
+
+        self.page.mounting_place_combobox.setCurrentIndex(
+            0
+        )
+
+        configuration = (
+            self.page.get_solar_configuration()
+        )
+
+        assert isinstance(
+            configuration,
+            SolarConfiguration
+        )
+
+        assert (
+            configuration.installed_power_kwp
+            == 8.10
+        )
+
+        assert configuration.latitude == 41.6
+
+        assert configuration.longitude == 2.1
+
+        assert configuration.tilt == 30
+
+        assert configuration.azimuth == 0
+
+        assert configuration.losses == 14.0
+
+        assert (
+            configuration.pv_technology
+            == "crystSi"
+        )
+
+        assert (
+            configuration.mounting_place
+            == "free"
+        )
+
+
+    def test_save_solar_configuration_delegates_to_project(self):
+
+        configuration = MagicMock()
+
+        self.page.get_solar_configuration = MagicMock(
+            return_value=configuration
+        )
+
+        self.page.save_solar_configuration()
+
+        self.project.set_solar_configuration.assert_called_once_with(
+            configuration
+        )
+
+
+    def test_save_solar_configuration_does_not_calculate(self):
+
+        configuration = MagicMock()
+
+        self.page.get_solar_configuration = MagicMock(
+            return_value=configuration
+        )
+
+        self.page.save_solar_configuration()
+
+        self.project.solar.calculate.assert_not_called()
+
+    def test_load_dataset_saves_solar_configuration(self):
+
+        self.page.path_edit.setText(
+            r"C:\datos\consumo.xlsx"
+        )
+
+        self.page.update_project_info = MagicMock()
+
+        self.page.save_solar_configuration = MagicMock()
+
+        self.page.load_dataset()
+
+        self.page.save_solar_configuration.assert_called_once_with()
+
+    

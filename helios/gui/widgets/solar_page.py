@@ -432,24 +432,24 @@ class SolarPage(QWidget):
 
     def calculate_production(self):
 
-        configuration = self.get_configuration()
-
-        self.project.solar.set_configuration(
-            configuration
+        configuration = (
+            self.project.solar_configuration
         )
 
-        print("========== AFTER SOLAR CALCULATION ==========")
-        print("project:", self.project)
-        print("solar:", self.project.solar)
-        print(
-            "solar.configuration:",
-            self.project.solar.configuration
-        )
-        print(
-            "engine.configuration:",
-            self.project.analyzer.solar_engine.configuration
-        )
-        print("============================================")
+        if configuration is None:
+
+            self.update_production_status(
+                source="PVGIS",
+                database="SARAH3",
+                reference_year=None,
+                last_update="-",
+                status="Configuración solar no disponible",
+                annual_production=None,
+                specific_production=None,
+                coverage=None,
+            )
+
+            return
 
         self.update_production_status(
             source="PVGIS",
@@ -473,6 +473,7 @@ class SolarPage(QWidget):
             self.set_results_available(True)
 
             if self.main_window is not None:
+
                 self.main_window.set_solar_calculated(
                     True
                 )
@@ -541,7 +542,11 @@ class SolarPage(QWidget):
 
             database="SARAH3",
 
-            reference_year=self.get_configuration().reference_year,
+            reference_year=(
+                self.project.solar_configuration.reference_year
+                if self.project.solar_configuration is not None
+                else None
+            ),
 
             last_update="Ahora",
 
@@ -995,7 +1000,7 @@ class SolarPage(QWidget):
         annual_production = balance["production_kwh"].sum()
 
         installed_power = (
-            self.get_configuration().installed_power_kwp
+            self.project.solar_configuration.installed_power_kwp
         )
 
         specific_production = (

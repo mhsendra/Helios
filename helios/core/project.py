@@ -2,6 +2,8 @@ from helios.core.analyzer import ConsumptionAnalyzer
 from helios.core.economics_configuration import EconomicsConfiguration
 from helios.core.tariffs_model import TariffPrices
 
+from helios.solar.configuration import SolarConfiguration
+
 
 class HeliosProject:
 
@@ -15,6 +17,8 @@ class HeliosProject:
         )
 
         self.tariff_prices = TariffPrices()
+
+        self.solar_configuration: SolarConfiguration | None = None
 
     # ==================================================
     # Controllers
@@ -59,6 +63,19 @@ class HeliosProject:
     @property
     def quality(self):
         return self.analyzer.quality
+
+    # ==================================================
+    # Configuración solar
+    # ==================================================
+
+    def set_solar_configuration(
+        self,
+        configuration: SolarConfiguration,
+    ):
+
+        self.solar_configuration = configuration
+
+        self.solar.set_configuration(configuration)
 
     # ==================================================
     # Carga y preparación de datos

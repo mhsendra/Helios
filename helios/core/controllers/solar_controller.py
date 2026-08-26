@@ -1,5 +1,7 @@
 # helios/core/controllers/solar_controller.py
 
+from helios.solar.configuration import SolarConfiguration
+
 from helios.solar.installation_coordinator import (
     InstallationCoordinator,
 )
@@ -20,7 +22,10 @@ from helios.solar.solar_installation_sizing import (
     SolarSizingResult,
 )
 
-from helios.solar.installation_configuration import InstallationConfiguration
+from helios.solar.installation_configuration import (
+    InstallationConfiguration,
+)
+
 
 class SolarController:
 
@@ -30,13 +35,24 @@ class SolarController:
 
         Encapsula cálculos, reportes, gráficas y
         dimensionamiento de instalaciones fotovoltaicas.
+
+        La configuración solar persistente pertenece a
+        HeliosProject.solar_configuration.
+
+        El SolarController únicamente sincroniza dicha
+        configuración con el motor solar para poder
+        realizar los cálculos.
         """
 
         self.analyzer = analyzer
 
-        # Resultado del último dimensionamiento
+        # Resultado del último dimensionamiento.
         self.sizing_result: SolarSizingResult | None = None
+
+        # Resultado de la instalación recomendada.
         self.installation_result = None
+
+        self.installation_configuration = None
 
     # ==================================================
     # Propiedades
@@ -67,7 +83,14 @@ class SolarController:
         return self.analyzer.solar_engine.energy_balance
 
     @property
-    def configuration(self):
+    def configuration(self) -> SolarConfiguration | None:
+        """
+        Devuelve la configuración solar actualmente
+        sincronizada con el motor solar.
+
+        La configuración persistente pertenece a
+        HeliosProject.solar_configuration.
+        """
         return self.analyzer.solar_engine.configuration
 
     @property
@@ -143,9 +166,13 @@ class SolarController:
         if annual is None:
             return None
 
-        configuration = (
-            self.analyzer.solar_engine.configuration
-        )
+        configuration = self.configuration
+
+        if configuration is None:
+            return None
+
+        if configuration.installed_power_kwp <= 0:
+            return None
 
         return (
             annual
@@ -163,13 +190,22 @@ class SolarController:
         return balance.resample("ME").sum()
 
     # ==================================================
-    # Configuración
+    # Configuración solar
     # ==================================================
 
     def set_configuration(
         self,
-        configuration,
+        configuration: SolarConfiguration,
     ):
+        """
+        Sincroniza una configuración solar con el motor.
+
+        La persistencia de la configuración pertenece a
+        HeliosProject.set_solar_configuration().
+
+        Este método no ejecuta ninguna simulación.
+        """
+
         self.analyzer.solar_engine.set_configuration(
             configuration
         )
@@ -180,11 +216,17 @@ class SolarController:
 
     def recommend_installation(
         self,
-        configuration,
+        configuration: InstallationConfiguration,
     ):
         """
-        Recomienda la instalación fotovoltaica óptima
-        utilizando la producción solar ya calculada.
+        Recomienda la instalación fotovoltaica óptima.
+
+        InstallationConfiguration representa las
+        restricciones físicas utilizadas por el
+        optimizador.
+
+        Esta configuración es independiente de
+        SolarConfiguration.
         """
 
         if not isinstance(
@@ -257,8 +299,28 @@ class SolarController:
 
     def calculate_hourly_production(
         self,
-        configuration,
+        configuration=None,
     ):
+        """
+        Calcula la producción solar horaria.
+
+        Si se proporciona una configuración, se sincroniza
+        con el motor antes del cálculo.
+
+        Si no se proporciona, utiliza la configuración
+        previamente sincronizada.
+        """
+
+        if configuration is not None:
+            self.set_configuration(configuration)
+
+        configuration = self.configuration
+
+        if configuration is None:
+            raise ValueError(
+                "A solar configuration is required "
+                "before calculating production."
+            )
 
         self.analyzer.solar_engine.calculate_hourly_production(
             configuration
@@ -290,12 +352,31 @@ class SolarController:
 
         self.analyzer.solar_engine.calculate_statistics()
 
-    def calculate(self, configuration):
+    def calculate(
+        self,
+        configuration=None,
+    ):
         """
-        Ejecuta todos los cálculos solares.
+        Ejecuta los cálculos solares.
+
+        Si se proporciona una configuración, se utiliza
+        directamente para el cálculo horario, manteniendo
+        compatibilidad con la API anterior.
+
+        La configuración persistente se establece mediante
+        HeliosProject.set_solar_configuration().
         """
 
-        self.calculate_hourly_production(
+        if configuration is None:
+            configuration = self.configuration
+
+        if configuration is None:
+            raise ValueError(
+                "A solar configuration is required "
+                "before calculating production."
+            )
+
+        self.analyzer.solar_engine.calculate_hourly_production(
             configuration
         )
 
@@ -315,15 +396,24 @@ class SolarController:
 
     def production_statistics_report(self):
 
-        self.analyzer.solar_engine.production_statistics_report()
+        return (
+            self.analyzer.solar_engine
+            .production_statistics_report()
+        )
 
     def monthly_production_report(self):
 
-        self.analyzer.solar_engine.monthly_production_report()
+        return (
+            self.analyzer.solar_engine
+            .monthly_production_report()
+        )
 
     def energy_balance_report(self):
 
-        self.analyzer.solar_engine.energy_balance_report()
+        return (
+            self.analyzer.solar_engine
+            .energy_balance_report()
+        )
 
     def reports(self):
         """
@@ -341,19 +431,30 @@ class SolarController:
     # ==================================================
 
     def reset(self):
+        """
+        Resetea los resultados solares.
+
+        No modifica la configuración persistente de
+        HeliosProject.
+        """
 
         self.sizing_result = None
+        self.installation_result = None
 
         self.analyzer.solar_engine.reset()
+
+    # ==================================================
+    # Utilidades de dimensionamiento
+    # ==================================================
 
     def _calculate_installation_production(
         self,
         candidate,
     ) -> float:
         """
-        Calcula la producción anual estimada de una instalación
-        candidata a partir de la producción específica solar
-        ya calculada.
+        Calcula la producción anual estimada de una
+        instalación candidata a partir de la producción
+        específica solar ya calculada.
         """
 
         specific_production = self.specific_production
@@ -373,4 +474,16 @@ class SolarController:
         return (
             candidate.installed_power_kwp
             * specific_production
+        )
+
+    def installation_simulation_report(self):
+        """
+        Genera el informe de simulación de la instalación
+        recomendada.
+        """
+
+        self.analyzer.solar_engine.installation_simulation_report(
+            configuration=self.installation_configuration,
+            recommendation=self.sizing_result,
+            specific_production=self.specific_production,
         )

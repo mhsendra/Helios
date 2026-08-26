@@ -923,6 +923,171 @@ class TestSolarConfigPage:
             is not None
         )
 
+        # ==================================================
+    # Installation simulation report
+    # ==================================================
+
+    def test_simulation_report_button_is_disabled_by_default(
+        self,
+        page,
+    ):
+
+        assert not (
+            page.simulation_report_button.isEnabled()
+        )
+
+    def test_simulation_report_button_is_enabled_after_success(
+        self,
+        page,
+        project,
+    ):
+
+        page.pvgis_service.get_specific_production = MagicMock(
+            return_value=1000.0
+        )
+
+        page.available_area_spinbox.setValue(
+            42.25
+        )
+
+        page.panel_width_spinbox.setValue(
+            1.134
+        )
+
+        page.panel_height_spinbox.setValue(
+            1.762
+        )
+
+        page.panel_power_spinbox.setValue(
+            540
+        )
+
+        page.min_panels_spinbox.setValue(
+            5
+        )
+
+        page.start_optimization()
+
+        assert (
+            project.solar.sizing_result
+            is not None
+        )
+
+        assert (
+            page.simulation_report_button.isEnabled()
+        )
+
+    # ==================================================
+    # Installation simulation report
+    # ==================================================
+
+    def test_generate_simulation_report_without_result(
+        self,
+        page,
+        project,
+    ):
+
+        project.solar.sizing_result = None
+
+        page.generate_simulation_report()
+
+        assert (
+            page.status_label.text()
+            == "No hay una simulación disponible."
+        )
+
+    def test_generate_simulation_report_delegates_to_solar(
+        self,
+        page,
+        project,
+    ):
+
+        recommendation = MagicMock()
+
+        project.solar.sizing_result = recommendation
+
+        project.solar.installation_simulation_report = (
+            MagicMock()
+        )
+
+        page.generate_simulation_report()
+
+        project.solar.installation_simulation_report.assert_called_once_with()
+
+        assert (
+            page.status_label.text()
+            == "Informe de simulación generado."
+        )
+
+    def test_generate_simulation_report_handles_error(
+        self,
+        page,
+        project,
+    ):
+
+        recommendation = MagicMock()
+
+        project.solar.sizing_result = recommendation
+        project.solar.specific_production = 1000.0
+
+        project.solar.installation_simulation_report = (
+            MagicMock(
+                side_effect=RuntimeError(
+                    "Report generation failed."
+                )
+            )
+        )
+
+        page.generate_simulation_report()
+
+        assert (
+            page.status_label.text()
+            == "Error al generar el informe: "
+            "Report generation failed."
+        )
+
+    def test_reset_disables_simulation_report_button(
+        self,
+        page,
+        project,
+    ):
+
+        page.pvgis_service.get_specific_production = MagicMock(
+            return_value=1000.0
+        )
+
+        page.available_area_spinbox.setValue(
+            42.25
+        )
+
+        page.panel_width_spinbox.setValue(
+            1.134
+        )
+
+        page.panel_height_spinbox.setValue(
+            1.762
+        )
+
+        page.panel_power_spinbox.setValue(
+            540
+        )
+
+        page.min_panels_spinbox.setValue(
+            5
+        )
+
+        page.start_optimization()
+
+        assert (
+            page.simulation_report_button.isEnabled()
+        )
+
+        page.reset()
+
+        assert not (
+            page.simulation_report_button.isEnabled()
+        )
+
     # ==================================================
     # Reset
     # ==================================================

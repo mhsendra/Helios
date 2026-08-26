@@ -306,6 +306,62 @@ class TestSolarManager:
 
             self.manager.monthly_production_report()
 
+    def test_installation_simulation_report(self):
+
+        configuration = MagicMock()
+        recommendation = MagicMock()
+        solar_configuration = MagicMock()
+        specific_production = 1500.0
+
+        self.manager.installation_simulation_report(
+            configuration=configuration,
+            recommendation=recommendation,
+            solar_configuration=solar_configuration,
+            specific_production=specific_production,
+        )
+
+        self.manager.reporter.installation_simulation.assert_called_once_with(
+            configuration=configuration,
+            recommendation=recommendation,
+            solar_configuration=solar_configuration,
+            specific_production=specific_production,
+        )
+
+    def test_installation_simulation_report_without_configuration(self):
+
+        recommendation = MagicMock()
+        solar_configuration = MagicMock()
+
+        with pytest.raises(
+            ValueError,
+            match="Installation configuration is not available."
+        ):
+
+            self.manager.installation_simulation_report(
+                configuration=None,
+                recommendation=recommendation,
+                solar_configuration=solar_configuration,
+                specific_production=1500.0,
+            )
+
+    def test_installation_simulation_report_without_recommendation(self):
+
+        configuration = MagicMock()
+        solar_configuration = MagicMock()
+
+        with pytest.raises(
+            ValueError,
+            match="Solar installation simulation "
+                "has not been calculated."
+        ):
+
+            self.manager.installation_simulation_report(
+                configuration=configuration,
+                recommendation=None,
+                solar_configuration=solar_configuration,
+                specific_production=1500.0,
+            )
+
     def test_second_calculation_invalidates_first_calculation(self):
     
             configuration_1 = MagicMock()
