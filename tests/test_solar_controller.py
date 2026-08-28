@@ -8,6 +8,8 @@ from helios.solar.installation_configuration import (
     InstallationConfiguration,
 )
 
+from helios.solar.configuration import SolarConfiguration
+
 from helios.core.controllers.solar_controller import SolarController
 
 from helios.solar.installation_constraints import (
@@ -62,29 +64,6 @@ class TestSolarController:
 
         assert self.controller.coverage is None
 
-    def test_annual_production(self):
-
-        self.analyzer.solar_engine.yearly_production = pd.Series(
-            [1000.0, 1200.0, 1500.0],
-            index=pd.to_datetime(
-                [
-                    "2023-12-31",
-                    "2024-12-31",
-                    "2025-12-31",
-                ]
-            )
-        )
-
-        assert self.controller.annual_production == pytest.approx(
-            1500.0
-        )
-
-    def test_annual_production_without_yearly_production(self):
-
-        self.analyzer.solar_engine.yearly_production = None
-
-        assert self.controller.annual_production is None
-
     def test_self_consumption_grid_import_and_export(self):
 
         self.analyzer.solar_engine.energy_balance = pd.DataFrame(
@@ -117,24 +96,25 @@ class TestSolarController:
 
     def test_specific_production(self):
 
-        self.analyzer.solar_engine.yearly_production = pd.Series(
-            [8100.0],
-            index=pd.to_datetime(
-                ["2025-12-31"]
-            )
+        self.analyzer.solar_engine.configuration = SolarConfiguration(
+            latitude=41.6,
+            longitude=2.1,
+            tilt=30,
+            azimuth=0,
         )
 
-        self.analyzer.solar_engine.configuration = MagicMock()
-
-        self.analyzer.solar_engine.configuration.installed_power_kwp = (
-            8.1
+        self.analyzer.solar_engine.yearly_production = pd.Series(
+            [1111.111111],
+            index=pd.to_datetime(
+                ["2025-12-31"]
+            ),
         )
 
         assert self.controller.specific_production == pytest.approx(
-            1000.0
+            1111.111111
         )
 
-    def test_specific_production_without_annual_production(self):
+    def test_specific_production_without_yearly_production(self):
 
         self.analyzer.solar_engine.yearly_production = None
 
@@ -235,15 +215,6 @@ class TestSolarController:
         self.analyzer.solar_engine.energy_balance = pd.DataFrame()
 
         assert self.controller.coverage is None
-
-
-    def test_annual_production_without_empty_yearly_production(self):
-
-        self.analyzer.solar_engine.yearly_production = pd.Series(
-            dtype=float
-        )
-
-        assert self.controller.annual_production is None
 
     # ==================================================
     # Cálculos
@@ -356,8 +327,8 @@ class TestSolarController:
 
     def _configure_solar_reference(self):
         """
-        Prepara una instalación solar de referencia
-        con producción específica conocida.
+        Prepara una referencia solar con una producción
+        específica conocida.
         """
 
         self.analyzer.valid_dataset.return_value = pd.DataFrame(
@@ -366,14 +337,15 @@ class TestSolarController:
             }
         )
 
-        self.analyzer.solar_engine.configuration = MagicMock()
-
-        self.analyzer.solar_engine.configuration.installed_power_kwp = (
-            5.4
+        self.analyzer.solar_engine.configuration = SolarConfiguration(
+            latitude=41.6,
+            longitude=2.1,
+            tilt=30,
+            azimuth=0,
         )
 
         self.analyzer.solar_engine.yearly_production = pd.Series(
-            [6_000.0],
+            [1111.111111],
             index=pd.to_datetime(
                 ["2025-12-31"]
             ),
@@ -745,10 +717,11 @@ class TestSolarController:
         self,
     ):
 
-        self.analyzer.solar_engine.configuration = MagicMock()
-
-        self.analyzer.solar_engine.configuration.installed_power_kwp = (
-            5.4
+        self.analyzer.solar_engine.configuration = SolarConfiguration(
+            latitude=41.6,
+            longitude=2.1,
+            tilt=30,
+            azimuth=0,
         )
 
         self.analyzer.solar_engine.yearly_production = None

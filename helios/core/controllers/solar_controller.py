@@ -113,9 +113,13 @@ class SolarController:
         return 100 * self_consumption / consumption
 
     @property
-    def annual_production(self) -> float | None:
+    def specific_production(self) -> float | None:
 
-        yearly = self.analyzer.solar_engine.yearly_production
+        yearly = (
+            self.analyzer
+            .solar_engine
+            .yearly_production
+        )
 
         if yearly is None or yearly.empty:
             return None
@@ -156,27 +160,6 @@ class SolarController:
 
         return float(
             balance["grid_export_kwh"].sum()
-        )
-
-    @property
-    def specific_production(self) -> float | None:
-
-        annual = self.annual_production
-
-        if annual is None:
-            return None
-
-        configuration = self.configuration
-
-        if configuration is None:
-            return None
-
-        if configuration.installed_power_kwp <= 0:
-            return None
-
-        return (
-            annual
-            / configuration.installed_power_kwp
         )
 
     @property

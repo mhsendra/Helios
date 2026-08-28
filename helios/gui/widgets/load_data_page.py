@@ -59,6 +59,22 @@ class LoadDataPage(QWidget):
             self.create_location_group()
         )
 
+        self.save_solar_button = QPushButton(
+            "Guardar configuración solar"
+        )
+
+        layout.addWidget(
+            self.save_solar_button
+        )
+
+        self.solar_configuration_status = QLabel(
+            "Configuración solar no guardada"
+        )
+
+        layout.addWidget(
+            self.solar_configuration_status
+)
+
         self.configure_solar_widgets()
 
         layout.addStretch()
@@ -69,6 +85,10 @@ class LoadDataPage(QWidget):
 
         self.load_button.clicked.connect(
             self.load_dataset
+        )
+
+        self.save_solar_button.clicked.connect(
+            self.save_solar_configuration
         )
 
     def browse_file(self):
@@ -102,8 +122,6 @@ class LoadDataPage(QWidget):
 
             self.project.analyze_data()
 
-            self.save_solar_configuration()
-
             # Un nuevo dataset invalida los resultados solares
             self.project.solar.reset()
 
@@ -112,9 +130,9 @@ class LoadDataPage(QWidget):
 
             self.update_project_info()
 
-            self.main_window.update_project_pages()
-
             self.main_window.set_project_loaded(True)
+
+            self.main_window.update_project_pages()
 
         except Exception as e:
 
@@ -177,17 +195,11 @@ class LoadDataPage(QWidget):
 
         layout = QFormLayout(group)
 
-        self.peak_power_spinbox = QDoubleSpinBox()
         self.pv_technology_combobox = QComboBox()
         self.system_losses_spinbox = QDoubleSpinBox()
         self.tilt_spinbox = QSpinBox()
         self.azimuth_spinbox = QSpinBox()
         self.mounting_place_combobox = QComboBox()
-
-        layout.addRow(
-            "Potencia instalada",
-            self.peak_power_spinbox
-        )
 
         layout.addRow(
             "Tecnología FV",
@@ -242,21 +254,6 @@ class LoadDataPage(QWidget):
 
 
     def configure_solar_widgets(self):
-
-        self.peak_power_spinbox.setRange(
-            0.10,
-            100.00
-        )
-
-        self.peak_power_spinbox.setDecimals(2)
-
-        self.peak_power_spinbox.setSingleStep(
-            0.10
-        )
-
-        self.peak_power_spinbox.setSuffix(
-            " kWp"
-        )
 
         self.pv_technology_combobox.addItem(
             "Silicio cristalino",
@@ -344,10 +341,6 @@ class LoadDataPage(QWidget):
 
         return SolarConfiguration(
 
-            installed_power_kwp=(
-                self.peak_power_spinbox.value()
-            ),
-
             latitude=(
                 self.latitude_spinbox.value()
             ),
@@ -389,3 +382,9 @@ class LoadDataPage(QWidget):
         self.project.set_solar_configuration(
             configuration
         )
+
+        self.solar_configuration_status.setText(
+            "Configuración solar guardada."
+        )
+
+        self.main_window.solar_config_page.update_data()

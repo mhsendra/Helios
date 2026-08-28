@@ -6,8 +6,7 @@ from helios.solar.statistics import SolarStatisticsEngine
 
 class Configuration:
 
-    installed_power_kwp = 2.0
-
+    pass
 
 class TestSolarStatisticsEngine:
 
@@ -98,7 +97,7 @@ class TestSolarStatisticsEngine:
         # Reference production
         # ------------------------------------------
 
-        assert result["annual_production"] == pytest.approx(
+        assert result["specific_production"] == pytest.approx(
             6.0
         )
 
@@ -131,15 +130,15 @@ class TestSolarStatisticsEngine:
         )
 
         assert result["equivalent_hours"] == pytest.approx(
-            3.0
+            6.0
         )
 
         assert result["specific_yield"] == pytest.approx(
-            3.0
+            6.0
         )
 
         assert result["capacity_factor"] == pytest.approx(
-            75.0
+            6.0 / 8760 * 100
         )
 
         # ------------------------------------------
@@ -318,7 +317,7 @@ class TestSolarStatisticsEngine:
 
         # La producción de referencia procede
         # directamente de hourly_production.
-        assert result["annual_production"] == pytest.approx(
+        assert result["specific_production"] == pytest.approx(
             3.0
         )
 

@@ -38,6 +38,10 @@ class MainWindow(QMainWindow):
 
         self.page_map = {}
 
+        self.project_loaded = False
+
+        self.solar_calculated = False
+
         self.configure_window()
 
         self.create_layout()
@@ -251,10 +255,13 @@ class MainWindow(QMainWindow):
 
     def set_project_loaded(self, loaded: bool):
 
+        self.project_loaded = loaded
+
         enabled_color = QColor("#FFFFFF")
         disabled_color = QColor("#808080")
 
         items = [
+            self.configuration_item,
             self.validation_item,
             self.statistics_item,
             self.profiles_item,
@@ -272,13 +279,19 @@ class MainWindow(QMainWindow):
 
             item.setForeground(
                 0,
-                enabled_color if loaded else disabled_color
+                enabled_color if loaded else disabled_color,
             )
 
-        # Economía requiere resultados solares válidos
+        # Cargar un nuevo dataset invalida
+        # cualquier cálculo solar anterior.
         self.set_solar_calculated(False)
 
     def set_solar_calculated(self, calculated: bool):
+
+        if calculated and not self.project_loaded:
+            calculated = False
+
+        self.solar_calculated = calculated
 
         enabled_color = QColor("#FFFFFF")
         disabled_color = QColor("#808080")
@@ -289,7 +302,7 @@ class MainWindow(QMainWindow):
 
         self.economics_item.setForeground(
             0,
-            enabled_color if calculated else disabled_color
+            enabled_color if calculated else disabled_color,
         )
         
     # ==================================================
@@ -311,14 +324,17 @@ class MainWindow(QMainWindow):
         if item.isDisabled():
             return
 
-        page = self.page_map.get(item.text(0))
+        page = self.page_map.get(
+            item.text(0)
+        )
 
-        if page is not None:
+        if page is None:
+            return
 
-            if page is self.solar_config_page:
-                self.solar_config_page.update_data()
+        if page is self.solar_config_page:
+            self.solar_config_page.update_data()
 
-            self.pages.setCurrentWidget(page)
+        self.pages.setCurrentWidget(page)
 
     def update_project_pages(self):
 

@@ -87,8 +87,6 @@ class TestSolarPage:
 
     def test_get_configuration(self):
 
-        self.page.peak_power_spinbox.setValue(8.10)
-
         self.page.latitude_spinbox.setValue(41.3851)
 
         self.page.longitude_spinbox.setValue(2.1734)
@@ -104,8 +102,6 @@ class TestSolarPage:
         self.page.mounting_place_combobox.setCurrentIndex(0)
 
         configuration = self.page.get_configuration()
-
-        assert configuration.installed_power_kwp == 8.10
 
         assert configuration.latitude == 41.3851
 
@@ -443,7 +439,6 @@ class TestSolarPage:
     def test_update_statistics(self):
 
         self.project.solar_configuration = SolarConfiguration(
-            installed_power_kwp=8.0,
             latitude=41.6,
             longitude=2.1,
             tilt=30,
@@ -454,17 +449,21 @@ class TestSolarPage:
             mounting_place="free",
         )
 
-        self.project.solar.energy_balance = pd.DataFrame(
-            {
-                "consumption_kwh": [500.0, 500.0],
-                "production_kwh": [4000.0, 4000.0],
-                "self_consumption_kwh": [300.0, 300.0],
-                "grid_import_kwh": [200.0, 200.0],
-                "grid_export_kwh": [3700.0, 3700.0],
-            }
-        )
-
-        self.project.solar.coverage = 60.0
+        self.project.solar.statistics = {
+            "annual_production": 8000.0,
+            "specific_yield": 1000.0,
+            "equivalent_hours": 1000.0,
+            "capacity_factor": 11.4,
+            "coverage_ratio": 60.0,
+            "self_consumption_ratio": 7.5,
+            "self_sufficiency": 60.0,
+            "import_ratio": 40.0,
+            "surplus_ratio": 92.5,
+            "self_consumption": 600.0,
+            "consumption": 1000.0,
+            "grid_import": 400.0,
+            "grid_export": 7400.0,
+        }
 
         self.page.update_statistics()
 
@@ -525,7 +524,7 @@ class TestSolarPage:
 
     def test_update_statistics_without_balance(self):
 
-        self.project.solar.energy_balance = None
+        self.project.solar.statistics = None
 
         self.page.update_statistics()
 
@@ -657,7 +656,6 @@ class TestSolarPage:
     def test_refresh_production_results(self):
 
         self.project.solar_configuration = SolarConfiguration(
-            installed_power_kwp=8.0,
             latitude=41.6,
             longitude=2.1,
             tilt=30,
@@ -667,6 +665,22 @@ class TestSolarPage:
             pv_technology="crystSi",
             mounting_place="free",
         )
+
+        self.project.solar.statistics = {
+            "annual_production": 12000.0,
+            "specific_yield": 1500.0,
+            "equivalent_hours": 1500.0,
+            "capacity_factor": 17.12,
+            "coverage_ratio": 65.0,
+            "self_consumption_ratio": 80.0,
+            "self_sufficiency": 80.0,
+            "import_ratio": 20.0,
+            "surplus_ratio": 92.0,
+            "self_consumption": 80.0,
+            "consumption": 100.0,
+            "grid_import": 20.0,
+            "grid_export": 920.0,
+        }
 
         self.project.solar.annual_production = 12000.0
         self.project.solar.specific_production = 1500.0
@@ -736,7 +750,6 @@ class TestSolarPage:
     ):
 
         configuration = SolarConfiguration(
-            installed_power_kwp=8.10,
             latitude=41.6,
             longitude=2.1,
             tilt=30,
@@ -768,7 +781,6 @@ class TestSolarPage:
     ):
 
         configuration = SolarConfiguration(
-            installed_power_kwp=8.10,
             latitude=41.6,
             longitude=2.1,
             tilt=30,

@@ -6,16 +6,13 @@ from helios.solar.configuration import SolarConfiguration
 class PVGISProductionService:
     """
     Servicio de alto nivel para obtener producción
-    fotovoltaica a partir de PVGIS.
+    fotovoltaica específica a partir de PVGIS.
 
-    Encapsula:
-        PVGISClient
-            ↓
-        PVGISParser
-            ↓
-        producción anual
-            ↓
-        producción específica
+    PVGIS se consulta con una potencia de referencia
+    de 1 kWp, por lo que la producción obtenida
+    representa directamente:
+
+        kWh / kWp / año
     """
 
     def __init__(
@@ -36,13 +33,17 @@ class PVGISProductionService:
             else PVGISParser()
         )
 
-    def get_annual_production(
+    def get_specific_production(
         self,
         configuration: SolarConfiguration,
     ) -> float:
         """
-        Obtiene la producción anual estimada por PVGIS
-        para la potencia indicada en la configuración.
+        Devuelve la producción específica estimada por PVGIS:
+
+            kWh / kWp / año
+
+        La consulta a PVGIS utiliza una potencia de
+        referencia de 1 kWp.
         """
 
         if not isinstance(
@@ -51,11 +52,6 @@ class PVGISProductionService:
         ):
             raise TypeError(
                 "configuration must be a SolarConfiguration."
-            )
-
-        if configuration.installed_power_kwp <= 0:
-            raise ValueError(
-                "installed_power_kwp must be greater than zero."
             )
 
         response = self.client.fetch(
@@ -71,34 +67,13 @@ class PVGISProductionService:
                 "PVGIS returned no production data."
             )
 
-        production = float(
+        specific_production = float(
             dataframe["production_kwh"].sum()
         )
 
-        if production < 0:
+        if specific_production < 0:
             raise ValueError(
-                "PVGIS annual production cannot be negative."
+                "PVGIS specific production cannot be negative."
             )
 
-        return production
-
-    def get_specific_production(
-        self,
-        configuration: SolarConfiguration,
-    ) -> float:
-        """
-        Devuelve la producción específica:
-
-            kWh / kWp / año
-        """
-
-        annual_production = (
-            self.get_annual_production(
-                configuration
-            )
-        )
-
-        return (
-            annual_production
-            / configuration.installed_power_kwp
-        )
+        return specific_production

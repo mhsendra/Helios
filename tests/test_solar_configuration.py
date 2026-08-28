@@ -8,14 +8,12 @@ class TestSolarConfiguration:
     def test_required_parameters(self):
 
         configuration = SolarConfiguration(
-            installed_power_kwp=8.1,
             latitude=41.4,
             longitude=2.1,
             tilt=30,
             azimuth=0,
         )
 
-        assert configuration.installed_power_kwp == pytest.approx(8.1)
         assert configuration.latitude == pytest.approx(41.4)
         assert configuration.longitude == pytest.approx(2.1)
         assert configuration.tilt == 30
@@ -24,7 +22,6 @@ class TestSolarConfiguration:
     def test_default_values(self):
 
         configuration = SolarConfiguration(
-            installed_power_kwp=8.1,
             latitude=41.4,
             longitude=2.1,
             tilt=30,
@@ -39,7 +36,6 @@ class TestSolarConfiguration:
     def test_custom_values(self):
 
         configuration = SolarConfiguration(
-            installed_power_kwp=8.1,
             latitude=41.4,
             longitude=2.1,
             tilt=25,
@@ -49,6 +45,11 @@ class TestSolarConfiguration:
             pv_technology="crystSi",
             mounting_place="free",
         )
+
+        assert configuration.latitude == pytest.approx(41.4)
+        assert configuration.longitude == pytest.approx(2.1)
+        assert configuration.tilt == 25
+        assert configuration.azimuth == -10
 
         assert configuration.reference_year == 2025
         assert configuration.losses == pytest.approx(12.5)

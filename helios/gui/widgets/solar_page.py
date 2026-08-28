@@ -430,6 +430,28 @@ class SolarPage(QWidget):
         #    self.calculate_production
         #)
 
+    def get_simulation_configuration(self) -> SolarConfiguration:
+
+        configuration = self.project.solar_configuration
+
+        if configuration is None:
+            raise ValueError(
+                "Solar configuration is required "
+                "before calculating production."
+            )
+
+        return SolarConfiguration(
+            
+            latitude=configuration.latitude,
+            longitude=configuration.longitude,
+            tilt=configuration.tilt,
+            azimuth=configuration.azimuth,
+            reference_year=configuration.reference_year,
+            losses=configuration.losses,
+            pv_technology=configuration.pv_technology,
+            mounting_place=configuration.mounting_place,
+        )
+
     def calculate_production(self):
 
         configuration = (
@@ -496,10 +518,6 @@ class SolarPage(QWidget):
     def get_configuration(self) -> SolarConfiguration:
 
         return SolarConfiguration(
-
-            installed_power_kwp=(
-                self.peak_power_spinbox.value()
-            ),
 
             latitude=(
                 self.latitude_spinbox.value()
@@ -973,119 +991,79 @@ class SolarPage(QWidget):
 
         solar = self.project.solar
 
-        if (
-            solar.energy_balance is None
-            or solar.energy_balance.empty
-        ):
+        statistics = solar.statistics
 
-            self.stats_annual_production_label.setText("-")
-            self.stats_specific_production_label.setText("-")
-            self.stats_equivalent_hours_label.setText("-")
-            self.stats_capacity_factor_label.setText("-")
+        if statistics is None:
 
-            self.stats_coverage_label.setText("-")
-            self.stats_self_consumption_ratio_label.setText("-")
-            self.stats_self_sufficiency_ratio_label.setText("-")
+            labels = [
+                self.stats_annual_production_label,
+                self.stats_specific_production_label,
+                self.stats_equivalent_hours_label,
+                self.stats_capacity_factor_label,
+                self.stats_coverage_label,
+                self.stats_self_consumption_ratio_label,
+                self.stats_self_sufficiency_ratio_label,
+                self.stats_import_label,
+                self.stats_export_label,
+                self.stats_self_consumption_label,
+                self.stats_total_consumption_label,
+            ]
 
-            self.stats_import_label.setText("-")
-            self.stats_export_label.setText("-")
-
-            self.stats_self_consumption_label.setText("-")
-            self.stats_total_consumption_label.setText("-")
+            for label in labels:
+                label.setText("-")
 
             return
 
-        balance = solar.energy_balance
-
-        annual_production = balance["production_kwh"].sum()
-
-        installed_power = (
-            self.project.solar_configuration.installed_power_kwp
-        )
-
-        specific_production = (
-            annual_production
-            / installed_power
-        )
-
-        equivalent_hours = specific_production
-
-        capacity_factor = (
-            equivalent_hours
-            / 8760
-            * 100
-        )
-
-        total_consumption = (
-            balance["consumption_kwh"].sum()
-        )
-
-        self_consumption = (
-            balance["self_consumption_kwh"].sum()
-        )
-
-        grid_import = (
-            balance["grid_import_kwh"].sum()
-        )
-
-        grid_export = (
-            balance["grid_export_kwh"].sum()
-        )
-
-        self_consumption_ratio = (
-            self_consumption
-            / annual_production
-            * 100
-        )
-
-        self_sufficiency_ratio = (
-            self_consumption
-            / total_consumption
-            * 100
-        )
+        # ==========================================
+        # Producción
+        # ==========================================
 
         self.stats_annual_production_label.setText(
-            f"{annual_production:,.2f} kWh"
+            f"{statistics['annual_production']:,.2f} kWh"
         )
 
         self.stats_specific_production_label.setText(
-            f"{specific_production:,.2f} kWh/kWp"
+            f"{statistics['specific_yield']:,.2f} kWh/kWp"
         )
 
         self.stats_equivalent_hours_label.setText(
-            f"{equivalent_hours:,.0f} h"
+            f"{statistics['equivalent_hours']:,.0f} h"
         )
 
         self.stats_capacity_factor_label.setText(
-            f"{capacity_factor:.1f} %"
+            f"{statistics['capacity_factor']:.1f} %"
         )
 
+        # ==========================================
+        # Balance energético
+        # ==========================================
+
         self.stats_coverage_label.setText(
-            f"{solar.coverage:.1f} %"
+            f"{statistics['coverage_ratio']:.1f} %"
         )
 
         self.stats_self_consumption_ratio_label.setText(
-            f"{self_consumption_ratio:.1f} %"
+            f"{statistics['self_consumption_ratio']:.1f} %"
         )
 
         self.stats_self_sufficiency_ratio_label.setText(
-            f"{self_sufficiency_ratio:.1f} %"
+            f"{statistics['self_sufficiency']:.1f} %"
         )
 
         self.stats_import_label.setText(
-            f"{grid_import:,.2f} kWh"
+            f"{statistics['grid_import']:,.2f} kWh"
         )
 
         self.stats_export_label.setText(
-            f"{grid_export:,.2f} kWh"
+            f"{statistics['grid_export']:,.2f} kWh"
         )
 
         self.stats_self_consumption_label.setText(
-            f"{self_consumption:,.2f} kWh"
+            f"{statistics['self_consumption']:,.2f} kWh"
         )
 
         self.stats_total_consumption_label.setText(
-            f"{total_consumption:,.2f} kWh"
+            f"{statistics['consumption']:,.2f} kWh"
         )
 
     def reset_results(self):

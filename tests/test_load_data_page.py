@@ -2,6 +2,8 @@ from unittest.mock import MagicMock, patch
 
 import pandas as pd
 
+import pytest
+
 from PySide6.QtWidgets import QApplication
 
 from helios.gui.widgets.load_data_page import LoadDataPage
@@ -228,71 +230,57 @@ class TestLoadDataPage:
         assert "99.43%" in text
         assert "EXCELENTE" in text
 
-        # ==================================================
+    # ==================================================
     # Configuración solar
     # ==================================================
 
     def test_get_solar_configuration(self):
 
-        self.page.peak_power_spinbox.setValue(8.10)
-
-        self.page.latitude_spinbox.setValue(
-            41.600000
-        )
-
-        self.page.longitude_spinbox.setValue(
-            2.100000
-        )
+        self.page.latitude_spinbox.setValue(41.6167)
+        self.page.longitude_spinbox.setValue(2.0833)
 
         self.page.tilt_spinbox.setValue(30)
-
         self.page.azimuth_spinbox.setValue(0)
 
-        self.page.system_losses_spinbox.setValue(
-            14.0
-        )
+        self.page.system_losses_spinbox.setValue(14.0)
 
         self.page.pv_technology_combobox.setCurrentIndex(
-            0
+            self.page.pv_technology_combobox.findData(
+                "crystSi"
+            )
         )
 
         self.page.mounting_place_combobox.setCurrentIndex(
-            0
+            self.page.mounting_place_combobox.findData(
+                "building"
+            )
         )
 
         configuration = (
             self.page.get_solar_configuration()
         )
 
-        assert isinstance(
-            configuration,
-            SolarConfiguration
+        assert configuration.latitude == pytest.approx(
+            41.6167
         )
 
-        assert (
-            configuration.installed_power_kwp
-            == 8.10
+        assert configuration.longitude == pytest.approx(
+            2.0833
         )
-
-        assert configuration.latitude == 41.6
-
-        assert configuration.longitude == 2.1
 
         assert configuration.tilt == 30
 
         assert configuration.azimuth == 0
 
-        assert configuration.losses == 14.0
+        assert configuration.reference_year == 2023
 
-        assert (
-            configuration.pv_technology
-            == "crystSi"
+        assert configuration.losses == pytest.approx(
+            14.0
         )
 
-        assert (
-            configuration.mounting_place
-            == "free"
-        )
+        assert configuration.pv_technology == "crystSi"
+
+        assert configuration.mounting_place == "building"
 
 
     def test_save_solar_configuration_delegates_to_project(self):
@@ -322,18 +310,44 @@ class TestLoadDataPage:
 
         self.project.solar.calculate.assert_not_called()
 
-    def test_load_dataset_saves_solar_configuration(self):
+    def test_save_solar_configuration(
+        self,
+    ):
 
-        self.page.path_edit.setText(
-            r"C:\datos\consumo.xlsx"
+        configuration = SolarConfiguration(
+            latitude=41.6167,
+            longitude=2.0833,
+            tilt=30,
+            azimuth=0,
+            reference_year=2023,
+            losses=14.0,
+            pv_technology="crystSi",
+            mounting_place="building",
         )
 
-        self.page.update_project_info = MagicMock()
+        self.page.get_solar_configuration = (
+            MagicMock(
+                return_value=configuration
+            )
+        )
 
-        self.page.save_solar_configuration = MagicMock()
+        self.page.project.set_solar_configuration = (
+            MagicMock()
+        )
 
-        self.page.load_dataset()
+        self.page.main_window.solar_config_page.update_data = (
+            MagicMock()
+        )
 
-        self.page.save_solar_configuration.assert_called_once_with()
+        self.page.save_solar_configuration()
 
-    
+        self.page.project.set_solar_configuration.assert_called_once_with(
+            configuration
+        )
+
+        self.page.main_window.solar_config_page.update_data.assert_called_once_with()
+
+        assert (
+            self.page.solar_configuration_status.text()
+            == "Configuración solar guardada."
+        )

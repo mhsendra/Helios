@@ -257,6 +257,20 @@ class TestMainWindow:
 
         self.window.set_project_loaded(True)
 
+        for item in [
+            self.window.configuration_item,
+            self.window.validation_item,
+            self.window.statistics_item,
+            self.window.profiles_item,
+            self.window.comparisons_item,
+            self.window.indicators_item,
+            self.window.tariffs_item,
+            self.window.solar_item,
+            self.window.reports_item,
+            self.window.charts_item,
+        ]:
+            print(item.text(0), item.isDisabled())
+
         items = [
             self.window.validation_item,
             self.window.statistics_item,
@@ -327,7 +341,9 @@ class TestMainWindow:
             is current_page
         )
 
-    def test_change_page_changes_to_solar_configuration_page(self):
+    def test_change_page_does_not_change_to_solar_configuration_page_when_project_is_not_loaded(
+        self,
+    ):
 
         self.window.change_page(
             self.window.configuration_item
@@ -335,9 +351,9 @@ class TestMainWindow:
 
         assert (
             self.window.pages.currentWidget()
-            is self.window.solar_config_page
+            is self.window.home_page
         )
-
+        
     def test_change_page_changes_to_economics_page_after_solar_calculation(
         self,
     ):
@@ -355,20 +371,14 @@ class TestMainWindow:
             is self.window.economics_page
         )
 
-    def test_solar_configuration_page_is_accessible_when_project_is_not_loaded(
+    def test_solar_configuration_page_is_disabled_when_project_is_not_loaded(
         self,
     ):
 
-        assert not self.window.configuration_item.isDisabled()
-
-        self.window.change_page(
-            self.window.configuration_item
-        )
-
         assert (
-            self.window.pages.currentWidget()
-            is self.window.solar_config_page
+            self.window.configuration_item.isDisabled()
         )
+    
     # ==================================================
     # Actualización de páginas
     # ==================================================
@@ -431,4 +441,19 @@ class TestMainWindow:
         assert (
             self.window.solar_page.project
             is self.window.project
+        )
+
+    def test_change_page_changes_to_solar_configuration_page_when_project_is_loaded(
+        self,
+    ):
+
+        self.window.set_project_loaded(True)
+
+        self.window.change_page(
+            self.window.configuration_item
+        )
+
+        assert (
+            self.window.pages.currentWidget()
+            is self.window.solar_config_page
         )

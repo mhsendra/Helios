@@ -2,6 +2,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
+import pandas as pd
+
 from helios.solar.manager import SolarManager
 
 
@@ -325,6 +327,38 @@ class TestSolarManager:
             recommendation=recommendation,
             solar_configuration=solar_configuration,
             specific_production=specific_production,
+        )
+
+    def test_installation_simulation_report_calculates_specific_production(
+        self,
+    ):
+
+        configuration = MagicMock()
+        recommendation = MagicMock()
+        solar_configuration = MagicMock()
+
+        recommendation.installed_power_kwp = 5.4
+
+        self.manager.yearly_production = pd.Series(
+            [1111.111111],
+            index=pd.to_datetime(
+                ["2025-12-31"]
+            ),
+        )
+
+        self.manager.installation_simulation_report(
+            configuration=configuration,
+            recommendation=recommendation,
+            solar_configuration=solar_configuration,
+        )
+
+        self.manager.reporter.installation_simulation.assert_called_once_with(
+            configuration=configuration,
+            recommendation=recommendation,
+            solar_configuration=solar_configuration,
+            specific_production=pytest.approx(
+                1111.111111 / 5.4
+            ),
         )
 
     def test_installation_simulation_report_without_configuration(self):

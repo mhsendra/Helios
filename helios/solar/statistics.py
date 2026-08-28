@@ -9,24 +9,28 @@ class SolarStatisticsEngine:
     def calculate(
         hourly_production: pd.DataFrame,
         energy_balance: pd.DataFrame,
-        configuration: SolarConfiguration
+        configuration: SolarConfiguration,
     ) -> dict:
 
         # ==========================================
         # Balance energético del periodo analizado
         # ==========================================
 
-        balance = energy_balance
-
-        valid_balance = balance.dropna(
+        valid_balance = energy_balance.dropna(
             subset=["consumption_kwh"]
         )
 
         # ==========================================
-        # Producción anual de referencia (PVGIS)
+        # Producción anual específica de referencia
         # ==========================================
 
-        reference_production = (
+        # PVGIS se consulta con peakpower=1.0.
+        #
+        # Por tanto, la producción anual obtenida
+        # representa directamente la producción
+        # específica en kWh/kWp/año.
+
+        specific_production = (
             hourly_production["production_kwh"]
             .sum()
         )
@@ -58,10 +62,6 @@ class SolarStatisticsEngine:
         # Producción fotovoltaica
         # ==========================================
 
-        installed_power = (
-            configuration.installed_power_kwp
-        )
-
         productive_hours = (
             production > 0
         ).sum()
@@ -75,31 +75,26 @@ class SolarStatisticsEngine:
         )
 
         daily_average = (
-            period_production /
-            number_of_days
+            period_production
+            / number_of_days
         )
 
         monthly_average = (
-            period_production /
-            number_of_months
+            period_production
+            / number_of_months
         )
 
-        equivalent_hours = (
-            period_production /
-            installed_power
-        )
+        # Para una instalación de referencia de
+        # 1 kWp, la producción anual específica es
+        # numéricamente equivalente a las horas
+        # equivalentes anuales.
 
-        specific_yield = (
-            period_production /
-            installed_power
-        )
+        equivalent_hours = specific_production
+
+        specific_yield = specific_production
 
         capacity_factor = (
-            period_production /
-            (
-                installed_power *
-                len(valid_balance)
-            )
+            specific_production / 8760
         ) * 100
 
         maximum_power = (
@@ -140,13 +135,13 @@ class SolarStatisticsEngine:
         if period_production > 0:
 
             self_consumption_ratio = (
-                self_consumption /
-                period_production
+                self_consumption
+                / period_production
             ) * 100
 
             surplus_ratio = (
-                grid_export /
-                period_production
+                grid_export
+                / period_production
             ) * 100
 
         else:
@@ -154,22 +149,21 @@ class SolarStatisticsEngine:
             self_consumption_ratio = 0.0
             surplus_ratio = 0.0
 
-
         if consumption > 0:
 
             self_sufficiency = (
-                self_consumption /
-                consumption
+                self_consumption
+                / consumption
             ) * 100
 
             coverage_ratio = (
-                period_production /
-                consumption
+                period_production
+                / consumption
             ) * 100
 
             import_ratio = (
-                grid_import /
-                consumption
+                grid_import
+                / consumption
             ) * 100
 
         else:
@@ -190,9 +184,13 @@ class SolarStatisticsEngine:
 
             "zero_production_hours": zero_production_hours,
 
+            # Producción correspondiente al periodo
+            # cubierto por los datos de consumo.
             "period_production": period_production,
 
-            "annual_production": reference_production,
+            # Producción anual específica de referencia
+            # expresada en kWh/kWp/año.
+            "specific_production": specific_production,
 
             "daily_average": daily_average,
 
@@ -226,7 +224,7 @@ class SolarStatisticsEngine:
 
             "surplus_ratio": surplus_ratio,
 
-            "import_ratio": import_ratio
+            "import_ratio": import_ratio,
 
         }
 

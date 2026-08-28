@@ -210,20 +210,20 @@ class SolarManager:
 
         if specific_production is None:
 
-            if (
-                solar_configuration is not None
-                and solar_configuration.installed_power_kwp > 0
-                and self.yearly_production is not None
-            ):
-
-                annual_production = float(
-                    self.yearly_production.iloc[-1]
+            if self.yearly_production is None:
+                raise RuntimeError(
+                    "Yearly production has not been calculated."
                 )
 
-                specific_production = (
-                    annual_production
-                    / solar_configuration.installed_power_kwp
+            if recommendation.installed_power_kwp <= 0:
+                raise ValueError(
+                    "Installed power must be greater than zero."
                 )
+
+            specific_production = (
+                self.yearly_production.sum()
+                / recommendation.installed_power_kwp
+            )
 
         return self.reporter.installation_simulation(
             configuration=configuration,
@@ -234,16 +234,11 @@ class SolarManager:
 
     def reset(self):
 
-        print("!!!!!!!! SOLAR MANAGER RESET !!!!!!!")
-        print("configuration BEFORE RESET:", self.configuration)
-
         self.configuration = None
-
         self.hourly_production = None
         self.daily_production = None
         self.monthly_production = None
         self.yearly_production = None
-
         self.energy_balance = None
         self.statistics = None
 

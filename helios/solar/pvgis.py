@@ -58,7 +58,7 @@ class PVGISClient:
 
             "pvcalculation": 1,
 
-            "peakpower": configuration.installed_power_kwp,
+            "peakpower": 1.0,
 
             "loss": configuration.losses,
 

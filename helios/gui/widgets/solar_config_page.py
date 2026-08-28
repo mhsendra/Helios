@@ -1628,12 +1628,7 @@ class SolarConfigPage(QWidget):
 
     def load_solar_basis(self):
 
-        configuration = (
-            self.project
-            .analyzer
-            .solar_engine
-            .configuration
-        )
+        configuration = self.project.solar_configuration
 
         if configuration is None:
 
@@ -1793,33 +1788,24 @@ class SolarConfigPage(QWidget):
     def get_pvgis_configuration(
         self,
     ) -> SolarConfiguration:
+        """
+        Devuelve una configuración solar específica para
+        la consulta de producción a PVGIS.
 
-        configuration = (
-            self.project
-            .analyzer
-            .solar_engine
-            .configuration
-        )
+        PVGIS utiliza una potencia de referencia de 1 kWp,
+        pero dicha potencia no forma parte de SolarConfiguration.
+        La potencia instalada real se determina posteriormente
+        durante el dimensionado de la instalación.
+        """
+
+        configuration = self.project.solar_configuration
 
         if configuration is None:
-
             raise ValueError(
                 "La configuración solar no está disponible."
             )
 
-        panel_power_kwp = (
-            self.panel_power_spinbox.value()
-            / 1000.0
-        )
-
-        if panel_power_kwp <= 0:
-
-            raise ValueError(
-                "La potencia del panel debe ser mayor que cero."
-            )
-
         return SolarConfiguration(
-            installed_power_kwp=panel_power_kwp,
             latitude=configuration.latitude,
             longitude=configuration.longitude,
             tilt=configuration.tilt,
@@ -1875,12 +1861,7 @@ class SolarConfigPage(QWidget):
         result,
     ):
 
-        configuration = (
-            self.project
-            .analyzer
-            .solar_engine
-            .configuration
-        )
+        configuration = self.project.solar_configuration
 
         # ==================================================
         # Datos básicos

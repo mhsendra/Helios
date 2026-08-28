@@ -1,5 +1,4 @@
 import pytest
-
 import pandas as pd
 
 from unittest.mock import MagicMock
@@ -17,12 +16,8 @@ class TestPVGISProductionService:
     # ==================================================
 
     @staticmethod
-    def configuration(
-        installed_power_kwp=0.540,
-    ):
-
+    def configuration():
         return SolarConfiguration(
-            installed_power_kwp=installed_power_kwp,
             latitude=41.6167,
             longitude=2.0833,
             tilt=30,
@@ -31,7 +26,6 @@ class TestPVGISProductionService:
 
     @staticmethod
     def response():
-
         return {
             "outputs": {
                 "hourly": []
@@ -40,7 +34,6 @@ class TestPVGISProductionService:
 
     @staticmethod
     def dataframe():
-
         return pd.DataFrame(
             {
                 "production_kwh": [
@@ -57,7 +50,6 @@ class TestPVGISProductionService:
         client=None,
         parser=None,
     ):
-
         return PVGISProductionService(
             client=client,
             parser=parser,
@@ -88,10 +80,41 @@ class TestPVGISProductionService:
         assert service.parser is parser
 
     # ==================================================
-    # Annual production
+    # Configuration validation
     # ==================================================
 
-    def test_get_annual_production_returns_sum_of_production(
+    @pytest.mark.parametrize(
+        "configuration",
+        [
+            None,
+            object(),
+            "configuration",
+            123,
+        ],
+    )
+    def test_get_specific_production_rejects_invalid_configuration(
+        self,
+        configuration,
+    ):
+
+        service = self.service(
+            client=MagicMock(),
+            parser=MagicMock(),
+        )
+
+        with pytest.raises(
+            TypeError,
+            match="configuration must be a SolarConfiguration.",
+        ):
+            service.get_specific_production(
+                configuration
+            )
+
+    # ==================================================
+    # Specific production
+    # ==================================================
+
+    def test_get_specific_production_returns_sum_of_production(
         self,
     ):
 
@@ -108,11 +131,12 @@ class TestPVGISProductionService:
 
         configuration = self.configuration()
 
-        result = service.get_annual_production(
+        result = service.get_specific_production(
             configuration
         )
 
         assert result == pytest.approx(10.0)
+        assert isinstance(result, float)
 
         client.fetch.assert_called_once_with(
             configuration
@@ -122,7 +146,7 @@ class TestPVGISProductionService:
             client.fetch.return_value
         )
 
-    def test_get_annual_production_accepts_integer_values(
+    def test_get_specific_production_accepts_integer_values(
         self,
     ):
 
@@ -146,75 +170,14 @@ class TestPVGISProductionService:
             parser=parser,
         )
 
-        result = service.get_annual_production(
+        result = service.get_specific_production(
             self.configuration()
         )
 
         assert result == 600.0
         assert isinstance(result, float)
 
-    # ==================================================
-    # Configuration validation
-    # ==================================================
-
-    @pytest.mark.parametrize(
-        "configuration",
-        [
-            None,
-            object(),
-            "configuration",
-            123,
-        ],
-    )
-    def test_get_annual_production_rejects_invalid_configuration(
-        self,
-        configuration,
-    ):
-
-        service = self.service(
-            client=MagicMock(),
-            parser=MagicMock(),
-        )
-
-        with pytest.raises(TypeError):
-
-            service.get_annual_production(
-                configuration
-            )
-
-    @pytest.mark.parametrize(
-        "power",
-        [
-            0,
-            -1,
-            -0.540,
-        ],
-    )
-    def test_get_annual_production_rejects_non_positive_power(
-        self,
-        power,
-    ):
-
-        service = self.service(
-            client=MagicMock(),
-            parser=MagicMock(),
-        )
-
-        configuration = self.configuration(
-            installed_power_kwp=power
-        )
-
-        with pytest.raises(ValueError):
-
-            service.get_annual_production(
-                configuration
-            )
-
-    # ==================================================
-    # PVGIS response validation
-    # ==================================================
-
-    def test_get_annual_production_rejects_empty_dataframe(
+    def test_get_specific_production_rejects_empty_dataframe(
         self,
     ):
 
@@ -222,7 +185,6 @@ class TestPVGISProductionService:
         parser = MagicMock()
 
         client.fetch.return_value = self.response()
-
         parser.parse.return_value = pd.DataFrame()
 
         service = self.service(
@@ -234,12 +196,11 @@ class TestPVGISProductionService:
             ValueError,
             match="PVGIS returned no production data.",
         ):
-
-            service.get_annual_production(
+            service.get_specific_production(
                 self.configuration()
             )
 
-    def test_get_annual_production_rejects_negative_production(
+    def test_get_specific_production_rejects_negative_production(
         self,
     ):
 
@@ -264,71 +225,11 @@ class TestPVGISProductionService:
 
         with pytest.raises(
             ValueError,
-            match="PVGIS annual production cannot be negative.",
+            match="PVGIS specific production cannot be negative.",
         ):
-
-            service.get_annual_production(
+            service.get_specific_production(
                 self.configuration()
             )
-
-    # ==================================================
-    # Specific production
-    # ==================================================
-
-    def test_get_specific_production_returns_kwh_per_kwp(
-        self,
-    ):
-
-        client = MagicMock()
-        parser = MagicMock()
-
-        client.fetch.return_value = self.response()
-        parser.parse.return_value = self.dataframe()
-
-        service = self.service(
-            client=client,
-            parser=parser,
-        )
-
-        configuration = self.configuration(
-            installed_power_kwp=0.540
-        )
-
-        result = service.get_specific_production(
-            configuration
-        )
-
-        assert result == pytest.approx(
-            10.0 / 0.540
-        )
-
-    def test_get_specific_production_uses_annual_production(
-        self,
-    ):
-
-        client = MagicMock()
-        parser = MagicMock()
-
-        client.fetch.return_value = self.response()
-        parser.parse.return_value = self.dataframe()
-
-        service = self.service(
-            client=client,
-            parser=parser,
-        )
-
-        configuration = self.configuration(
-            installed_power_kwp=1.0
-        )
-
-        result = service.get_specific_production(
-            configuration
-        )
-
-        assert result == pytest.approx(10.0)
-
-        client.fetch.assert_called_once()
-        parser.parse.assert_called_once()
 
     # ==================================================
     # Dependency propagation
@@ -352,8 +253,7 @@ class TestPVGISProductionService:
             RuntimeError,
             match="PVGIS unavailable",
         ):
-
-            service.get_annual_production(
+            service.get_specific_production(
                 self.configuration()
             )
 
@@ -379,8 +279,7 @@ class TestPVGISProductionService:
             RuntimeError,
             match="Invalid PVGIS response",
         ):
-
-            service.get_annual_production(
+            service.get_specific_production(
                 self.configuration()
             )
 
@@ -417,7 +316,7 @@ class TestPVGISProductionService:
             parser=parser,
         )
 
-        result = service.get_annual_production(
+        result = service.get_specific_production(
             self.configuration()
         )
 
@@ -427,3 +326,30 @@ class TestPVGISProductionService:
         ]
 
         assert result == pytest.approx(10.0)
+
+    # ==================================================
+    # Configuration propagation
+    # ==================================================
+
+    def test_configuration_is_passed_unchanged_to_client(
+        self,
+    ):
+
+        client = MagicMock()
+        parser = MagicMock()
+
+        client.fetch.return_value = self.response()
+        parser.parse.return_value = self.dataframe()
+
+        service = self.service(
+            client=client,
+            parser=parser,
+        )
+
+        configuration = self.configuration()
+
+        service.get_specific_production(
+            configuration
+        )
+
+        assert client.fetch.call_args.args[0] is configuration

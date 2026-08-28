@@ -11,7 +11,6 @@ class TestPVGISClient:
     def setup_method(self):
 
         self.configuration = SolarConfiguration(
-            installed_power_kwp=8.1,
             latitude=41.4,
             longitude=2.1,
             tilt=30,
@@ -60,7 +59,7 @@ class TestPVGISClient:
                 "lat": 41.4,
                 "lon": 2.1,
                 "pvcalculation": 1,
-                "peakpower": 8.1,
+                "peakpower": 1.0,
                 "loss": 14,
                 "angle": 30,
                 "aspect": 0,

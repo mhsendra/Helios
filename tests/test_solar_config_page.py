@@ -19,35 +19,19 @@ from helios.solar.installation_configuration import (
     InstallationConfiguration,
 )
 
+from helios.solar.configuration import (
+    SolarConfiguration,
+)
+
 from helios.solar.installation_recommendation import (
     InstallationRecommendation,
 )
 
 from helios.core.solar import SolarEngine
 
-class SolarConfiguration:
-
-    latitude = 41.6167
-    longitude = 2.0833
-    tilt = 30
-    azimuth = 0
-    reference_year = 2025
-    losses = 14.0
-    pv_technology = "crystSi"
-    mounting_place = "building"
-
-
-class SolarEngine:
-
-    configuration = SolarConfiguration()
-
-
 class Analyzer:
 
-    solar_engine = SolarEngine()
-
     def valid_dataset(self):
-
         return pd.DataFrame(
             {
                 "AE_kWh": [5000.0],
@@ -64,6 +48,17 @@ class Project:
 
     analyzer = Analyzer()
     solar = Solar()
+
+    solar_configuration = SolarConfiguration(
+        latitude=41.6167,
+        longitude=2.0833,
+        tilt=30,
+        azimuth=0,
+        reference_year=2025,
+        losses=14.0,
+        pv_technology="crystSi",
+        mounting_place="building",
+    )
 
 class TestSolarConfigPage:
 
@@ -1134,6 +1129,7 @@ class TestSolarConfigPage:
         class EmptyProject:
             analyzer = EmptyAnalyzer()
             solar = EmptySolar()
+            solar_configuration = None
 
         page = SolarConfigPage(
             EmptyProject()
@@ -1307,3 +1303,64 @@ class TestSolarConfigPage:
         )
 
         assert page.optimize_button.isEnabled()
+
+    def test_get_pvgis_configuration_contains_only_solar_basis(
+        self,
+        page,
+    ):
+
+        configuration = page.get_pvgis_configuration()
+
+        assert isinstance(
+            configuration,
+            SolarConfiguration,
+        )
+
+        assert configuration.latitude == pytest.approx(
+            41.6167
+        )
+
+        assert configuration.longitude == pytest.approx(
+            2.0833
+        )
+
+        assert configuration.tilt == pytest.approx(
+            30
+        )
+
+        assert configuration.azimuth == pytest.approx(
+            0
+        )
+
+        assert configuration.reference_year == 2025
+
+        assert configuration.losses == pytest.approx(
+            14.0
+        )
+
+        assert configuration.pv_technology == "crystSi"
+
+        assert configuration.mounting_place == "building"
+
+    def test_get_pvgis_configuration_is_independent_of_panel_power(
+        self,
+        page,
+    ):
+
+        page.panel_power_spinbox.setValue(
+            540
+        )
+
+        configuration_540 = (
+            page.get_pvgis_configuration()
+        )
+
+        page.panel_power_spinbox.setValue(
+            450
+        )
+
+        configuration_450 = (
+            page.get_pvgis_configuration()
+        )
+
+        assert configuration_540 == configuration_450

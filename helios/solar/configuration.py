@@ -3,8 +3,6 @@ from dataclasses import dataclass
 @dataclass
 class SolarConfiguration:
 
-    installed_power_kwp: float
-
     latitude: float
 
     longitude: float
