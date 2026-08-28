@@ -408,12 +408,6 @@ class TestSolarController:
 
         configuration = self._installation_configuration()
 
-        self.analyzer.solar_engine.configuration = MagicMock()
-
-        self.analyzer.solar_engine.configuration.installed_power_kwp = (
-            5.4
-        )
-
         self.analyzer.solar_engine.yearly_production = None
 
         with pytest.raises(
@@ -431,10 +425,6 @@ class TestSolarController:
         configuration = self._installation_configuration()
 
         self.analyzer.solar_engine.configuration = MagicMock()
-
-        self.analyzer.solar_engine.configuration.installed_power_kwp = (
-            5.4
-        )
 
         self.analyzer.solar_engine.yearly_production = pd.Series(
             [0.0],
@@ -463,12 +453,6 @@ class TestSolarController:
 
         self.analyzer.valid_dataset.return_value = None
 
-        self.analyzer.solar_engine.configuration = MagicMock()
-
-        self.analyzer.solar_engine.configuration.installed_power_kwp = (
-            5.4
-        )
-
         self.analyzer.solar_engine.yearly_production = pd.Series(
             [6_000.0],
             index=pd.to_datetime(
@@ -491,12 +475,6 @@ class TestSolarController:
         configuration = self._installation_configuration()
 
         self.analyzer.valid_dataset.return_value = pd.DataFrame()
-
-        self.analyzer.solar_engine.configuration = MagicMock()
-
-        self.analyzer.solar_engine.configuration.installed_power_kwp = (
-            5.4
-        )
 
         self.analyzer.solar_engine.yearly_production = pd.Series(
             [6_000.0],
@@ -525,12 +503,6 @@ class TestSolarController:
             }
         )
 
-        self.analyzer.solar_engine.configuration = MagicMock()
-
-        self.analyzer.solar_engine.configuration.installed_power_kwp = (
-            5.4
-        )
-
         self.analyzer.solar_engine.yearly_production = pd.Series(
             [6_000.0],
             index=pd.to_datetime(
@@ -556,12 +528,6 @@ class TestSolarController:
             {
                 "AE_kWh": [-100.0],
             }
-        )
-
-        self.analyzer.solar_engine.configuration = MagicMock()
-
-        self.analyzer.solar_engine.configuration.installed_power_kwp = (
-            5.4
         )
 
         self.analyzer.solar_engine.yearly_production = pd.Series(
