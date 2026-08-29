@@ -84,10 +84,6 @@ class SolarController:
 
     @property
     def configuration(self) -> SolarConfiguration | None:
-        """
-        Devuelve la configuración solar actualmente
-        sincronizada con el motor.
-        """
         return self.analyzer.solar_engine.configuration
 
     @property

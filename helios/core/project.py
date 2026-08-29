@@ -16,6 +16,8 @@ class HeliosProject:
             economics_configuration
         )
 
+        self.analyzer.project = self
+
         self.tariff_prices = TariffPrices()
 
         self.solar_configuration: SolarConfiguration | None = None

@@ -60,6 +60,8 @@ class SolarPage(QWidget):
         self.set_results_available(False)
 
     def configure_widgets(self):
+
+        self.configure_peak_power()
         self.configure_pv_technology()
         self.configure_system_losses()
         self.configure_tilt()
@@ -197,12 +199,14 @@ class SolarPage(QWidget):
 
         layout = QFormLayout(group)
 
+        self.peak_power_spinbox = QDoubleSpinBox()
         self.pv_technology_combobox = QComboBox()
         self.system_losses_spinbox = QDoubleSpinBox()
         self.tilt_spinbox = QSpinBox()
         self.azimuth_spinbox = QSpinBox()
         self.mounting_place_combobox = QComboBox()
 
+        layout.addRow("Potencia instalada",self.peak_power_spinbox)
         layout.addRow("Tecnología FV", self.pv_technology_combobox)
         layout.addRow("Pérdidas del sistema", self.system_losses_spinbox)
         layout.addRow("Inclinación", self.tilt_spinbox)
@@ -439,6 +443,7 @@ class SolarPage(QWidget):
 
         return SolarConfiguration(
             
+            installed_power_kwp=(configuration.installed_power_kwp),
             latitude=configuration.latitude,
             longitude=configuration.longitude,
             tilt=configuration.tilt,
@@ -516,6 +521,10 @@ class SolarPage(QWidget):
 
         return SolarConfiguration(
 
+            installed_power_kwp=(
+                self.peak_power_spinbox.value()
+            ),
+
             latitude=(
                 self.latitude_spinbox.value()
             ),
@@ -567,7 +576,11 @@ class SolarPage(QWidget):
 
             status="Disponible",
 
-            annual_production=solar.annual_production,
+            annual_production=(
+                solar.yearly_production.sum()
+                if solar.yearly_production is not None
+                else None
+            ),
 
             specific_production=solar.specific_production,
 
@@ -1016,7 +1029,7 @@ class SolarPage(QWidget):
         # ==========================================
 
         self.stats_annual_production_label.setText(
-            f"{statistics['annual_production']:,.2f} kWh"
+            f"{statistics['period_production']:,.2f} kWh"
         )
 
         self.stats_specific_production_label.setText(

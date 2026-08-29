@@ -1,5 +1,7 @@
 from unittest.mock import MagicMock
 
+import pytest
+
 from helios.core.project import HeliosProject
 from helios.core.economics_configuration import EconomicsConfiguration
 from helios.solar.configuration import SolarConfiguration
@@ -172,3 +174,87 @@ def test_project_set_solar_configuration():
     )
 
     solar.calculate.assert_not_called()
+
+def test_project_set_solar_configuration_rejects_invalid_configuration():
+
+    project = create_project()
+
+    with pytest.raises(
+        TypeError,
+        match="configuration must be a SolarConfiguration.",
+    ):
+
+        project.set_solar_configuration(
+            MagicMock()
+        )
+
+def test_project_set_solar_configuration_replaces_previous_configuration():
+
+    project = create_project()
+
+    configuration_1 = SolarConfiguration(
+        latitude=41.6,
+        longitude=2.1,
+        tilt=30,
+        azimuth=0,
+        reference_year=2023,
+        losses=14.0,
+        pv_technology="crystSi",
+        mounting_place="free",
+    )
+
+    configuration_2 = SolarConfiguration(
+        latitude=41.7,
+        longitude=2.2,
+        tilt=35,
+        azimuth=10,
+        reference_year=2025,
+        losses=12.0,
+        pv_technology="crystSi",
+        mounting_place="building",
+    )
+
+    project.set_solar_configuration(
+        configuration_1
+    )
+
+    project.set_solar_configuration(
+        configuration_2
+    )
+
+    assert (
+        project.solar_configuration
+        is configuration_2
+    )
+
+    assert (
+        project.solar_configuration
+        is not configuration_1
+    )
+
+def test_project_links_analyzer_back_to_project():
+
+    project = create_project()
+
+    assert project.analyzer.project is project
+
+def test_project_solar_controller_uses_project_configuration():
+
+    project = create_project()
+
+    configuration = SolarConfiguration(
+        latitude=41.6,
+        longitude=2.1,
+        tilt=30,
+        azimuth=0,
+        reference_year=2023,
+        losses=14.0,
+        pv_technology="crystSi",
+        mounting_place="free",
+    )
+
+    project.set_solar_configuration(
+        configuration
+    )
+
+    assert project.solar.configuration is configuration
