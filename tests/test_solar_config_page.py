@@ -27,8 +27,6 @@ from helios.solar.installation_recommendation import (
     InstallationRecommendation,
 )
 
-from helios.core.solar import SolarEngine
-
 class Analyzer:
 
     def valid_dataset(self):
@@ -1117,17 +1115,11 @@ class TestSolarConfigPage:
         qtbot,
     ):
 
-        class EmptySolarEngine:
-            configuration = None
-
-        class EmptyAnalyzer:
-            solar_engine = EmptySolarEngine()
-
         class EmptySolar:
             sizing_result = None
 
         class EmptyProject:
-            analyzer = EmptyAnalyzer()
+            analyzer = MagicMock()
             solar = EmptySolar()
             solar_configuration = None
 

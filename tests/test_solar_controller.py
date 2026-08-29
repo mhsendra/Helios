@@ -204,14 +204,6 @@ class TestSolarController:
 
         assert self.controller.monthly_energy_balance is None
 
-    def test_configuration_property(self):
-
-        configuration = MagicMock()
-
-        self.analyzer.solar_engine.configuration = configuration
-
-        assert self.controller.configuration is configuration
-
     # ==================================================
     # Cálculos
     # ==================================================
@@ -241,21 +233,33 @@ class TestSolarController:
             call.calculate_statistics(),
         ]
 
-    def test_calculate_uses_existing_configuration(self):
+    def test_calculate_uses_explicit_configuration(self):
 
         configuration = MagicMock()
 
-        self.analyzer.solar_engine.configuration = configuration
+        engine = self.analyzer.solar_engine
 
-        self.controller.calculate()
+        self.controller.calculate(
+            configuration
+        )
 
-        self.analyzer.solar_engine.calculate_hourly_production.assert_called_once_with(
+        engine.calculate_hourly_production.assert_called_once_with(
             configuration
         )
 
     def test_calculate_requires_configuration(self):
 
         self.analyzer.solar_engine.configuration = None
+
+        print(
+            "ENGINE CONFIG:",
+            self.analyzer.solar_engine.configuration,
+        )
+
+        print(
+            "CONTROLLER CONFIG:",
+            self.controller.configuration,
+        )
 
         with pytest.raises(
             ValueError,
@@ -267,7 +271,9 @@ class TestSolarController:
     # Configuración
     # ==================================================
 
-    def test_set_configuration_delegates_to_engine(self):
+    def test_set_configuration_delegates_to_engine(
+        self,
+    ):
 
         configuration = MagicMock()
 
@@ -278,6 +284,25 @@ class TestSolarController:
         self.analyzer.solar_engine.set_configuration.assert_called_once_with(
             configuration
         )
+
+    def test_set_configuration_does_not_calculate(
+        self,
+    ):
+
+        configuration = MagicMock()
+
+        engine = self.analyzer.solar_engine
+
+        self.controller.set_configuration(
+            configuration
+        )
+
+        engine.calculate_hourly_production.assert_not_called()
+        engine.calculate_daily_production.assert_not_called()
+        engine.calculate_monthly_production.assert_not_called()
+        engine.calculate_yearly_production.assert_not_called()
+        engine.calculate_energy_balance.assert_not_called()
+        engine.calculate_statistics.assert_not_called()
 
     # ==================================================
     # Reports
