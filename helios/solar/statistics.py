@@ -10,6 +10,7 @@ class SolarStatisticsEngine:
         hourly_production: pd.DataFrame,
         energy_balance: pd.DataFrame,
         configuration: SolarConfiguration,
+        installed_power_kwp: float,
     ) -> dict:
 
         # ==========================================
@@ -21,18 +22,13 @@ class SolarStatisticsEngine:
         )
 
         # ==========================================
-        # Producción anual específica de referencia
+        # Producción anual específica
         # ==========================================
-
-        # PVGIS se consulta con peakpower=1.0.
-        #
-        # Por tanto, la producción anual obtenida
-        # representa directamente la producción
-        # específica en kWh/kWp/año.
 
         specific_production = (
             hourly_production["production_kwh"]
             .sum()
+            / installed_power_kwp
         )
 
         production = valid_balance["production_kwh"]
@@ -84,17 +80,22 @@ class SolarStatisticsEngine:
             / number_of_months
         )
 
-        # Para una instalación de referencia de
-        # 1 kWp, la producción anual específica es
-        # numéricamente equivalente a las horas
-        # equivalentes anuales.
+        # Para una instalación de potencia instalada
+        # P, las horas equivalentes siguen siendo:
+        #
+        # producción anual / potencia instalada.
+        #
+        equivalent_hours = (
+            specific_production
+        )
 
-        equivalent_hours = specific_production
-
-        specific_yield = specific_production
+        specific_yield = (
+            specific_production
+        )
 
         capacity_factor = (
-            specific_production / 8760
+            specific_production
+            / 8760
         ) * 100
 
         maximum_power = (
@@ -184,12 +185,8 @@ class SolarStatisticsEngine:
 
             "zero_production_hours": zero_production_hours,
 
-            # Producción correspondiente al periodo
-            # cubierto por los datos de consumo.
             "period_production": period_production,
 
-            # Producción anual específica de referencia
-            # expresada en kWh/kWp/año.
             "specific_production": specific_production,
 
             "daily_average": daily_average,

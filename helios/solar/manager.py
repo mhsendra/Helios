@@ -14,6 +14,8 @@ class SolarManager:
 
     def __init__(self):
 
+        self.installed_power_kwp = 1.0
+
         self.client = PVGISClient()
 
         self.parser = PVGISParser()
@@ -43,7 +45,10 @@ class SolarManager:
     def calculate_hourly_production(
         self,
         configuration: SolarConfiguration,
+        installed_power_kwp: float = 1.0,
     ) -> pd.DataFrame:
+
+        self.installed_power_kwp = installed_power_kwp
 
         self.set_configuration(
             configuration
@@ -55,6 +60,15 @@ class SolarManager:
 
         self.hourly_production = self.parser.parse(
             response
+        )
+
+        if installed_power_kwp <= 0:
+            raise ValueError(
+                "Installed power must be greater than zero."
+            )
+
+        self.hourly_production["production_kwh"] *= (
+            installed_power_kwp
         )
 
     def calculate_daily_production(self):
@@ -131,7 +145,8 @@ class SolarManager:
             self.statistics_engine.calculate(
                 self.hourly_production,
                 self.energy_balance,
-                self.configuration
+                self.configuration,
+                self.installed_power_kwp,
             )
         )
 

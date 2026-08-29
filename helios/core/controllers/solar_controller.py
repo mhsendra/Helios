@@ -276,6 +276,7 @@ class SolarController:
     def calculate_hourly_production(
         self,
         configuration=None,
+        installed_power_kwp: float = 1.0,
     ):
         """
         Calcula la producción solar horaria.
@@ -304,7 +305,8 @@ class SolarController:
             )
 
         self.analyzer.solar_engine.calculate_hourly_production(
-            configuration
+            configuration,
+            installed_power_kwp,
         )
 
     def calculate_daily_production(self):
@@ -336,6 +338,7 @@ class SolarController:
     def calculate(
         self,
         configuration=None,
+        installed_power_kwp: float = 1.0,
     ):
         """
         Ejecuta los cálculos solares.
@@ -358,7 +361,8 @@ class SolarController:
             )
 
         self.calculate_hourly_production(
-            configuration
+            configuration,
+            installed_power_kwp,
         )
 
         self.calculate_daily_production()

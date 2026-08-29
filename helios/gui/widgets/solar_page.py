@@ -443,7 +443,6 @@ class SolarPage(QWidget):
 
         return SolarConfiguration(
             
-            installed_power_kwp=(configuration.installed_power_kwp),
             latitude=configuration.latitude,
             longitude=configuration.longitude,
             tilt=configuration.tilt,
@@ -457,23 +456,12 @@ class SolarPage(QWidget):
     def calculate_production(self):
 
         configuration = (
-            self.project.solar_configuration
+            self.get_configuration()
         )
 
-        if configuration is None:
-
-            self.update_production_status(
-                source="PVGIS",
-                database="SARAH3",
-                reference_year=None,
-                last_update="-",
-                status="Configuración solar no disponible",
-                annual_production=None,
-                specific_production=None,
-                coverage=None,
-            )
-
-            return
+        installed_power_kwp = (
+            self.peak_power_spinbox.value()
+        )
 
         self.update_production_status(
             source="PVGIS",
@@ -489,7 +477,8 @@ class SolarPage(QWidget):
         try:
 
             self.project.solar.calculate(
-                configuration
+                configuration,
+                installed_power_kwp,
             )
 
             self.refresh_production_results()
@@ -520,10 +509,6 @@ class SolarPage(QWidget):
     def get_configuration(self) -> SolarConfiguration:
 
         return SolarConfiguration(
-
-            installed_power_kwp=(
-                self.peak_power_spinbox.value()
-            ),
 
             latitude=(
                 self.latitude_spinbox.value()

@@ -1,4 +1,6 @@
+from helios.solar.configuration import SolarConfiguration
 from helios.solar.manager import SolarManager
+
 
 class SolarEngine:
 
@@ -8,25 +10,27 @@ class SolarEngine:
 
     @property
     def configuration(self):
+
         return self.manager.configuration
 
-    # Métodos de cálculo (sin return, como ya has dejado)
+    # ==================================================
+    # Métodos de cálculo
+    # ==================================================
 
     def calculate_hourly_production(
         self,
-        configuration
+        configuration: SolarConfiguration,
+        installed_power_kwp: float = 1.0,
     ):
+
         self.manager.calculate_hourly_production(
-            configuration
+            configuration,
+            installed_power_kwp,
         )
-    
+
     def calculate_daily_production(self):
 
         self.manager.calculate_daily_production()
-
-    def calculate_statistics(self):
-
-        self.manager.calculate_statistics()
 
     def calculate_monthly_production(self):
 
@@ -38,37 +42,49 @@ class SolarEngine:
 
     def calculate_energy_balance(
         self,
-        consumption
+        consumption,
     ):
 
         self.manager.calculate_energy_balance(
             consumption
         )
 
+    def calculate_statistics(self):
+
+        self.manager.calculate_statistics()
+
+    # ==================================================
     # Propiedades de acceso al estado
+    # ==================================================
 
     @property
     def hourly_production(self):
+
         return self.manager.hourly_production
 
     @property
     def daily_production(self):
+
         return self.manager.daily_production
 
     @property
     def monthly_production(self):
+
         return self.manager.monthly_production
 
     @property
     def yearly_production(self):
+
         return self.manager.yearly_production
 
     @property
     def statistics(self):
+
         return self.manager.statistics
 
     @property
     def energy_balance(self):
+
         return self.manager.energy_balance
 
     # ==================================================
@@ -93,16 +109,22 @@ class SolarEngine:
         recommendation,
         specific_production=None,
     ):
+
         return self.manager.installation_simulation_report(
             configuration=configuration,
             recommendation=recommendation,
             specific_production=specific_production,
         )
-    
+
+    # ==================================================
+    # Configuración
+    # ==================================================
+
     def set_configuration(
         self,
         configuration,
     ):
+
         self.manager.set_configuration(
             configuration
         )
