@@ -23,7 +23,17 @@ class TestSolarManager:
 
     def test_calculate_hourly_production(self):
 
-        configuration = MagicMock()
+        configuration = SolarConfiguration(
+            latitude=41.6167,
+            longitude=2.0833,
+            tilt=30,
+            azimuth=0,
+            reference_year=2025,
+            losses=14.0,
+            pv_technology="crystSi",
+            mounting_place="building",
+        )
+
         response = MagicMock()
         hourly_production = MagicMock()
 
@@ -397,8 +407,27 @@ class TestSolarManager:
 
     def test_second_calculation_invalidates_first_calculation(self):
     
-            configuration_1 = MagicMock()
-            configuration_2 = MagicMock()
+            configuration_1 = SolarConfiguration(
+                latitude=41.6167,
+                longitude=2.0833,
+                tilt=30,
+                azimuth=0,
+                reference_year=2025,
+                losses=14.0,
+                pv_technology="crystSi",
+                mounting_place="building",
+            )
+
+            configuration_2 = SolarConfiguration(
+                latitude=41.6167,
+                longitude=2.0833,
+                tilt=30,
+                azimuth=10,
+                reference_year=2025,
+                losses=14.0,
+                pv_technology="crystSi",
+                mounting_place="building",
+            )
     
             hourly_1 = MagicMock()
             hourly_2 = MagicMock()
@@ -435,6 +464,92 @@ class TestSolarManager:
             assert self.manager.yearly_production is None
             assert self.manager.energy_balance is None
             assert self.manager.statistics is None
+
+    def test_set_configuration_rejects_invalid_configuration(
+        self,
+    ):
+
+        with pytest.raises(
+            TypeError,
+            match="configuration must be a SolarConfiguration.",
+        ):
+
+            self.manager.set_configuration(
+                MagicMock()
+            )
+
+
+    def test_set_configuration_invalidates_calculation_state(
+        self,
+    ):
+
+        configuration = SolarConfiguration(
+            latitude=41.6167,
+            longitude=2.0833,
+            tilt=30,
+            azimuth=0,
+            reference_year=2025,
+            losses=14.0,
+            pv_technology="crystSi",
+            mounting_place="building",
+        )
+
+        self.manager.hourly_production = MagicMock()
+        self.manager.daily_production = MagicMock()
+        self.manager.monthly_production = MagicMock()
+        self.manager.yearly_production = MagicMock()
+        self.manager.energy_balance = MagicMock()
+        self.manager.statistics = MagicMock()
+
+        self.manager.set_configuration(
+            configuration
+        )
+
+        assert self.manager.configuration is configuration
+
+        assert self.manager.hourly_production is None
+        assert self.manager.daily_production is None
+        assert self.manager.monthly_production is None
+        assert self.manager.yearly_production is None
+        assert self.manager.energy_balance is None
+        assert self.manager.statistics is None
+
+
+    def test_reset_is_idempotent(
+        self,
+    ):
+
+        configuration = SolarConfiguration(
+            latitude=41.6167,
+            longitude=2.0833,
+            tilt=30,
+            azimuth=0,
+            reference_year=2025,
+            losses=14.0,
+            pv_technology="crystSi",
+            mounting_place="building",
+        )
+
+        self.manager.configuration = configuration
+
+        self.manager.hourly_production = MagicMock()
+        self.manager.daily_production = MagicMock()
+        self.manager.monthly_production = MagicMock()
+        self.manager.yearly_production = MagicMock()
+        self.manager.energy_balance = MagicMock()
+        self.manager.statistics = MagicMock()
+
+        self.manager.reset()
+        self.manager.reset()
+
+        assert self.manager.configuration is configuration
+
+        assert self.manager.hourly_production is None
+        assert self.manager.daily_production is None
+        assert self.manager.monthly_production is None
+        assert self.manager.yearly_production is None
+        assert self.manager.energy_balance is None
+        assert self.manager.statistics is None
 
     # ==================================================
     # Reset

@@ -42,16 +42,12 @@ class SolarManager:
 
     def calculate_hourly_production(
         self,
-        configuration: SolarConfiguration
+        configuration: SolarConfiguration,
     ) -> pd.DataFrame:
 
-        self.configuration = configuration
-
-        self.daily_production = None
-        self.monthly_production = None
-        self.yearly_production = None
-        self.energy_balance = None
-        self.statistics = None
+        self.set_configuration(
+            configuration
+        )
 
         response = self.client.fetch(
             configuration
@@ -226,7 +222,7 @@ class SolarManager:
             solar_configuration=self.configuration,
             specific_production=specific_production,
         )
-
+        
     def reset(self):
 
         self.hourly_production = None
@@ -249,3 +245,10 @@ class SolarManager:
             )
 
         self.configuration = configuration
+
+        self.hourly_production = None
+        self.daily_production = None
+        self.monthly_production = None
+        self.yearly_production = None
+        self.energy_balance = None
+        self.statistics = None
