@@ -130,6 +130,8 @@ class LoadDataPage(QWidget):
 
             self.update_project_info()
 
+            self.load_solar_configuration()
+
             self.main_window.set_project_loaded(True)
 
             self.main_window.update_project_pages()
@@ -388,3 +390,56 @@ class LoadDataPage(QWidget):
         )
 
         self.main_window.solar_config_page.update_data()
+
+    def load_solar_configuration(self):
+
+        configuration = self.project.solar_configuration
+
+        if configuration is None:
+            return
+
+        self.latitude_spinbox.setValue(
+            configuration.latitude
+        )
+
+        self.longitude_spinbox.setValue(
+            configuration.longitude
+        )
+
+        self.tilt_spinbox.setValue(
+            configuration.tilt
+        )
+
+        self.azimuth_spinbox.setValue(
+            configuration.azimuth
+        )
+
+        self.system_losses_spinbox.setValue(
+            configuration.losses
+        )
+
+        technology_index = (
+            self.pv_technology_combobox.findData(
+                configuration.pv_technology
+            )
+        )
+
+        if technology_index >= 0:
+            self.pv_technology_combobox.setCurrentIndex(
+                technology_index
+            )
+
+        mounting_index = (
+            self.mounting_place_combobox.findData(
+                configuration.mounting_place
+            )
+        )
+
+        if mounting_index >= 0:
+            self.mounting_place_combobox.setCurrentIndex(
+                mounting_index
+            )
+
+        self.solar_configuration_status.setText(
+            "Configuración solar cargada."
+        )

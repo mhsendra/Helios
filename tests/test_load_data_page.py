@@ -145,6 +145,62 @@ class TestLoadDataPage:
             True
         )
 
+    def test_load_dataset_resets_solar_results_without_calculating(self):
+
+        self.page.path_edit.setText(
+            r"C:\datos\consumo.xlsx"
+        )
+
+        self.page.update_project_info = MagicMock()
+
+        self.project.solar_configuration = None
+
+        self.project.solar.reset = MagicMock()
+        self.project.solar.calculate = MagicMock()
+
+        self.page.load_dataset()
+
+        self.project.solar.reset.assert_called_once_with()
+
+        self.project.solar.calculate.assert_not_called()
+
+        self.main_window.solar_page.reset_results.assert_called_once_with()
+
+    def test_load_dataset_preserves_stored_solar_configuration(self):
+
+        self.page.path_edit.setText(
+            r"C:\datos\consumo.xlsx"
+        )
+
+        configuration = SolarConfiguration(
+            latitude=41.6167,
+            longitude=2.0833,
+            tilt=30,
+            azimuth=0,
+            reference_year=2023,
+            losses=14.0,
+            pv_technology="crystSi",
+            mounting_place="building",
+        )
+
+        self.project.solar_configuration = configuration
+
+        self.page.update_project_info = MagicMock()
+
+        self.project.solar.reset = MagicMock()
+        self.project.solar.calculate = MagicMock()
+
+        self.page.load_dataset()
+
+        assert (
+            self.project.solar_configuration
+            is configuration
+        )
+
+        self.project.solar.reset.assert_called_once_with()
+
+        self.project.solar.calculate.assert_not_called()
+        
     # ==================================================
     # load_dataset — error
     # ==================================================
