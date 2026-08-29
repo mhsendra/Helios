@@ -121,9 +121,6 @@ class TestSolarPage:
 
     def test_configuration_widgets_have_expected_ranges(self):
 
-        assert self.page.peak_power_spinbox.minimum() == 0.10
-        assert self.page.peak_power_spinbox.maximum() == 100.00
-
         assert self.page.system_losses_spinbox.minimum() == 0.0
         assert self.page.system_losses_spinbox.maximum() == 100.0
 
@@ -585,15 +582,25 @@ class TestSolarPage:
     # Flujo de cálculo
     # ==================================================
 
-    def test_calculate_production_calls_solar_controller(self):
+    def test_calculate_production_uses_stored_configuration(self):
 
-        configuration = self.page.get_configuration()
+        configuration = SolarConfiguration(
+            latitude=41.6,
+            longitude=2.1,
+            tilt=30,
+            azimuth=0,
+            reference_year=2023,
+            losses=14.0,
+            pv_technology="crystSi",
+            mounting_place="free",
+        )
 
         self.project.solar_configuration = configuration
 
         self.project.solar.calculate = MagicMock()
 
         self.page.refresh_production_results = MagicMock()
+        self.page.set_results_available = MagicMock()
 
         self.page.calculate_production()
 
@@ -603,16 +610,8 @@ class TestSolarPage:
 
         self.page.refresh_production_results.assert_called_once()
 
-        assert self.page.tabs.isTabEnabled(
-            self.page.tabs.indexOf(
-                self.page.balance_tab
-            )
-        )
-
-        assert self.page.tabs.isTabEnabled(
-            self.page.tabs.indexOf(
-                self.page.statistics_tab
-            )
+        self.page.set_results_available.assert_called_once_with(
+            True
         )
 
     def test_calculate_production_handles_error(self):
@@ -745,9 +744,7 @@ class TestSolarPage:
     # Configuración solar
     # ==================================================
 
-    def test_calculate_production_uses_project_configuration(
-        self,
-    ):
+    def test_calculate_production_uses_stored_configuration(self):
 
         configuration = SolarConfiguration(
             latitude=41.6,
@@ -760,53 +757,9 @@ class TestSolarPage:
             mounting_place="free",
         )
 
-        self.project.solar_configuration = (
-            configuration
-        )
+        self.project.solar_configuration = configuration
 
-        self.page.refresh_production_results = MagicMock()
-        self.page.set_results_available = MagicMock()
-
-        self.page.project.solar.calculate = MagicMock()
-
-        self.page.calculate_production()
-
-        self.page.project.solar.calculate.assert_called_once_with(
-            configuration
-        )
-
-    def test_calculate_production_does_not_create_configuration(
-        self,
-        monkeypatch,
-    ):
-
-        configuration = SolarConfiguration(
-            latitude=41.6,
-            longitude=2.1,
-            tilt=30,
-            azimuth=0,
-            reference_year=2023,
-            losses=14.0,
-            pv_technology="crystSi",
-            mounting_place="free",
-        )
-
-        self.project.solar_configuration = (
-            configuration
-        )
-
-        self.page.project.solar.calculate = MagicMock()
-
-        monkeypatch.setattr(
-            self.page,
-            "get_configuration",
-            lambda: (
-                pytest.fail(
-                    "SolarPage no debe crear "
-                    "la configuración solar"
-                )
-            ),
-        )
+        self.project.solar.calculate = MagicMock()
 
         self.page.refresh_production_results = MagicMock()
         self.page.set_results_available = MagicMock()

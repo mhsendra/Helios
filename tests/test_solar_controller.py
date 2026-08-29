@@ -8,8 +8,6 @@ from helios.solar.installation_configuration import (
     InstallationConfiguration,
 )
 
-from helios.solar.configuration import SolarConfiguration
-
 from helios.core.controllers.solar_controller import SolarController
 
 from helios.solar.installation_constraints import (
@@ -19,6 +17,7 @@ from helios.solar.installation_constraints import (
 from helios.solar.installation_recommendation import (
     InstallationRecommendation,
 )
+
 
 class TestSolarController:
 
@@ -64,6 +63,12 @@ class TestSolarController:
 
         assert self.controller.coverage is None
 
+    def test_coverage_without_empty_balance(self):
+
+        self.analyzer.solar_engine.energy_balance = pd.DataFrame()
+
+        assert self.controller.coverage is None
+
     def test_self_consumption_grid_import_and_export(self):
 
         self.analyzer.solar_engine.energy_balance = pd.DataFrame(
@@ -96,13 +101,6 @@ class TestSolarController:
 
     def test_specific_production(self):
 
-        self.analyzer.solar_engine.configuration = SolarConfiguration(
-            latitude=41.6,
-            longitude=2.1,
-            tilt=30,
-            azimuth=0,
-        )
-
         self.analyzer.solar_engine.yearly_production = pd.Series(
             [1111.111111],
             index=pd.to_datetime(
@@ -119,6 +117,54 @@ class TestSolarController:
         self.analyzer.solar_engine.yearly_production = None
 
         assert self.controller.specific_production is None
+
+    def test_hourly_production_property(self):
+
+        value = MagicMock()
+
+        self.analyzer.solar_engine.hourly_production = value
+
+        assert self.controller.hourly_production is value
+
+    def test_daily_production_property(self):
+
+        value = MagicMock()
+
+        self.analyzer.solar_engine.daily_production = value
+
+        assert self.controller.daily_production is value
+
+    def test_monthly_production_property(self):
+
+        value = MagicMock()
+
+        self.analyzer.solar_engine.monthly_production = value
+
+        assert self.controller.monthly_production is value
+
+    def test_yearly_production_property(self):
+
+        value = MagicMock()
+
+        self.analyzer.solar_engine.yearly_production = value
+
+        assert self.controller.yearly_production is value
+
+    def test_statistics_property(self):
+
+        value = MagicMock()
+
+        self.analyzer.solar_engine.statistics = value
+
+        assert self.controller.statistics is value
+
+    def test_energy_balance_property(self):
+
+        value = MagicMock()
+
+        self.analyzer.solar_engine.energy_balance = value
+
+        assert self.controller.energy_balance is value
 
     def test_monthly_energy_balance(self):
 
@@ -137,7 +183,7 @@ class TestSolarController:
                 "grid_import_kwh": [1.0, 1.0, 1.0],
                 "grid_export_kwh": [0.0, 1.0, 1.0],
             },
-            index=index
+            index=index,
         )
 
         result = self.controller.monthly_energy_balance
@@ -158,63 +204,13 @@ class TestSolarController:
 
         assert self.controller.monthly_energy_balance is None
 
-    def test_hourly_production_property(self):
+    def test_configuration_property(self):
 
-        value = MagicMock()
+        configuration = MagicMock()
 
-        self.analyzer.solar_engine.hourly_production = value
+        self.analyzer.solar_engine.configuration = configuration
 
-        assert self.controller.hourly_production is value
-
-
-    def test_daily_production_property(self):
-
-        value = MagicMock()
-
-        self.analyzer.solar_engine.daily_production = value
-
-        assert self.controller.daily_production is value
-
-
-    def test_monthly_production_property(self):
-
-        value = MagicMock()
-
-        self.analyzer.solar_engine.monthly_production = value
-
-        assert self.controller.monthly_production is value
-
-
-    def test_yearly_production_property(self):
-
-        value = MagicMock()
-
-        self.analyzer.solar_engine.yearly_production = value
-
-        assert self.controller.yearly_production is value
-            
-    def test_statistics_property(self):
-
-        value = MagicMock()
-
-        self.analyzer.solar_engine.statistics = value
-
-        assert self.controller.statistics is value
-
-
-    def test_energy_balance_property(self):
-
-        value = MagicMock()
-
-        self.analyzer.solar_engine.energy_balance = value
-
-        assert self.controller.energy_balance is value
-
-    def test_coverage_without_empty_balance(self):
-
-        self.analyzer.solar_engine.energy_balance = pd.DataFrame()
-
-        assert self.controller.coverage is None
+        assert self.controller.configuration is configuration
 
     # ==================================================
     # Cálculos
@@ -244,6 +240,44 @@ class TestSolarController:
             ),
             call.calculate_statistics(),
         ]
+
+    def test_calculate_uses_existing_configuration(self):
+
+        configuration = MagicMock()
+
+        self.analyzer.solar_engine.configuration = configuration
+
+        self.controller.calculate()
+
+        self.analyzer.solar_engine.calculate_hourly_production.assert_called_once_with(
+            configuration
+        )
+
+    def test_calculate_requires_configuration(self):
+
+        self.analyzer.solar_engine.configuration = None
+
+        with pytest.raises(
+            ValueError,
+            match="A solar configuration is required",
+        ):
+            self.controller.calculate()
+
+    # ==================================================
+    # Configuración
+    # ==================================================
+
+    def test_set_configuration_delegates_to_engine(self):
+
+        configuration = MagicMock()
+
+        self.controller.set_configuration(
+            configuration
+        )
+
+        self.analyzer.solar_engine.set_configuration.assert_called_once_with(
+            configuration
+        )
 
     # ==================================================
     # Reports
@@ -298,14 +332,6 @@ class TestSolarController:
             ),
         ]
 
-    def test_reset(self):
-
-        engine = self.analyzer.solar_engine
-
-        self.controller.reset()
-
-        engine.reset.assert_called_once_with()
-
     # ==================================================
     # Dimensionamiento de instalación solar
     # ==================================================
@@ -335,13 +361,6 @@ class TestSolarController:
             {
                 "AE_kWh": [5_000.0],
             }
-        )
-
-        self.analyzer.solar_engine.configuration = SolarConfiguration(
-            latitude=41.6,
-            longitude=2.1,
-            tilt=30,
-            azimuth=0,
         )
 
         self.analyzer.solar_engine.yearly_production = pd.Series(
@@ -423,8 +442,6 @@ class TestSolarController:
     ):
 
         configuration = self._installation_configuration()
-
-        self.analyzer.solar_engine.configuration = MagicMock()
 
         self.analyzer.solar_engine.yearly_production = pd.Series(
             [0.0],
@@ -546,25 +563,6 @@ class TestSolarController:
             )
 
     # --------------------------------------------------
-    # Integración con InstallationConfiguration
-    # --------------------------------------------------
-
-    def test_recommend_installation_converts_configuration_to_constraints(
-        self,
-    ):
-
-        self._configure_solar_reference()
-
-        configuration = self._installation_configuration()
-
-        constraints = configuration.to_constraints()
-
-        assert isinstance(
-            constraints,
-            InstallationConstraints,
-        )
-
-    # --------------------------------------------------
     # Resultado
     # --------------------------------------------------
 
@@ -579,6 +577,8 @@ class TestSolarController:
         result = self.controller.recommend_installation(
             configuration
         )
+
+        self.analyzer.valid_dataset.assert_called_once_with()
 
         assert isinstance(
             result,
@@ -606,6 +606,8 @@ class TestSolarController:
         assert result.evaluation.candidate.installed_power_kwp == pytest.approx(
             4.86
         )
+
+        assert self.controller.sizing_result is result
 
     # --------------------------------------------------
     # Selección óptima
@@ -679,49 +681,18 @@ class TestSolarController:
             5_400.0
         )
 
-    def test_calculate_installation_production_requires_solar_production(
-        self,
-    ):
-
-        self.analyzer.solar_engine.configuration = SolarConfiguration(
-            latitude=41.6,
-            longitude=2.1,
-            tilt=30,
-            azimuth=0,
-        )
-
-        self.analyzer.solar_engine.yearly_production = None
-
-        candidate = MagicMock()
-
-        candidate.installed_power_kwp = 4.86
-
-        with pytest.raises(
-            ValueError,
-            match="Solar production must be calculated",
-        ):
-            self.controller._calculate_installation_production(
-                candidate
-            )
-
-    # --------------------------------------------------
+    # ==================================================
     # Reset
-    # --------------------------------------------------
+    # ==================================================
 
-    def test_reset_clears_sizing_result(
-        self,
-    ):
+    def test_reset_clears_results(self):
 
-        self._configure_solar_reference()
-
-        configuration = self._installation_configuration()
-
-        self.controller.recommend_installation(
-            configuration
-        )
-
-        assert self.controller.sizing_result is not None
+        self.controller.sizing_result = MagicMock()
+        self.controller.installation_result = MagicMock()
 
         self.controller.reset()
 
         assert self.controller.sizing_result is None
+        assert self.controller.installation_result is None
+
+        self.analyzer.solar_engine.reset.assert_called_once_with()

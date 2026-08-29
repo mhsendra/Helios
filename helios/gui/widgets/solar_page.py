@@ -60,7 +60,6 @@ class SolarPage(QWidget):
         self.set_results_available(False)
 
     def configure_widgets(self):
-        self.configure_peak_power()
         self.configure_pv_technology()
         self.configure_system_losses()
         self.configure_tilt()
@@ -198,14 +197,12 @@ class SolarPage(QWidget):
 
         layout = QFormLayout(group)
 
-        self.peak_power_spinbox = QDoubleSpinBox()
         self.pv_technology_combobox = QComboBox()
         self.system_losses_spinbox = QDoubleSpinBox()
         self.tilt_spinbox = QSpinBox()
         self.azimuth_spinbox = QSpinBox()
         self.mounting_place_combobox = QComboBox()
 
-        layout.addRow("Potencia instalada", self.peak_power_spinbox)
         layout.addRow("Tecnología FV", self.pv_technology_combobox)
         layout.addRow("Pérdidas del sistema", self.system_losses_spinbox)
         layout.addRow("Inclinación", self.tilt_spinbox)
@@ -239,6 +236,13 @@ class SolarPage(QWidget):
 
         return group
 
+    def configure_system_losses(self):
+
+        self.system_losses_spinbox.setRange(0.0, 100.0)
+        self.system_losses_spinbox.setDecimals(1)
+        self.system_losses_spinbox.setSingleStep(0.5)
+        self.system_losses_spinbox.setSuffix(" %")
+
     def configure_pv_technology(self):
 
         self.pv_technology_combobox.addItem(
@@ -255,13 +259,6 @@ class SolarPage(QWidget):
             "CdTe",
             "CdTe"
         )
-
-    def configure_system_losses(self):
-
-        self.system_losses_spinbox.setRange(0.0, 100.0)
-        self.system_losses_spinbox.setDecimals(1)
-        self.system_losses_spinbox.setSingleStep(0.5)
-        self.system_losses_spinbox.setSuffix(" %")
 
     def configure_latitude(self):
 
