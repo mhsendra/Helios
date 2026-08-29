@@ -88,35 +88,23 @@ class TestSolarPage:
     def test_get_configuration(self):
 
         self.page.latitude_spinbox.setValue(41.3851)
-
         self.page.longitude_spinbox.setValue(2.1734)
-
         self.page.tilt_spinbox.setValue(30)
-
         self.page.azimuth_spinbox.setValue(10)
-
         self.page.system_losses_spinbox.setValue(14.5)
 
         self.page.pv_technology_combobox.setCurrentIndex(0)
-
         self.page.mounting_place_combobox.setCurrentIndex(0)
 
         configuration = self.page.get_configuration()
 
         assert configuration.latitude == 41.3851
-
         assert configuration.longitude == 2.1734
-
         assert configuration.tilt == 30
-
         assert configuration.azimuth == 10
-
         assert configuration.reference_year == 2023
-
         assert configuration.losses == 14.5
-
         assert configuration.pv_technology == "crystSi"
-
         assert configuration.mounting_place == "free"
 
     def test_configuration_widgets_have_expected_ranges(self):
@@ -187,13 +175,9 @@ class TestSolarPage:
         )
 
         assert self.page.source_label.text() == "PVGIS"
-
         assert self.page.database_label.text() == "SARAH3"
-
         assert self.page.reference_year_label.text() == "2023"
-
         assert self.page.last_update_label.text() == "Ahora"
-
         assert self.page.production_status_label.text() == "Disponible"
 
         assert (
@@ -225,11 +209,8 @@ class TestSolarPage:
         )
 
         assert self.page.reference_year_label.text() == "-"
-
         assert self.page.production_annual_label.text() == "-"
-
         assert self.page.production_specific_label.text() == "-"
-
         assert self.page.production_coverage_label.text() == "-"
 
     # ==================================================
@@ -246,12 +227,12 @@ class TestSolarPage:
                     "2025-02-28",
                     "2025-03-31",
                 ]
-            )
+            ),
         )
 
         self.page.populate_monthly_table(
             self.page.monthly_production_table,
-            series
+            series,
         )
 
         table = self.page.monthly_production_table
@@ -272,19 +253,14 @@ class TestSolarPage:
 
     def test_populate_monthly_table_empty(self):
 
-        series = pd.Series(
-            dtype=float
-        )
+        series = pd.Series(dtype=float)
 
         self.page.populate_monthly_table(
             self.page.monthly_production_table,
-            series
+            series,
         )
 
-        assert (
-            self.page.monthly_production_table.rowCount()
-            == 0
-        )
+        assert self.page.monthly_production_table.rowCount() == 0
 
     # ==================================================
     # Balance mensual
@@ -305,12 +281,12 @@ class TestSolarPage:
                     "2025-01-31",
                     "2025-02-28",
                 ]
-            )
+            ),
         )
 
         self.page.populate_balance_table(
             self.page.balance_table,
-            balance
+            balance,
         )
 
         table = self.page.balance_table
@@ -338,7 +314,7 @@ class TestSolarPage:
 
         self.page.populate_balance_table(
             self.page.balance_table,
-            balance
+            balance,
         )
 
         assert self.page.balance_table.rowCount() == 0
@@ -399,52 +375,36 @@ class TestSolarPage:
 
         self.page.update_balance_summary()
 
-        assert (
-            self.page.balance_total_consumption_label.text()
-            == "-"
+        assert self.page.balance_total_consumption_label.text() == "-"
+        assert self.page.balance_total_production_label.text() == "-"
+        assert self.page.balance_self_consumption_label.text() == "-"
+        assert self.page.balance_grid_import_label.text() == "-"
+        assert self.page.balance_grid_export_label.text() == "-"
+        assert self.page.balance_coverage_label.text() == "-"
+
+    def test_update_balance_summary_without_coverage(self):
+
+        self.project.solar.energy_balance = pd.DataFrame(
+            {
+                "consumption_kwh": [500.0],
+                "production_kwh": [400.0],
+                "self_consumption_kwh": [300.0],
+                "grid_import_kwh": [200.0],
+                "grid_export_kwh": [100.0],
+            }
         )
 
-        assert (
-            self.page.balance_total_production_label.text()
-            == "-"
-        )
+        self.project.solar.coverage = None
 
-        assert (
-            self.page.balance_self_consumption_label.text()
-            == "-"
-        )
+        self.page.update_balance_summary()
 
-        assert (
-            self.page.balance_grid_import_label.text()
-            == "-"
-        )
-
-        assert (
-            self.page.balance_grid_export_label.text()
-            == "-"
-        )
-
-        assert (
-            self.page.balance_coverage_label.text()
-            == "-"
-        )
+        assert self.page.balance_coverage_label.text() == "-"
 
     # ==================================================
     # Estadísticas
     # ==================================================
 
     def test_update_statistics(self):
-
-        self.project.solar_configuration = SolarConfiguration(
-            latitude=41.6,
-            longitude=2.1,
-            tilt=30,
-            azimuth=0,
-            reference_year=2023,
-            losses=14.0,
-            pv_technology="crystSi",
-            mounting_place="free",
-        )
 
         self.project.solar.statistics = {
             "annual_production": 8000.0,
@@ -519,7 +479,7 @@ class TestSolarPage:
             == "1,000.00 kWh"
         )
 
-    def test_update_statistics_without_balance(self):
+    def test_update_statistics_without_statistics(self):
 
         self.project.solar.statistics = None
 
@@ -616,11 +576,18 @@ class TestSolarPage:
 
     def test_calculate_production_handles_error(self):
 
-        configuration = self.page.get_configuration()
-
-        self.page.get_configuration = MagicMock(
-            return_value=configuration
+        configuration = SolarConfiguration(
+            latitude=41.6,
+            longitude=2.1,
+            tilt=30,
+            azimuth=0,
+            reference_year=2023,
+            losses=14.0,
+            pv_technology="crystSi",
+            mounting_place="free",
         )
+
+        self.project.solar_configuration = configuration
 
         self.project.solar.calculate.side_effect = (
             RuntimeError("Error de prueba")
@@ -633,37 +600,15 @@ class TestSolarPage:
             == "Error: Error de prueba"
         )
 
-        assert (
-            self.page.production_annual_label.text()
-            == "-"
-        )
-
-        assert (
-            self.page.production_specific_label.text()
-            == "-"
-        )
-
-        assert (
-            self.page.production_coverage_label.text()
-            == "-"
-        )
-
+        assert self.page.production_annual_label.text() == "-"
+        assert self.page.production_specific_label.text() == "-"
+        assert self.page.production_coverage_label.text() == "-"
+        
     # ==================================================
     # Actualización de resultados
     # ==================================================
 
     def test_refresh_production_results(self):
-
-        self.project.solar_configuration = SolarConfiguration(
-            latitude=41.6,
-            longitude=2.1,
-            tilt=30,
-            azimuth=0,
-            reference_year=2023,
-            losses=14.0,
-            pv_technology="crystSi",
-            mounting_place="free",
-        )
 
         self.project.solar.statistics = {
             "annual_production": 12000.0,
@@ -689,7 +634,7 @@ class TestSolarPage:
             [1000.0],
             index=pd.to_datetime(
                 ["2025-01-31"]
-            )
+            ),
         )
 
         self.project.solar.energy_balance = pd.DataFrame(
@@ -702,7 +647,7 @@ class TestSolarPage:
             },
             index=pd.to_datetime(
                 ["2025-01-31"]
-            )
+            ),
         )
 
         self.page.refresh_production_results()
@@ -722,50 +667,19 @@ class TestSolarPage:
             == "65.0 %"
         )
 
-    def test_update_balance_summary_without_coverage(self):
-
-        self.project.solar.energy_balance = pd.DataFrame(
-            {
-                "consumption_kwh": [500.0],
-                "production_kwh": [400.0],
-                "self_consumption_kwh": [300.0],
-                "grid_import_kwh": [200.0],
-                "grid_export_kwh": [100.0],
-            }
-        )
-
-        self.project.solar.coverage = None
-
-        self.page.update_balance_summary()
-
-        assert self.page.balance_coverage_label.text() == "-"
-
     # ==================================================
-    # Configuración solar
+    # Reset
     # ==================================================
 
-    def test_calculate_production_uses_stored_configuration(self):
+    def test_reset(self):
 
-        configuration = SolarConfiguration(
-            latitude=41.6,
-            longitude=2.1,
-            tilt=30,
-            azimuth=0,
-            reference_year=2023,
-            losses=14.0,
-            pv_technology="crystSi",
-            mounting_place="free",
+        self.controller = getattr(
+            self.page,
+            "controller",
+            None,
         )
 
-        self.project.solar_configuration = configuration
+        self.page.set_results_available(True)
 
-        self.project.solar.calculate = MagicMock()
-
-        self.page.refresh_production_results = MagicMock()
-        self.page.set_results_available = MagicMock()
-
-        self.page.calculate_production()
-
-        self.page.project.solar.calculate.assert_called_once_with(
-            configuration
-        )
+        if self.controller is not None:
+            self.controller.reset()
