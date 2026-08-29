@@ -180,7 +180,6 @@ class SolarManager:
         self,
         configuration,
         recommendation,
-        solar_configuration=None,
         specific_production=None,
     ):
         """
@@ -204,10 +203,6 @@ class SolarManager:
                 "has not been calculated."
             )
 
-        if solar_configuration is None:
-
-            solar_configuration = self.configuration
-
         if specific_production is None:
 
             if self.yearly_production is None:
@@ -228,7 +223,7 @@ class SolarManager:
         return self.reporter.installation_simulation(
             configuration=configuration,
             recommendation=recommendation,
-            solar_configuration=solar_configuration,
+            solar_configuration=self.configuration,
             specific_production=specific_production,
         )
 

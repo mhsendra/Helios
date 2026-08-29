@@ -180,7 +180,6 @@ class TestSolarEngine:
 
         configuration = MagicMock()
         recommendation = MagicMock()
-        solar_configuration = MagicMock()
         specific_production = 1500.0
 
         self.manager.installation_simulation_report.return_value = (
@@ -190,14 +189,12 @@ class TestSolarEngine:
         result = self.engine.installation_simulation_report(
             configuration=configuration,
             recommendation=recommendation,
-            solar_configuration=solar_configuration,
             specific_production=specific_production,
         )
 
         self.manager.installation_simulation_report.assert_called_once_with(
             configuration=configuration,
             recommendation=recommendation,
-            solar_configuration=solar_configuration,
             specific_production=specific_production,
         )
 

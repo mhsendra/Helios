@@ -316,10 +316,11 @@ class TestSolarManager:
         solar_configuration = MagicMock()
         specific_production = 1500.0
 
+        self.manager.configuration = solar_configuration
+
         self.manager.installation_simulation_report(
             configuration=configuration,
             recommendation=recommendation,
-            solar_configuration=solar_configuration,
             specific_production=specific_production,
         )
 
@@ -340,6 +341,8 @@ class TestSolarManager:
 
         recommendation.installed_power_kwp = 5.4
 
+        self.manager.configuration = solar_configuration
+
         self.manager.yearly_production = pd.Series(
             [1111.111111],
             index=pd.to_datetime(
@@ -350,7 +353,6 @@ class TestSolarManager:
         self.manager.installation_simulation_report(
             configuration=configuration,
             recommendation=recommendation,
-            solar_configuration=solar_configuration,
         )
 
         self.manager.reporter.installation_simulation.assert_called_once_with(
@@ -365,8 +367,7 @@ class TestSolarManager:
     def test_installation_simulation_report_without_configuration(self):
 
         recommendation = MagicMock()
-        solar_configuration = MagicMock()
-
+        
         with pytest.raises(
             ValueError,
             match="Installation configuration is not available."
@@ -375,15 +376,13 @@ class TestSolarManager:
             self.manager.installation_simulation_report(
                 configuration=None,
                 recommendation=recommendation,
-                solar_configuration=solar_configuration,
                 specific_production=1500.0,
             )
 
     def test_installation_simulation_report_without_recommendation(self):
 
         configuration = MagicMock()
-        solar_configuration = MagicMock()
-
+        
         with pytest.raises(
             ValueError,
             match="Solar installation simulation "
@@ -393,7 +392,6 @@ class TestSolarManager:
             self.manager.installation_simulation_report(
                 configuration=configuration,
                 recommendation=None,
-                solar_configuration=solar_configuration,
                 specific_production=1500.0,
             )
 
