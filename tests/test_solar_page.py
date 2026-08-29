@@ -568,7 +568,7 @@ class TestSolarPage:
             configuration
         )
 
-        self.page.refresh_production_results.assert_called_once()
+        self.page.refresh_production_results.assert_called_once_with()
 
         self.page.set_results_available.assert_called_once_with(
             True
@@ -576,18 +576,11 @@ class TestSolarPage:
 
     def test_calculate_production_handles_error(self):
 
-        configuration = SolarConfiguration(
-            latitude=41.6,
-            longitude=2.1,
-            tilt=30,
-            azimuth=0,
-            reference_year=2023,
-            losses=14.0,
-            pv_technology="crystSi",
-            mounting_place="free",
-        )
+        configuration = self.page.get_configuration()
 
-        self.project.solar_configuration = configuration
+        self.page.get_configuration = MagicMock(
+            return_value=configuration
+        )
 
         self.project.solar.calculate.side_effect = (
             RuntimeError("Error de prueba")
@@ -600,10 +593,21 @@ class TestSolarPage:
             == "Error: Error de prueba"
         )
 
-        assert self.page.production_annual_label.text() == "-"
-        assert self.page.production_specific_label.text() == "-"
-        assert self.page.production_coverage_label.text() == "-"
-        
+        assert (
+            self.page.production_annual_label.text()
+            == "-"
+        )
+
+        assert (
+            self.page.production_specific_label.text()
+            == "-"
+        )
+
+        assert (
+            self.page.production_coverage_label.text()
+            == "-"
+        )
+
     # ==================================================
     # Actualización de resultados
     # ==================================================
