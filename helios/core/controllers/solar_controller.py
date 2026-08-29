@@ -414,15 +414,10 @@ class SolarController:
     # ==================================================
 
     def reset(self):
-        """
-        Resetea los resultados solares.
-
-        No modifica la configuración persistente de
-        HeliosProject.
-        """
 
         self.sizing_result = None
         self.installation_result = None
+        self.installation_configuration = None
 
         self.analyzer.solar_engine.reset()
 

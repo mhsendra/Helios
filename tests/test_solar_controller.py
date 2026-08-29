@@ -721,3 +721,43 @@ class TestSolarController:
         assert self.controller.installation_result is None
 
         self.analyzer.solar_engine.reset.assert_called_once_with()
+
+    def test_reset_clears_installation_configuration(
+        self,
+    ):
+
+        self.controller.installation_configuration = (
+            MagicMock()
+        )
+
+        self.controller.reset()
+
+        assert (
+            self.controller.installation_configuration
+            is None
+        )
+
+    def test_reset_preserves_solar_configuration(
+        self,
+    ):
+
+        configuration = MagicMock()
+
+        self.analyzer.solar_engine.configuration = (
+            configuration
+        )
+
+        self.controller.sizing_result = MagicMock()
+        self.controller.installation_result = MagicMock()
+        self.controller.installation_configuration = MagicMock()
+
+        self.controller.reset()
+
+        assert (
+            self.analyzer.solar_engine.configuration
+            is configuration
+        )
+
+        assert self.controller.sizing_result is None
+        assert self.controller.installation_result is None
+        assert self.controller.installation_configuration is None

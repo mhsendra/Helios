@@ -234,7 +234,6 @@ class SolarManager:
 
     def reset(self):
 
-        self.configuration = None
         self.hourly_production = None
         self.daily_production = None
         self.monthly_production = None

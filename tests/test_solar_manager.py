@@ -5,6 +5,7 @@ import pytest
 import pandas as pd
 
 from helios.solar.manager import SolarManager
+from helios.solar.configuration import SolarConfiguration
 
 
 class TestSolarManager:
@@ -441,26 +442,37 @@ class TestSolarManager:
     # Reset
     # ==================================================
 
-    def test_reset_clears_all_state(self):
+    def test_reset_clears_calculation_state_but_preserves_configuration(
+        self,
+    ):
 
-        self.manager.configuration = MagicMock()
+        configuration = SolarConfiguration(
+            latitude=41.6167,
+            longitude=2.0833,
+            tilt=30,
+            azimuth=0,
+            reference_year=2025,
+            losses=14.0,
+            pv_technology="crystSi",
+            mounting_place="building",
+        )
+
+        self.manager.configuration = configuration
 
         self.manager.hourly_production = MagicMock()
         self.manager.daily_production = MagicMock()
         self.manager.monthly_production = MagicMock()
         self.manager.yearly_production = MagicMock()
-
         self.manager.energy_balance = MagicMock()
         self.manager.statistics = MagicMock()
 
         self.manager.reset()
 
-        assert self.manager.configuration is None
+        assert self.manager.configuration is configuration
 
         assert self.manager.hourly_production is None
         assert self.manager.daily_production is None
         assert self.manager.monthly_production is None
         assert self.manager.yearly_production is None
-
         assert self.manager.energy_balance is None
         assert self.manager.statistics is None
