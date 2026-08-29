@@ -86,10 +86,7 @@ class SolarController:
     def configuration(self) -> SolarConfiguration | None:
         """
         Devuelve la configuración solar actualmente
-        sincronizada con el motor solar.
-
-        La configuración persistente pertenece a
-        HeliosProject.solar_configuration.
+        sincronizada con el motor.
         """
         return self.analyzer.solar_engine.configuration
 
@@ -287,17 +284,22 @@ class SolarController:
         """
         Calcula la producción solar horaria.
 
-        Si se proporciona una configuración, se sincroniza
-        con el motor antes del cálculo.
+        Si se proporciona una configuración explícita,
+        se sincroniza con el motor y se utiliza directamente.
 
         Si no se proporciona, utiliza la configuración
-        previamente sincronizada.
+        persistente del proyecto.
         """
 
         if configuration is not None:
-            self.set_configuration(configuration)
 
-        configuration = self.configuration
+            self.set_configuration(
+                configuration
+            )
+
+        else:
+
+            configuration = self.configuration
 
         if configuration is None:
             raise ValueError(
@@ -359,7 +361,7 @@ class SolarController:
                 "before calculating production."
             )
 
-        self.analyzer.solar_engine.calculate_hourly_production(
+        self.calculate_hourly_production(
             configuration
         )
 

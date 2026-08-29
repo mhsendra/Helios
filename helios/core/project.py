@@ -72,9 +72,8 @@ class HeliosProject:
         self,
         configuration: SolarConfiguration,
     ):
-
+        
         self.solar_configuration = configuration
-
         self.solar.set_configuration(configuration)
 
     # ==================================================

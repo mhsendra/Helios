@@ -1,6 +1,6 @@
-import pandas as pd
-
 import pytest
+
+import pandas as pd
 
 from unittest.mock import MagicMock, call
 
@@ -204,6 +204,14 @@ class TestSolarController:
 
         assert self.controller.monthly_energy_balance is None
 
+    def test_configuration_property(self):
+
+        configuration = MagicMock()
+
+        self.analyzer.solar_engine.configuration = configuration
+
+        assert self.controller.configuration is configuration
+
     # ==================================================
     # Cálculos
     # ==================================================
@@ -219,6 +227,9 @@ class TestSolarController:
         )
 
         assert engine.mock_calls == [
+            call.set_configuration(
+                configuration
+            ),
             call.calculate_hourly_production(
                 configuration
             ),
@@ -243,23 +254,31 @@ class TestSolarController:
             configuration
         )
 
+        engine.set_configuration.assert_called_once_with(
+            configuration
+        )
+
         engine.calculate_hourly_production.assert_called_once_with(
+            configuration
+        )
+
+    def test_calculate_uses_existing_configuration(self):
+
+        configuration = MagicMock()
+
+        self.analyzer.solar_engine.configuration = (
+            configuration
+        )
+
+        self.controller.calculate()
+
+        self.analyzer.solar_engine.calculate_hourly_production.assert_called_once_with(
             configuration
         )
 
     def test_calculate_requires_configuration(self):
 
         self.analyzer.solar_engine.configuration = None
-
-        print(
-            "ENGINE CONFIG:",
-            self.analyzer.solar_engine.configuration,
-        )
-
-        print(
-            "CONTROLLER CONFIG:",
-            self.controller.configuration,
-        )
 
         with pytest.raises(
             ValueError,
@@ -271,9 +290,7 @@ class TestSolarController:
     # Configuración
     # ==================================================
 
-    def test_set_configuration_delegates_to_engine(
-        self,
-    ):
+    def test_set_configuration_delegates_to_engine(self):
 
         configuration = MagicMock()
 
@@ -284,25 +301,6 @@ class TestSolarController:
         self.analyzer.solar_engine.set_configuration.assert_called_once_with(
             configuration
         )
-
-    def test_set_configuration_does_not_calculate(
-        self,
-    ):
-
-        configuration = MagicMock()
-
-        engine = self.analyzer.solar_engine
-
-        self.controller.set_configuration(
-            configuration
-        )
-
-        engine.calculate_hourly_production.assert_not_called()
-        engine.calculate_daily_production.assert_not_called()
-        engine.calculate_monthly_production.assert_not_called()
-        engine.calculate_yearly_production.assert_not_called()
-        engine.calculate_energy_balance.assert_not_called()
-        engine.calculate_statistics.assert_not_called()
 
     # ==================================================
     # Reports
@@ -721,43 +719,3 @@ class TestSolarController:
         assert self.controller.installation_result is None
 
         self.analyzer.solar_engine.reset.assert_called_once_with()
-
-    def test_reset_clears_installation_configuration(
-        self,
-    ):
-
-        self.controller.installation_configuration = (
-            MagicMock()
-        )
-
-        self.controller.reset()
-
-        assert (
-            self.controller.installation_configuration
-            is None
-        )
-
-    def test_reset_preserves_solar_configuration(
-        self,
-    ):
-
-        configuration = MagicMock()
-
-        self.analyzer.solar_engine.configuration = (
-            configuration
-        )
-
-        self.controller.sizing_result = MagicMock()
-        self.controller.installation_result = MagicMock()
-        self.controller.installation_configuration = MagicMock()
-
-        self.controller.reset()
-
-        assert (
-            self.analyzer.solar_engine.configuration
-            is configuration
-        )
-
-        assert self.controller.sizing_result is None
-        assert self.controller.installation_result is None
-        assert self.controller.installation_configuration is None

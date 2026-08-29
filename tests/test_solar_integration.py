@@ -3,6 +3,7 @@ import pytest
 
 from helios.core.controllers.solar_controller import SolarController
 from helios.core.solar import SolarEngine
+from helios.solar.configuration import SolarConfiguration
 
 
 class TestSolarIntegration:
@@ -21,21 +22,16 @@ class TestSolarIntegration:
         # Configuration
         # ==========================================
 
-        configuration = type(
-            "Configuration",
-            (),
-            {
-                "installed_power_kwp": 5.0,
-                "latitude": 41.0,
-                "longitude": 2.0,
-                "tilt": 30,
-                "azimuth": 0,
-                "reference_year": 2025,
-                "losses": 14,
-                "pv_technology": "crystSi",
-                "mounting_place": "building",
-            }
-        )()
+        configuration = SolarConfiguration(
+            latitude=41.0,
+            longitude=2.0,
+            tilt=30,
+            azimuth=0,
+            reference_year=2025,
+            losses=14,
+            pv_technology="crystSi",
+            mounting_place="building",
+        )
 
         # ==========================================
         # Mock PVGIS response
