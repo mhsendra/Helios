@@ -101,20 +101,18 @@ class TestSolarController:
 
     def test_specific_production(self):
 
-        self.analyzer.solar_engine.yearly_production = pd.Series(
-            [1111.111111],
-            index=pd.to_datetime(
-                ["2025-12-31"]
-            ),
-        )
+        self.analyzer.solar_engine.statistics = {
+            "specific_production": 1481.481481,
+        }
 
         assert self.controller.specific_production == pytest.approx(
-            1111.111111
+            1481.481481
         )
 
-    def test_specific_production_without_yearly_production(self):
 
-        self.analyzer.solar_engine.yearly_production = None
+    def test_specific_production_without_statistics(self):
+
+        self.analyzer.solar_engine.statistics = None
 
         assert self.controller.specific_production is None
 
@@ -219,11 +217,13 @@ class TestSolarController:
     def test_calculate_calls_steps_in_order(self):
 
         configuration = MagicMock()
+        installed_power_kwp = 8.10
 
         engine = self.analyzer.solar_engine
 
         self.controller.calculate(
-            configuration
+            configuration,
+            installed_power_kwp,
         )
 
         assert engine.mock_calls == [
@@ -231,7 +231,8 @@ class TestSolarController:
                 configuration
             ),
             call.calculate_hourly_production(
-                configuration
+                configuration,
+                installed_power_kwp,
             ),
             call.calculate_daily_production(),
             call.calculate_monthly_production(),
@@ -244,14 +245,17 @@ class TestSolarController:
             call.calculate_statistics(),
         ]
 
+
     def test_calculate_uses_explicit_configuration(self):
 
         configuration = MagicMock()
+        installed_power_kwp = 8.10
 
         engine = self.analyzer.solar_engine
 
         self.controller.calculate(
-            configuration
+            configuration,
+            installed_power_kwp,
         )
 
         engine.set_configuration.assert_called_once_with(
@@ -259,21 +263,27 @@ class TestSolarController:
         )
 
         engine.calculate_hourly_production.assert_called_once_with(
-            configuration
+            configuration,
+            installed_power_kwp,
         )
+
 
     def test_calculate_uses_existing_configuration(self):
 
         configuration = MagicMock()
+        installed_power_kwp = 8.10
 
         self.analyzer.solar_engine.configuration = (
             configuration
         )
 
-        self.controller.calculate()
+        self.controller.calculate(
+            installed_power_kwp=installed_power_kwp
+        )
 
         self.analyzer.solar_engine.calculate_hourly_production.assert_called_once_with(
-            configuration
+            configuration,
+            installed_power_kwp,
         )
 
     def test_calculate_requires_configuration(self):
@@ -320,7 +330,6 @@ class TestSolarController:
 
     def test_installation_simulation_report_delegates_to_engine(
         self,
-        monkeypatch,
     ):
 
         engine = self.analyzer.solar_engine
@@ -337,12 +346,8 @@ class TestSolarController:
             recommendation
         )
 
-        monkeypatch.setattr(
-            type(self.controller),
-            "specific_production",
-            property(
-                lambda self: specific_production
-            ),
+        self.controller.installation_specific_production = (
+            specific_production
         )
 
         self.controller.installation_simulation_report()
@@ -386,12 +391,9 @@ class TestSolarController:
             }
         )
 
-        self.analyzer.solar_engine.yearly_production = pd.Series(
-            [1111.111111],
-            index=pd.to_datetime(
-                ["2025-12-31"]
-            ),
-        )
+        self.analyzer.solar_engine.statistics = {
+            "specific_production": 1111.111111,
+        }
 
     # --------------------------------------------------
     # Validación de entrada
@@ -450,7 +452,7 @@ class TestSolarController:
 
         configuration = self._installation_configuration()
 
-        self.analyzer.solar_engine.yearly_production = None
+        self.analyzer.solar_engine.statistics = None
 
         with pytest.raises(
             ValueError,
@@ -466,12 +468,9 @@ class TestSolarController:
 
         configuration = self._installation_configuration()
 
-        self.analyzer.solar_engine.yearly_production = pd.Series(
-            [0.0],
-            index=pd.to_datetime(
-                ["2025-12-31"]
-            ),
-        )
+        self.analyzer.solar_engine.statistics = {
+            "specific_production": 0.0,
+        }
 
         with pytest.raises(
             ValueError,
@@ -493,12 +492,9 @@ class TestSolarController:
 
         self.analyzer.valid_dataset.return_value = None
 
-        self.analyzer.solar_engine.yearly_production = pd.Series(
-            [6_000.0],
-            index=pd.to_datetime(
-                ["2025-12-31"]
-            ),
-        )
+        self.analyzer.solar_engine.statistics = {
+            "specific_production": 1111.111111,
+        }
 
         with pytest.raises(
             ValueError,
@@ -516,12 +512,9 @@ class TestSolarController:
 
         self.analyzer.valid_dataset.return_value = pd.DataFrame()
 
-        self.analyzer.solar_engine.yearly_production = pd.Series(
-            [6_000.0],
-            index=pd.to_datetime(
-                ["2025-12-31"]
-            ),
-        )
+        self.analyzer.solar_engine.statistics = {
+            "specific_production": 1111.111111,
+        }
 
         with pytest.raises(
             ValueError,
@@ -543,12 +536,9 @@ class TestSolarController:
             }
         )
 
-        self.analyzer.solar_engine.yearly_production = pd.Series(
-            [6_000.0],
-            index=pd.to_datetime(
-                ["2025-12-31"]
-            ),
-        )
+        self.analyzer.solar_engine.statistics = {
+            "specific_production": 1111.111111,
+        }
 
         with pytest.raises(
             ValueError,
@@ -570,12 +560,9 @@ class TestSolarController:
             }
         )
 
-        self.analyzer.solar_engine.yearly_production = pd.Series(
-            [6_000.0],
-            index=pd.to_datetime(
-                ["2025-12-31"]
-            ),
-        )
+        self.analyzer.solar_engine.statistics = {
+            "specific_production": 1111.111111,
+        }
 
         with pytest.raises(
             ValueError,

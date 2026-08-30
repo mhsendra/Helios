@@ -76,7 +76,8 @@ class TestSolarStatisticsEngine:
         result = SolarStatisticsEngine.calculate(
             hourly_production,
             energy_balance,
-            self.configuration
+            self.configuration,
+            1.0,
         )
 
         # ------------------------------------------
@@ -237,7 +238,8 @@ class TestSolarStatisticsEngine:
         result = SolarStatisticsEngine.calculate(
             hourly_production,
             energy_balance,
-            self.configuration
+            self.configuration,
+            1.0,
         )
 
         assert result["productive_hours"] == 0
@@ -303,6 +305,7 @@ class TestSolarStatisticsEngine:
             hourly_production,
             energy_balance,
             self.configuration,
+            1.0,
         )
 
         assert result["hours"] == 1
@@ -370,6 +373,7 @@ class TestSolarStatisticsEngine:
             hourly_production,
             energy_balance,
             self.configuration,
+            1.0,
         )
 
         assert result["consumption"] == pytest.approx(0.0)
@@ -442,6 +446,7 @@ class TestSolarStatisticsEngine:
             hourly_production,
             energy_balance,
             self.configuration,
+            1.0,
         )
 
         assert result["consumption"] == pytest.approx(

@@ -226,7 +226,8 @@ class TestSolarManager:
         self.manager.statistics_engine.calculate.assert_called_once_with(
             hourly_production,
             energy_balance,
-            configuration
+            configuration,
+            1.0,
         )
 
         assert self.manager.statistics is statistics

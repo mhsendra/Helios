@@ -338,13 +338,6 @@ class SolarReports:
             )
 
             ReportPrinter.value(
-                "Potencia de referencia",
-                solar_configuration.installed_power_kwp,
-                "kWp",
-                decimals=2,
-            )
-
-            ReportPrinter.value(
                 "Inclinación",
                 solar_configuration.tilt,
                 "°",

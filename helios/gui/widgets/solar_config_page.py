@@ -2264,6 +2264,10 @@ class SolarConfigPage(QWidget):
                     "be greater than zero."
                 )
 
+            self.project.solar.installation_specific_production = (
+                specific_production
+            )
+
             # ------------------------------------------
             # Restricciones
             # ------------------------------------------

@@ -407,7 +407,7 @@ class TestSolarPage:
     def test_update_statistics(self):
 
         self.project.solar.statistics = {
-            "annual_production": 8000.0,
+            "period_production": 8000.0,
             "specific_yield": 1000.0,
             "equivalent_hours": 1000.0,
             "capacity_factor": 11.4,
@@ -615,7 +615,7 @@ class TestSolarPage:
     def test_refresh_production_results(self):
 
         self.project.solar.statistics = {
-            "annual_production": 12000.0,
+            "period_production": 12000.0,
             "specific_yield": 1500.0,
             "equivalent_hours": 1500.0,
             "capacity_factor": 17.12,

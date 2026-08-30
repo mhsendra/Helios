@@ -455,13 +455,13 @@ class SolarPage(QWidget):
 
     def calculate_production(self):
 
-        configuration = (
-            self.get_configuration()
-        )
+        configuration = self.project.solar_configuration
 
-        installed_power_kwp = (
-            self.peak_power_spinbox.value()
-        )
+        if configuration is None:
+            raise ValueError(
+                "Solar configuration is required "
+                "before calculating production."
+            )
 
         self.update_production_status(
             source="PVGIS",
@@ -476,9 +476,26 @@ class SolarPage(QWidget):
 
         try:
 
+            if self.project.solar.sizing_result is not None:
+                print(
+                    "sizing_result attributes:",
+                    vars(self.project.solar.sizing_result)
+                )
+
+            installed_power_kwp = (
+                self.project.solar.sizing_result
+                .evaluation
+                .candidate
+                .panel_count
+                * self.project.solar.sizing_result
+                .evaluation
+                .candidate
+                .panel_power_wp
+                / 1000
+            )
+
             self.project.solar.calculate(
-                configuration,
-                installed_power_kwp,
+                configuration
             )
 
             self.refresh_production_results()
@@ -486,7 +503,6 @@ class SolarPage(QWidget):
             self.set_results_available(True)
 
             if self.main_window is not None:
-
                 self.main_window.set_solar_calculated(
                     True
                 )
@@ -561,11 +577,7 @@ class SolarPage(QWidget):
 
             status="Disponible",
 
-            annual_production=(
-                solar.yearly_production.sum()
-                if solar.yearly_production is not None
-                else None
-            ),
+            annual_production=solar.annual_production,
 
             specific_production=solar.specific_production,
 

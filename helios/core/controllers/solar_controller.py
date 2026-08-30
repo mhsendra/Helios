@@ -30,19 +30,6 @@ from helios.solar.installation_configuration import (
 class SolarController:
 
     def __init__(self, analyzer):
-        """
-        Controlador de producción solar.
-
-        Encapsula cálculos, reportes, gráficas y
-        dimensionamiento de instalaciones fotovoltaicas.
-
-        La configuración solar persistente pertenece a
-        HeliosProject.solar_configuration.
-
-        El SolarController únicamente sincroniza dicha
-        configuración con el motor solar para poder
-        realizar los cálculos.
-        """
 
         self.analyzer = analyzer
 
@@ -54,9 +41,31 @@ class SolarController:
 
         self.installation_configuration = None
 
+        # Producción específica utilizada en el
+        # dimensionamiento de la instalación.
+        self.installation_specific_production = None
+
     # ==================================================
     # Propiedades
     # ==================================================
+
+    @property
+    def installed_power_kwp(self) -> float | None:
+
+        if self.sizing_result is None:
+            return None
+
+        candidate = (
+            self.sizing_result
+            .evaluation
+            .candidate
+        )
+
+        return (
+            candidate.panel_count
+            * candidate.panel_power_wp
+            / 1000
+        )
 
     @property
     def hourly_production(self):
@@ -73,6 +82,25 @@ class SolarController:
     @property
     def yearly_production(self):
         return self.analyzer.solar_engine.yearly_production
+
+    @property
+    def annual_production(self) -> float | None:
+
+        yearly_production = (
+            self.analyzer
+            .solar_engine
+            .yearly_production
+        )
+
+        if yearly_production is None:
+            return None
+
+        if hasattr(yearly_production, "sum"):
+            return float(
+                yearly_production.sum()
+            )
+
+        return float(yearly_production)
 
     @property
     def statistics(self):
@@ -108,16 +136,18 @@ class SolarController:
     @property
     def specific_production(self) -> float | None:
 
-        yearly = (
+        statistics = (
             self.analyzer
             .solar_engine
-            .yearly_production
+            .statistics
         )
 
-        if yearly is None or yearly.empty:
+        if statistics is None:
             return None
 
-        return float(yearly.iloc[-1])
+        return statistics.get(
+            "specific_production"
+        )
 
     @property
     def self_consumption(self) -> float | None:
@@ -338,7 +368,7 @@ class SolarController:
     def calculate(
         self,
         configuration=None,
-        installed_power_kwp: float = 1.0,
+        installed_power_kwp: float | None = None,
     ):
         """
         Ejecuta los cálculos solares.
@@ -359,6 +389,16 @@ class SolarController:
                 "A solar configuration is required "
                 "before calculating production."
             )
+
+        if installed_power_kwp is None:
+
+            installed_power_kwp = (
+                self.installed_power_kwp
+            )
+
+        if installed_power_kwp is None:
+
+            installed_power_kwp = 1.0
 
         self.calculate_hourly_production(
             configuration,
@@ -420,6 +460,7 @@ class SolarController:
         self.sizing_result = None
         self.installation_result = None
         self.installation_configuration = None
+        self.installation_specific_production = None
 
         self.analyzer.solar_engine.reset()
 
@@ -462,8 +503,17 @@ class SolarController:
         recomendada.
         """
 
-        self.analyzer.solar_engine.installation_simulation_report(
+        specific_production = (
+            self.installation_specific_production
+        )
+
+        if specific_production is None:
+            raise RuntimeError(
+                "Specific solar production is not available."
+            )
+
+        return self.analyzer.solar_engine.installation_simulation_report(
             configuration=self.installation_configuration,
             recommendation=self.sizing_result,
-            specific_production=self.specific_production,
+            specific_production=specific_production,
         )

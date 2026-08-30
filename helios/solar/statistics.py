@@ -10,7 +10,7 @@ class SolarStatisticsEngine:
         hourly_production: pd.DataFrame,
         energy_balance: pd.DataFrame,
         configuration: SolarConfiguration,
-        installed_power_kwp: float,
+        installed_power_kwp: float = 1.0,
     ) -> dict:
 
         # ==========================================

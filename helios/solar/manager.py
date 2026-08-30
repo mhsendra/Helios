@@ -42,6 +42,8 @@ class SolarManager:
 
         self.statistics = None
 
+        self.specific_production_kwh_per_kwp = None
+
     def calculate_hourly_production(
         self,
         configuration: SolarConfiguration,
@@ -60,6 +62,10 @@ class SolarManager:
 
         self.hourly_production = self.parser.parse(
             response
+        )
+
+        self.specific_production_kwh_per_kwp = (
+            self.hourly_production["production_kwh"].sum()
         )
 
         if installed_power_kwp <= 0:
@@ -246,6 +252,7 @@ class SolarManager:
         self.yearly_production = None
         self.energy_balance = None
         self.statistics = None
+        self.specific_production_kwh_per_kwp = None
 
     def set_configuration(
         self,
