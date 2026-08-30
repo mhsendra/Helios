@@ -185,3 +185,18 @@ def test_quality_is_created_after_calculation():
     )
 
     assert result == engine.quality
+
+def test_calculate_empty_dataset():
+
+    engine = create_engine()
+
+    dataset = create_dataset([])
+
+    result = engine.calculate(dataset)
+
+    assert result["total_hours"] == 0
+    assert result["valid_hours"] == 0
+    assert result["missing_hours"] == 0
+    assert result["duplicates"] == 0
+    assert result["coverage"] == pytest.approx(0.0)
+    assert result["rating"] == "REVISAR"

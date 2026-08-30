@@ -1,29 +1,27 @@
-# helios/core/controllers/solar_controller.py
-
 from helios.solar.configuration import SolarConfiguration
+
+from helios.solar.installation_configuration import (
+    InstallationConfiguration,
+)
 
 from helios.solar.installation_coordinator import (
     InstallationCoordinator,
-)
-
-from helios.solar.installation_recommendation import (
-    InstallationRecommender,
-)
-
-from helios.solar.installation_optimizer import (
-    InstallationOptimizer,
 )
 
 from helios.solar.installation_evaluation import (
     InstallationEvaluator,
 )
 
-from helios.solar.solar_installation_sizing import (
-    SolarSizingResult,
+from helios.solar.installation_optimizer import (
+    InstallationOptimizer,
 )
 
-from helios.solar.installation_configuration import (
-    InstallationConfiguration,
+from helios.solar.installation_recommendation import (
+    InstallationRecommender,
+)
+
+from helios.solar.solar_installation_sizing import (
+    SolarSizingResult,
 )
 
 
@@ -36,49 +34,53 @@ class SolarController:
         # Resultado del último dimensionamiento.
         self.sizing_result: SolarSizingResult | None = None
 
+        # Configuración física utilizada para el último
+        # dimensionamiento.
         self.installation_configuration = None
 
-        # Producción específica utilizada en el
-        # dimensionamiento de la instalación.
+        # Producción específica utilizada para evaluar
+        # el dimensionamiento.
         self.installation_specific_production = None
 
     # ==================================================
-    # Propiedades
+    # Propiedades de producción
     # ==================================================
 
     @property
-    def installed_power_kwp(self) -> float | None:
-
-        if self.sizing_result is None:
-            return None
-
-        candidate = (
-            self.sizing_result
-            .evaluation
-            .candidate
-        )
+    def hourly_production(self):
 
         return (
-            candidate.panel_count
-            * candidate.panel_power_wp
-            / 1000
+            self.analyzer
+            .solar_engine
+            .hourly_production
         )
-
-    @property
-    def hourly_production(self):
-        return self.analyzer.solar_engine.hourly_production
 
     @property
     def daily_production(self):
-        return self.analyzer.solar_engine.daily_production
+
+        return (
+            self.analyzer
+            .solar_engine
+            .daily_production
+        )
 
     @property
     def monthly_production(self):
-        return self.analyzer.solar_engine.monthly_production
+
+        return (
+            self.analyzer
+            .solar_engine
+            .monthly_production
+        )
 
     @property
     def yearly_production(self):
-        return self.analyzer.solar_engine.yearly_production
+
+        return (
+            self.analyzer
+            .solar_engine
+            .yearly_production
+        )
 
     @property
     def annual_production(self) -> float | None:
@@ -101,34 +103,77 @@ class SolarController:
 
     @property
     def statistics(self):
-        return self.analyzer.solar_engine.statistics
+
+        return (
+            self.analyzer
+            .solar_engine
+            .statistics
+        )
 
     @property
     def energy_balance(self):
-        return self.analyzer.solar_engine.energy_balance
+
+        return (
+            self.analyzer
+            .solar_engine
+            .energy_balance
+        )
 
     @property
     def configuration(self) -> SolarConfiguration | None:
-        return self.analyzer.solar_engine.configuration
+
+        return (
+            self.analyzer
+            .solar_engine
+            .configuration
+        )
+
+    # ==================================================
+    # Propiedades derivadas
+    # ==================================================
+
+    @property
+    def installed_power_kwp(self) -> float | None:
+        """
+        Potencia instalada de la recomendación actual.
+
+        No representa la potencia utilizada por una
+        simulación solar normalizada.
+        """
+
+        if self.sizing_result is None:
+            return None
+
+        return self.sizing_result.installed_power_kwp
 
     @property
     def coverage(self) -> float | None:
 
-        balance = self.analyzer.solar_engine.energy_balance
+        balance = (
+            self.analyzer
+            .solar_engine
+            .energy_balance
+        )
 
         if balance is None or balance.empty:
             return None
 
-        consumption = balance["consumption_kwh"].sum()
+        consumption = balance[
+            "consumption_kwh"
+        ].sum()
 
         if consumption == 0:
             return None
 
-        self_consumption = (
-            balance["self_consumption_kwh"].sum()
-        )
+        self_consumption = balance[
+            "self_consumption_kwh"
+        ].sum()
 
-        return 100 * self_consumption / consumption
+        return (
+            100
+            * self_consumption
+            / consumption
+        )
 
     @property
     def specific_production(self) -> float | None:
@@ -149,48 +194,72 @@ class SolarController:
     @property
     def self_consumption(self) -> float | None:
 
-        balance = self.analyzer.solar_engine.energy_balance
+        balance = (
+            self.analyzer
+            .solar_engine
+            .energy_balance
+        )
 
         if balance is None:
             return None
 
         return float(
-            balance["self_consumption_kwh"].sum()
+            balance[
+                "self_consumption_kwh"
+            ].sum()
         )
 
     @property
     def grid_import(self) -> float | None:
 
-        balance = self.analyzer.solar_engine.energy_balance
+        balance = (
+            self.analyzer
+            .solar_engine
+            .energy_balance
+        )
 
         if balance is None:
             return None
 
         return float(
-            balance["grid_import_kwh"].sum()
+            balance[
+                "grid_import_kwh"
+            ].sum()
         )
 
     @property
     def grid_export(self) -> float | None:
 
-        balance = self.analyzer.solar_engine.energy_balance
+        balance = (
+            self.analyzer
+            .solar_engine
+            .energy_balance
+        )
 
         if balance is None:
             return None
 
         return float(
-            balance["grid_export_kwh"].sum()
+            balance[
+                "grid_export_kwh"
+            ].sum()
         )
 
     @property
     def monthly_energy_balance(self):
 
-        balance = self.analyzer.solar_engine.energy_balance
+        balance = (
+            self.analyzer
+            .solar_engine
+            .energy_balance
+        )
 
         if balance is None:
             return None
 
-        return balance.resample("ME").sum()
+        return balance.resample(
+            "ME"
+        ).sum()
 
     # ==================================================
     # Configuración solar
@@ -201,35 +270,173 @@ class SolarController:
         configuration: SolarConfiguration,
     ):
         """
-        Sincroniza una configuración solar con el motor.
+        Sincroniza la configuración solar con el motor.
 
-        La persistencia de la configuración pertenece a
-        HeliosProject.set_solar_configuration().
-
-        Este método no ejecuta ninguna simulación.
+        No ejecuta cálculos ni gestiona la persistencia
+        del proyecto.
         """
+
+        if not isinstance(
+            configuration,
+            SolarConfiguration,
+        ):
+            raise TypeError(
+                "configuration must be a "
+                "SolarConfiguration."
+            )
 
         self.analyzer.solar_engine.set_configuration(
             configuration
         )
 
     # ==================================================
-    # Dimensionamiento de instalación
+    # Cálculos de producción
+    # ==================================================
+
+    def calculate_hourly_production(
+        self,
+        configuration=None,
+        installed_power_kwp: float = 1.0,
+    ):
+        """
+        Calcula la producción horaria.
+
+        La potencia instalada pertenece a la simulación
+        que se está ejecutando y no se obtiene del
+        resultado del dimensionamiento.
+        """
+
+        if configuration is not None:
+
+            self.set_configuration(
+                configuration
+            )
+
+        else:
+
+            configuration = self.configuration
+
+        if configuration is None:
+            raise ValueError(
+                "A solar configuration is required "
+                "before calculating production."
+            )
+
+        if (
+            isinstance(
+                installed_power_kwp,
+                bool,
+            )
+            or not isinstance(
+                installed_power_kwp,
+                (int, float),
+            )
+        ):
+            raise TypeError(
+                "installed_power_kwp must be a number."
+            )
+
+        if installed_power_kwp <= 0:
+            raise ValueError(
+                "installed_power_kwp must be "
+                "greater than zero."
+            )
+
+        self.analyzer.solar_engine.calculate_hourly_production(
+            configuration,
+            float(installed_power_kwp),
+        )
+
+    def calculate_daily_production(self):
+
+        self.analyzer.solar_engine.calculate_daily_production()
+
+    def calculate_monthly_production(self):
+
+        self.analyzer.solar_engine.calculate_monthly_production()
+
+    def calculate_yearly_production(self):
+
+        self.analyzer.solar_engine.calculate_yearly_production()
+
+    def calculate_energy_balance(self):
+
+        dataset = self.analyzer.valid_dataset()
+
+        if dataset is None or dataset.empty:
+            raise ValueError(
+                "A valid consumption dataset is required "
+                "to calculate the energy balance."
+            )
+
+        self.analyzer.solar_engine.calculate_energy_balance(
+            dataset["AE_kWh"]
+        )
+
+    def calculate_statistics(self):
+
+        self.analyzer.solar_engine.calculate_statistics()
+
+    def calculate(
+        self,
+        configuration=None,
+        installed_power_kwp: float | None = None,
+    ):
+        """
+        Ejecuta el flujo completo de cálculo solar.
+
+        La configuración puede proporcionarse explícitamente
+        o utilizar la configuración ya establecida en el
+        motor.
+
+        Si no se especifica potencia instalada se utiliza
+        1 kWp, que corresponde a la simulación normalizada
+        utilizada para obtener la producción específica.
+        """
+
+        if configuration is None:
+            configuration = self.configuration
+
+        if configuration is None:
+            raise ValueError(
+                "A solar configuration is required "
+                "before calculating production."
+            )
+
+        if installed_power_kwp is None:
+            installed_power_kwp = 1.0
+
+        self.calculate_hourly_production(
+            configuration,
+            installed_power_kwp,
+        )
+
+        self.calculate_daily_production()
+
+        self.calculate_monthly_production()
+
+        self.calculate_yearly_production()
+
+        self.calculate_energy_balance()
+
+        self.calculate_statistics()
+
+    # ==================================================
+    # Dimensionamiento
     # ==================================================
 
     def recommend_installation(
         self,
         configuration: InstallationConfiguration,
-    ):
+    ) -> SolarSizingResult:
         """
-        Recomienda la instalación fotovoltaica óptima.
+        Ejecuta el dimensionamiento de la instalación.
 
-        InstallationConfiguration representa las
-        restricciones físicas utilizadas por el
-        optimizador.
+        InstallationConfiguration contiene las restricciones
+        físicas de la instalación.
 
-        Esta configuración es independiente de
-        SolarConfiguration.
+        SolarConfiguration y InstallationConfiguration son
+        conceptos independientes.
         """
 
         if not isinstance(
@@ -241,9 +448,9 @@ class SolarController:
                 "InstallationConfiguration."
             )
 
-        constraints = configuration.to_constraints()
-
-        specific_production = self.specific_production
+        specific_production = (
+            self.specific_production
+        )
 
         if specific_production is None:
             raise ValueError(
@@ -271,8 +478,13 @@ class SolarController:
 
         if annual_consumption <= 0:
             raise ValueError(
-                "Annual consumption must be greater than zero."
+                "Annual consumption must be "
+                "greater than zero."
             )
+
+        constraints = (
+            configuration.to_constraints()
+        )
 
         coordinator = InstallationCoordinator(
             optimizer=InstallationOptimizer(
@@ -294,126 +506,49 @@ class SolarController:
 
         self.sizing_result = result
 
+        self.installation_configuration = (
+            configuration
+        )
+
+        self.installation_specific_production = (
+            specific_production
+        )
+
         return result
 
-    # ==================================================
-    # Cálculos de producción solar
-    # ==================================================
-
-    def calculate_hourly_production(
+    def _calculate_installation_production(
         self,
-        configuration=None,
-        installed_power_kwp: float = 1.0,
-    ):
+        candidate,
+    ) -> float:
         """
-        Calcula la producción solar horaria.
-
-        Si se proporciona una configuración explícita,
-        se sincroniza con el motor y se utiliza directamente.
-
-        Si no se proporciona, utiliza la configuración
-        persistente del proyecto.
+        Calcula la producción anual de una instalación
+        candidata utilizando la producción específica
+        previamente calculada.
         """
 
-        if configuration is not None:
+        specific_production = (
+            self.specific_production
+        )
 
-            self.set_configuration(
-                configuration
-            )
-
-        else:
-
-            configuration = self.configuration
-
-        if configuration is None:
+        if specific_production is None:
             raise ValueError(
-                "A solar configuration is required "
-                "before calculating production."
+                "Solar production must be calculated "
+                "before recommending an installation."
             )
 
-        self.analyzer.solar_engine.calculate_hourly_production(
-            configuration,
-            installed_power_kwp,
-        )
-
-    def calculate_daily_production(self):
-
-        self.analyzer.solar_engine.calculate_daily_production()
-
-    def calculate_monthly_production(self):
-
-        self.analyzer.solar_engine.calculate_monthly_production()
-
-    def calculate_yearly_production(self):
-
-        self.analyzer.solar_engine.calculate_yearly_production()
-
-    def calculate_energy_balance(self):
-
-        consumption = (
-            self.analyzer.valid_dataset()["AE_kWh"]
-        )
-
-        self.analyzer.solar_engine.calculate_energy_balance(
-            consumption
-        )
-
-    def calculate_statistics(self):
-
-        self.analyzer.solar_engine.calculate_statistics()
-
-    def calculate(
-        self,
-        configuration=None,
-        installed_power_kwp: float | None = None,
-    ):
-        """
-        Ejecuta los cálculos solares.
-
-        Si se proporciona una configuración, se utiliza
-        directamente para el cálculo horario, manteniendo
-        compatibilidad con la API anterior.
-
-        La configuración persistente se establece mediante
-        HeliosProject.set_solar_configuration().
-        """
-
-        if configuration is None:
-            configuration = self.configuration
-
-        if configuration is None:
+        if specific_production <= 0:
             raise ValueError(
-                "A solar configuration is required "
-                "before calculating production."
+                "Specific solar production must be "
+                "greater than zero."
             )
 
-        if installed_power_kwp is None:
-
-            installed_power_kwp = (
-                self.installed_power_kwp
-            )
-
-        if installed_power_kwp is None:
-
-            installed_power_kwp = 1.0
-
-        self.calculate_hourly_production(
-            configuration,
-            installed_power_kwp,
+        return float(
+            candidate.installed_power_kwp
+            * specific_production
         )
-
-        self.calculate_daily_production()
-
-        self.calculate_monthly_production()
-
-        self.calculate_yearly_production()
-
-        self.calculate_energy_balance()
-
-        self.calculate_statistics()
 
     # ==================================================
-    # Reportes solares
+    # Informes
     # ==================================================
 
     def production_statistics_report(self):
@@ -437,10 +572,37 @@ class SolarController:
             .energy_balance_report()
         )
 
+    def installation_simulation_report(self):
+
+        if self.installation_configuration is None:
+            raise RuntimeError(
+                "Installation configuration is not available."
+            )
+
+        if self.sizing_result is None:
+            raise RuntimeError(
+                "Installation recommendation is not available."
+            )
+
+        if self.installation_specific_production is None:
+            raise RuntimeError(
+                "Specific solar production is not available."
+            )
+
+        return (
+            self.analyzer.solar_engine
+            .installation_simulation_report(
+                configuration=(
+                    self.installation_configuration
+                ),
+                recommendation=self.sizing_result,
+                specific_production=(
+                    self.installation_specific_production
+                ),
+            )
+        )
+
     def reports(self):
-        """
-        Genera todos los informes solares.
-        """
 
         self.production_statistics_report()
 
@@ -455,61 +617,9 @@ class SolarController:
     def reset(self):
 
         self.sizing_result = None
+
         self.installation_configuration = None
+
         self.installation_specific_production = None
 
         self.analyzer.solar_engine.reset()
-
-    # ==================================================
-    # Utilidades de dimensionamiento
-    # ==================================================
-
-    def _calculate_installation_production(
-        self,
-        candidate,
-    ) -> float:
-        """
-        Calcula la producción anual estimada de una
-        instalación candidata a partir de la producción
-        específica solar ya calculada.
-        """
-
-        specific_production = self.specific_production
-
-        if specific_production is None:
-            raise ValueError(
-                "Solar production must be calculated "
-                "before recommending an installation."
-            )
-
-        if specific_production <= 0:
-            raise ValueError(
-                "Specific solar production must be "
-                "greater than zero."
-            )
-
-        return (
-            candidate.installed_power_kwp
-            * specific_production
-        )
-
-    def installation_simulation_report(self):
-        """
-        Genera el informe de simulación de la instalación
-        recomendada.
-        """
-
-        specific_production = (
-            self.installation_specific_production
-        )
-
-        if specific_production is None:
-            raise RuntimeError(
-                "Specific solar production is not available."
-            )
-
-        return self.analyzer.solar_engine.installation_simulation_report(
-            configuration=self.installation_configuration,
-            recommendation=self.sizing_result,
-            specific_production=specific_production,
-        )

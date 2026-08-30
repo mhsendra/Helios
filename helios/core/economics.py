@@ -306,18 +306,26 @@ class EconomicsEngine:
 
             if scenario.annual_maintenance is not None:
 
-                maintenance_growth_factor = (
-                    self.calculate_maintenance_cost(
-                        year,
-                        configuration,
-                    )
-                    / configuration.annual_maintenance_cost
-                )
+                if configuration.annual_maintenance_cost == 0:
 
-                maintenance_cost = (
-                    scenario.annual_maintenance
-                    * maintenance_growth_factor
-                )
+                    maintenance_cost = (
+                        scenario.annual_maintenance
+                    )
+
+                else:
+
+                    maintenance_growth_factor = (
+                        self.calculate_maintenance_cost(
+                            year,
+                            configuration,
+                        )
+                        / configuration.annual_maintenance_cost
+                    )
+
+                    maintenance_cost = (
+                        scenario.annual_maintenance
+                        * maintenance_growth_factor
+                    )
 
             annual_cash_flow = (
                 self_consumption_savings

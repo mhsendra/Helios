@@ -1,6 +1,8 @@
 from unittest.mock import MagicMock
 
 import pandas as pd
+
+import pytest 
 from PySide6.QtWidgets import QApplication
 
 from helios.gui.widgets.comparisons_page import ComparisonsPage
@@ -89,13 +91,24 @@ class TestComparisonsPage:
     # update_data — datos no preparados
     # ==================================================
 
+    def test_update_data_returns_when_comparisons_are_not_available(self):
+
+        self.project.comparisons = None
+
+        with pytest.raises(AttributeError):
+            self.page.update_data()
+
     def test_update_data_returns_when_weekly_is_missing(self):
 
         comparisons = self.project.comparisons
 
         comparisons.get_weekly_comparison.return_value = None
-        comparisons.get_monthly_comparison.return_value = MagicMock()
-        comparisons.get_yearly_comparison.return_value = MagicMock()
+        comparisons.get_monthly_comparison.return_value = (
+            pd.DataFrame()
+        )
+        comparisons.get_yearly_comparison.return_value = (
+            pd.Series(dtype=float)
+        )
 
         self.page.update_data()
 
@@ -105,9 +118,13 @@ class TestComparisonsPage:
 
         comparisons = self.project.comparisons
 
-        comparisons.get_weekly_comparison.return_value = MagicMock()
+        comparisons.get_weekly_comparison.return_value = (
+            pd.DataFrame()
+        )
         comparisons.get_monthly_comparison.return_value = None
-        comparisons.get_yearly_comparison.return_value = MagicMock()
+        comparisons.get_yearly_comparison.return_value = (
+            pd.Series(dtype=float)
+        )
 
         self.page.update_data()
 
@@ -117,8 +134,12 @@ class TestComparisonsPage:
 
         comparisons = self.project.comparisons
 
-        comparisons.get_weekly_comparison.return_value = MagicMock()
-        comparisons.get_monthly_comparison.return_value = MagicMock()
+        comparisons.get_weekly_comparison.return_value = (
+            pd.DataFrame()
+        )
+        comparisons.get_monthly_comparison.return_value = (
+            pd.DataFrame()
+        )
         comparisons.get_yearly_comparison.return_value = None
 
         self.page.update_data()
@@ -138,7 +159,7 @@ class TestComparisonsPage:
                 2024: [100.0, 200.0, 300.0],
                 2025: [150.0, 250.0, 350.0],
             },
-            index=[1, 2, 3]
+            index=[1, 2, 3],
         )
 
         monthly = pd.DataFrame(
@@ -146,7 +167,7 @@ class TestComparisonsPage:
                 2024: [1000.0, 2000.0, 3000.0],
                 2025: [1500.0, 2500.0, 3500.0],
             },
-            index=[1, 2, 3]
+            index=[1, 2, 3],
         )
 
         yearly = pd.Series(
@@ -318,7 +339,6 @@ class TestComparisonsPage:
             "Semana 1 del 2024 — 100.00 kWh"
         )
 
-
     def test_update_data_weekly_insight_without_previous_year(self):
 
         comparisons = self._prepare_comparisons()
@@ -332,6 +352,7 @@ class TestComparisonsPage:
         assert "sin año anterior para comparar" in (
             self.page.week_peak_label.text()
         )
+
     def test_update_data_sets_weekly_stability(self):
 
         self._prepare_comparisons()
@@ -431,15 +452,18 @@ class TestComparisonsPage:
         self.page.update_data()
 
         assert self.page.trend_2024_label.text() == (
-            "Creciente (+2 / -0) — Max ↑ 30.00, Max ↓ 0.00"
+            "Creciente (+2 / -0) — "
+            "Max ↑ 30.00, Max ↓ 0.00"
         )
 
         assert self.page.trend_2025_label.text() == (
-            "Decreciente (+1 / -2) — Max ↑ 15.00, Max ↓ -20.00"
+            "Decreciente (+1 / -2) — "
+            "Max ↑ 15.00, Max ↓ -20.00"
         )
 
         assert self.page.trend_2026_label.text() == (
-            "Irregular (+1 / -1) — Max ↑ 10.00, Max ↓ -12.00"
+            "Irregular (+1 / -1) — "
+            "Max ↑ 10.00, Max ↓ -12.00"
         )
 
     def test_update_data_sets_annual_stability(self):
@@ -449,15 +473,18 @@ class TestComparisonsPage:
         self.page.update_data()
 
         assert self.page.stab_2024_label.text() == (
-            "Estable — Rango 100.00 kWh, Desv. 10.00, CV 0.10"
+            "Estable — Rango 100.00 kWh, "
+            "Desv. 10.00, CV 0.10"
         )
 
         assert self.page.stab_2025_label.text() == (
-            "Volátil — Rango 500.00 kWh, Desv. 50.00, CV 0.30"
+            "Volátil — Rango 500.00 kWh, "
+            "Desv. 50.00, CV 0.30"
         )
 
         assert self.page.stab_2026_label.text() == (
-            "Irregular — Rango 300.00 kWh, Desv. 30.00, CV 0.20"
+            "Irregular — Rango 300.00 kWh, "
+            "Desv. 30.00, CV 0.20"
         )
 
     # ==================================================

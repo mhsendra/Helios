@@ -295,10 +295,16 @@ class ConsumptionComparisons:
 
             prev_value = weekly.loc[max_week[0], prev_year]
 
-            variation_prev = (
-                (max_value - prev_value)
-                / prev_value
-            ) * 100
+            if prev_value == 0:
+
+                variation_prev = None
+
+            else:
+
+                variation_prev = (
+                    (max_value - prev_value)
+                    / prev_value
+                ) * 100
 
         else:
 
@@ -307,10 +313,16 @@ class ConsumptionComparisons:
         # Media del año
         mean_year = weekly[max_week[1]].mean()
 
-        variation_mean = (
-            (max_value - mean_year)
-            / mean_year
-        ) * 100
+        if mean_year == 0:
+
+            variation_mean = None
+
+        else:
+
+            variation_mean = (
+                (max_value - mean_year)
+                / mean_year
+            ) * 100
 
         return {
             "max": {

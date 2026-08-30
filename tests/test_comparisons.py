@@ -478,6 +478,39 @@ class TestConsumptionComparisons:
             expected_variation
         )
 
+    def test_detailed_weekly_insights_previous_year_zero(self):
+
+        self.comparisons.weekly_comparison = pd.DataFrame(
+            {
+                2024: [0.0, 100.0],
+                2025: [150.0, 50.0],
+            },
+            index=["S01", "S02"]
+        )
+
+        result = self.comparisons.detailed_weekly_insights()
+
+        assert result["max"]["week"] == "S01"
+        assert result["max"]["year"] == 2025
+        assert result["max"]["value"] == pytest.approx(150.0)
+
+        assert result["max"]["variation_prev"] is None
+
+    def test_detailed_weekly_insights_mean_zero(self):
+
+        self.comparisons.weekly_comparison = pd.DataFrame(
+            {
+                2024: [0.0, 0.0],
+                2025: [0.0, 0.0],
+            },
+            index=["S01", "S02"]
+        )
+
+        result = self.comparisons.detailed_weekly_insights()
+
+        assert result["max"]["value"] == pytest.approx(0.0)
+        assert result["max"]["variation_mean"] is None
+        
     # ==================================================
     # Anomalías mensuales
     # ==================================================

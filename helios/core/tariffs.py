@@ -110,13 +110,25 @@ class TariffEngine:
 
     def calculate_period_percentage(self):
 
-        total = sum(self.period_consumption.values())
+        total = sum(
+            self.period_consumption.values()
+        )
 
-        self.period_percentage = {
-            period: consumption / total * 100
-            for period, consumption
-            in self.period_consumption.items()
-        }
+        if total == 0:
+
+            self.period_percentage = {
+                period: 0.0
+                for period
+                in self.period_consumption
+            }
+
+        else:
+
+            self.period_percentage = {
+                period: consumption / total * 100
+                for period, consumption
+                in self.period_consumption.items()
+            }
 
         return self.period_percentage
     

@@ -358,3 +358,23 @@ def test_assign_tariff_periods():
         "Llano",
         "Valle",
     ]
+
+def test_calculate_period_percentage_zero_consumption():
+
+    engine = create_engine()
+
+    engine.period_consumption = {
+        "Punta": 0.0,
+        "Llano": 0.0,
+        "Valle": 0.0,
+    }
+
+    result = engine.calculate_period_percentage()
+
+    assert result is engine.period_percentage
+
+    assert result == {
+        "Punta": 0.0,
+        "Llano": 0.0,
+        "Valle": 0.0,
+    }

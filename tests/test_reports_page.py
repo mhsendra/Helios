@@ -2,10 +2,20 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from PySide6.QtWidgets import QApplication
+
 from helios.gui.widgets.reports_page import ReportsPage
 
 
 class TestReportsPage:
+
+    @classmethod
+    def setup_class(cls):
+
+        cls.app = QApplication.instance()
+
+        if cls.app is None:
+            cls.app = QApplication([])
 
     def setup_method(self):
 

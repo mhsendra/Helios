@@ -82,19 +82,60 @@ class IndicatorsEngine:
 
         weekly_series = weekly.stack()
 
+        def get_extreme(
+            series: pd.Series,
+            maximum: bool
+        ):
+
+            if series.empty:
+                return (None, None)
+
+            if maximum:
+                return (series.idxmax(), series.max())
+
+            return (series.idxmin(), series.min())
+
         self.extremes = {
 
-            "hourly_max": (hourly.idxmax(), hourly.max()),
-            "hourly_min": (hourly.idxmin(), hourly.min()),
+            "hourly_max": get_extreme(
+                hourly,
+                True
+            ),
 
-            "daily_max": (daily.idxmax(), daily.max()),
-            "daily_min": (daily.idxmin(), daily.min()),
+            "hourly_min": get_extreme(
+                hourly,
+                False
+            ),
 
-            "weekly_max": (weekly_series.idxmax(), weekly_series.max()),
-            "weekly_min": (weekly_series.idxmin(), weekly_series.min()),
+            "daily_max": get_extreme(
+                daily,
+                True
+            ),
 
-            "monthly_max": (monthly.idxmax(), monthly.max()),
-            "monthly_min": (monthly.idxmin(), monthly.min())
+            "daily_min": get_extreme(
+                daily,
+                False
+            ),
+
+            "weekly_max": get_extreme(
+                weekly_series,
+                True
+            ),
+
+            "weekly_min": get_extreme(
+                weekly_series,
+                False
+            ),
+
+            "monthly_max": get_extreme(
+                monthly,
+                True
+            ),
+
+            "monthly_min": get_extreme(
+                monthly,
+                False
+            )
         }
 
         return self.extremes

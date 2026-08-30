@@ -1,7 +1,5 @@
 import pandas as pd
 
-import pytest
-
 from unittest.mock import MagicMock
 
 from PySide6.QtWidgets import QApplication
@@ -73,7 +71,10 @@ class TestSolarPage:
 
         assert self.page.last_update_label.text() == "Nunca"
 
-        assert self.page.production_status_label.text() == "No calculada"
+        assert (
+            self.page.production_status_label.text()
+            == "No calculada"
+        )
 
         assert self.page.production_annual_label.text() == "-"
 
@@ -178,7 +179,10 @@ class TestSolarPage:
         assert self.page.database_label.text() == "SARAH3"
         assert self.page.reference_year_label.text() == "2023"
         assert self.page.last_update_label.text() == "Ahora"
-        assert self.page.production_status_label.text() == "Disponible"
+        assert (
+            self.page.production_status_label.text()
+            == "Disponible"
+        )
 
         assert (
             self.page.production_annual_label.text()
@@ -260,7 +264,10 @@ class TestSolarPage:
             series,
         )
 
-        assert self.page.monthly_production_table.rowCount() == 0
+        assert (
+            self.page.monthly_production_table.rowCount()
+            == 0
+        )
 
     # ==================================================
     # Balance mensual
@@ -375,12 +382,35 @@ class TestSolarPage:
 
         self.page.update_balance_summary()
 
-        assert self.page.balance_total_consumption_label.text() == "-"
-        assert self.page.balance_total_production_label.text() == "-"
-        assert self.page.balance_self_consumption_label.text() == "-"
-        assert self.page.balance_grid_import_label.text() == "-"
-        assert self.page.balance_grid_export_label.text() == "-"
-        assert self.page.balance_coverage_label.text() == "-"
+        assert (
+            self.page.balance_total_consumption_label.text()
+            == "-"
+        )
+
+        assert (
+            self.page.balance_total_production_label.text()
+            == "-"
+        )
+
+        assert (
+            self.page.balance_self_consumption_label.text()
+            == "-"
+        )
+
+        assert (
+            self.page.balance_grid_import_label.text()
+            == "-"
+        )
+
+        assert (
+            self.page.balance_grid_export_label.text()
+            == "-"
+        )
+
+        assert (
+            self.page.balance_coverage_label.text()
+            == "-"
+        )
 
     def test_update_balance_summary_without_coverage(self):
 
@@ -398,7 +428,10 @@ class TestSolarPage:
 
         self.page.update_balance_summary()
 
-        assert self.page.balance_coverage_label.text() == "-"
+        assert (
+            self.page.balance_coverage_label.text()
+            == "-"
+        )
 
     # ==================================================
     # Estadísticas
@@ -542,7 +575,27 @@ class TestSolarPage:
     # Flujo de cálculo
     # ==================================================
 
-    def test_calculate_production_uses_stored_configuration(self):
+    def test_calculate_production_requires_configuration(
+        self,
+    ):
+
+        self.project.solar_configuration = None
+
+        try:
+            self.page.calculate_production()
+            assert False
+        except ValueError as error:
+            assert (
+                str(error)
+                == (
+                    "Solar configuration is required "
+                    "before calculating production."
+                )
+            )
+
+    def test_calculate_production_uses_stored_configuration(
+        self,
+    ):
 
         configuration = SolarConfiguration(
             latitude=41.6,
@@ -576,11 +629,18 @@ class TestSolarPage:
 
     def test_calculate_production_handles_error(self):
 
-        configuration = self.page.get_configuration()
-
-        self.page.get_configuration = MagicMock(
-            return_value=configuration
+        configuration = SolarConfiguration(
+            latitude=41.6,
+            longitude=2.1,
+            tilt=30,
+            azimuth=0,
+            reference_year=2023,
+            losses=14.0,
+            pv_technology="crystSi",
+            mounting_place="free",
         )
+
+        self.project.solar_configuration = configuration
 
         self.project.solar.calculate.side_effect = (
             RuntimeError("Error de prueba")
@@ -654,6 +714,23 @@ class TestSolarPage:
             ),
         )
 
+        self.project.solar.monthly_energy_balance = (
+            self.project.solar.energy_balance
+        )
+
+        self.project.solar_configuration = (
+            SolarConfiguration(
+                latitude=41.6,
+                longitude=2.1,
+                tilt=30,
+                azimuth=0,
+                reference_year=2023,
+                losses=14.0,
+                pv_technology="crystSi",
+                mounting_place="free",
+            )
+        )
+
         self.page.refresh_production_results()
 
         assert (
@@ -675,15 +752,130 @@ class TestSolarPage:
     # Reset
     # ==================================================
 
-    def test_reset(self):
-
-        self.controller = getattr(
-            self.page,
-            "controller",
-            None,
-        )
+    def test_reset_results(self):
 
         self.page.set_results_available(True)
 
-        if self.controller is not None:
-            self.controller.reset()
+        self.page.update_production_status(
+            source="PVGIS",
+            database="SARAH3",
+            reference_year=2023,
+            last_update="Ahora",
+            status="Disponible",
+            annual_production=12000.0,
+            specific_production=1500.0,
+            coverage=65.0,
+        )
+
+        self.page.reset_results()
+
+        assert self.page.source_label.text() == "PVGIS"
+        assert self.page.database_label.text() == "SARAH3"
+        assert self.page.reference_year_label.text() == "-"
+        assert self.page.last_update_label.text() == "Nunca"
+        assert (
+            self.page.production_status_label.text()
+            == "No calculada"
+        )
+
+        assert self.page.production_annual_label.text() == "-"
+        assert self.page.production_specific_label.text() == "-"
+        assert self.page.production_coverage_label.text() == "-"
+
+        assert (
+            self.page.monthly_production_table.rowCount()
+            == 0
+        )
+
+        assert (
+            self.page.balance_total_consumption_label.text()
+            == "-"
+        )
+
+        assert (
+            self.page.balance_total_production_label.text()
+            == "-"
+        )
+
+        assert (
+            self.page.balance_self_consumption_label.text()
+            == "-"
+        )
+
+        assert (
+            self.page.balance_grid_import_label.text()
+            == "-"
+        )
+
+        assert (
+            self.page.balance_grid_export_label.text()
+            == "-"
+        )
+
+        assert (
+            self.page.balance_coverage_label.text()
+            == "-"
+        )
+
+        assert (
+            self.page.stats_annual_production_label.text()
+            == "-"
+        )
+
+        assert (
+            self.page.stats_specific_production_label.text()
+            == "-"
+        )
+
+        assert (
+            self.page.stats_equivalent_hours_label.text()
+            == "-"
+        )
+
+        assert (
+            self.page.stats_capacity_factor_label.text()
+            == "-"
+        )
+
+        assert (
+            self.page.stats_coverage_label.text()
+            == "-"
+        )
+
+        assert (
+            self.page.stats_self_consumption_ratio_label.text()
+            == "-"
+        )
+
+        assert (
+            self.page.stats_self_sufficiency_ratio_label.text()
+            == "-"
+        )
+
+        assert self.page.stats_import_label.text() == "-"
+        assert self.page.stats_export_label.text() == "-"
+        assert (
+            self.page.stats_self_consumption_label.text()
+            == "-"
+        )
+        assert (
+            self.page.stats_total_consumption_label.text()
+            == "-"
+        )
+
+        assert (
+            self.page.balance_table.rowCount()
+            == 0
+        )
+
+        assert not self.page.tabs.isTabEnabled(
+            self.page.tabs.indexOf(
+                self.page.balance_tab
+            )
+        )
+
+        assert not self.page.tabs.isTabEnabled(
+            self.page.tabs.indexOf(
+                self.page.statistics_tab
+            )
+        )

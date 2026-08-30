@@ -224,3 +224,50 @@ def test_calculate_base_load():
     assert result == pytest.approx(
         df["AE_kWh"].quantile(0.10)
     )
+
+def test_calculate_extremes_empty():
+
+    engine = create_engine()
+
+    dataset = pd.DataFrame(
+        {
+            "AE_kWh": []
+        },
+        index=pd.DatetimeIndex([])
+    )
+
+    daily = pd.Series(
+        dtype=float,
+        index=pd.DatetimeIndex([])
+    )
+
+    monthly = pd.Series(
+        dtype=float,
+        index=pd.DatetimeIndex([])
+    )
+
+    weekly = pd.DataFrame(
+        columns=[2024, 2025],
+        index=pd.Index([], dtype=object)
+    )
+
+    result = engine.calculate_extremes(
+        dataset,
+        daily,
+        monthly,
+        weekly
+    )
+
+    assert result is engine.extremes
+
+    assert result["hourly_max"] == (None, None)
+    assert result["hourly_min"] == (None, None)
+
+    assert result["daily_max"] == (None, None)
+    assert result["daily_min"] == (None, None)
+
+    assert result["weekly_max"] == (None, None)
+    assert result["weekly_min"] == (None, None)
+
+    assert result["monthly_max"] == (None, None)
+    assert result["monthly_min"] == (None, None)

@@ -14,7 +14,10 @@ class DataQualityEngine:
 
         duplicates = dataset.index.duplicated().sum()
 
-        coverage = (valid_hours / total_hours) * 100
+        if total_hours == 0:
+            coverage = 0.0
+        else:
+            coverage = (valid_hours / total_hours) * 100
 
         if coverage >= 99:
             rating = "EXCELENTE"
