@@ -36,9 +36,6 @@ class SolarController:
         # Resultado del último dimensionamiento.
         self.sizing_result: SolarSizingResult | None = None
 
-        # Resultado de la instalación recomendada.
-        self.installation_result = None
-
         self.installation_configuration = None
 
         # Producción específica utilizada en el
@@ -458,7 +455,6 @@ class SolarController:
     def reset(self):
 
         self.sizing_result = None
-        self.installation_result = None
         self.installation_configuration = None
         self.installation_specific_production = None
 

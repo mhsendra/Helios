@@ -166,22 +166,13 @@ class TestQualityReports:
     # gap
     # ==================================================
 
-    def test_gap_without_gaps(
-        self,
-        capsys
-    ):
+    def test_gap_without_gaps(self):
 
         result = self.report.gap(
             None
         )
 
         assert result is None
-
-        captured = capsys.readouterr()
-
-        assert captured.out == (
-            "No se han detectado huecos.\n"
-        )
 
     def test_gap_without_gaps_does_not_use_printer(
         self
@@ -278,8 +269,7 @@ class TestQualityReports:
     )
     def test_duplicates_with_duplicates(
         self,
-        printer,
-        capsys
+        printer
     ):
 
         duplicates = {
@@ -307,14 +297,9 @@ class TestQualityReports:
 
         assert printer.blank.call_count == 2
 
-        captured = capsys.readouterr()
-
-        assert (
-            "2025-01-01 10:00" in captured.out
-        )
-
-        assert (
-            "2025-01-01 11:00" in captured.out
+        printer.text.assert_called_once_with(
+            "Duplicados",
+            str(duplicates["duplicates"])
         )
 
     @patch(
@@ -322,8 +307,7 @@ class TestQualityReports:
     )
     def test_duplicates_prints_exact_duplicate_collection(
         self,
-        printer,
-        capsys
+        printer
     ):
 
         duplicates = {
@@ -339,10 +323,9 @@ class TestQualityReports:
             duplicates
         )
 
-        captured = capsys.readouterr()
-
-        assert captured.out.endswith(
-            "['A', 'B', 'C']\n"
+        printer.text.assert_called_once_with(
+            "Duplicados",
+            "['A', 'B', 'C']"
         )
 
     @patch(
@@ -412,8 +395,7 @@ class TestQualityReports:
     )
     def test_duplicates_with_single_duplicate(
         self,
-        printer,
-        capsys
+        printer
     ):
 
         duplicates = {
@@ -429,14 +411,10 @@ class TestQualityReports:
 
         assert result is None
 
-        captured = capsys.readouterr()
-
-        assert (
-            "2025-01-01 10:00"
-            in captured.out
+        printer.text.assert_called_once_with(
+            "Duplicados",
+            "['2025-01-01 10:00']"
         )
-
-        assert printer.blank.call_count == 2
 
     # ==================================================
     # integration-style behaviour

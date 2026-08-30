@@ -20,11 +20,6 @@ class TestProfilesReports:
 
         assert result is None
 
-        captured = capsys.readouterr()
-
-        assert captured.out == (
-            "No hay perfil horario calculado.\n"
-        )
 
     @patch(
         "helios.reports.profiles.ReportPrinter"
@@ -136,12 +131,6 @@ class TestProfilesReports:
 
         assert result is None
 
-        captured = capsys.readouterr()
-
-        assert captured.out == (
-            "No hay perfil semanal calculado.\n"
-        )
-
     @patch(
         "helios.reports.profiles.ReportPrinter"
     )
@@ -193,7 +182,7 @@ class TestProfilesReports:
             ]
         )
 
-        assert printer.blank.call_count == 4
+        assert printer.blank.call_count == 5
 
         printer.energy.assert_has_calls(
             [
@@ -264,12 +253,6 @@ class TestProfilesReports:
         result = self.report.monthly_profile(None)
 
         assert result is None
-
-        captured = capsys.readouterr()
-
-        assert captured.out == (
-            "No hay perfil mensual calculado.\n"
-        )
 
     @patch(
         "helios.reports.profiles.ReportPrinter"
@@ -367,12 +350,6 @@ class TestProfilesReports:
         result = self.report.seasonal_profile(None)
 
         assert result is None
-
-        captured = capsys.readouterr()
-
-        assert captured.out == (
-            "No hay perfil estacional calculado.\n"
-        )
 
     @patch(
         "helios.reports.profiles.ReportPrinter"

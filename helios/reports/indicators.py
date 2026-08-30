@@ -178,21 +178,6 @@ class IndicatorsReports:
             f"{base_load:.3f} kWh/h"
         )
 
-    def _print_extreme(
-        self,
-        extremes,
-        title: str,
-        key: str,
-        formatter
-    ):
-
-        index, value = extremes[key]
-
-        print(title)
-        print(f"  {formatter(index)}")
-        print(f"  {value:.3f} kWh")
-        print()
-
     def _format_datetime(
         self,
         timestamp

@@ -1,10 +1,13 @@
-import pytest
-import pandas as pd
 import numpy as np
 import numpy_financial as npf
+import pandas as pd
+import pytest
 
+from helios.core.economic_scenarios import (
+    EconomicScenarioResult,
+    default_economic_scenarios,
+)
 from helios.core.economics import EconomicsEngine
-from helios.core.economic_scenarios import (EconomicScenarioResult, default_economic_scenarios)
 from helios.core.economics_configuration import (
     EconomicsConfiguration,
 )
@@ -18,7 +21,6 @@ from helios.core.economics_configuration import (
 class TestEconomicsFactors:
 
     def setup_method(self):
-
         self.engine = EconomicsEngine()
 
     def test_degradation_year_1(self):
@@ -29,7 +31,7 @@ class TestEconomicsFactors:
 
         result = self.engine.calculate_degradation_factor(
             1,
-            Configuration()
+            Configuration(),
         )
 
         assert result == pytest.approx(0.99)
@@ -42,7 +44,7 @@ class TestEconomicsFactors:
 
         result = self.engine.calculate_degradation_factor(
             2,
-            Configuration()
+            Configuration(),
         )
 
         assert result == pytest.approx(0.9865)
@@ -55,7 +57,7 @@ class TestEconomicsFactors:
 
         result = self.engine.calculate_degradation_factor(
             25,
-            Configuration()
+            Configuration(),
         )
 
         expected = (
@@ -74,7 +76,7 @@ class TestEconomicsFactors:
 
         result = self.engine.calculate_degradation_factor(
             0,
-            Configuration()
+            Configuration(),
         )
 
         assert result == pytest.approx(1.0)
@@ -87,7 +89,7 @@ class TestEconomicsFactors:
         assert (
             self.engine.calculate_electricity_price_factor(
                 1,
-                Configuration()
+                Configuration(),
             )
             == pytest.approx(1.0)
         )
@@ -95,10 +97,34 @@ class TestEconomicsFactors:
         assert (
             self.engine.calculate_electricity_price_factor(
                 2,
-                Configuration()
+                Configuration(),
             )
             == pytest.approx(1.02)
         )
+
+    def test_electricity_price_factor_year_zero(self):
+
+        class Configuration:
+            annual_electricity_price_growth = 0.02
+
+        result = self.engine.calculate_electricity_price_factor(
+            0,
+            Configuration(),
+        )
+
+        assert result == pytest.approx(1.0)
+
+    def test_export_price_factor_year_zero(self):
+
+        class Configuration:
+            annual_export_price_growth = 0.01
+
+        result = self.engine.calculate_export_price_factor(
+            0,
+            Configuration(),
+        )
+
+        assert result == pytest.approx(1.0)
 
     def test_maintenance_cost(self):
 
@@ -109,7 +135,7 @@ class TestEconomicsFactors:
         assert (
             self.engine.calculate_maintenance_cost(
                 1,
-                Configuration()
+                Configuration(),
             )
             == pytest.approx(150.0)
         )
@@ -117,7 +143,7 @@ class TestEconomicsFactors:
         assert (
             self.engine.calculate_maintenance_cost(
                 2,
-                Configuration()
+                Configuration(),
             )
             == pytest.approx(153.0)
         )
@@ -125,36 +151,10 @@ class TestEconomicsFactors:
         assert (
             self.engine.calculate_maintenance_cost(
                 3,
-                Configuration()
+                Configuration(),
             )
             == pytest.approx(156.06)
         )
-
-    def test_electricity_price_factor_year_zero(self):
-
-        class Configuration:
-            annual_electricity_price_growth = 0.02
-
-        result = self.engine.calculate_electricity_price_factor(
-            0,
-            Configuration()
-        )
-
-        assert result == pytest.approx(1.0)
-
-
-    def test_export_price_factor_year_zero(self):
-
-        class Configuration:
-            annual_export_price_growth = 0.01
-
-        result = self.engine.calculate_export_price_factor(
-            0,
-            Configuration()
-        )
-
-        assert result == pytest.approx(1.0)
-
 
     def test_maintenance_cost_year_zero(self):
 
@@ -164,10 +164,11 @@ class TestEconomicsFactors:
 
         result = self.engine.calculate_maintenance_cost(
             0,
-            Configuration()
+            Configuration(),
         )
 
         assert result == pytest.approx(0.0)
+
 
 # ==========================================================
 # Cash Flow
@@ -177,7 +178,6 @@ class TestEconomicsFactors:
 class TestEconomicsCashFlow:
 
     def setup_method(self):
-
         self.engine = EconomicsEngine()
 
     def _configuration(self):
@@ -217,7 +217,7 @@ class TestEconomicsCashFlow:
 
         result = self.engine.calculate_cash_flow(
             self._configuration(),
-            years=25
+            years=25,
         )
 
         row = result.iloc[0]
@@ -238,7 +238,7 @@ class TestEconomicsCashFlow:
 
         result = self.engine.calculate_cash_flow(
             self._configuration(),
-            years=25
+            years=25,
         )
 
         row = result.iloc[1]
@@ -285,7 +285,7 @@ class TestEconomicsCashFlow:
 
         result = self.engine.calculate_cash_flow(
             self._configuration(),
-            years=25
+            years=25,
         )
 
         row = result.iloc[2]
@@ -339,7 +339,7 @@ class TestEconomicsCashFlow:
 
         result = self.engine.calculate_cash_flow(
             self._configuration(),
-            years=25
+            years=25,
         )
 
         assert len(result) == 26
@@ -353,12 +353,11 @@ class TestEconomicsCashFlow:
 
         with pytest.raises(
             RuntimeError,
-            match="Net investment has not been calculated."
+            match="Net investment has not been calculated.",
         ):
             self.engine.calculate_cash_flow(
                 self._configuration()
             )
-
 
     def test_cash_flow_requires_annual_savings(self):
 
@@ -366,12 +365,11 @@ class TestEconomicsCashFlow:
 
         with pytest.raises(
             RuntimeError,
-            match="Annual savings have not been calculated."
+            match="Annual savings have not been calculated.",
         ):
             self.engine.calculate_cash_flow(
                 self._configuration()
             )
-
 
     def test_cash_flow_requires_positive_years(self):
 
@@ -380,18 +378,18 @@ class TestEconomicsCashFlow:
 
         with pytest.raises(
             ValueError,
-            match="Years must be greater than zero."
+            match="Years must be greater than zero.",
         ):
             self.engine.calculate_cash_flow(
                 self._configuration(),
-                years=0
+                years=0,
             )
 
     def test_economic_summary_requires_cash_flow(self):
 
         with pytest.raises(
             RuntimeError,
-            match="Cash flow has not been calculated."
+            match="Cash flow has not been calculated.",
         ):
             self.engine.economic_summary()
 
@@ -416,6 +414,7 @@ class TestEconomicsCashFlow:
 
         assert result is not self.engine.cash_flow
 
+
 # ==========================================================
 # Payback
 # ==========================================================
@@ -424,7 +423,6 @@ class TestEconomicsCashFlow:
 class TestEconomicsPayback:
 
     def setup_method(self):
-
         self.engine = EconomicsEngine()
 
     def test_payback(self):
@@ -462,7 +460,7 @@ class TestEconomicsPayback:
 
         assert result == pytest.approx(
             expected,
-            abs=0.001
+            abs=0.001,
         )
 
     def test_payback_not_reached(self):
@@ -513,9 +511,10 @@ class TestEconomicsPayback:
 
         with pytest.raises(
             RuntimeError,
-            match="Cash flow has not been calculated."
+            match="Cash flow has not been calculated.",
         ):
             self.engine.calculate_payback()
+
 
 # ==========================================================
 # NPV
@@ -525,7 +524,6 @@ class TestEconomicsPayback:
 class TestEconomicsNPV:
 
     def setup_method(self):
-
         self.engine = EconomicsEngine()
 
     def test_npv(self):
@@ -585,7 +583,6 @@ class TestEconomicsNPV:
         )
 
         with pytest.raises(ValueError):
-
             self.engine.calculate_npv(
                 discount_rate=-0.01
             )
@@ -594,7 +591,7 @@ class TestEconomicsNPV:
 
         with pytest.raises(
             RuntimeError,
-            match="Cash flow has not been calculated."
+            match="Cash flow has not been calculated.",
         ):
             self.engine.calculate_npv(
                 discount_rate=0.05
@@ -609,7 +606,6 @@ class TestEconomicsNPV:
 class TestEconomicsIRR:
 
     def setup_method(self):
-
         self.engine = EconomicsEngine()
 
     def test_irr(self):
@@ -651,16 +647,17 @@ class TestEconomicsIRR:
         )
 
         with pytest.raises(RuntimeError):
-
             self.engine.calculate_irr()
 
     def test_irr_requires_cash_flow(self):
 
         with pytest.raises(RuntimeError):
-
             self.engine.calculate_irr()
 
-    def test_irr_handles_calculation_exception(self, monkeypatch):
+    def test_irr_handles_calculation_exception(
+        self,
+        monkeypatch,
+    ):
 
         self.engine.cash_flow = pd.DataFrame(
             {
@@ -678,15 +675,14 @@ class TestEconomicsIRR:
         monkeypatch.setattr(
             npf,
             "irr",
-            failing_irr
+            failing_irr,
         )
 
         with pytest.raises(
             RuntimeError,
-            match="Unable to calculate IRR."
+            match="Unable to calculate IRR.",
         ):
             self.engine.calculate_irr()
-
 
     def test_irr_returns_none(self, monkeypatch):
 
@@ -703,12 +699,12 @@ class TestEconomicsIRR:
         monkeypatch.setattr(
             npf,
             "irr",
-            lambda cash_flows: None
+            lambda cash_flows: None,
         )
 
         with pytest.raises(
             RuntimeError,
-            match="IRR could not be calculated."
+            match="IRR could not be calculated.",
         ):
             self.engine.calculate_irr()
 
@@ -721,7 +717,6 @@ class TestEconomicsIRR:
 class TestEconomicIndicators:
 
     def setup_method(self):
-
         self.engine = EconomicsEngine()
 
     def test_economic_indicators(self):
@@ -793,11 +788,12 @@ class TestEconomicIndicators:
 
         with pytest.raises(
             RuntimeError,
-            match="Cash flow has not been calculated."
+            match="Cash flow has not been calculated.",
         ):
             self.engine.calculate_economic_indicators(
                 discount_rate=0.05
             )
+
 
 # ==========================================================
 # Costes, ingresos y ahorro
@@ -807,7 +803,6 @@ class TestEconomicIndicators:
 class TestEconomicsCosts:
 
     def setup_method(self):
-
         self.engine = EconomicsEngine()
 
     def test_calculate_cost_without_pv(self):
@@ -844,7 +839,7 @@ class TestEconomicsCosts:
         index = pd.date_range(
             "2025-01-01",
             periods=3,
-            freq="h"
+            freq="h",
         )
 
         energy_balance = pd.DataFrame(
@@ -855,7 +850,7 @@ class TestEconomicsCosts:
                     30.0,
                 ],
             },
-            index=index
+            index=index,
         )
 
         tariff_data = pd.DataFrame(
@@ -866,12 +861,12 @@ class TestEconomicsCosts:
                     0.06,
                 ],
             },
-            index=index
+            index=index,
         )
 
         result = self.engine.calculate_export_income(
             energy_balance,
-            tariff_data
+            tariff_data,
         )
 
         expected = (
@@ -891,7 +886,7 @@ class TestEconomicsCosts:
         index = pd.date_range(
             "2025-01-01",
             periods=3,
-            freq="h"
+            freq="h",
         )
 
         energy_balance = pd.DataFrame(
@@ -902,7 +897,7 @@ class TestEconomicsCosts:
                     30.0,
                 ],
             },
-            index=index
+            index=index,
         )
 
         tariff_data = pd.DataFrame(
@@ -913,14 +908,14 @@ class TestEconomicsCosts:
                     0.12,
                 ],
             },
-            index=index
+            index=index,
         )
 
         self.engine.export_income = 2.0
 
         result = self.engine.calculate_cost_with_pv(
             energy_balance,
-            tariff_data
+            tariff_data,
         )
 
         expected_grid_import_cost = (
@@ -986,7 +981,7 @@ class TestEconomicsCosts:
 
         with pytest.raises(
             RuntimeError,
-            match="Cost without PV has not been calculated."
+            match="Cost without PV has not been calculated.",
         ):
             self.engine.calculate_annual_savings()
 
@@ -997,7 +992,7 @@ class TestEconomicsCosts:
 
         with pytest.raises(
             RuntimeError,
-            match="Cost with PV has not been calculated."
+            match="Cost with PV has not been calculated.",
         ):
             self.engine.calculate_annual_savings()
 
@@ -1008,7 +1003,7 @@ class TestEconomicsCosts:
 
         with pytest.raises(
             RuntimeError,
-            match="Export income has not been calculated."
+            match="Export income has not been calculated.",
         ):
             self.engine.calculate_annual_savings()
 
@@ -1018,33 +1013,73 @@ class TestEconomicsCosts:
 # ==========================================================
 
 
-class TestEconomicsInvestment:
+class TestNetInvestment:
 
     def setup_method(self):
-
         self.engine = EconomicsEngine()
 
-class TestEconomicsScenarios:
+    def test_calculate_net_investment(self):
+
+        class Configuration:
+            installation_cost = 15000.0
+            subsidies = 2000.0
+            tax_deductions = 1000.0
+
+        result = self.engine.calculate_net_investment(
+            Configuration()
+        )
+
+        assert result == pytest.approx(
+            12000.0
+        )
+
+        assert self.engine.net_investment == pytest.approx(
+            12000.0
+        )
+
+    def test_calculate_net_investment_zero_subsidies_and_deductions(self):
+
+        class Configuration:
+            installation_cost = 10000.0
+            subsidies = 0.0
+            tax_deductions = 0.0
+
+        result = self.engine.calculate_net_investment(
+            Configuration()
+        )
+
+        assert result == pytest.approx(
+            10000.0
+        )
+
+        assert self.engine.net_investment == pytest.approx(
+            10000.0
+        )
+
+
+# ==========================================================
+# Escenarios
+# ==========================================================
+
+
+class TestCalculateScenario:
 
     def setup_method(self):
-
         self.engine = EconomicsEngine()
 
         self.engine.net_investment = 10000.0
-
-        self.engine.self_consumption_savings = 1000.0
-
-        self.engine.export_income = 200.0
+        self.engine.self_consumption_savings = 2000.0
+        self.engine.export_income = 500.0
+        self.engine.cost_without_pv = 3000.0
 
     def _configuration(self):
 
         class Configuration:
-
             first_year_degradation = 0.01
             annual_degradation = 0.0035
 
             annual_electricity_price_growth = 0.02
-            annual_export_price_growth = 0.0
+            annual_export_price_growth = 0.01
 
             annual_maintenance_cost = 100.0
             annual_maintenance_growth = 0.02
@@ -1056,7 +1091,6 @@ class TestEconomicsScenarios:
     def _scenario(self):
 
         class Scenario:
-
             name = "Base"
 
             annual_degradation = None
@@ -1069,44 +1103,336 @@ class TestEconomicsScenarios:
 
         return Scenario()
 
-    def test_calculate_scenario(self):
+    def _energy_balance(self):
 
-        result = self.engine.calculate_scenario(
+        return pd.DataFrame(
+            {
+                "grid_import_kwh": [100.0],
+                "grid_export_kwh": [50.0],
+            }
+        )
+
+    def _tariff_data(self):
+
+        return pd.DataFrame(
+            {
+                "buy_price_eur_kwh": [0.20],
+                "sell_price_eur_kwh": [0.05],
+            }
+        )
+
+    def _calculate_base_result(self, years=5):
+
+        return self.engine.calculate_scenario(
             scenario=self._scenario(),
             configuration=self._configuration(),
-            dataset=None,
-            energy_balance=None,
-            tariff_data=None,
-            years=5,
+            dataset=pd.DataFrame(),
+            energy_balance=self._energy_balance(),
+            tariff_data=self._tariff_data(),
+            years=years,
         )
+
+    def test_calculate_scenario_returns_result(self):
+
+        result = self._calculate_base_result()
 
         assert result.name == "Base"
 
-        assert result.annual_savings == pytest.approx(
-            1200.0
+        assert isinstance(
+            result,
+            EconomicScenarioResult,
         )
 
+    def test_calculate_scenario_annual_savings(self):
+
+        result = self._calculate_base_result()
+
+        expected = (
+            self.engine.self_consumption_savings
+            + self.engine.export_income
+        )
+
+        assert result.annual_savings == pytest.approx(
+            expected
+        )
+
+    def test_calculate_scenario_payback_is_correct(self):
+
+        result = self._calculate_base_result()
+
+        expected_payback = 4.11789803991689
+
+        assert result.payback_years == pytest.approx(
+            expected_payback,
+            abs=0.001,
+        )
+
+    def test_calculate_scenario_payback_is_finite(self):
+
+        result = self._calculate_base_result()
+
+        assert np.isfinite(result.payback_years)
         assert result.payback_years > 0
 
-        assert result.npv is not None
+    def test_calculate_scenario_npv_is_correct(self):
 
-        assert result.irr is not None
+        result = self._calculate_base_result()
 
-    def test_calculate_scenario_invalid_years(self):
+        expected_npv = 563.50
 
-        with pytest.raises(
-            ValueError,
-            match="Years must be greater than zero."
-        ):
+        assert result.npv == pytest.approx(
+            expected_npv,
+            abs=0.01,
+        )
 
-            self.engine.calculate_scenario(
-                scenario=self._scenario(),
-                configuration=self._configuration(),
-                dataset=None,
-                energy_balance=None,
-                tariff_data=None,
-                years=0,
+    def test_calculate_scenario_irr_is_correct(self):
+
+        result = self._calculate_base_result()
+
+        expected_cash_flow = [
+            -10000.0,
+            2375.0,
+            2408.6425,
+            2442.76555,
+            2477.37558675,
+            2512.4791172,
+        ]
+
+        expected_irr = npf.irr(
+            expected_cash_flow
+        )
+
+        assert result.irr == pytest.approx(
+            expected_irr,
+            rel=1e-9,
+        )
+
+    def test_calculate_scenario_irr_is_finite(self):
+
+        result = self._calculate_base_result()
+
+        assert np.isfinite(result.irr)
+
+    def test_calculate_scenario_custom_parameters(self):
+
+        class Scenario:
+
+            name = "Optimista"
+
+            annual_degradation = 0.002
+            discount_rate = 0.04
+
+            buy_price_factor = 1.10
+            sell_price_factor = 1.20
+
+            annual_maintenance = 80.0
+
+        base = self._calculate_base_result()
+
+        optimistic = self.engine.calculate_scenario(
+            scenario=Scenario(),
+            configuration=self._configuration(),
+            dataset=pd.DataFrame(),
+            energy_balance=self._energy_balance(),
+            tariff_data=self._tariff_data(),
+            years=5,
+        )
+
+        assert optimistic.name == "Optimista"
+
+        assert optimistic.npv > base.npv
+        assert optimistic.irr > base.irr
+        assert optimistic.payback_years < base.payback_years
+
+    def test_calculate_scenario_custom_parameters_are_used(self):
+
+        class OptimisticScenario:
+
+            name = "Optimista"
+
+            annual_degradation = 0.002
+            discount_rate = 0.04
+
+            buy_price_factor = 1.10
+            sell_price_factor = 1.20
+
+            annual_maintenance = 80.0
+
+        result = self.engine.calculate_scenario(
+            scenario=OptimisticScenario(),
+            configuration=self._configuration(),
+            dataset=pd.DataFrame(),
+            energy_balance=self._energy_balance(),
+            tariff_data=self._tariff_data(),
+            years=5,
+        )
+
+        expected_npv = 2351.1873310203346
+        expected_irr = 0.11913048869634957
+        expected_payback = 3.6369722455800018
+
+        assert result.npv == pytest.approx(
+            expected_npv,
+            rel=1e-9,
+        )
+
+        assert result.irr == pytest.approx(
+            expected_irr,
+            rel=1e-9,
+        )
+
+        assert result.payback_years == pytest.approx(
+            expected_payback,
+            rel=1e-9,
+        )
+
+    def test_scenario_default_parameters_use_configuration(self):
+
+        result = self._calculate_base_result()
+
+        expected_npv = 563.5033961990648
+
+        assert result.npv == pytest.approx(
+            expected_npv,
+            rel=1e-9,
+        )
+
+    def test_scenario_custom_degradation_overrides_configuration(self):
+
+        class Scenario:
+
+            name = "Low degradation"
+
+            annual_degradation = 0.001
+            discount_rate = None
+
+            buy_price_factor = 1.0
+            sell_price_factor = 1.0
+
+            annual_maintenance = None
+
+        base = self._calculate_base_result()
+
+        custom = self.engine.calculate_scenario(
+            scenario=Scenario(),
+            configuration=self._configuration(),
+            dataset=pd.DataFrame(),
+            energy_balance=self._energy_balance(),
+            tariff_data=self._tariff_data(),
+            years=5,
+        )
+
+        assert custom.npv > base.npv
+
+    def test_scenario_custom_discount_rate_overrides_configuration(self):
+
+        class Scenario:
+
+            name = "Low discount"
+
+            annual_degradation = None
+            discount_rate = 0.03
+
+            buy_price_factor = 1.0
+            sell_price_factor = 1.0
+
+            annual_maintenance = None
+
+        base = self._calculate_base_result()
+
+        custom = self.engine.calculate_scenario(
+            scenario=Scenario(),
+            configuration=self._configuration(),
+            dataset=pd.DataFrame(),
+            energy_balance=self._energy_balance(),
+            tariff_data=self._tariff_data(),
+            years=5,
+        )
+
+        assert custom.npv > base.npv
+
+    def test_custom_maintenance_improves_result(self):
+
+        class Scenario:
+
+            name = "Low maintenance"
+
+            annual_degradation = None
+            discount_rate = None
+
+            buy_price_factor = 1.0
+            sell_price_factor = 1.0
+
+            annual_maintenance = 50.0
+
+        base = self._calculate_base_result()
+
+        custom = self.engine.calculate_scenario(
+            scenario=Scenario(),
+            configuration=self._configuration(),
+            dataset=pd.DataFrame(),
+            energy_balance=self._energy_balance(),
+            tariff_data=self._tariff_data(),
+            years=5,
+        )
+
+        assert custom.npv > base.npv
+        assert custom.irr > base.irr
+        assert custom.payback_years < base.payback_years
+
+    def test_custom_maintenance_is_used(self):
+
+        class Scenario:
+
+            name = "Low maintenance"
+
+            annual_degradation = None
+            discount_rate = None
+
+            buy_price_factor = 1.0
+            sell_price_factor = 1.0
+
+            annual_maintenance = 80.0
+
+        result = self.engine.calculate_scenario(
+            scenario=Scenario(),
+            configuration=self._configuration(),
+            dataset=pd.DataFrame(),
+            energy_balance=self._energy_balance(),
+            tariff_data=self._tariff_data(),
+            years=5,
+        )
+
+        expected_cash_flow = [
+            -10000.0,
+            2395.0,
+            2429.0425,
+            2463.57355,
+            2498.59974675,
+            2534.1277604,
+        ]
+
+        expected_npv = sum(
+            expected_cash_flow[year]
+            / (1.05 ** year)
+            for year in range(
+                len(expected_cash_flow)
             )
+        )
+
+        expected_irr = npf.irr(
+            expected_cash_flow
+        )
+
+        assert result.npv == pytest.approx(
+            expected_npv,
+            rel=1e-9,
+        )
+
+        assert result.irr == pytest.approx(
+            expected_irr,
+            rel=1e-9,
+        )
 
     def test_calculate_scenario_requires_net_investment(self):
 
@@ -1114,17 +1440,9 @@ class TestEconomicsScenarios:
 
         with pytest.raises(
             RuntimeError,
-            match="Net investment has not been calculated."
+            match="Net investment has not been calculated.",
         ):
-
-            self.engine.calculate_scenario(
-                scenario=self._scenario(),
-                configuration=self._configuration(),
-                dataset=None,
-                energy_balance=None,
-                tariff_data=None,
-                years=5,
-            )
+            self._calculate_base_result()
 
     def test_calculate_scenario_requires_self_consumption_savings(self):
 
@@ -1132,17 +1450,9 @@ class TestEconomicsScenarios:
 
         with pytest.raises(
             RuntimeError,
-            match="Self-consumption savings have not been calculated."
+            match="Self-consumption savings have not been calculated.",
         ):
-
-            self.engine.calculate_scenario(
-                scenario=self._scenario(),
-                configuration=self._configuration(),
-                dataset=None,
-                energy_balance=None,
-                tariff_data=None,
-                years=5,
-            )
+            self._calculate_base_result()
 
     def test_calculate_scenario_requires_export_income(self):
 
@@ -1150,21 +1460,69 @@ class TestEconomicsScenarios:
 
         with pytest.raises(
             RuntimeError,
-            match="Export income has not been calculated."
+            match="Export income has not been calculated.",
         ):
+            self._calculate_base_result()
 
+    def test_calculate_scenario_requires_positive_years(self):
+
+        with pytest.raises(
+            ValueError,
+            match="Years must be greater than zero.",
+        ):
             self.engine.calculate_scenario(
                 scenario=self._scenario(),
                 configuration=self._configuration(),
-                dataset=None,
-                energy_balance=None,
-                tariff_data=None,
-                years=5,
+                dataset=pd.DataFrame(),
+                energy_balance=self._energy_balance(),
+                tariff_data=self._tariff_data(),
+                years=0,
             )
 
-    def test_calculate_scenario_irr_none(self, monkeypatch):
+    def test_calculate_scenario_requires_positive_years_for_negative_value(
+        self,
+    ):
+
+        with pytest.raises(
+            ValueError,
+            match="Years must be greater than zero.",
+        ):
+            self.engine.calculate_scenario(
+                scenario=self._scenario(),
+                configuration=self._configuration(),
+                dataset=pd.DataFrame(),
+                energy_balance=self._energy_balance(),
+                tariff_data=self._tariff_data(),
+                years=-1,
+            )
+
+    def test_calculate_scenario_supports_one_year(self):
+
+        result = self._calculate_base_result(
+            years=1
+        )
+
+        assert isinstance(
+            result,
+            EconomicScenarioResult,
+        )
+
+        assert result.npv == pytest.approx(
+            -7738.095238095238,
+            rel=1e-9,
+        )
+
+        assert result.payback_years == float("inf")
+
+        assert np.isfinite(result.irr)
+
+    def test_calculate_scenario_irr_none(
+        self,
+        monkeypatch,
+    ):
 
         class Scenario:
+
             name = "IRR None"
 
             annual_degradation = None
@@ -1175,40 +1533,222 @@ class TestEconomicsScenarios:
 
             annual_maintenance = None
 
-        class Configuration:
-            first_year_degradation = 0.01
-            annual_degradation = 0.0035
-
-            annual_electricity_price_growth = 0.02
-            annual_export_price_growth = 0.0
-
-            annual_maintenance_cost = 150.0
-            annual_maintenance_growth = 0.02
-
-            discount_rate = 0.05
-
-        self.engine.net_investment = 10000.0
-        self.engine.self_consumption_savings = 2000.0
-        self.engine.export_income = 500.0
-
         monkeypatch.setattr(
             npf,
             "irr",
-            lambda cash_flows: None
+            lambda cash_flows: None,
         )
 
         with pytest.raises(
             RuntimeError,
-            match="IRR could not be calculated for scenario 'IRR None'."
+            match=(
+                "IRR could not be calculated "
+                "for scenario 'IRR None'."
+            ),
         ):
             self.engine.calculate_scenario(
                 scenario=Scenario(),
-                configuration=Configuration(),
+                configuration=self._configuration(),
                 dataset=pd.DataFrame(),
                 energy_balance=pd.DataFrame(),
                 tariff_data=pd.DataFrame(),
                 years=1,
             )
+
+
+# ==========================================================
+# Cálculo de escenarios múltiples
+# ==========================================================
+
+
+class TestCalculateScenarios:
+
+    def setup_method(self):
+        self.engine = EconomicsEngine()
+
+        self.engine.net_investment = 10000.0
+        self.engine.self_consumption_savings = 2000.0
+        self.engine.export_income = 500.0
+
+    def _configuration(self):
+
+        class Configuration:
+            first_year_degradation = 0.01
+            annual_degradation = 0.0035
+
+            annual_electricity_price_growth = 0.02
+            annual_export_price_growth = 0.01
+
+            annual_maintenance_cost = 100.0
+            annual_maintenance_growth = 0.02
+
+            discount_rate = 0.05
+
+        return Configuration()
+
+    def _scenario(self, name):
+
+        class Scenario:
+            pass
+
+        scenario = Scenario()
+
+        scenario.name = name
+        scenario.annual_degradation = None
+        scenario.discount_rate = None
+        scenario.buy_price_factor = 1.0
+        scenario.sell_price_factor = 1.0
+        scenario.annual_maintenance = None
+
+        return scenario
+
+    def test_calculate_scenarios(self):
+
+        scenarios = [
+            self._scenario("Base"),
+            self._scenario("Optimista"),
+        ]
+
+        result = self.engine.calculate_scenarios(
+            scenarios=scenarios,
+            configuration=self._configuration(),
+            dataset=pd.DataFrame(),
+            energy_balance=pd.DataFrame(),
+            tariff_data=pd.DataFrame(),
+            years=5,
+        )
+
+        assert len(result) == 2
+
+        assert result is self.engine.scenario_results
+
+        assert result[0].name == "Base"
+        assert result[1].name == "Optimista"
+
+        assert all(
+            isinstance(
+                scenario_result,
+                EconomicScenarioResult,
+            )
+            for scenario_result in result
+        )
+
+    def test_calculate_scenarios_resets_previous_results(self):
+
+        self.engine.scenario_results = [
+            "old_result"
+        ]
+
+        scenarios = [
+            self._scenario("Base")
+        ]
+
+        result = self.engine.calculate_scenarios(
+            scenarios=scenarios,
+            configuration=self._configuration(),
+            dataset=pd.DataFrame(),
+            energy_balance=pd.DataFrame(),
+            tariff_data=pd.DataFrame(),
+            years=5,
+        )
+
+        assert len(result) == 1
+        assert result[0].name == "Base"
+        assert "old_result" not in result
+
+    def test_default_economic_scenarios(self):
+
+        scenarios = default_economic_scenarios()
+
+        assert len(scenarios) == 3
+
+        conservative = scenarios[0]
+
+        assert conservative.name == "Conservador"
+        assert conservative.buy_price_factor == 0.90
+        assert conservative.sell_price_factor == 0.90
+        assert conservative.annual_maintenance == 200.0
+        assert conservative.annual_degradation == 0.005
+
+        base = scenarios[1]
+
+        assert base.name == "Base"
+        assert base.buy_price_factor == 1.0
+        assert base.sell_price_factor == 1.0
+        assert base.annual_maintenance is None
+        assert base.annual_degradation is None
+        assert base.discount_rate is None
+
+        optimistic = scenarios[2]
+
+        assert optimistic.name == "Optimista"
+        assert optimistic.buy_price_factor == 1.10
+        assert optimistic.sell_price_factor == 1.10
+        assert optimistic.annual_maintenance == 100.0
+        assert optimistic.annual_degradation == 0.0025
+
+    def test_default_economic_scenarios_produce_valid_results(self):
+
+        scenarios = default_economic_scenarios()
+
+        results = self.engine.calculate_scenarios(
+            scenarios=scenarios,
+            configuration=self._configuration(),
+            dataset=pd.DataFrame(),
+            energy_balance=pd.DataFrame(),
+            tariff_data=pd.DataFrame(),
+            years=5,
+        )
+
+        assert len(results) == 3
+
+        assert [result.name for result in results] == [
+            "Conservador",
+            "Base",
+            "Optimista",
+        ]
+
+        assert all(
+            isinstance(
+                result,
+                EconomicScenarioResult,
+            )
+            for result in results
+        )
+
+        assert all(
+            result.npv is not None
+            for result in results
+        )
+
+        assert all(
+            result.irr is not None
+            for result in results
+        )
+
+        assert all(
+            np.isfinite(result.payback_years)
+            for result in results
+        )
+
+        conservative = results[0]
+        base = results[1]
+        optimistic = results[2]
+
+        assert conservative.npv < base.npv
+        assert optimistic.npv > base.npv
+
+        assert conservative.irr < base.irr
+        assert optimistic.irr > base.irr
+
+        assert conservative.payback_years > base.payback_years
+        assert optimistic.payback_years < base.payback_years
+
+
+# ==========================================================
+# Ahorro anual de escenarios
+# ==========================================================
+
 
 class TestScenarioAnnualSavings:
 
@@ -1402,775 +1942,32 @@ class TestScenarioAnnualSavings:
         assert result == pytest.approx(
             expected
         )
-class TestCalculateScenario:
 
-    def setup_method(self):
-        self.engine = EconomicsEngine()
+    def test_calculate_scenario_annual_savings_without_energy_balance(
+        self,
+    ):
 
-        self.engine.net_investment = 10000.0
-        self.engine.self_consumption_savings = 2000.0
-        self.engine.export_income = 500.0
-        self.engine.cost_without_pv = 3000.0
-
-    def _configuration(self):
-
-        class Configuration:
-            first_year_degradation = 0.01
-            annual_degradation = 0.0035
-
-            annual_electricity_price_growth = 0.02
-            annual_export_price_growth = 0.01
-
-            annual_maintenance_cost = 100.0
-            annual_maintenance_growth = 0.02
-
-            discount_rate = 0.05
-
-        return Configuration()
-
-    def _scenario(self):
-
-        class Scenario:
-            name = "Base"
-
-            annual_degradation = None
-            discount_rate = None
-
-            buy_price_factor = 1.0
-            sell_price_factor = 1.0
-
-            annual_maintenance = None
-
-        return Scenario()
-
-    def _energy_balance(self):
-
-        return pd.DataFrame(
-            {
-                "grid_import_kwh": [100.0],
-                "grid_export_kwh": [50.0],
-            }
-        )
-
-    def _tariff_data(self):
-
-        return pd.DataFrame(
+        tariff_data = pd.DataFrame(
             {
                 "buy_price_eur_kwh": [0.20],
-                "sell_price_eur_kwh": [0.05],
+                "sell_price_eur_kwh": [0.06],
             }
         )
 
-    def _calculate_base_result(self, years=5):
-
-        return self.engine.calculate_scenario(
-            scenario=self._scenario(),
-            configuration=self._configuration(),
-            dataset=pd.DataFrame(),
-            energy_balance=self._energy_balance(),
-            tariff_data=self._tariff_data(),
-            years=years,
-        )
-
-    # ==================================================
-    # Resultado básico
-    # ==================================================
-
-    def test_calculate_scenario_returns_result(self):
-
-        result = self._calculate_base_result()
-
-        assert result.name == "Base"
-
-        assert isinstance(
-            result,
-            EconomicScenarioResult,
-        )
-
-    def test_calculate_scenario_annual_savings(self):
-
-        result = self._calculate_base_result()
-
-        expected = (
-            self.engine.self_consumption_savings
-            + self.engine.export_income
-        )
-
-        assert result.annual_savings == pytest.approx(
-            expected
-        )
-
-    # ==================================================
-    # Cash flow / Payback
-    # ==================================================
-
-    def test_calculate_scenario_payback_is_correct(self):
-
-        result = self._calculate_base_result()
-
-        # Flujos esperados:
-        #
-        # Año 1 = 2375.000000
-        # Año 2 = 2408.642500
-        # Año 3 = 2442.765550
-        # Año 4 = 2477.37558675
-        # Año 5 = 2512.47911720
-        #
-        # Acumulado:
-        #
-        # Año 0 = -10000
-        # Año 1 = -7625
-        # Año 2 = -5216.3575
-        # Año 3 = -2773.59195
-        # Año 4 = -296.21636325
-        # Año 5 = 2216.26275395
-        #
-        # La inversión se recupera durante el año 5.
-
-        expected_payback = 4.11789803991689
-
-        assert result.payback_years == pytest.approx(
-            expected_payback,
-            abs=0.001,
-        )
-
-    def test_calculate_scenario_payback_is_finite(self):
-
-        result = self._calculate_base_result()
-
-        assert np.isfinite(result.payback_years)
-
-        assert result.payback_years > 0
-
-    # ==================================================
-    # NPV
-    # ==================================================
-
-    def test_calculate_scenario_npv_is_correct(self):
-
-        result = self.engine.calculate_scenario(
-            scenario=self._scenario(),
-            configuration=self._configuration(),
-            dataset=pd.DataFrame(),
-            energy_balance=self._energy_balance(),
-            tariff_data=self._tariff_data(),
-            years=5,
-        )
-
-        expected_npv = 563.50
-
-        assert result.npv == pytest.approx(
-            expected_npv,
-            abs=0.01,
-        )
-
-    # ==================================================
-    # IRR
-    # ==================================================
-
-    def test_calculate_scenario_irr_is_correct(self):
-
-        result = self.engine.calculate_scenario(
-            scenario=self._scenario(),
-            configuration=self._configuration(),
-            dataset=pd.DataFrame(),
-            energy_balance=self._energy_balance(),
-            tariff_data=self._tariff_data(),
-            years=5,
-        )
-
-        expected_cash_flow = [
-            -10000.0,
-            2375.0,
-            2408.6425,
-            2442.76555,
-            2477.37558675,
-            2512.4791172,
-        ]
-
-        expected_irr = npf.irr(
-            expected_cash_flow
-        )
-
-        assert result.irr == pytest.approx(
-            expected_irr,
-            rel=1e-9,
-        )
-
-    def test_calculate_scenario_irr_is_finite(self):
-
-        result = self._calculate_base_result()
-
-        assert np.isfinite(result.irr)
-
-    # ==================================================
-    # Parámetros personalizados
-    # ==================================================
-
-    def test_calculate_scenario_custom_parameters(self):
-
-        class Scenario:
-
-            name = "Optimista"
-
-            annual_degradation = 0.002
-            discount_rate = 0.04
-
-            buy_price_factor = 1.10
-            sell_price_factor = 1.20
-
-            annual_maintenance = 80.0
-
-        base = self.engine.calculate_scenario(
-            scenario=self._scenario(),
-            configuration=self._configuration(),
-            dataset=pd.DataFrame(),
-            energy_balance=self._energy_balance(),
-            tariff_data=self._tariff_data(),
-            years=5,
-        )
-
-        optimistic = self.engine.calculate_scenario(
-            scenario=Scenario(),
-            configuration=self._configuration(),
-            dataset=pd.DataFrame(),
-            energy_balance=self._energy_balance(),
-            tariff_data=self._tariff_data(),
-            years=5,
-        )
-
-        assert optimistic.name == "Optimista"
-
-        assert optimistic.npv > base.npv
-
-        assert optimistic.irr > base.irr
-
-        assert optimistic.payback_years < base.payback_years
-
-    def test_calculate_scenario_custom_parameters_are_used(self):
-
-        class OptimisticScenario:
-
-            name = "Optimista"
-
-            annual_degradation = 0.002
-            discount_rate = 0.04
-
-            buy_price_factor = 1.10
-            sell_price_factor = 1.20
-
-            annual_maintenance = 80.0
-
-        result = self.engine.calculate_scenario(
-            scenario=OptimisticScenario(),
-            configuration=self._configuration(),
-            dataset=pd.DataFrame(),
-            energy_balance=self._energy_balance(),
-            tariff_data=self._tariff_data(),
-            years=5,
-        )
-
-        expected_npv = 2351.1873310203346
-
-        expected_irr = 0.11913048869634957
-
-        expected_payback = 3.6369722455800018
-
-        assert result.npv == pytest.approx(
-            expected_npv,
-            rel=1e-9,
-        )
-
-        assert result.irr == pytest.approx(
-            expected_irr,
-            rel=1e-9,
-        )
-
-        assert result.payback_years == pytest.approx(
-            expected_payback,
-            rel=1e-9,
-        )
-
-    # ==================================================
-    # Resolución de parámetros del escenario
-    # ==================================================
-
-    def test_scenario_default_parameters_use_configuration(self):
-
-        result = self._calculate_base_result()
-
-        # El escenario Base tiene:
-        #
-        # annual_degradation = None
-        # discount_rate = None
-        #
-        # Por tanto deben utilizarse los valores de
-        # configuración:
-        #
-        # annual_degradation = 0.0035
-        # discount_rate = 0.05
-
-        expected_npv = 563.5033961990648
-
-        assert result.npv == pytest.approx(
-            expected_npv,
-            rel=1e-9,
-        )
-
-    def test_scenario_custom_degradation_overrides_configuration(self):
-
-        class Scenario:
-
-            name = "Low degradation"
-
-            annual_degradation = 0.001
-            discount_rate = None
-
-            buy_price_factor = 1.0
-            sell_price_factor = 1.0
-
-            annual_maintenance = None
-
-        base = self._calculate_base_result()
-
-        custom = self.engine.calculate_scenario(
-            scenario=Scenario(),
-            configuration=self._configuration(),
-            dataset=pd.DataFrame(),
-            energy_balance=self._energy_balance(),
-            tariff_data=self._tariff_data(),
-            years=5,
-        )
-
-        assert custom.npv > base.npv
-
-    def test_scenario_custom_discount_rate_overrides_configuration(self):
-
-        class Scenario:
-
-            name = "Low discount"
-
-            annual_degradation = None
-            discount_rate = 0.03
-
-            buy_price_factor = 1.0
-            sell_price_factor = 1.0
-
-            annual_maintenance = None
-
-        base = self._calculate_base_result()
-
-        custom = self.engine.calculate_scenario(
-            scenario=Scenario(),
-            configuration=self._configuration(),
-            dataset=pd.DataFrame(),
-            energy_balance=self._energy_balance(),
-            tariff_data=self._tariff_data(),
-            years=5,
-        )
-
-        assert custom.npv > base.npv
-
-    # ==================================================
-    # Mantenimiento personalizado
-    # ==================================================
-
-    def test_custom_maintenance_improves_result(self):
-
-        class Scenario:
-
-            name = "Low maintenance"
-
-            annual_degradation = None
-            discount_rate = None
-
-            buy_price_factor = 1.0
-            sell_price_factor = 1.0
-
-            annual_maintenance = 50.0
-
-        base = self._calculate_base_result()
-
-        custom = self.engine.calculate_scenario(
-            scenario=Scenario(),
-            configuration=self._configuration(),
-            dataset=pd.DataFrame(),
-            energy_balance=self._energy_balance(),
-            tariff_data=self._tariff_data(),
-            years=5,
-        )
-
-        assert custom.npv > base.npv
-
-        assert custom.irr > base.irr
-
-        assert custom.payback_years < base.payback_years
-
-    def test_custom_maintenance_is_used(self):
-
-        class Scenario:
-
-            name = "Low maintenance"
-
-            annual_degradation = None
-            discount_rate = None
-
-            buy_price_factor = 1.0
-            sell_price_factor = 1.0
-
-            annual_maintenance = 80.0
-
-        result = self.engine.calculate_scenario(
-            scenario=Scenario(),
-            configuration=self._configuration(),
-            dataset=pd.DataFrame(),
-            energy_balance=self._energy_balance(),
-            tariff_data=self._tariff_data(),
-            years=5,
-        )
-
-        # El escenario utiliza 80 € en lugar de los 100 €
-        # de configuración, manteniendo el crecimiento anual
-        # del mantenimiento.
-
-        expected_cash_flow = [
-            -10000.0,
-            2395.0,
-            2429.0425,
-            2463.57355,
-            2498.59974675,
-            2534.1277604,
-        ]
-
-        expected_npv = sum(
-            expected_cash_flow[year]
-            / (1.05 ** year)
-            for year in range(
-                len(expected_cash_flow)
-            )
-        )
-
-        expected_irr = npf.irr(
-            expected_cash_flow
-        )
-
-        assert result.npv == pytest.approx(
-            expected_npv,
-            rel=1e-9,
-        )
-
-        assert result.irr == pytest.approx(
-            expected_irr,
-            rel=1e-9,
-        )
-
-    # ==================================================
-    # Precondiciones
-    # ==================================================
-
-    def test_calculate_scenario_requires_net_investment(self):
-
-        self.engine.net_investment = None
-
         with pytest.raises(
             RuntimeError,
-            match="Net investment has not been calculated.",
+            match="Energy balance has not been calculated.",
         ):
-            self._calculate_base_result()
-
-    def test_calculate_scenario_requires_self_consumption_savings(self):
-
-        self.engine.self_consumption_savings = None
-
-        with pytest.raises(
-            RuntimeError,
-            match="Self-consumption savings have not been calculated.",
-        ):
-            self._calculate_base_result()
-
-    def test_calculate_scenario_requires_export_income(self):
-
-        self.engine.export_income = None
-
-        with pytest.raises(
-            RuntimeError,
-            match="Export income has not been calculated.",
-        ):
-            self._calculate_base_result()
-
-    def test_calculate_scenario_requires_positive_years(self):
-
-        with pytest.raises(
-            ValueError,
-            match="Years must be greater than zero.",
-        ):
-            self.engine.calculate_scenario(
-                scenario=self._scenario(),
-                configuration=self._configuration(),
-                dataset=pd.DataFrame(),
-                energy_balance=self._energy_balance(),
-                tariff_data=self._tariff_data(),
-                years=0,
+            self.engine.calculate_scenario_annual_savings(
+                energy_balance=None,
+                tariff_data=tariff_data,
             )
 
-    def test_calculate_scenario_requires_positive_years_for_negative_value(self):
 
-        with pytest.raises(
-            ValueError,
-            match="Years must be greater than zero.",
-        ):
-            self.engine.calculate_scenario(
-                scenario=self._scenario(),
-                configuration=self._configuration(),
-                dataset=pd.DataFrame(),
-                energy_balance=self._energy_balance(),
-                tariff_data=self._tariff_data(),
-                years=-1,
-            )
+# ==========================================================
+# Aplicación de factores de precio
+# ==========================================================
 
-    def test_calculate_scenario_supports_one_year(self):
-
-        result = self._calculate_base_result(years=1)
-
-        assert isinstance(
-            result,
-            EconomicScenarioResult,
-        )
-
-        assert result.npv == pytest.approx(
-            -7738.095238095238,
-            rel=1e-9,
-        )
-
-        assert result.payback_years == float("inf")
-
-        assert np.isfinite(result.irr)
-class TestCalculateScenarios:
-
-    def setup_method(self):
-        self.engine = EconomicsEngine()
-
-        self.engine.net_investment = 10000.0
-
-        self.engine.self_consumption_savings = 2000.0
-
-        self.engine.export_income = 500.0
-
-    def _configuration(self):
-
-        class Configuration:
-            first_year_degradation = 0.01
-            annual_degradation = 0.0035
-
-            annual_electricity_price_growth = 0.02
-            annual_export_price_growth = 0.01
-
-            annual_maintenance_cost = 100.0
-            annual_maintenance_growth = 0.02
-
-            discount_rate = 0.05
-
-        return Configuration()
-
-    def _scenario(self, name):
-
-        class Scenario:
-            pass
-
-        scenario = Scenario()
-
-        scenario.name = name
-        scenario.annual_degradation = None
-        scenario.discount_rate = None
-        scenario.buy_price_factor = 1.0
-        scenario.sell_price_factor = 1.0
-        scenario.annual_maintenance = None
-
-        return scenario
-
-    def test_calculate_scenarios(self):
-
-        scenarios = [
-            self._scenario("Base"),
-            self._scenario("Optimista"),
-        ]
-
-        result = self.engine.calculate_scenarios(
-            scenarios=scenarios,
-            configuration=self._configuration(),
-            dataset=pd.DataFrame(),
-            energy_balance=pd.DataFrame(),
-            tariff_data=pd.DataFrame(),
-            years=5,
-        )
-
-        assert len(result) == 2
-
-        assert result is self.engine.scenario_results
-
-        assert result[0].name == "Base"
-
-        assert result[1].name == "Optimista"
-
-        assert all(
-            isinstance(
-                scenario_result,
-                EconomicScenarioResult
-            )
-            for scenario_result in result
-        )
-
-    def test_calculate_scenarios_resets_previous_results(self):
-
-        self.engine.scenario_results = [
-            "old_result"
-        ]
-
-        scenarios = [
-            self._scenario("Base")
-        ]
-
-        result = self.engine.calculate_scenarios(
-            scenarios=scenarios,
-            configuration=self._configuration(),
-            dataset=pd.DataFrame(),
-            energy_balance=pd.DataFrame(),
-            tariff_data=pd.DataFrame(),
-            years=5,
-        )
-
-        assert len(result) == 1
-
-        assert result[0].name == "Base"
-
-        assert "old_result" not in result
-
-    def test_default_economic_scenarios(self):
-
-        scenarios = default_economic_scenarios()
-
-        assert len(scenarios) == 3
-
-        conservative = scenarios[0]
-
-        assert conservative.name == "Conservador"
-        assert conservative.buy_price_factor == 0.90
-        assert conservative.sell_price_factor == 0.90
-        assert conservative.annual_maintenance == 200.0
-        assert conservative.annual_degradation == 0.005
-
-        base = scenarios[1]
-
-        assert base.name == "Base"
-        assert base.buy_price_factor == 1.0
-        assert base.sell_price_factor == 1.0
-        assert base.annual_maintenance is None
-        assert base.annual_degradation is None
-        assert base.discount_rate is None
-
-        optimistic = scenarios[2]
-
-        assert optimistic.name == "Optimista"
-        assert optimistic.buy_price_factor == 1.10
-        assert optimistic.sell_price_factor == 1.10
-        assert optimistic.annual_maintenance == 100.0
-        assert optimistic.annual_degradation == 0.0025
-
-    def test_default_economic_scenarios_produce_valid_results(self):
-
-        scenarios = default_economic_scenarios()
-
-        results = self.engine.calculate_scenarios(
-            scenarios=scenarios,
-            configuration=self._configuration(),
-            dataset=pd.DataFrame(),
-            energy_balance=pd.DataFrame(),
-            tariff_data=pd.DataFrame(),
-            years=5,
-        )
-
-        assert len(results) == 3
-
-        assert [result.name for result in results] == [
-            "Conservador",
-            "Base",
-            "Optimista",
-        ]
-
-        assert all(
-            isinstance(result, EconomicScenarioResult)
-            for result in results
-        )
-
-        assert all(
-            result.npv is not None
-            for result in results
-        )
-
-        assert all(
-            result.irr is not None
-            for result in results
-        )
-
-        assert all(
-            np.isfinite(result.payback_years)
-            for result in results
-        )
-
-        conservative = results[0]
-        base = results[1]
-        optimistic = results[2]
-
-        assert conservative.npv < base.npv
-        assert optimistic.npv > base.npv
-
-        assert conservative.irr < base.irr
-        assert optimistic.irr > base.irr
-
-        assert conservative.payback_years > base.payback_years
-        assert optimistic.payback_years < base.payback_years
-class TestNetInvestment:
-
-    def setup_method(self):
-        self.engine = EconomicsEngine()
-
-    def test_calculate_net_investment(self):
-
-        class Configuration:
-            installation_cost = 15000.0
-            subsidies = 2000.0
-            tax_deductions = 1000.0
-
-        result = self.engine.calculate_net_investment(
-            Configuration()
-        )
-
-        assert result == pytest.approx(
-            12000.0
-        )
-
-        assert self.engine.net_investment == pytest.approx(
-            12000.0
-        )
-
-    def test_calculate_net_investment_zero_subsidies_and_deductions(self):
-
-        class Configuration:
-            installation_cost = 10000.0
-            subsidies = 0.0
-            tax_deductions = 0.0
-
-        result = self.engine.calculate_net_investment(
-            Configuration()
-        )
-
-        assert result == pytest.approx(
-            10000.0
-        )
-
-        assert self.engine.net_investment == pytest.approx(
-            10000.0
-        )
 
 class TestApplyPriceFactors:
 
@@ -2234,80 +2031,14 @@ class TestApplyPriceFactors:
 
         pd.testing.assert_frame_equal(
             tariff_data,
-            original
+            original,
         )
 
-    def test_calculate_scenario_with_custom_annual_maintenance(self):
 
-        class Scenario:
-            name = "Custom maintenance"
+# ==========================================================
+# Configuración económica
+# ==========================================================
 
-            annual_degradation = None
-            discount_rate = None
-
-            buy_price_factor = 1.0
-            sell_price_factor = 1.0
-
-            annual_maintenance = 300.0
-
-        class Configuration:
-            first_year_degradation = 0.01
-            annual_degradation = 0.0035
-
-            annual_electricity_price_growth = 0.02
-            annual_export_price_growth = 0.0
-
-            annual_maintenance_cost = 150.0
-            annual_maintenance_growth = 0.02
-
-            discount_rate = 0.05
-
-        configuration = Configuration()
-
-        self.engine.net_investment = 10000.0
-
-        self.engine.self_consumption_savings = 2000.0
-
-        self.engine.export_income = 500.0
-
-        result = self.engine.calculate_scenario(
-            scenario=Scenario(),
-            configuration=configuration,
-            dataset=pd.DataFrame(),
-            energy_balance=pd.DataFrame(),
-            tariff_data=pd.DataFrame(),
-            years=2,
-        )
-
-        assert result.name == "Custom maintenance"
-
-        assert result.annual_savings == pytest.approx(
-            2500.0
-        )
-
-        assert result.payback_years > 0
-
-        assert result.npv is not None
-
-        assert result.irr is not None
-
-    def test_calculate_scenario_annual_savings_without_energy_balance(self):
-
-        tariff_data = pd.DataFrame(
-            {
-                "buy_price_eur_kwh": [0.20],
-                "sell_price_eur_kwh": [0.06],
-            }
-        )
-
-        with pytest.raises(
-            RuntimeError,
-            match="Energy balance has not been calculated."
-        ):
-            self.engine.calculate_scenario_annual_savings(
-                energy_balance=None,
-                tariff_data=tariff_data,
-            )
 
 class TestEconomicsConfiguration:
 
@@ -2342,7 +2073,6 @@ class TestEconomicsConfiguration:
         )
 
         assert config.discount_rate == 0.05
-
 
     def test_custom_values_are_preserved(self):
 

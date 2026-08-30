@@ -14,7 +14,6 @@ from PySide6.QtWidgets import (
     QTableWidgetItem,
 )
 
-import traceback
 import pandas as pd
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
@@ -423,36 +422,6 @@ class SolarPage(QWidget):
             self.calculate_production
         )
 
-        # self.load_location_button.clicked.connect(
-        #    self.load_project_location
-        # )
-
-        #self.calculate_button.clicked.connect(
-        #    self.calculate_production
-        #)
-
-    def get_simulation_configuration(self) -> SolarConfiguration:
-
-        configuration = self.project.solar_configuration
-
-        if configuration is None:
-            raise ValueError(
-                "Solar configuration is required "
-                "before calculating production."
-            )
-
-        return SolarConfiguration(
-            
-            latitude=configuration.latitude,
-            longitude=configuration.longitude,
-            tilt=configuration.tilt,
-            azimuth=configuration.azimuth,
-            reference_year=configuration.reference_year,
-            losses=configuration.losses,
-            pv_technology=configuration.pv_technology,
-            mounting_place=configuration.mounting_place,
-        )
-
     def calculate_production(self):
 
         configuration = self.project.solar_configuration
@@ -475,24 +444,6 @@ class SolarPage(QWidget):
         )
 
         try:
-
-            if self.project.solar.sizing_result is not None:
-                print(
-                    "sizing_result attributes:",
-                    vars(self.project.solar.sizing_result)
-                )
-
-            installed_power_kwp = (
-                self.project.solar.sizing_result
-                .evaluation
-                .candidate
-                .panel_count
-                * self.project.solar.sizing_result
-                .evaluation
-                .candidate
-                .panel_power_wp
-                / 1000
-            )
 
             self.project.solar.calculate(
                 configuration
@@ -519,8 +470,6 @@ class SolarPage(QWidget):
                 specific_production=None,
                 coverage=None,
             )
-
-            traceback.print_exc()
 
     def get_configuration(self) -> SolarConfiguration:
 
@@ -615,14 +564,6 @@ class SolarPage(QWidget):
 
         table.verticalHeader().setVisible(False)
         table.verticalHeader().setDefaultSectionSize(24)
-
-        table.setEditTriggers(
-            QAbstractItemView.NoEditTriggers
-        )
-
-        table.setSelectionMode(
-            QAbstractItemView.NoSelection
-        )
 
         table.setAlternatingRowColors(True)
 

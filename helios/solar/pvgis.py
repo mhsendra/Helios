@@ -3,7 +3,6 @@ from pathlib import Path
 import requests
 
 from helios.solar.configuration import SolarConfiguration
-from helios.reports.printer import ReportPrinter
 from helios.solar.cache import PVGISCache
 
 
@@ -83,20 +82,6 @@ class PVGISClient:
             params=params,
             timeout=60
         )
-
-        ReportPrinter.title("PVGIS REQUEST")
-
-        ReportPrinter.text(
-            "URL",
-            response.url
-        )
-
-        ReportPrinter.value(
-            "Status",
-            response.status_code
-        )
-
-        ReportPrinter.blank()
 
         response.raise_for_status()
 

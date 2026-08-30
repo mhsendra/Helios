@@ -1,11 +1,11 @@
 from helios.reports.printer import ReportPrinter
 
-class ProfilesReports:    
-    
+
+class ProfilesReports:
+
     def hourly_profile(self, hourly_profile):
 
         if hourly_profile is None:
-            print("No hay perfil horario calculado.")
             return
 
         ReportPrinter.title(
@@ -53,8 +53,9 @@ class ProfilesReports:
 
         ReportPrinter.blank()
 
-        print("Top 5 horas de consumo")
-        print("-" * 55)
+        ReportPrinter.subtitle(
+            "Top 5 horas de consumo"
+        )
 
         top5 = (
             hourly_profile
@@ -68,19 +69,19 @@ class ProfilesReports:
                 f"Hora {hour:02d}:00",
                 f"{value:.3f} kWh"
             )
-    
+
     def weekday_profile(self, weekday_profile):
 
         if weekday_profile is None:
-            print("No hay perfil semanal calculado.")
             return
 
         laborables = weekday_profile.iloc[:5].mean()
         fin_semana = weekday_profile.iloc[5:].mean()
 
         incremento = (
-            (fin_semana - laborables) /
-            laborables * 100
+            (fin_semana - laborables)
+            / laborables
+            * 100
         )
 
         ReportPrinter.title(
@@ -141,8 +142,11 @@ class ProfilesReports:
             decimals=3
         )
 
-        print("\nConsumo medio por día")
-        print("-" * 55)
+        ReportPrinter.blank()
+
+        ReportPrinter.subtitle(
+            "Consumo medio por día"
+        )
 
         for day, value in weekday_profile.items():
 
@@ -154,17 +158,26 @@ class ProfilesReports:
     def monthly_profile(self, monthly_profile):
 
         if monthly_profile is None:
-            print("No hay perfil mensual calculado.")
             return
 
         incremento = (
-            (monthly_profile.max() - monthly_profile.min())
+            (
+                monthly_profile.max()
+                - monthly_profile.min()
+            )
             / monthly_profile.min()
             * 100
         )
 
-        mes_max = f"{monthly_profile.idxmax()} (promedio multianual)"
-        mes_min = f"{monthly_profile.idxmin()} (promedio multianual)"
+        mes_max = (
+            f"{monthly_profile.idxmax()} "
+            "(promedio multianual)"
+        )
+
+        mes_min = (
+            f"{monthly_profile.idxmin()} "
+            "(promedio multianual)"
+        )
 
         valor_max = monthly_profile.max()
         valor_min = monthly_profile.min()
@@ -209,8 +222,9 @@ class ProfilesReports:
 
         ReportPrinter.blank()
 
-        print("Consumo medio por mes")
-        print("-" * 55)
+        ReportPrinter.subtitle(
+            "Consumo medio por mes"
+        )
 
         for month, value in monthly_profile.items():
 
@@ -222,11 +236,13 @@ class ProfilesReports:
     def seasonal_profile(self, seasonal_profile):
 
         if seasonal_profile is None:
-            print("No hay perfil estacional calculado.")
             return
 
         incremento = (
-            (seasonal_profile.max() - seasonal_profile.min())
+            (
+                seasonal_profile.max()
+                - seasonal_profile.min()
+            )
             / seasonal_profile.min()
             * 100
         )
@@ -284,8 +300,9 @@ class ProfilesReports:
 
         ReportPrinter.blank()
 
-        print("Consumo medio por estación")
-        print("-" * 55)
+        ReportPrinter.subtitle(
+            "Consumo medio por estación"
+        )
 
         for season, value in seasonal_profile.items():
 

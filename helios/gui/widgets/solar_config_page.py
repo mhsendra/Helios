@@ -1,5 +1,3 @@
-import traceback
-
 from PySide6.QtCore import Qt, QRectF
 from PySide6.QtWidgets import (
     QWidget,
@@ -2065,18 +2063,6 @@ class SolarConfigPage(QWidget):
         # ==================================================
         # Dibujar
         # ==================================================
-        print(
-            "LAYOUT DEBUG:",
-            roof_width,
-            roof_height,
-            self.panel_width_spinbox.value(),
-            self.panel_height_spinbox.value(),
-            layout.rows,
-            layout.columns,
-            layout.orientation,
-            layout.walkway_width_m,
-            layout.walkway_position,
-        )
 
         self.roof_layout_widget.set_layout_data(
 
@@ -2189,8 +2175,6 @@ class SolarConfigPage(QWidget):
             )
 
         except Exception as error:
-
-            traceback.print_exc()
 
             self.status_label.setText(
                 f"Error al generar el informe: {error}"
@@ -2337,8 +2321,6 @@ class SolarConfigPage(QWidget):
             )
 
         except Exception as error:
-
-            traceback.print_exc()
 
             self.status_label.setText(
                 f"Error: {error}"

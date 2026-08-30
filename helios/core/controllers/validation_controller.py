@@ -1,7 +1,6 @@
 # helios/core/controllers/validation_controller.py
 
 import calendar
-import pandas as pd
 
 
 class ValidationController:
@@ -15,20 +14,10 @@ class ValidationController:
         self.analyzer = analyzer
 
     # ==================================================
-    # Validación temporal básica
-    # ==================================================
-
-    def validate_timeseries(self):
-        print("\n=== VALIDACIÓN TEMPORAL ===")
-        print(f"Primer registro : {self.analyzer.dataset.index.min()}")
-        print(f"Último registro : {self.analyzer.dataset.index.max()}")
-
-    # ==================================================
     # Validación de horas por día
     # ==================================================
 
     def find_missing_hours(self):
-        print("\n=== VALIDACIÓN DE HORAS POR DÍA ===")
 
         errors = 0
 
@@ -43,22 +32,11 @@ class ValidationController:
 
             if missing or extra:
                 errors += 1
-                print(f"\n{fecha.date()}")
-
-                if missing:
-                    print(f"  Horas ausentes : {missing}")
-
-                if extra:
-                    print(f"  Horas inesperadas: {extra}")
-
-        if errors == 0:
-            print("Todos los días tienen la secuencia horaria correcta.")
 
         return {
             "valid": errors == 0,
             "errors": errors
         }
-
     # ==================================================
     # Duplicados
     # ==================================================
@@ -79,33 +57,6 @@ class ValidationController:
                 self.analyzer.dataset
             )
         )
-
-    def inspect_gap(self, gap_id: int):
-        gap = self.analyzer.dataset[
-            self.analyzer.dataset["gap_id"] == gap_id
-        ]
-
-        if gap.empty:
-            print(f"No existe el bloque de huecos {gap_id}.")
-            return
-
-        print("\n")
-        print("=" * 45)
-        print(f"HELIOS - GAP #{gap_id}")
-        print("=" * 45)
-
-        print(f"Inicio.......... {gap.index.min()}")
-        print(f"Fin............. {gap.index.max()}")
-        print(f"Duración........ {gap['gap_size'].iloc[0]} horas")
-
-        print("\nRegistros:")
-        print(gap[["Fecha", "Hora", "AE_kWh"]])
-
-    def inspect_data(self):
-        print("\n=== Calidad de los datos ===")
-        print(f"Registros totales: {len(self.analyzer.dataset)}")
-        print(f"Valores nulos:\n{self.analyzer.dataset.isnull().sum()}")
-        print(f"\nDuplicados: {self.analyzer.dataset.duplicated().sum()}")
 
     def calculate_quality(self):
         self.analyzer.quality = (
@@ -137,7 +88,6 @@ class ValidationController:
         """
         Ejecuta toda la validación de datos.
         """
-        self.validate_timeseries()
         self.find_missing_hours()
         self.find_duplicate_timestamps()
         self.calculate_quality()

@@ -401,38 +401,3 @@ class TestIndicatorsReportsExtremes:
         )
 
         assert result == "Marzo 2025"
-
-    # ==================================================
-    # _print_extreme
-    # ==================================================
-
-    def test_print_extreme(
-        self,
-        capsys
-    ):
-
-        extremes = {
-
-            "hourly_max": (
-                pd.Timestamp(
-                    "2025-01-15 18:30"
-                ),
-                12.34567
-            )
-        }
-
-        self.report._print_extreme(
-            extremes,
-            "Mayor consumo horario",
-            "hourly_max",
-            self.report._format_datetime
-        )
-
-        captured = capsys.readouterr()
-
-        assert captured.out == (
-            "Mayor consumo horario\n"
-            "  15/01/2025 18:30\n"
-            "  12.346 kWh\n"
-            "\n"
-        )

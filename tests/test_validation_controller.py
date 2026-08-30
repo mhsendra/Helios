@@ -397,7 +397,6 @@ class TestValidationController:
             "anomaly_days": 4,
         }
 
-        self.controller.validate_timeseries = MagicMock()
         self.controller.find_missing_hours = MagicMock()
         self.controller.find_duplicate_timestamps = MagicMock()
 
@@ -417,8 +416,6 @@ class TestValidationController:
         self.controller.calculate_gap_summary = MagicMock()
 
         self.controller.calculate()
-
-        self.controller.validate_timeseries.assert_called_once_with()
 
         self.controller.find_missing_hours.assert_called_once_with()
 

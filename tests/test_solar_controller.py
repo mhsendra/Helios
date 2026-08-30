@@ -698,11 +698,9 @@ class TestSolarController:
     def test_reset_clears_results(self):
 
         self.controller.sizing_result = MagicMock()
-        self.controller.installation_result = MagicMock()
 
         self.controller.reset()
 
         assert self.controller.sizing_result is None
-        assert self.controller.installation_result is None
 
         self.analyzer.solar_engine.reset.assert_called_once_with()

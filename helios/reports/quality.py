@@ -5,7 +5,9 @@ class QualityReports:
 
     def quality(self, quality):
 
-        ReportPrinter.title("DATA QUALITY REPORT")
+        ReportPrinter.title(
+            "DATA QUALITY REPORT"
+        )
 
         ReportPrinter.blank()
 
@@ -24,10 +26,9 @@ class QualityReports:
     def gap(self, summary):
 
         if summary is None:
-
-            print("No se han detectado huecos.")
             return
-        
+
+
     def duplicates(self, duplicates):
 
         ReportPrinter.title(
@@ -42,9 +43,11 @@ class QualityReports:
         )
 
         if duplicates["count"] == 0:
-
             return
 
         ReportPrinter.blank()
 
-        print(duplicates["duplicates"])
+        ReportPrinter.text(
+            "Duplicados",
+            str(duplicates["duplicates"])
+        )
