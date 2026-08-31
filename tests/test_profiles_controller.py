@@ -1,5 +1,7 @@
 from unittest.mock import MagicMock, call
 
+import pytest
+
 from helios.core.controllers.profiles_controller import (
     ProfilesController,
 )
@@ -315,3 +317,239 @@ class TestProfilesController:
                 analyzer.statistics_engine.seasonal_profile
             ),
         ]
+
+    # ==========================================================
+    # Validación de delegación y comportamiento
+    # ==========================================================
+
+    def test_calculate_hourly_profile_uses_valid_dataset_once(self):
+
+        controller, analyzer = create_controller()
+
+        dataset = object()
+        analyzer.valid_dataset.return_value = dataset
+
+        controller.calculate_hourly_profile()
+
+        analyzer.valid_dataset.assert_called_once_with()
+
+        analyzer.statistics_engine.calculate_hourly_profile.assert_called_once_with(
+            dataset
+        )
+
+
+    def test_calculate_weekday_profile_uses_valid_dataset_once(self):
+
+        controller, analyzer = create_controller()
+
+        dataset = object()
+        analyzer.valid_dataset.return_value = dataset
+
+        controller.calculate_weekday_profile()
+
+        analyzer.valid_dataset.assert_called_once_with()
+
+        analyzer.statistics_engine.calculate_weekday_profile.assert_called_once_with(
+            dataset
+        )
+
+
+    def test_calculate_monthly_profile_uses_valid_dataset_once(self):
+
+        controller, analyzer = create_controller()
+
+        dataset = object()
+        analyzer.valid_dataset.return_value = dataset
+
+        controller.calculate_monthly_profile()
+
+        analyzer.valid_dataset.assert_called_once_with()
+
+        analyzer.statistics_engine.calculate_monthly_profile.assert_called_once_with(
+            dataset
+        )
+
+
+    def test_calculate_workday_vs_weekend_profile_uses_valid_dataset_once(self):
+
+        controller, analyzer = create_controller()
+
+        dataset = object()
+        analyzer.valid_dataset.return_value = dataset
+
+        controller.calculate_workday_vs_weekend_profile()
+
+        analyzer.valid_dataset.assert_called_once_with()
+
+        analyzer.statistics_engine.calculate_workday_vs_weekend_profile.assert_called_once_with(
+            dataset
+        )
+
+
+    def test_calculate_seasonal_profile_does_not_request_dataset(self):
+
+        controller, analyzer = create_controller()
+
+        controller.calculate_seasonal_profile()
+
+        analyzer.valid_dataset.assert_not_called()
+
+        analyzer.statistics_engine.calculate_seasonal_profile.assert_called_once_with()
+
+
+    def test_calculate_requests_dataset_for_each_dataset_based_profile(self):
+
+        controller, analyzer = create_controller()
+
+        dataset = object()
+        analyzer.valid_dataset.return_value = dataset
+
+        controller.calculate()
+
+        assert analyzer.valid_dataset.call_count == 4
+
+        analyzer.statistics_engine.calculate_hourly_profile.assert_called_once_with(
+            dataset
+        )
+
+        analyzer.statistics_engine.calculate_weekday_profile.assert_called_once_with(
+            dataset
+        )
+
+        analyzer.statistics_engine.calculate_monthly_profile.assert_called_once_with(
+            dataset
+        )
+
+        analyzer.statistics_engine.calculate_workday_vs_weekend_profile.assert_called_once_with(
+            dataset
+        )
+
+
+    def test_calculate_propagates_engine_exception(self):
+
+        controller, analyzer = create_controller()
+
+        error = RuntimeError("profile calculation failed")
+
+        analyzer.statistics_engine.calculate_monthly_profile.side_effect = (
+            error
+        )
+
+        with pytest.raises(
+            RuntimeError,
+            match="profile calculation failed",
+        ):
+            controller.calculate_monthly_profile()
+
+
+    def test_calculate_stops_when_a_previous_step_fails(self):
+
+        controller, analyzer = create_controller()
+
+        error = RuntimeError("weekday profile failed")
+
+        analyzer.statistics_engine.calculate_weekday_profile.side_effect = (
+            error
+        )
+
+        with pytest.raises(
+            RuntimeError,
+            match="weekday profile failed",
+        ):
+            controller.calculate()
+
+        analyzer.statistics_engine.calculate_hourly_profile.assert_called_once_with(
+            analyzer.valid_dataset.return_value
+        )
+
+        analyzer.statistics_engine.calculate_weekday_profile.assert_called_once_with(
+            analyzer.valid_dataset.return_value
+        )
+
+        analyzer.statistics_engine.calculate_monthly_profile.assert_not_called()
+
+        analyzer.statistics_engine.calculate_seasonal_profile.assert_not_called()
+
+        analyzer.statistics_engine.calculate_workday_vs_weekend_profile.assert_not_called()
+
+
+    # ==========================================================
+    # Reportes: estado actual del engine
+    # ==========================================================
+
+    def test_hourly_profile_report_uses_current_engine_profile(self):
+
+        controller, analyzer = create_controller()
+
+        first_profile = object()
+        second_profile = object()
+
+        analyzer.statistics_engine.hourly_profile = first_profile
+
+        controller.hourly_profile_report()
+
+        analyzer.profile_reporter.hourly_profile.assert_called_once_with(
+            first_profile
+        )
+
+        analyzer.profile_reporter.hourly_profile.reset_mock()
+
+        analyzer.statistics_engine.hourly_profile = second_profile
+
+        controller.hourly_profile_report()
+
+        analyzer.profile_reporter.hourly_profile.assert_called_once_with(
+            second_profile
+        )
+
+
+    def test_reports_does_not_request_valid_dataset(self):
+
+        controller, analyzer = create_controller()
+
+        controller.reports()
+
+        analyzer.valid_dataset.assert_not_called()
+
+
+    # ==========================================================
+    # Gráficas: estado actual del engine
+    # ==========================================================
+
+    def test_plots_does_not_request_valid_dataset(self):
+
+        controller, analyzer = create_controller()
+
+        controller.plots()
+
+        analyzer.valid_dataset.assert_not_called()
+
+
+    def test_plot_workday_vs_weekend_uses_current_engine_profile(self):
+
+        controller, analyzer = create_controller()
+
+        first_profile = object()
+        second_profile = object()
+
+        analyzer.statistics_engine.workday_vs_weekend_profile = (
+            first_profile
+        )
+
+        controller.plot_workday_vs_weekend_profile()
+
+        analyzer.plotter.profiles.plot_workday_vs_weekend_profile.assert_called_once_with(
+            first_profile
+        )
+
+        analyzer.plotter.profiles.plot_workday_vs_weekend_profile.reset_mock()
+
+        analyzer.statistics_engine.workday_vs_weekend_profile = (
+            second_profile
+        )
+
+        controller.plot_workday_vs_weekend_profile()
+
+        analyzer.plotter.profiles.plot_workday_vs_weekend_profile.assert_called_once_with(
+            second_profile
+        )

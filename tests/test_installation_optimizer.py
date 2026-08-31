@@ -28,6 +28,8 @@ class TestInstallationOptimizer:
         panel_power_wp=540,
         min_panels=1,
         max_panels=None,
+        roof_width_m=None,
+        roof_height_m=None,
     ):
 
         return InstallationConstraints(
@@ -37,6 +39,8 @@ class TestInstallationOptimizer:
             panel_power_wp=panel_power_wp,
             min_panels=min_panels,
             max_panels=max_panels,
+            roof_width_m=roof_width_m,
+            roof_height_m=roof_height_m,
         )
 
     # ==================================================
@@ -1161,3 +1165,46 @@ class TestInstallationOptimizer:
                 panel_power_wp=540,
                 panel_orientation="diagonal",
             )
+
+    def test_excludes_layout_when_occupied_width_exceeds_roof_width(
+        self,
+    ):
+
+        constraints = self._constraints(
+            max_panels=6,
+            roof_width_m=2.0,
+            roof_height_m=10.0,
+        )
+
+        optimizer = InstallationOptimizer(
+            constraints
+        )
+
+        layouts = optimizer.generate_layouts(
+            panel_count=6,
+            orientation="vertical",
+        )
+
+        assert layouts == []
+
+
+    def test_excludes_layout_when_occupied_height_exceeds_roof_height(
+        self,
+    ):
+
+        constraints = self._constraints(
+            max_panels=6,
+            roof_width_m=10.0,
+            roof_height_m=2.0,
+        )
+
+        optimizer = InstallationOptimizer(
+            constraints
+        )
+
+        layouts = optimizer.generate_layouts(
+            panel_count=6,
+            orientation="vertical",
+        )
+
+        assert layouts == []

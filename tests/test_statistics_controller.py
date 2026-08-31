@@ -223,3 +223,337 @@ def test_yearly_consumption_property():
     analyzer.statistics_engine.yearly_consumption = "yearly_consumption"
 
     assert controller.yearly_consumption == "yearly_consumption"
+
+# ==========================================================
+# Tests de endurecimiento
+# ==========================================================
+
+
+def test_controller_stores_exact_analyzer_instance():
+
+    analyzer = MagicMock()
+
+    controller = StatisticsController(analyzer)
+
+    assert controller.analyzer is analyzer
+
+
+def test_calculate_statistics_requests_valid_dataset_once():
+
+    controller, analyzer = create_controller()
+
+    controller.calculate_statistics()
+
+    analyzer.valid_dataset.assert_called_once_with()
+
+
+def test_calculate_statistics_passes_exact_dataset_to_engine():
+
+    controller, analyzer = create_controller()
+
+    dataset = object()
+
+    analyzer.valid_dataset.return_value = dataset
+
+    controller.calculate_statistics()
+
+    analyzer.statistics_engine.calculate.assert_called_once_with(
+        dataset
+    )
+
+
+def test_calculate_daily_consumption_requests_valid_dataset_once():
+
+    controller, analyzer = create_controller()
+
+    controller.calculate_daily_consumption()
+
+    analyzer.valid_dataset.assert_called_once_with()
+
+
+def test_calculate_daily_consumption_passes_exact_dataset_to_engine():
+
+    controller, analyzer = create_controller()
+
+    dataset = object()
+
+    analyzer.valid_dataset.return_value = dataset
+
+    controller.calculate_daily_consumption()
+
+    analyzer.statistics_engine.calculate_daily_consumption.assert_called_once_with(
+        dataset
+    )
+
+
+def test_calculate_monthly_consumption_requests_valid_dataset_once():
+
+    controller, analyzer = create_controller()
+
+    controller.calculate_monthly_consumption()
+
+    analyzer.valid_dataset.assert_called_once_with()
+
+
+def test_calculate_monthly_consumption_passes_exact_dataset_to_engine():
+
+    controller, analyzer = create_controller()
+
+    dataset = object()
+
+    analyzer.valid_dataset.return_value = dataset
+
+    controller.calculate_monthly_consumption()
+
+    analyzer.statistics_engine.calculate_monthly_consumption.assert_called_once_with(
+        dataset
+    )
+
+
+def test_calculate_yearly_consumption_requests_valid_dataset_once():
+
+    controller, analyzer = create_controller()
+
+    controller.calculate_yearly_consumption()
+
+    analyzer.valid_dataset.assert_called_once_with()
+
+
+def test_calculate_yearly_consumption_passes_exact_dataset_to_engine():
+
+    controller, analyzer = create_controller()
+
+    dataset = object()
+
+    analyzer.valid_dataset.return_value = dataset
+
+    controller.calculate_yearly_consumption()
+
+    analyzer.statistics_engine.calculate_yearly_consumption.assert_called_once_with(
+        dataset
+    )
+
+
+def test_calculate_uses_controller_calculation_methods():
+
+    controller, _ = create_controller()
+
+    controller.calculate_statistics = MagicMock()
+    controller.calculate_daily_consumption = MagicMock()
+    controller.calculate_monthly_consumption = MagicMock()
+    controller.calculate_yearly_consumption = MagicMock()
+
+    controller.calculate()
+
+    controller.calculate_statistics.assert_called_once_with()
+    controller.calculate_daily_consumption.assert_called_once_with()
+    controller.calculate_monthly_consumption.assert_called_once_with()
+    controller.calculate_yearly_consumption.assert_called_once_with()
+
+
+def test_calculate_does_not_call_statistics_engine_directly():
+
+    controller, analyzer = create_controller()
+
+    controller.calculate_statistics = MagicMock()
+    controller.calculate_daily_consumption = MagicMock()
+    controller.calculate_monthly_consumption = MagicMock()
+    controller.calculate_yearly_consumption = MagicMock()
+
+    controller.calculate()
+
+    assert analyzer.statistics_engine.method_calls == []
+
+
+def test_calculate_statistics_propagates_none_dataset():
+
+    controller, analyzer = create_controller()
+
+    analyzer.valid_dataset.return_value = None
+
+    controller.calculate_statistics()
+
+    analyzer.statistics_engine.calculate.assert_called_once_with(
+        None
+    )
+
+
+def test_calculate_daily_consumption_propagates_none_dataset():
+
+    controller, analyzer = create_controller()
+
+    analyzer.valid_dataset.return_value = None
+
+    controller.calculate_daily_consumption()
+
+    analyzer.statistics_engine.calculate_daily_consumption.assert_called_once_with(
+        None
+    )
+
+
+def test_calculate_monthly_consumption_propagates_none_dataset():
+
+    controller, analyzer = create_controller()
+
+    analyzer.valid_dataset.return_value = None
+
+    controller.calculate_monthly_consumption()
+
+    analyzer.statistics_engine.calculate_monthly_consumption.assert_called_once_with(
+        None
+    )
+
+
+def test_calculate_yearly_consumption_propagates_none_dataset():
+
+    controller, analyzer = create_controller()
+
+    analyzer.valid_dataset.return_value = None
+
+    controller.calculate_yearly_consumption()
+
+    analyzer.statistics_engine.calculate_yearly_consumption.assert_called_once_with(
+        None
+    )
+
+
+def test_statistics_report_does_not_request_valid_dataset():
+
+    controller, analyzer = create_controller()
+
+    analyzer.statistics_engine.statistics = object()
+
+    controller.statistics_report()
+
+    analyzer.valid_dataset.assert_not_called()
+
+
+def test_daily_report_does_not_request_valid_dataset():
+
+    controller, analyzer = create_controller()
+
+    analyzer.statistics_engine.daily_consumption = object()
+
+    controller.daily_report()
+
+    analyzer.valid_dataset.assert_not_called()
+
+
+def test_monthly_report_does_not_request_valid_dataset():
+
+    controller, analyzer = create_controller()
+
+    analyzer.statistics_engine.monthly_consumption = object()
+
+    controller.monthly_report()
+
+    analyzer.valid_dataset.assert_not_called()
+
+
+def test_yearly_report_does_not_request_valid_dataset():
+
+    controller, analyzer = create_controller()
+
+    analyzer.statistics_engine.yearly_consumption = object()
+
+    controller.yearly_report()
+
+    analyzer.valid_dataset.assert_not_called()
+
+
+def test_statistics_report_propagates_none():
+
+    controller, analyzer = create_controller()
+
+    analyzer.statistics_engine.statistics = None
+
+    controller.statistics_report()
+
+    analyzer.statistics_reporter.statistics.assert_called_once_with(
+        None
+    )
+
+
+def test_daily_report_propagates_none():
+
+    controller, analyzer = create_controller()
+
+    analyzer.statistics_engine.daily_consumption = None
+
+    controller.daily_report()
+
+    analyzer.statistics_reporter.daily.assert_called_once_with(
+        None
+    )
+
+
+def test_monthly_report_propagates_none():
+
+    controller, analyzer = create_controller()
+
+    analyzer.statistics_engine.monthly_consumption = None
+
+    controller.monthly_report()
+
+    analyzer.statistics_reporter.monthly.assert_called_once_with(
+        None
+    )
+
+
+def test_yearly_report_propagates_none():
+
+    controller, analyzer = create_controller()
+
+    analyzer.statistics_engine.yearly_consumption = None
+
+    controller.yearly_report()
+
+    analyzer.statistics_reporter.yearly.assert_called_once_with(
+        None
+    )
+
+
+def test_reports_uses_controller_report_methods_in_order():
+
+    controller, _ = create_controller()
+
+    calls = []
+
+    controller.statistics_report = MagicMock(
+        side_effect=lambda: calls.append("statistics")
+    )
+
+    controller.daily_report = MagicMock(
+        side_effect=lambda: calls.append("daily")
+    )
+
+    controller.monthly_report = MagicMock(
+        side_effect=lambda: calls.append("monthly")
+    )
+
+    controller.yearly_report = MagicMock(
+        side_effect=lambda: calls.append("yearly")
+    )
+
+    controller.reports()
+
+    assert calls == [
+        "statistics",
+        "daily",
+        "monthly",
+        "yearly",
+    ]
+
+
+def test_reports_does_not_call_valid_dataset():
+
+    controller, analyzer = create_controller()
+
+    controller.statistics_report = MagicMock()
+    controller.daily_report = MagicMock()
+    controller.monthly_report = MagicMock()
+    controller.yearly_report = MagicMock()
+
+    controller.reports()
+
+    analyzer.valid_dataset.assert_not_called()

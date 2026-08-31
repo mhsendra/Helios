@@ -560,3 +560,420 @@ class TestEconomicsPage:
         assert page.discount_rate_label.text() == (
             "6.00 %"
         )
+
+    # ==================================================
+    # Ampliación de cobertura
+    # ==================================================
+
+
+    def test_calculate_executes_steps_in_expected_order(
+        self,
+        app,
+    ):
+
+        project = self._create_project()
+
+        page = EconomicsPage(project)
+
+        page.update_summary = Mock()
+        page.update_profitability = Mock()
+        page.update_cash_flow = Mock()
+
+        calls = []
+
+        project.economics.calculate.side_effect = (
+            lambda: calls.append("calculate")
+        )
+
+        project.economics.calculate_scenarios.side_effect = (
+            lambda scenarios: calls.append("calculate_scenarios")
+        )
+
+        page.update_summary.side_effect = (
+            lambda: calls.append("update_summary")
+        )
+
+        page.update_profitability.side_effect = (
+            lambda: calls.append("update_profitability")
+        )
+
+        page.update_cash_flow.side_effect = (
+            lambda: calls.append("update_cash_flow")
+        )
+
+        page.calculate()
+
+        assert calls == [
+            "calculate",
+            "calculate_scenarios",
+            "update_summary",
+            "update_profitability",
+            "update_cash_flow",
+        ]
+
+
+    def test_calculate_propagates_controller_calculate_exception(
+        self,
+        app,
+    ):
+
+        project = self._create_project()
+
+        error = RuntimeError(
+            "economic calculation failed"
+        )
+
+        project.economics.calculate.side_effect = error
+
+        page = EconomicsPage(project)
+
+        with pytest.raises(
+            RuntimeError,
+            match="economic calculation failed",
+        ):
+            page.calculate()
+
+        project.economics.calculate_scenarios.assert_not_called()
+
+
+    def test_calculate_stops_when_scenario_calculation_fails(
+        self,
+        app,
+    ):
+
+        project = self._create_project()
+
+        error = RuntimeError(
+            "scenario calculation failed"
+        )
+
+        project.economics.calculate_scenarios.side_effect = (
+            error
+        )
+
+        page = EconomicsPage(project)
+
+        page.update_summary = Mock()
+        page.update_profitability = Mock()
+        page.update_cash_flow = Mock()
+
+        with pytest.raises(
+            RuntimeError,
+            match="scenario calculation failed",
+        ):
+            page.calculate()
+
+        project.economics.calculate.assert_called_once_with()
+
+        page.update_summary.assert_not_called()
+        page.update_profitability.assert_not_called()
+        page.update_cash_flow.assert_not_called()
+
+
+    def test_update_summary_reads_values_from_current_engine(
+        self,
+        app,
+    ):
+
+        project = self._create_project()
+
+        economics = project.analyzer.economics_engine
+
+        economics.cost_without_pv = 1234.567
+        economics.cost_with_pv = 987.654
+        economics.annual_savings = 246.913
+        economics.self_consumption_savings = 200.111
+        economics.export_income = 46.802
+        economics.net_investment = 12345.678
+
+        page = EconomicsPage(project)
+
+        page.update_summary()
+
+        assert page.cost_without_pv_label.text() == (
+            "1,234.57 €"
+        )
+
+        assert page.cost_with_pv_label.text() == (
+            "987.65 €"
+        )
+
+        assert page.annual_savings_label.text() == (
+            "246.91 €"
+        )
+
+        assert page.self_consumption_savings_label.text() == (
+            "200.11 €"
+        )
+
+        assert page.export_income_label.text() == (
+            "46.80 €"
+        )
+
+        assert page.net_investment_label.text() == (
+            "12,345.68 €"
+        )
+
+
+    def test_update_profitability_uses_current_discount_rate(
+        self,
+        app,
+    ):
+
+        project = self._create_project()
+
+        economics = project.analyzer.economics_engine
+
+        economics.payback_years = 4.567
+        economics.npv = 12345.678
+        economics.irr = 0.12345
+
+        project.economics.configuration.discount_rate = (
+            0.0375
+        )
+
+        page = EconomicsPage(project)
+
+        page.update_profitability()
+
+        assert page.payback_label.text() == (
+            "4.57 años"
+        )
+
+        assert page.npv_label.text() == (
+            "12,345.68 €"
+        )
+
+        assert page.irr_label.text() == (
+            "12.35 %"
+        )
+
+        assert page.discount_rate_label.text() == (
+            "3.75 %"
+        )
+
+
+    def test_update_cash_flow_uses_column_order_from_dataframe(
+        self,
+        app,
+    ):
+
+        project = self._create_project()
+
+        project.analyzer.economics_engine.cash_flow = (
+            pd.DataFrame(
+                [
+                    {
+                        "cash_flow": 100.0,
+                        "year": 1,
+                        "custom_value": 25.0,
+                    },
+                ]
+            )
+        )
+
+        page = EconomicsPage(project)
+
+        page.update_cash_flow()
+
+        table = page.cash_flow_table
+
+        assert table.columnCount() == 3
+
+        assert [
+            table.horizontalHeaderItem(i).text()
+            for i in range(table.columnCount())
+        ] == [
+            "Flujo de caja",
+            "Año",
+            "custom_value",
+        ]
+
+
+    def test_update_cash_flow_formats_integer_values_as_strings(
+        self,
+        app,
+    ):
+
+        project = self._create_project()
+
+        project.analyzer.economics_engine.cash_flow = (
+            pd.DataFrame(
+                [
+                    {
+                        "year": 1,
+                        "cash_flow": 100,
+                    },
+                ]
+            )
+        )
+
+        page = EconomicsPage(project)
+
+        page.update_cash_flow()
+
+        table = page.cash_flow_table
+
+        assert table.item(0, 0).text() == "1"
+        assert table.item(0, 1).text() == "100"
+
+
+    def test_update_cash_flow_formats_float_values_to_two_decimals(
+        self,
+        app,
+    ):
+
+        project = self._create_project()
+
+        project.analyzer.economics_engine.cash_flow = (
+            pd.DataFrame(
+                [
+                    {
+                        "cash_flow": 1234.5678,
+                    },
+                ]
+            )
+        )
+
+        page = EconomicsPage(project)
+
+        page.update_cash_flow()
+
+        assert page.cash_flow_table.item(
+            0,
+            0,
+        ).text() == "1,234.57"
+
+
+    def test_update_cash_flow_clears_previous_table(
+        self,
+        app,
+    ):
+
+        project = self._create_project()
+
+        project.analyzer.economics_engine.cash_flow = (
+            pd.DataFrame(
+                [
+                    {
+                        "year": 1,
+                        "cash_flow": 100.0,
+                    },
+                ]
+            )
+        )
+
+        page = EconomicsPage(project)
+
+        page.update_cash_flow()
+
+        assert page.cash_flow_table.rowCount() == 1
+        assert page.cash_flow_table.columnCount() == 2
+
+        project.analyzer.economics_engine.cash_flow = None
+
+        page.update_cash_flow()
+
+        assert page.cash_flow_table.rowCount() == 0
+        assert page.cash_flow_table.columnCount() == 0
+
+
+    def test_update_cash_flow_replaces_previous_table_structure(
+        self,
+        app,
+    ):
+
+        project = self._create_project()
+
+        project.analyzer.economics_engine.cash_flow = (
+            pd.DataFrame(
+                [
+                    {
+                        "year": 1,
+                        "cash_flow": 100.0,
+                        "export_income": 20.0,
+                    },
+                ]
+            )
+        )
+
+        page = EconomicsPage(project)
+
+        page.update_cash_flow()
+
+        assert page.cash_flow_table.columnCount() == 3
+
+        project.analyzer.economics_engine.cash_flow = (
+            pd.DataFrame(
+                [
+                    {
+                        "year": 2,
+                        "cash_flow": 250.0,
+                    },
+                ]
+            )
+        )
+
+        page.update_cash_flow()
+
+        table = page.cash_flow_table
+
+        assert table.rowCount() == 1
+        assert table.columnCount() == 2
+
+        assert [
+            table.horizontalHeaderItem(i).text()
+            for i in range(table.columnCount())
+        ] == [
+            "Año",
+            "Flujo de caja",
+        ]
+
+        assert table.item(0, 0).text() == "2"
+        assert table.item(0, 1).text() == "250.00"
+
+
+    def test_calculate_updates_gui_after_successful_calculation(
+        self,
+        app,
+    ):
+
+        project = self._create_project()
+
+        page = EconomicsPage(project)
+
+        page.update_summary = Mock()
+        page.update_profitability = Mock()
+        page.update_cash_flow = Mock()
+
+        page.calculate()
+
+        page.update_summary.assert_called_once_with()
+        page.update_profitability.assert_called_once_with()
+        page.update_cash_flow.assert_called_once_with()
+
+
+    def test_calculate_scenarios_receives_non_empty_scenario_list(
+        self,
+        app,
+    ):
+
+        project = self._create_project()
+
+        page = EconomicsPage(project)
+
+        page.update_summary = Mock()
+        page.update_profitability = Mock()
+        page.update_cash_flow = Mock()
+
+        page.calculate()
+
+        args, kwargs = (
+            project.economics
+            .calculate_scenarios
+            .call_args
+        )
+
+        assert len(args) == 1
+        assert len(args[0]) > 0
+        assert kwargs == {}

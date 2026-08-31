@@ -418,3 +418,56 @@ class TestInstallationCandidate:
         assert candidate.panel_area_m2 == pytest.approx(
             2.5764
         )
+
+    # ==================================================
+    # Dataclass behaviour
+    # ==================================================
+
+    def test_equal_candidates_are_equal(self):
+    
+        candidate_1 = InstallationCandidate(
+            panel_count=15,
+            panel_power_wp=540,
+            panel_area_m2=2.5764,
+        )
+
+        candidate_2 = InstallationCandidate(
+            panel_count=15,
+            panel_power_wp=540,
+            panel_area_m2=2.5764,
+        )
+
+        assert candidate_1 == candidate_2
+
+
+    def test_different_candidates_are_not_equal(self):
+    
+        candidate_1 = InstallationCandidate(
+            panel_count=15,
+            panel_power_wp=540,
+            panel_area_m2=2.5764,
+        )
+
+        candidate_2 = InstallationCandidate(
+            panel_count=16,
+            panel_power_wp=540,
+            panel_area_m2=2.5764,
+        )
+
+        assert candidate_1 != candidate_2
+
+
+    def test_candidate_has_dataclass_repr(self):
+    
+        candidate = InstallationCandidate(
+            panel_count=15,
+            panel_power_wp=540,
+            panel_area_m2=2.5764,
+        )
+
+        representation = repr(candidate)
+
+        assert "InstallationCandidate" in representation
+        assert "panel_count=15" in representation
+        assert "panel_power_wp=540" in representation
+        assert "panel_area_m2=2.5764" in representation

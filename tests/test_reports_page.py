@@ -308,3 +308,80 @@ class TestReportsPage:
         self.page._show_report.assert_called_once_with(
             self.project.economics.economic_scenarios_report
         )
+
+    # ==================================================
+    # Ampliación de cobertura
+    # ==================================================
+
+    def test_show_report_replaces_previous_content(self):
+
+        def first_report():
+            print("Primer informe")
+
+        def second_report():
+            print("Segundo informe")
+
+        self.page._show_report(first_report)
+
+        assert (
+            self.page.report_output.toPlainText()
+            == "Primer informe\n"
+        )
+
+        self.page._show_report(second_report)
+
+        assert (
+            self.page.report_output.toPlainText()
+            == "Segundo informe\n"
+        )
+
+    def test_show_report_captures_multiple_lines(self):
+
+        def report():
+            print("Línea 1")
+            print("Línea 2")
+            print("Línea 3")
+
+        self.page._show_report(report)
+
+        assert (
+            self.page.report_output.toPlainText()
+            == "Línea 1\nLínea 2\nLínea 3\n"
+        )
+
+    def test_show_report_propagates_report_exception(self):
+
+        def report():
+            raise RuntimeError(
+                "report generation failed"
+            )
+
+        with pytest.raises(
+            RuntimeError,
+            match="report generation failed",
+        ):
+            self.page._show_report(report)
+
+    def test_show_report_empty_output_clears_previous_content(
+        self,
+    ):
+
+        def first_report():
+            print("Informe anterior")
+
+        def empty_report():
+            pass
+
+        self.page._show_report(first_report)
+
+        assert (
+            self.page.report_output.toPlainText()
+            == "Informe anterior\n"
+        )
+
+        self.page._show_report(empty_report)
+
+        assert (
+            self.page.report_output.toPlainText()
+            == ""
+        )

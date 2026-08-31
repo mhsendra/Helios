@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock, call
 
-from helios.core.solar import SolarEngine
+from helios.core.solar import (SolarEngine, SolarConfiguration)
 
 
 class TestSolarEngine:
@@ -199,3 +199,33 @@ class TestSolarEngine:
         )
 
         assert result == "result"
+
+    def test_calculate_hourly_production_passes_explicit_installed_power(
+        self,
+    ):
+
+        configuration = SolarConfiguration(
+            latitude=41.62,
+            longitude=2.09,
+            tilt=30.0,
+            azimuth=0.0,
+        )
+
+        self.engine.calculate_hourly_production(
+            configuration,
+            installed_power_kwp=8.10,
+        )
+
+        self.engine.manager.calculate_hourly_production.assert_called_once_with(
+            configuration,
+            8.10,
+        )
+
+
+    def test_reset_delegates_to_manager(
+        self,
+    ):
+
+        self.engine.reset()
+
+        self.engine.manager.reset.assert_called_once_with()

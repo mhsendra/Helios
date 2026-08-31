@@ -263,3 +263,192 @@ class TestProfilesPage:
 
         assert self.page.season_max_label.text() == "Invierno"
         assert self.page.season_min_label.text() == "Verano"
+
+        # ==================================================
+    # Ampliación de cobertura
+    # ==================================================
+
+    def test_update_data_returns_when_weekday_profile_is_missing(self):
+
+        self.profiles.hourly_profile = pd.Series(
+            [10, 20],
+            index=[0, 1],
+        )
+
+        self.profiles.weekday_profile = None
+
+        self.profiles.monthly_profile = pd.Series(
+            [100, 200],
+            index=["Enero", "Febrero"],
+        )
+
+        self.profiles.seasonal_profile = pd.Series(
+            [300, 400],
+            index=["Invierno", "Verano"],
+        )
+
+        self.page.update_data()
+
+        assert self.page.hour_max_label.text() == "-"
+        assert self.page.hour_min_label.text() == "-"
+        assert self.page.weekday_max_label.text() == "-"
+        assert self.page.weekday_min_label.text() == "-"
+        assert self.page.month_max_label.text() == "-"
+        assert self.page.month_min_label.text() == "-"
+        assert self.page.season_max_label.text() == "-"
+        assert self.page.season_min_label.text() == "-"
+
+
+    def test_update_data_returns_when_monthly_profile_is_missing(self):
+
+        self.profiles.hourly_profile = pd.Series(
+            [10, 20],
+            index=[0, 1],
+        )
+
+        self.profiles.weekday_profile = pd.Series(
+            [100, 200],
+            index=["Lunes", "Martes"],
+        )
+
+        self.profiles.monthly_profile = None
+
+        self.profiles.seasonal_profile = pd.Series(
+            [300, 400],
+            index=["Invierno", "Verano"],
+        )
+
+        self.page.update_data()
+
+        assert self.page.hour_max_label.text() == "-"
+        assert self.page.hour_min_label.text() == "-"
+        assert self.page.weekday_max_label.text() == "-"
+        assert self.page.weekday_min_label.text() == "-"
+        assert self.page.month_max_label.text() == "-"
+        assert self.page.month_min_label.text() == "-"
+        assert self.page.season_max_label.text() == "-"
+        assert self.page.season_min_label.text() == "-"
+
+
+    def test_update_data_returns_when_seasonal_profile_is_missing(self):
+
+        self.profiles.hourly_profile = pd.Series(
+            [10, 20],
+            index=[0, 1],
+        )
+
+        self.profiles.weekday_profile = pd.Series(
+            [100, 200],
+            index=["Lunes", "Martes"],
+        )
+
+        self.profiles.monthly_profile = pd.Series(
+            [300, 400],
+            index=["Enero", "Febrero"],
+        )
+
+        self.profiles.seasonal_profile = None
+
+        self.page.update_data()
+
+        assert self.page.hour_max_label.text() == "-"
+        assert self.page.hour_min_label.text() == "-"
+        assert self.page.weekday_max_label.text() == "-"
+        assert self.page.weekday_min_label.text() == "-"
+        assert self.page.month_max_label.text() == "-"
+        assert self.page.month_min_label.text() == "-"
+        assert self.page.season_max_label.text() == "-"
+        assert self.page.season_min_label.text() == "-"
+
+
+    def test_update_data_formats_single_digit_hours_with_leading_zero(self):
+
+        self.profiles.hourly_profile = pd.Series(
+            [100, 50],
+            index=[3, 12],
+        )
+
+        self.profiles.weekday_profile = pd.Series(
+            [100, 50],
+            index=["Lunes", "Martes"],
+        )
+
+        self.profiles.monthly_profile = pd.Series(
+            [100, 50],
+            index=["Enero", "Febrero"],
+        )
+
+        self.profiles.seasonal_profile = pd.Series(
+            [100, 50],
+            index=["Invierno", "Verano"],
+        )
+
+        self.page.update_data()
+
+        assert self.page.hour_max_label.text() == "03:00"
+        assert self.page.hour_min_label.text() == "12:00"
+
+
+    def test_update_data_handles_hour_zero_correctly(self):
+
+        self.profiles.hourly_profile = pd.Series(
+            [100, 50],
+            index=[0, 23],
+        )
+
+        self.profiles.weekday_profile = pd.Series(
+            [100, 50],
+            index=["Lunes", "Domingo"],
+        )
+
+        self.profiles.monthly_profile = pd.Series(
+            [100, 50],
+            index=["Enero", "Diciembre"],
+        )
+
+        self.profiles.seasonal_profile = pd.Series(
+            [100, 50],
+            index=["Invierno", "Verano"],
+        )
+
+        self.page.update_data()
+
+        assert self.page.hour_max_label.text() == "00:00"
+        assert self.page.hour_min_label.text() == "23:00"
+
+
+    def test_update_data_updates_all_eight_labels(self):
+
+        self.profiles.hourly_profile = pd.Series(
+            [10, 80, 30],
+            index=[1, 5, 23],
+        )
+
+        self.profiles.weekday_profile = pd.Series(
+            [20, 90, 40],
+            index=["Lunes", "Miércoles", "Viernes"],
+        )
+
+        self.profiles.monthly_profile = pd.Series(
+            [100, 900, 300],
+            index=["Enero", "Junio", "Diciembre"],
+        )
+
+        self.profiles.seasonal_profile = pd.Series(
+            [500, 200, 800],
+            index=["Invierno", "Primavera", "Verano"],
+        )
+
+        self.page.update_data()
+
+        assert self.page.hour_max_label.text() == "05:00"
+        assert self.page.hour_min_label.text() == "01:00"
+
+        assert self.page.weekday_max_label.text() == "Miércoles"
+        assert self.page.weekday_min_label.text() == "Lunes"
+
+        assert self.page.month_max_label.text() == "Junio"
+        assert self.page.month_min_label.text() == "Enero"
+
+        assert self.page.season_max_label.text() == "Verano"
+        assert self.page.season_min_label.text() == "Primavera"

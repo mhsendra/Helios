@@ -17,6 +17,10 @@ from helios.solar.installation_recommendation import (
     InstallationRecommender,
 )
 
+from helios.solar.installation_layout import (
+    InstallationLayout
+)
+
 
 class TestInstallationRecommendation:
 
@@ -1127,3 +1131,451 @@ class TestInstallationRecommendation:
                     10: 5000.0,
                 },
             )
+
+    # ==================================================
+    # Physical layout without layout
+    # ==================================================
+
+    def test_rows_returns_none_without_layout(self):
+
+        evaluation = self._evaluation(
+            panel_count=10
+        )
+
+        recommendation = self._recommendation(
+            evaluation
+        )
+
+        assert recommendation.layout is None
+        assert recommendation.rows is None
+
+
+    def test_columns_returns_none_without_layout(self):
+
+        evaluation = self._evaluation(
+            panel_count=10
+        )
+
+        recommendation = self._recommendation(
+            evaluation
+        )
+
+        assert recommendation.columns is None
+
+
+    def test_orientation_returns_none_without_layout(self):
+
+        evaluation = self._evaluation(
+            panel_count=10
+        )
+
+        recommendation = self._recommendation(
+            evaluation
+        )
+
+        assert recommendation.orientation is None
+
+
+    def test_occupied_width_returns_none_without_layout(self):
+
+        evaluation = self._evaluation(
+            panel_count=10
+        )
+
+        recommendation = self._recommendation(
+            evaluation
+        )
+
+        assert recommendation.occupied_width_m is None
+
+
+    def test_occupied_height_returns_none_without_layout(self):
+
+        evaluation = self._evaluation(
+            panel_count=10
+        )
+
+        recommendation = self._recommendation(
+            evaluation
+        )
+
+        assert recommendation.occupied_height_m is None
+
+
+    def test_walkway_width_returns_none_without_layout(self):
+
+        evaluation = self._evaluation(
+            panel_count=10
+        )
+
+        recommendation = self._recommendation(
+            evaluation
+        )
+
+        assert recommendation.walkway_width_m is None
+
+
+    def test_walkway_position_returns_none_without_layout(self):
+
+        evaluation = self._evaluation(
+            panel_count=10
+        )
+
+        recommendation = self._recommendation(
+            evaluation
+        )
+
+        assert recommendation.walkway_position is None
+
+
+    # ==================================================
+    # Energy percentage boundaries
+    # ==================================================
+
+    def test_self_sufficiency_is_zero_when_consumption_is_zero(
+        self,
+    ):
+
+        evaluation = self._evaluation(
+            panel_count=10
+        )
+
+        recommendation = self._recommendation(
+            evaluation,
+            annual_consumption_kwh=0.0,
+            annual_production_kwh=5000.0,
+        )
+
+        assert recommendation.self_sufficiency_percent == pytest.approx(
+            0.0
+        )
+
+
+    def test_self_sufficiency_is_capped_at_100_percent(
+        self,
+    ):
+
+        evaluation = self._evaluation(
+            panel_count=10
+        )
+
+        recommendation = self._recommendation(
+            evaluation,
+            annual_consumption_kwh=5000.0,
+            annual_production_kwh=7000.0,
+        )
+
+        assert recommendation.self_sufficiency_percent == pytest.approx(
+            100.0
+        )
+
+
+    def test_production_coverage_is_zero_when_production_is_zero(
+        self,
+    ):
+
+        evaluation = self._evaluation(
+            panel_count=10
+        )
+
+        recommendation = self._recommendation(
+            evaluation,
+            annual_consumption_kwh=5000.0,
+            annual_production_kwh=0.0,
+        )
+
+        assert recommendation.production_coverage_percent == pytest.approx(
+            0.0
+        )
+
+
+    def test_production_coverage_is_capped_at_100_percent(
+        self,
+    ):
+
+        evaluation = self._evaluation(
+            panel_count=10
+        )
+
+        recommendation = self._recommendation(
+            evaluation,
+            annual_consumption_kwh=5000.0,
+            annual_production_kwh=3000.0,
+        )
+
+        assert recommendation.production_coverage_percent == pytest.approx(
+            100.0
+        )
+
+
+    # ==================================================
+    # Recommender input validation
+    # ==================================================
+
+    def test_rejects_boolean_consumption(self):
+
+        evaluations = [
+            self._evaluation(
+                panel_count=10
+            )
+        ]
+
+        with pytest.raises(
+            TypeError,
+            match="annual_consumption_kwh must be a number.",
+        ):
+
+            self._recommend(
+                evaluations,
+                annual_consumption_kwh=True,
+                productions={
+                    10: 5000.0,
+                },
+            )
+
+
+    def test_rejects_string_consumption(self):
+
+        evaluations = [
+            self._evaluation(
+                panel_count=10
+            )
+        ]
+
+        with pytest.raises(
+            TypeError,
+            match="annual_consumption_kwh must be a number.",
+        ):
+
+            self._recommend(
+                evaluations,
+                annual_consumption_kwh="6000",
+                productions={
+                    10: 5000.0,
+                },
+            )
+
+
+    def test_rejects_negative_consumption(self):
+
+        evaluations = [
+            self._evaluation(
+                panel_count=10
+            )
+        ]
+
+        with pytest.raises(
+            ValueError,
+            match=(
+                "annual_consumption_kwh must be "
+                "greater than or equal to zero."
+            ),
+        ):
+
+            self._recommend(
+                evaluations,
+                annual_consumption_kwh=-1.0,
+                productions={
+                    10: 5000.0,
+                },
+            )
+
+
+    def test_rejects_non_dictionary_production(self):
+
+        evaluations = [
+            self._evaluation(
+                panel_count=10
+            )
+        ]
+
+        with pytest.raises(
+            TypeError,
+            match="annual_productions_kwh must be a dictionary.",
+        ):
+
+            InstallationRecommender().recommend(
+                evaluations=evaluations,
+                annual_consumption_kwh=6000.0,
+                annual_productions_kwh=[
+                    5000.0
+                ],
+            )
+
+
+    def test_rejects_missing_annual_production(self):
+
+        evaluations = [
+            self._evaluation(
+                panel_count=10
+            )
+        ]
+
+        with pytest.raises(
+            ValueError,
+            match=(
+                "Missing annual production for "
+                "10 panels."
+            ),
+        ):
+
+            self._recommend(
+                evaluations,
+                annual_consumption_kwh=6000.0,
+                productions={},
+            )
+
+
+    def test_rejects_boolean_annual_production(self):
+
+        evaluations = [
+            self._evaluation(
+                panel_count=10
+            )
+        ]
+
+        with pytest.raises(
+            TypeError,
+            match="Annual production must be a number.",
+        ):
+
+            self._recommend(
+                evaluations,
+                annual_consumption_kwh=6000.0,
+                productions={
+                    10: True,
+                },
+            )
+
+
+    def test_rejects_string_annual_production(self):
+
+        evaluations = [
+            self._evaluation(
+                panel_count=10
+            )
+        ]
+
+        with pytest.raises(
+            TypeError,
+            match="Annual production must be a number.",
+        ):
+
+            self._recommend(
+                evaluations,
+                annual_consumption_kwh=6000.0,
+                productions={
+                    10: "5000",
+                },
+            )
+
+
+    def test_rejects_negative_annual_production(self):
+
+        evaluations = [
+            self._evaluation(
+                panel_count=10
+            )
+        ]
+
+        with pytest.raises(
+            ValueError,
+            match=(
+                "Annual production must be "
+                "greater than or equal to zero."
+            ),
+        ):
+
+            self._recommend(
+                evaluations,
+                annual_consumption_kwh=6000.0,
+                productions={
+                    10: -1.0,
+                },
+            )
+
+
+    # ==================================================
+    # Tie-breaking
+    # ==================================================
+
+    def test_tie_between_non_covering_candidates_prefers_smaller_area(
+        self,
+    ):
+
+        evaluation_a = self._evaluation(
+            panel_count=10,
+            panel_area_m2=2.0,
+        )
+
+        evaluation_b = self._evaluation(
+            panel_count=12,
+            panel_area_m2=1.0,
+        )
+
+        result = self._recommend(
+            [
+                evaluation_a,
+                evaluation_b,
+            ],
+            annual_consumption_kwh=10000.0,
+            productions={
+                10: 6000.0,
+                12: 6000.0,
+            },
+        )
+
+        assert result.panel_count == 12
+
+    
+
+
+    def test_exposes_physical_layout_properties_when_layout_exists(
+        self,
+    ):
+
+        evaluation = self._evaluation(
+            panel_count=6
+        )
+
+        layout = InstallationLayout(
+            rows=2,
+            columns=3,
+            panel_width_m=1.134,
+            panel_height_m=1.762,
+            orientation="horizontal",
+            walkway_width_m=0.45,
+            walkway_position="vertical",
+        )
+
+        evaluation = InstallationEvaluation(
+            candidate=evaluation.candidate,
+            available_area_m2=evaluation.available_area_m2,
+            layout=layout,
+        )
+
+        recommendation = self._recommendation(
+            evaluation
+        )
+
+        assert recommendation.layout is layout
+
+        assert recommendation.rows == 2
+
+        assert recommendation.columns == 3
+
+        assert recommendation.orientation == "horizontal"
+
+        assert recommendation.occupied_width_m == pytest.approx(
+            layout.occupied_width_m
+        )
+
+        assert recommendation.occupied_height_m == pytest.approx(
+            layout.occupied_height_m
+        )
+
+        assert recommendation.walkway_width_m == pytest.approx(
+            0.45
+        )
+
+        assert recommendation.walkway_position == "vertical"

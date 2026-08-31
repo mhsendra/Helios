@@ -910,3 +910,63 @@ class TestInstallationEvaluator:
             result.occupied_area_m2
             <= result.available_area_m2
         )
+
+    # ==================================================
+    # InstallationEvaluation dataclass behaviour
+    # ==================================================
+
+    def test_evaluation_is_immutable(
+        self,
+    ):
+
+        evaluator = self._evaluator()
+
+        evaluation = evaluator.evaluate(
+            self._candidate(
+                panel_count=10,
+            )
+        )
+
+        with pytest.raises(
+            AttributeError,
+        ):
+
+            evaluation.available_area_m2 = 100.0
+
+
+    def test_evaluation_candidate_is_immutable(
+        self,
+    ):
+
+        evaluator = self._evaluator()
+
+        evaluation = evaluator.evaluate(
+            self._candidate(
+                panel_count=10,
+            )
+        )
+
+        with pytest.raises(
+            AttributeError,
+        ):
+
+            evaluation.candidate = self._candidate(
+                panel_count=5,
+            )
+
+
+    # ==================================================
+    # Evaluator state
+    # ==================================================
+
+    def test_evaluator_preserves_constraints_reference(
+        self,
+    ):
+
+        constraints = self._constraints()
+
+        evaluator = InstallationEvaluator(
+            constraints,
+        )
+
+        assert evaluator.constraints is constraints

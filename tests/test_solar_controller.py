@@ -1288,3 +1288,117 @@ class TestSolarController:
         )
 
         self.analyzer.solar_engine.reset.assert_called_once_with()
+
+    # ==================================================
+    # Cobertura adicional
+    # ==================================================
+
+    def test_installed_power_kwp_from_sizing_result(
+        self,
+    ):
+
+        sizing_result = MagicMock()
+
+        sizing_result.installed_power_kwp = 8.10
+
+        self.controller.sizing_result = (
+            sizing_result
+        )
+
+        assert (
+            self.controller.installed_power_kwp
+            == pytest.approx(8.10)
+        )
+
+
+    def test_calculate_hourly_production_rejects_non_numeric_power(
+        self,
+    ):
+
+        configuration = (
+            self._solar_configuration()
+        )
+
+        with pytest.raises(
+            TypeError,
+            match="installed_power_kwp must be a number",
+        ):
+            self.controller.calculate_hourly_production(
+                configuration,
+                "8.10",
+            )
+
+
+    def test_calculate_hourly_production_rejects_zero_power(
+        self,
+    ):
+
+        configuration = (
+            self._solar_configuration()
+        )
+
+        with pytest.raises(
+            ValueError,
+            match="installed_power_kwp must be greater than zero",
+        ):
+            self.controller.calculate_hourly_production(
+                configuration,
+                0.0,
+            )
+
+
+    def test_calculate_energy_balance_rejects_empty_dataset(
+        self,
+    ):
+
+        self.analyzer.valid_dataset.return_value = (
+            pd.DataFrame()
+        )
+
+        with pytest.raises(
+            ValueError,
+            match="valid consumption dataset",
+        ):
+            self.controller.calculate_energy_balance()
+
+
+    def test_installation_simulation_report_requires_installation_configuration(
+        self,
+    ):
+
+        self.controller.installation_configuration = None
+
+        self.controller.sizing_result = (
+            MagicMock()
+        )
+
+        self.controller.installation_specific_production = (
+            1500.0
+        )
+
+        with pytest.raises(
+            RuntimeError,
+            match="Installation configuration is not available",
+        ):
+            self.controller.installation_simulation_report()
+
+
+    def test_installation_simulation_report_requires_recommendation(
+        self,
+    ):
+
+        self.controller.installation_configuration = (
+            self._installation_configuration()
+        )
+
+        self.controller.sizing_result = None
+
+        self.controller.installation_specific_production = (
+            1500.0
+        )
+
+        with pytest.raises(
+            RuntimeError,
+            match="Installation recommendation is not available",
+        ):
+            self.controller.installation_simulation_report()

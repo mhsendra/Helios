@@ -531,3 +531,253 @@ class TestComparisonsPage:
         assert "Semana más tranquila:</b> S01 — CV 0.05" in text
         assert "Semana más crítica:</b> S35 — CV 0.50" in text
         assert "Tendencia anual:</b> Creciente (+2 / -1)" in text
+
+        # ==================================================
+    # Ampliación de cobertura
+    # ==================================================
+
+    def test_update_data_does_not_set_weekly_stability_when_empty(self):
+
+        comparisons = self._prepare_comparisons()
+
+        comparisons.weekly_stability_extremes.return_value = {}
+
+        self.page.update_data()
+
+        assert (
+            self.page.most_stable_week_label.text()
+            == "-"
+        )
+
+        assert (
+            self.page.most_volatile_week_label.text()
+            == "-"
+        )
+
+        assert (
+            self.page.summary_stable_week_label.text()
+            == "-"
+        )
+
+        assert (
+            self.page.summary_volatile_week_label.text()
+            == "-"
+        )
+
+
+    def test_update_data_does_not_set_monthly_stability_when_empty(self):
+
+        comparisons = self._prepare_comparisons()
+
+        comparisons.monthly_stability_extremes.return_value = {}
+
+        self.page.update_data()
+
+        assert (
+            self.page.most_stable_month_label.text()
+            == "-"
+        )
+
+        assert (
+            self.page.most_volatile_month_label.text()
+            == "-"
+        )
+
+        assert (
+            self.page.summary_stable_month_label.text()
+            == "-"
+        )
+
+        assert (
+            self.page.summary_volatile_month_label.text()
+            == "-"
+        )
+
+
+    def test_update_data_requests_each_comparison_once(self):
+
+        comparisons = self._prepare_comparisons()
+
+        self.page.update_data()
+
+        comparisons.get_weekly_comparison.assert_called_once_with()
+        comparisons.get_monthly_comparison.assert_called_once_with()
+        comparisons.get_yearly_comparison.assert_called_once_with()
+
+        comparisons.detailed_weekly_insights.assert_called_once_with()
+        comparisons.weekly_stability_extremes.assert_called_once_with()
+
+        comparisons.detect_monthly_anomalies.assert_called_once_with()
+        comparisons.monthly_stability_extremes.assert_called_once_with()
+
+        comparisons.monthly_trends.assert_called_once_with()
+        comparisons.yearly_trend.assert_called_once_with()
+        comparisons.annual_stability.assert_called_once_with()
+
+
+    def test_update_data_preserves_initial_labels_when_required_data_is_missing(self):
+
+        comparisons = self.project.comparisons
+
+        comparisons.get_weekly_comparison.return_value = None
+        comparisons.get_monthly_comparison.return_value = (
+            pd.DataFrame()
+        )
+        comparisons.get_yearly_comparison.return_value = (
+            pd.Series(dtype=float)
+        )
+
+        self.page.update_data()
+
+        labels = [
+            self.page.week_max_label,
+            self.page.week_min_label,
+            self.page.week_peak_label,
+            self.page.week_valley_label,
+            self.page.most_stable_week_label,
+            self.page.most_volatile_week_label,
+            self.page.month_max_label,
+            self.page.month_min_label,
+            self.page.most_stable_month_label,
+            self.page.most_volatile_month_label,
+            self.page.year_max_label,
+            self.page.year_min_label,
+        ]
+
+        assert all(
+            label.text() == "-"
+            for label in labels
+        )
+
+
+    def test_update_data_handles_peak_without_previous_year(self):
+
+        comparisons = self._prepare_comparisons()
+
+        insights = comparisons.detailed_weekly_insights.return_value
+
+        insights["max"]["variation_prev"] = None
+
+        self.page.update_data()
+
+        text = self.page.week_peak_label.text()
+
+        assert (
+            "sin año anterior para comparar"
+            in text
+        )
+
+        assert (
+            "+20.00% vs media anual"
+            in text
+        )
+
+
+    def test_update_data_formats_monthly_anomalies_as_html_list(self):
+
+        self._prepare_comparisons()
+
+        self.page.update_data()
+
+        text = self.page.anomalies_label.text()
+
+        assert text.startswith("<ul>")
+        assert text.endswith("</ul>")
+
+        assert (
+            "<li><b>Enero 2025</b>: "
+            "Aumento extremo (+80.00%)</li>"
+            in text
+        )
+
+        assert (
+            "<li><b>Febrero 2025</b>: "
+            "Caída extrema (-40.00%)</li>"
+            in text
+        )
+
+
+    def test_update_data_copies_anomalies_to_summary(self):
+
+        self._prepare_comparisons()
+
+        self.page.update_data()
+
+        assert (
+            self.page.summary_anomalies_label.text()
+            == self.page.anomalies_label.text()
+        )
+
+
+    def test_update_data_sets_summary_years_from_yearly_profile(self):
+
+        comparisons = self._prepare_comparisons()
+
+        yearly = pd.Series(
+            {
+                2024: 5000.0,
+                2025: 9000.0,
+                2026: 7000.0,
+            }
+        )
+
+        comparisons.get_yearly_comparison.return_value = yearly
+
+        self.page.update_data()
+
+        assert (
+            self.page.year_max_label.text()
+            == "2025"
+        )
+
+        assert (
+            self.page.year_min_label.text()
+            == "2024"
+        )
+
+        assert (
+            self.page.summary_year_max_label.text()
+            == "2025"
+        )
+
+        assert (
+            self.page.summary_year_min_label.text()
+            == "2024"
+        )
+
+
+    def test_update_data_sets_all_annual_year_labels(self):
+
+        self._prepare_comparisons()
+
+        self.page.update_data()
+
+        assert (
+            self.page.trend_2024_label.text()
+            != "-"
+        )
+
+        assert (
+            self.page.trend_2025_label.text()
+            != "-"
+        )
+
+        assert (
+            self.page.trend_2026_label.text()
+            != "-"
+        )
+
+        assert (
+            self.page.stab_2024_label.text()
+            != "-"
+        )
+
+        assert (
+            self.page.stab_2025_label.text()
+            != "-"
+        )
+
+        assert (
+            self.page.stab_2026_label.text()
+            != "-"
+        )

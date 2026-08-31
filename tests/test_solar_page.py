@@ -879,3 +879,397 @@ class TestSolarPage:
                 self.page.statistics_tab
             )
         )
+
+        # ==================================================
+    # Ampliación de cobertura
+    # ==================================================
+
+    def test_calculate_production_notifies_main_window(self):
+
+        configuration = SolarConfiguration(
+            latitude=41.6,
+            longitude=2.1,
+            tilt=30,
+            azimuth=0,
+            reference_year=2023,
+            losses=14.0,
+            pv_technology="crystSi",
+            mounting_place="free",
+        )
+
+        main_window = MagicMock()
+
+        page = SolarPage(
+            self.project,
+            main_window=main_window,
+        )
+
+        self.project.solar_configuration = configuration
+
+        self.project.solar.calculate = MagicMock()
+
+        page.refresh_production_results = MagicMock()
+        page.set_results_available = MagicMock()
+
+        page.calculate_production()
+
+        self.project.solar.calculate.assert_called_once_with(
+            configuration
+        )
+
+        page.refresh_production_results.assert_called_once_with()
+
+        page.set_results_available.assert_called_once_with(
+            True
+        )
+
+        main_window.set_solar_calculated.assert_called_once_with(
+            True
+        )
+
+
+    def test_calculate_production_does_not_notify_main_window_on_error(
+        self,
+    ):
+
+        configuration = SolarConfiguration(
+            latitude=41.6,
+            longitude=2.1,
+            tilt=30,
+            azimuth=0,
+            reference_year=2023,
+            losses=14.0,
+            pv_technology="crystSi",
+            mounting_place="free",
+        )
+
+        main_window = MagicMock()
+
+        page = SolarPage(
+            self.project,
+            main_window=main_window,
+        )
+
+        self.project.solar_configuration = configuration
+
+        self.project.solar.calculate.side_effect = (
+            RuntimeError("calculation failed")
+        )
+
+        page.calculate_production()
+
+        main_window.set_solar_calculated.assert_not_called()
+
+        page.set_results_available = MagicMock()
+
+        assert (
+            page.production_status_label.text()
+            == "Error: calculation failed"
+        )
+
+
+    def test_refresh_production_results_updates_all_result_sections(
+        self,
+    ):
+
+        configuration = SolarConfiguration(
+            latitude=41.6,
+            longitude=2.1,
+            tilt=30,
+            azimuth=0,
+            reference_year=2023,
+            losses=14.0,
+            pv_technology="crystSi",
+            mounting_place="free",
+        )
+
+        self.project.solar_configuration = configuration
+
+        solar = self.project.solar
+
+        solar.annual_production = 12000.0
+        solar.specific_production = 1500.0
+        solar.coverage = 65.0
+
+        solar.monthly_production = pd.Series(
+            [1000.0],
+            index=pd.to_datetime(
+                ["2025-01-31"]
+            ),
+        )
+
+        solar.energy_balance = pd.DataFrame(
+            {
+                "consumption_kwh": [100.0],
+                "production_kwh": [1000.0],
+                "self_consumption_kwh": [80.0],
+                "grid_import_kwh": [20.0],
+                "grid_export_kwh": [920.0],
+            },
+            index=pd.to_datetime(
+                ["2025-01-31"]
+            ),
+        )
+
+        solar.statistics = {
+            "period_production": 12000.0,
+            "specific_yield": 1500.0,
+            "equivalent_hours": 1500.0,
+            "capacity_factor": 17.1,
+            "coverage_ratio": 65.0,
+            "self_consumption_ratio": 80.0,
+            "self_sufficiency": 80.0,
+            "grid_import": 20.0,
+            "grid_export": 920.0,
+            "self_consumption": 80.0,
+            "consumption": 100.0,
+        }
+
+        self.page.set_results_available = MagicMock()
+
+        self.page.refresh_production_results()
+
+        assert (
+            self.page.production_status_label.text()
+            == "Disponible"
+        )
+
+        assert (
+            self.page.production_annual_label.text()
+            == "12,000.0 kWh"
+        )
+
+        assert (
+            self.page.production_specific_label.text()
+            == "1,500.0 kWh/kWp"
+        )
+
+        assert (
+            self.page.production_coverage_label.text()
+            == "65.0 %"
+        )
+
+        assert (
+            self.page.monthly_production_table.rowCount()
+            == 2
+        )
+
+        assert (
+            self.page.balance_table.rowCount()
+            == 2
+        )
+
+        assert (
+            self.page.stats_annual_production_label.text()
+            == "12,000.00 kWh"
+        )
+
+
+    def test_update_monthly_production_uses_current_solar_state(
+        self,
+    ):
+
+        series = pd.Series(
+            [100.0, 200.0],
+            index=pd.to_datetime(
+                [
+                    "2025-01-31",
+                    "2025-02-28",
+                ]
+            ),
+        )
+
+        self.project.solar.monthly_production = series
+
+        self.page.update_monthly_production()
+
+        table = self.page.monthly_production_table
+
+        assert table.rowCount() == 3
+
+        assert table.item(0, 0).text() == "Enero"
+        assert table.item(0, 1).text() == "100.00"
+
+        assert table.item(1, 0).text() == "Febrero"
+        assert table.item(1, 1).text() == "200.00"
+
+        assert table.item(2, 0).text() == "TOTAL"
+        assert table.item(2, 1).text() == "300.00"
+
+
+    def test_update_balance_uses_current_solar_state(self):
+
+        balance = pd.DataFrame(
+            {
+                "consumption_kwh": [100.0],
+                "production_kwh": [150.0],
+                "self_consumption_kwh": [80.0],
+                "grid_import_kwh": [20.0],
+                "grid_export_kwh": [70.0],
+            },
+            index=pd.to_datetime(
+                ["2025-01-31"]
+            ),
+        )
+
+        self.project.solar.energy_balance = balance
+        self.project.solar.coverage = 80.0
+
+        self.page.update_balance()
+
+        table = self.page.balance_table
+
+        assert table.rowCount() == 2
+
+        assert table.item(0, 0).text() == "Enero"
+        assert table.item(0, 1).text() == "80.00"
+        assert table.item(0, 2).text() == "20.00"
+        assert table.item(0, 3).text() == "70.00"
+
+        assert (
+            self.page.balance_total_consumption_label.text()
+            == "100.00 kWh"
+        )
+
+        assert (
+            self.page.balance_total_production_label.text()
+            == "150.00 kWh"
+        )
+
+        assert (
+            self.page.balance_coverage_label.text()
+            == "80.0 %"
+        )
+
+
+    def test_reset_results_clears_engine_results_but_preserves_configuration(
+        self,
+    ):
+
+        configuration = SolarConfiguration(
+            latitude=41.6,
+            longitude=2.1,
+            tilt=30,
+            azimuth=0,
+            reference_year=2023,
+            losses=14.0,
+            pv_technology="crystSi",
+            mounting_place="free",
+        )
+
+        self.project.solar_configuration = configuration
+
+        solar = self.project.solar
+
+        solar.annual_production = 12000.0
+        solar.specific_production = 1500.0
+        solar.coverage = 65.0
+        solar.monthly_production = pd.Series(
+            [1000.0],
+            index=pd.to_datetime(
+                ["2025-01-31"]
+            ),
+        )
+        solar.energy_balance = pd.DataFrame(
+            {
+                "consumption_kwh": [100.0],
+                "production_kwh": [1000.0],
+                "self_consumption_kwh": [80.0],
+                "grid_import_kwh": [20.0],
+                "grid_export_kwh": [920.0],
+            },
+            index=pd.to_datetime(
+                ["2025-01-31"]
+            ),
+        )
+        solar.statistics = {
+            "period_production": 12000.0,
+        }
+
+        self.page.reset_results()
+
+        assert solar.annual_production is None
+        assert solar.specific_production is None
+        assert solar.coverage is None
+        assert solar.monthly_production is None
+        assert solar.energy_balance is None
+        assert solar.statistics is None
+
+        assert (
+            self.project.solar_configuration
+            is configuration
+        )
+
+        assert not self.page.tabs.isTabEnabled(
+            self.page.tabs.indexOf(
+                self.page.balance_tab
+            )
+        )
+
+        assert not self.page.tabs.isTabEnabled(
+            self.page.tabs.indexOf(
+                self.page.statistics_tab
+            )
+        )
+
+
+    def test_reset_results_does_not_modify_solar_configuration_values(
+        self,
+    ):
+
+        configuration = SolarConfiguration(
+            latitude=41.6,
+            longitude=2.1,
+            tilt=30,
+            azimuth=0,
+            reference_year=2023,
+            losses=14.0,
+            pv_technology="crystSi",
+            mounting_place="free",
+        )
+
+        self.project.solar_configuration = configuration
+
+        self.project.solar.annual_production = 10000.0
+
+        self.page.reset_results()
+
+        assert (
+            self.project.solar_configuration.latitude
+            == 41.6
+        )
+
+        assert (
+            self.project.solar_configuration.longitude
+            == 2.1
+        )
+
+        assert (
+            self.project.solar_configuration.tilt
+            == 30
+        )
+
+        assert (
+            self.project.solar_configuration.azimuth
+            == 0
+        )
+
+        assert (
+            self.project.solar_configuration.reference_year
+            == 2023
+        )
+
+        assert (
+            self.project.solar_configuration.losses
+            == 14.0
+        )
+
+        assert (
+            self.project.solar_configuration.pv_technology
+            == "crystSi"
+        )
+
+        assert (
+            self.project.solar_configuration.mounting_place
+            == "free"
+        )

@@ -55,6 +55,10 @@ class TestTariffsPage:
 
         return project
 
+    # ==================================================
+    # Inicialización
+    # ==================================================
+
     def test_page_initialization(self, app):
 
         project = self.create_project()
@@ -86,9 +90,16 @@ class TestTariffsPage:
             == "Precio de compra"
         )
 
-        assert page.period_table.horizontalHeaderItem(4).text() == "Gasto"
+        assert (
+            page.period_table.horizontalHeaderItem(4).text()
+            == "Gasto"
+        )
 
         assert page.sell_price_label.text() == "0.06 €/kWh"
+
+    # ==================================================
+    # Actualización de períodos
+    # ==================================================
 
     def test_update_periods(self, app):
 
@@ -104,16 +115,149 @@ class TestTariffsPage:
         assert table.item(0, 1).text() == "1,200.00 kWh"
         assert table.item(0, 2).text() == "21.82 %"
         assert table.item(0, 3).text() == "0.25 €/kWh"
+        assert table.item(0, 4).text() == "300.00 €"
 
         assert table.item(1, 0).text() == "Llano"
         assert table.item(1, 1).text() == "1,800.00 kWh"
         assert table.item(1, 2).text() == "32.73 %"
         assert table.item(1, 3).text() == "0.18 €/kWh"
+        assert table.item(1, 4).text() == "324.00 €"
 
         assert table.item(2, 0).text() == "Valle"
         assert table.item(2, 1).text() == "2,500.00 kWh"
         assert table.item(2, 2).text() == "45.45 %"
         assert table.item(2, 3).text() == "0.12 €/kWh"
+        assert table.item(2, 4).text() == "300.00 €"
+
+    def test_update_periods_calculates_total_row(self, app):
+
+        project = self.create_project()
+
+        page = TariffsPage(project)
+
+        page.update_periods()
+
+        table = page.period_table
+
+        assert table.rowCount() == 4
+
+        assert table.item(3, 0).text() == "Total"
+        assert table.item(3, 1).text() == "5,500.00 kWh"
+        assert table.item(3, 2).text() == "100.00 %"
+        assert table.item(3, 3).text() == "—"
+        assert table.item(3, 4).text() == "924.00 €"
+
+    def test_update_periods_uses_zero_for_missing_consumption(
+        self,
+        app,
+    ):
+
+        project = self.create_project()
+
+        project.analyzer.tariff_engine.period_consumption = {
+            "Punta": 1200.0,
+        }
+
+        page = TariffsPage(project)
+
+        page.update_periods()
+
+        table = page.period_table
+
+        assert table.item(0, 1).text() == "1,200.00 kWh"
+        assert table.item(1, 1).text() == "0.00 kWh"
+        assert table.item(2, 1).text() == "0.00 kWh"
+        assert table.item(3, 1).text() == "1,200.00 kWh"
+
+    def test_update_periods_uses_zero_for_missing_percentages(
+        self,
+        app,
+    ):
+
+        project = self.create_project()
+
+        project.analyzer.tariff_engine.period_percentage = {
+            "Punta": 21.82,
+        }
+
+        page = TariffsPage(project)
+
+        page.update_periods()
+
+        table = page.period_table
+
+        assert table.item(0, 2).text() == "21.82 %"
+        assert table.item(1, 2).text() == "0.00 %"
+        assert table.item(2, 2).text() == "0.00 %"
+        assert table.item(3, 2).text() == "21.82 %"
+
+    def test_update_periods_handles_empty_consumption_and_percentages(
+        self,
+        app,
+    ):
+
+        project = self.create_project()
+
+        project.analyzer.tariff_engine.period_consumption = {}
+        project.analyzer.tariff_engine.period_percentage = {}
+
+        page = TariffsPage(project)
+
+        page.update_periods()
+
+        table = page.period_table
+
+        assert table.item(0, 1).text() == "0.00 kWh"
+        assert table.item(1, 1).text() == "0.00 kWh"
+        assert table.item(2, 1).text() == "0.00 kWh"
+
+        assert table.item(0, 2).text() == "0.00 %"
+        assert table.item(1, 2).text() == "0.00 %"
+        assert table.item(2, 2).text() == "0.00 %"
+
+        assert table.item(3, 1).text() == "0.00 kWh"
+        assert table.item(3, 2).text() == "0.00 %"
+        assert table.item(3, 4).text() == "0.00 €"
+
+    def test_update_periods_replaces_previous_values(self, app):
+
+        project = self.create_project()
+
+        page = TariffsPage(project)
+
+        page.update_periods()
+
+        assert (
+            page.period_table.item(0, 1).text()
+            == "1,200.00 kWh"
+        )
+
+        project.analyzer.tariff_engine.period_consumption = {
+            "Punta": 10.0,
+            "Llano": 20.0,
+            "Valle": 30.0,
+        }
+
+        project.analyzer.tariff_engine.period_percentage = {
+            "Punta": 10.0,
+            "Llano": 20.0,
+            "Valle": 30.0,
+        }
+
+        page.update_periods()
+
+        table = page.period_table
+
+        assert table.item(0, 1).text() == "10.00 kWh"
+        assert table.item(1, 1).text() == "20.00 kWh"
+        assert table.item(2, 1).text() == "30.00 kWh"
+
+        assert table.item(3, 1).text() == "60.00 kWh"
+        assert table.item(3, 2).text() == "60.00 %"
+
+    # ==================================================
+    # Precio de venta
+    # ==================================================
 
     def test_update_sell_price(self, app):
 
@@ -125,6 +269,28 @@ class TestTariffsPage:
 
         assert page.sell_price_label.text() == "0.06 €/kWh"
 
+    def test_update_sell_price_uses_current_price(self, app):
+
+        project = self.create_project()
+
+        page = TariffsPage(project)
+
+        project.analyzer.tariff_engine.prices.sell_price = 0.12
+
+        page.update_sell_price()
+
+        assert page.sell_price_label.text() == "0.12 €/kWh"
+
+        project.analyzer.tariff_engine.prices.sell_price = 0.09
+
+        page.update_sell_price()
+
+        assert page.sell_price_label.text() == "0.09 €/kWh"
+
+    # ==================================================
+    # Actualización completa
+    # ==================================================
+
     def test_update(self, app):
 
         project = self.create_project()
@@ -134,13 +300,13 @@ class TestTariffsPage:
         page.update_periods = lambda: setattr(
             page,
             "_periods_updated",
-            True
+            True,
         )
 
         page.update_sell_price = lambda: setattr(
             page,
             "_sell_price_updated",
-            True
+            True,
         )
 
         page.update()

@@ -2,412 +2,240 @@ import pytest
 
 import pandas as pd
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock , patch
 
-from PySide6.QtWidgets import (
-    QDoubleSpinBox,
-    QSpinBox,
-    QComboBox,
-    QCheckBox,
-)
+from PySide6.QtWidgets import QApplication
 
 from helios.gui.widgets.solar_config_page import (
     SolarConfigPage,
 )
 
+from helios.solar.configuration import SolarConfiguration
 from helios.solar.installation_configuration import (
     InstallationConfiguration,
 )
 
-from helios.solar.configuration import (
-    SolarConfiguration,
-)
+from helios.solar.installation_coordinator import InstallationCoordinator
 
-from helios.solar.installation_recommendation import (
-    InstallationRecommendation,
-)
+from helios.gui.widgets.solar_config_page import RoofLayoutWidget
 
-class Analyzer:
-
-    def valid_dataset(self):
-        return pd.DataFrame(
-            {
-                "AE_kWh": [5000.0],
-            }
-        )
-
-
-class Solar:
-
-    sizing_result = None
-
-
-class Project:
-
-    analyzer = Analyzer()
-    solar = Solar()
-
-    solar_configuration = SolarConfiguration(
-        latitude=41.6167,
-        longitude=2.0833,
-        tilt=30,
-        azimuth=0,
-        reference_year=2025,
-        losses=14.0,
-        pv_technology="crystSi",
-        mounting_place="building",
-    )
 
 class TestSolarConfigPage:
 
-    @pytest.fixture
-    def project(self):
+    @classmethod
+    def setup_class(cls):
 
-        return Project()
+        cls.app = QApplication.instance()
 
-    @pytest.fixture
-    def page(
+        if cls.app is None:
+            cls.app = QApplication([])
+
+    def create_project(
         self,
-        qtbot,
-        project,
+        solar_configuration=None,
     ):
+
+        project = MagicMock()
+
+        project.solar_configuration = (
+            solar_configuration
+        )
+
+        project.solar = MagicMock()
+
+        project.analyzer = MagicMock()
+
+        return project
+
+    def create_solar_configuration(self):
+
+        return SolarConfiguration(
+            latitude=41.620000,
+            longitude=2.090000,
+            tilt=30,
+            azimuth=0,
+            reference_year=2023,
+            losses=14.0,
+            pv_technology="crystSi",
+            mounting_place="building",
+        )
+
+    def create_page(
+        self,
+        solar_configuration=None,
+    ):
+
+        project = self.create_project(
+            solar_configuration
+        )
 
         page = SolarConfigPage(
             project=project,
         )
 
-        qtbot.addWidget(page)
+        return page, project
 
-        return page
+    # ==========================================================
+    # INICIALIZACIÓN
+    # ==========================================================
 
-    # ==================================================
-    # Construction
-    # ==================================================
-
-    def test_page_can_be_created(
+    def test_initialization_without_solar_configuration(
         self,
-        page,
     ):
 
-        assert page is not None
+        page, project = self.create_page(
+            solar_configuration=None,
+        )
 
-    def test_page_stores_project(
+        assert (
+            page.status_label.text()
+            == "Configuración solar no disponible"
+        )
+
+        assert page.latitude_label.text() == "-"
+        assert page.longitude_label.text() == "-"
+        assert page.tilt_label.text() == "-"
+        assert page.azimuth_label.text() == "-"
+        assert page.reference_year_label.text() == "-"
+        assert page.losses_label.text() == "-"
+        assert page.technology_label.text() == "-"
+        assert page.mounting_label.text() == "-"
+
+    def test_initialization_with_solar_configuration(
         self,
-        page,
-        project,
     ):
 
-        assert page.project is project
-
-    # ==================================================
-    # Solar basis
-    # ==================================================
-
-    def test_loads_solar_basis(
-        self,
-        page,
-    ):
-
-        assert page.latitude_label.text() == (
-            "41.616700°"
+        configuration = (
+            self.create_solar_configuration()
         )
 
-        assert page.longitude_label.text() == (
-            "2.083300°"
+        page, project = self.create_page(
+            configuration,
         )
 
-        assert page.tilt_label.text() == "30°"
-
-        assert page.azimuth_label.text() == "0°"
-
-        assert page.reference_year_label.text() == (
-            "2025"
+        assert (
+            page.status_label.text()
+            == "Configuración solar disponible"
         )
 
-        assert page.losses_label.text() == (
-            "14.0 %"
+        assert (
+            page.latitude_label.text()
+            == "41.620000°"
         )
 
-    def test_translates_pv_technology(
-        self,
-        page,
-    ):
+        assert (
+            page.longitude_label.text()
+            == "2.090000°"
+        )
+
+        assert (
+            page.tilt_label.text()
+            == "30°"
+        )
+
+        assert (
+            page.azimuth_label.text()
+            == "0°"
+        )
+
+        assert (
+            page.reference_year_label.text()
+            == "2023"
+        )
+
+        assert (
+            page.losses_label.text()
+            == "14.0 %"
+        )
 
         assert (
             page.technology_label.text()
             == "Silicio cristalino"
         )
 
-    def test_translates_mounting_place(
-        self,
-        page,
-    ):
-
         assert (
             page.mounting_label.text()
             == "Integrado en edificio"
         )
 
-    # ==================================================
-    # Solar basis remains read-only
-    # ==================================================
+    # ==========================================================
+    # NOMBRES DESCRIPTIVOS
+    # ==========================================================
 
-    def test_solar_basis_is_display_only(
+    @pytest.mark.parametrize(
+        "technology, expected",
+        [
+            (
+                "crystSi",
+                "Silicio cristalino",
+            ),
+            (
+                "CIS",
+                "CIS",
+            ),
+            (
+                "CdTe",
+                "CdTe",
+            ),
+            (
+                "unknown",
+                "unknown",
+            ),
+        ],
+    )
+    def test_get_technology_name(
         self,
-        page,
-    ):
-
-        assert not hasattr(
-            page.latitude_label,
-            "setReadOnly",
-        )
-
-        assert not hasattr(
-            page.longitude_label,
-            "setReadOnly",
-        )
-
-        # Los datos de la base solar se presentan
-        # mediante QLabel y no mediante controles editables.
-        assert page.latitude_label.__class__.__name__ == (
-            "QLabel"
-        )
-
-        assert page.longitude_label.__class__.__name__ == (
-            "QLabel"
-        )
-
-    # ==================================================
-    # Installation widgets
-    # ==================================================
-
-    def test_installation_controls_exist(
-        self,
-        page,
-    ):
-
-        assert isinstance(
-            page.available_area_spinbox,
-            QDoubleSpinBox,
-        )
-
-        assert isinstance(
-            page.roof_width_spinbox,
-            QDoubleSpinBox,
-        )
-
-        assert isinstance(
-            page.roof_height_spinbox,
-            QDoubleSpinBox,
-        )
-
-    def test_panel_controls_exist(
-        self,
-        page,
-    ):
-
-        assert isinstance(
-            page.panel_width_spinbox,
-            QDoubleSpinBox,
-        )
-
-        assert isinstance(
-            page.panel_height_spinbox,
-            QDoubleSpinBox,
-        )
-
-        assert isinstance(
-            page.panel_power_spinbox,
-            QDoubleSpinBox,
-        )
-
-        assert isinstance(
-            page.min_panels_spinbox,
-            QSpinBox,
-        )
-
-        assert isinstance(
-            page.max_panels_spinbox,
-            QSpinBox,
-        )
-
-        assert isinstance(
-            page.max_panels_checkbox,
-            QCheckBox,
-        )
-
-    def test_maintenance_controls_exist(
-        self,
-        page,
-    ):
-
-        assert isinstance(
-            page.maintenance_required_checkbox,
-            QCheckBox,
-        )
-
-        assert isinstance(
-            page.maintenance_width_spinbox,
-            QDoubleSpinBox,
-        )
-
-        assert isinstance(
-            page.maintenance_orientation_combobox,
-            QComboBox,
-        )
-
-    # ==================================================
-    # Default widget state
-    # ==================================================
-
-    def test_maximum_panel_count_is_disabled_by_default(
-        self,
-        page,
+        technology,
+        expected,
     ):
 
         assert (
-            not page.max_panels_spinbox.isEnabled()
+            SolarConfigPage.get_technology_name(
+                technology
+            )
+            == expected
         )
 
-    def test_maximum_panel_count_can_be_enabled(
+    @pytest.mark.parametrize(
+        "mounting_place, expected",
+        [
+            (
+                "free",
+                "Estructura sobre el suelo",
+            ),
+            (
+                "building",
+                "Integrado en edificio",
+            ),
+            (
+                "unknown",
+                "unknown",
+            ),
+        ],
+    )
+    def test_get_mounting_name(
         self,
-        page,
-    ):
-
-        page.max_panels_checkbox.setChecked(
-            True
-        )
-
-        assert (
-            page.max_panels_spinbox.isEnabled()
-        )
-
-    def test_maximum_panel_count_can_be_disabled(
-        self,
-        page,
-    ):
-
-        page.max_panels_checkbox.setChecked(
-            True
-        )
-
-        page.max_panels_checkbox.setChecked(
-            False
-        )
-
-        assert (
-            not page.max_panels_spinbox.isEnabled()
-        )
-
-    # ==================================================
-    # Maintenance state
-    # ==================================================
-
-    def test_maintenance_controls_are_disabled_by_default(
-        self,
-        page,
+        mounting_place,
+        expected,
     ):
 
         assert (
-            not page.maintenance_width_spinbox.isEnabled()
+            SolarConfigPage.get_mounting_name(
+                mounting_place
+            )
+            == expected
         )
 
-        assert not (
-            page.maintenance_orientation_combobox.isEnabled()
-        )
+    # ==========================================================
+    # CONFIGURACIÓN DE INSTALACIÓN
+    # ==========================================================
 
-    def test_maintenance_controls_are_enabled_when_required(
+    def test_get_installation_configuration_default_values(
         self,
-        page,
     ):
 
-        page.maintenance_required_checkbox.setChecked(
-            True
-        )
-
-        assert (
-            page.maintenance_width_spinbox.isEnabled()
-        )
-
-        assert (
-            page.maintenance_orientation_combobox.isEnabled()
-        )
-
-    def test_maintenance_controls_are_disabled_when_not_required(
-        self,
-        page,
-    ):
-
-        page.maintenance_required_checkbox.setChecked(
-            True
-        )
-
-        page.maintenance_required_checkbox.setChecked(
-            False
-        )
-
-        assert (
-            not page.maintenance_width_spinbox.isEnabled()
-        )
-
-        assert not (
-            page.maintenance_orientation_combobox.isEnabled()
-        )
-
-    # ==================================================
-    # Maintenance orientation
-    # ==================================================
-
-    def test_maintenance_orientations_are_available(
-        self,
-        page,
-    ):
-
-        assert (
-            page.maintenance_orientation_combobox
-            .findData("auto")
-            >= 0
-        )
-
-        assert (
-            page.maintenance_orientation_combobox
-            .findData("vertical")
-            >= 0
-        )
-
-        assert (
-            page.maintenance_orientation_combobox
-            .findData("horizontal")
-            >= 0
-        )
-
-    # ==================================================
-    # Installation configuration
-    # ==================================================
-
-    def test_get_installation_configuration_returns_configuration(
-        self,
-        page,
-    ):
-
-        page.available_area_spinbox.setValue(
-            42.25
-        )
-
-        page.panel_width_spinbox.setValue(
-            1.134
-        )
-
-        page.panel_height_spinbox.setValue(
-            1.762
-        )
-
-        page.panel_power_spinbox.setValue(
-            540
-        )
-
-        page.min_panels_spinbox.setValue(
-            5
+        page, _ = self.create_page(
+            self.create_solar_configuration()
         )
 
         configuration = (
@@ -419,13 +247,44 @@ class TestSolarConfigPage:
             InstallationConfiguration,
         )
 
-    def test_get_installation_configuration_maps_values(
+        assert (
+            configuration.max_panels
+            is None
+        )
+
+        assert (
+            configuration.maintenance_passage_required
+            is False
+        )
+
+        assert (
+            configuration.panel_orientation
+            == "auto"
+        )
+
+        assert (
+            configuration.maintenance_passage_orientation
+            == "auto"
+        )
+
+    def test_get_installation_configuration_reads_widgets(
         self,
-        page,
     ):
 
+        page, _ = self.create_page(
+            self.create_solar_configuration()
+        )
+
         page.available_area_spinbox.setValue(
-            42.25
+            42.5
+        )
+
+        page.roof_width_spinbox.setValue(
+            6.5
+        )
+
+        page.roof_height_spinbox.setValue(
+            7.25
         )
 
         page.panel_width_spinbox.setValue(
@@ -433,15 +292,39 @@ class TestSolarConfigPage:
         )
 
         page.panel_height_spinbox.setValue(
-            1.762
+            2.278
         )
 
         page.panel_power_spinbox.setValue(
             540
         )
 
+        page.panel_orientation_combobox.setCurrentIndex(
+            1
+        )
+
         page.min_panels_spinbox.setValue(
-            5
+            8
+        )
+
+        page.max_panels_checkbox.setChecked(
+            True
+        )
+
+        page.max_panels_spinbox.setValue(
+            15
+        )
+
+        page.maintenance_required_checkbox.setChecked(
+            True
+        )
+
+        page.maintenance_width_spinbox.setValue(
+            0.50
+        )
+
+        page.maintenance_orientation_combobox.setCurrentIndex(
+            1
         )
 
         configuration = (
@@ -450,107 +333,7 @@ class TestSolarConfigPage:
 
         assert (
             configuration.available_area_m2
-            == pytest.approx(42.25)
-        )
-
-        assert (
-            configuration.panel_width_m
-            == pytest.approx(1.134)
-        )
-
-        assert (
-            configuration.panel_height_m
-            == pytest.approx(1.762)
-        )
-
-        assert (
-            configuration.panel_power_wp
-            == pytest.approx(540)
-        )
-
-        assert configuration.min_panels == 5
-
-    # ==================================================
-    # Maximum panels
-    # ==================================================
-
-    def test_unchecked_maximum_panels_returns_none(
-        self,
-        page,
-    ):
-
-        page.max_panels_checkbox.setChecked(
-            False
-        )
-
-        page.max_panels_spinbox.setValue(
-            20
-        )
-
-        configuration = (
-            page.get_installation_configuration()
-        )
-
-        assert configuration.max_panels is None
-
-    def test_checked_maximum_panels_is_returned(
-        self,
-        page,
-    ):
-
-        page.max_panels_checkbox.setChecked(
-            True
-        )
-
-        page.max_panels_spinbox.setValue(
-            20
-        )
-
-        configuration = (
-            page.get_installation_configuration()
-        )
-
-        assert configuration.max_panels == 20
-
-    # ==================================================
-    # Roof dimensions
-    # ==================================================
-
-    def test_zero_roof_dimensions_become_none(
-        self,
-        page,
-    ):
-
-        page.roof_width_spinbox.setValue(
-            0
-        )
-
-        page.roof_height_spinbox.setValue(
-            0
-        )
-
-        configuration = (
-            page.get_installation_configuration()
-        )
-
-        assert configuration.roof_width_m is None
-        assert configuration.roof_height_m is None
-
-    def test_roof_dimensions_are_preserved(
-        self,
-        page,
-    ):
-
-        page.roof_width_spinbox.setValue(
-            6.5
-        )
-
-        page.roof_height_spinbox.setValue(
-            6.5
-        )
-
-        configuration = (
-            page.get_installation_configuration()
+            == pytest.approx(42.5)
         )
 
         assert (
@@ -560,34 +343,37 @@ class TestSolarConfigPage:
 
         assert (
             configuration.roof_height_m
-            == pytest.approx(6.5)
+            == pytest.approx(7.25)
         )
 
-    # ==================================================
-    # Maintenance configuration
-    # ==================================================
-
-    def test_maintenance_configuration_is_mapped(
-        self,
-        page,
-    ):
-
-        page.maintenance_required_checkbox.setChecked(
-            True
+        assert (
+            configuration.panel_width_m
+            == pytest.approx(1.134)
         )
 
-        page.maintenance_width_spinbox.setValue(
-            0.45
+        assert (
+            configuration.panel_height_m
+            == pytest.approx(2.278)
         )
 
-        page.maintenance_orientation_combobox.setCurrentIndex(
-            page.maintenance_orientation_combobox.findData(
-                "vertical"
-            )
+        assert (
+            configuration.panel_power_wp
+            == pytest.approx(540)
         )
 
-        configuration = (
-            page.get_installation_configuration()
+        assert (
+            configuration.panel_orientation
+            == "vertical"
+        )
+
+        assert (
+            configuration.min_panels
+            == 8
+        )
+
+        assert (
+            configuration.max_panels
+            == 15
         )
 
         assert (
@@ -597,7 +383,7 @@ class TestSolarConfigPage:
 
         assert (
             configuration.maintenance_passage_width_m
-            == pytest.approx(0.45)
+            == pytest.approx(0.50)
         )
 
         assert (
@@ -605,380 +391,1124 @@ class TestSolarConfigPage:
             == "vertical"
         )
 
-    # ==================================================
-    # Conversion to constraints
-    # ==================================================
-
-    def test_configuration_can_be_converted_to_constraints(
+    def test_get_installation_configuration_converts_zero_roof_dimensions_to_none(
         self,
-        page,
     ):
 
-        page.available_area_spinbox.setValue(
-            42.25
+        page, _ = self.create_page(
+            self.create_solar_configuration()
         )
 
-        page.panel_width_spinbox.setValue(
-            1.134
+        page.roof_width_spinbox.setValue(
+            0.0
         )
 
-        page.panel_height_spinbox.setValue(
-            1.762
-        )
-
-        page.panel_power_spinbox.setValue(
-            540
+        page.roof_height_spinbox.setValue(
+            0.0
         )
 
         configuration = (
             page.get_installation_configuration()
         )
 
-        constraints = (
-            configuration.to_constraints()
+        assert (
+            configuration.roof_width_m
+            is None
         )
 
         assert (
-            constraints.available_area_m2
-            == pytest.approx(42.25)
+            configuration.roof_height_m
+            is None
         )
 
-        assert (
-            constraints.panel_power_wp
-            == pytest.approx(540)
-        )
-
-    # ==================================================
-    # Static name translations
-    # ==================================================
-
-    def test_get_technology_name_known_values(
+    def test_get_installation_configuration_without_maximum(
         self,
     ):
 
-        assert (
-            SolarConfigPage.get_technology_name(
-                "crystSi"
-            )
-            == "Silicio cristalino"
+        page, _ = self.create_page(
+            self.create_solar_configuration()
+        )
+
+        page.max_panels_spinbox.setValue(
+            15
+        )
+
+        page.max_panels_checkbox.setChecked(
+            False
+        )
+
+        configuration = (
+            page.get_installation_configuration()
         )
 
         assert (
-            SolarConfigPage.get_technology_name(
-                "CIS"
+            configuration.max_panels
+            is None
+        )
+
+    def test_get_installation_configuration_with_maximum(
+        self,
+    ):
+
+        page, _ = self.create_page(
+            self.create_solar_configuration()
+        )
+
+        page.max_panels_checkbox.setChecked(
+            True
+        )
+
+        page.max_panels_spinbox.setValue(
+            15
+        )
+
+        configuration = (
+            page.get_installation_configuration()
+        )
+
+        assert (
+            configuration.max_panels
+            == 15
+        )
+
+    # ==========================================================
+    # CONFIGURACIÓN DE WIDGETS
+    # ==========================================================
+
+    def test_max_panels_checkbox_enables_spinbox(
+        self,
+    ):
+
+        page, _ = self.create_page(
+            self.create_solar_configuration()
+        )
+
+        page.max_panels_checkbox.setChecked(
+            False
+        )
+
+        assert (
+            page.max_panels_spinbox.isEnabled()
+            is False
+        )
+
+        page.max_panels_checkbox.setChecked(
+            True
+        )
+
+        assert (
+            page.max_panels_spinbox.isEnabled()
+            is True
+        )
+
+    def test_maintenance_checkbox_enables_controls(
+        self,
+    ):
+
+        page, _ = self.create_page(
+            self.create_solar_configuration()
+        )
+
+        page.maintenance_required_checkbox.setChecked(
+            False
+        )
+
+        assert (
+            page.maintenance_width_spinbox.isEnabled()
+            is False
+        )
+
+        assert (
+            page.maintenance_orientation_combobox.isEnabled()
+            is False
+        )
+
+        page.maintenance_required_checkbox.setChecked(
+            True
+        )
+
+        assert (
+            page.maintenance_width_spinbox.isEnabled()
+            is True
+        )
+
+        assert (
+            page.maintenance_orientation_combobox.isEnabled()
+            is True
+        )
+
+    # ==========================================================
+    # PVGIS
+    # ==========================================================
+
+    def test_get_pvgis_configuration_copies_solar_configuration(
+        self,
+    ):
+
+        configuration = (
+            self.create_solar_configuration()
+        )
+
+        page, project = self.create_page(
+            configuration,
+        )
+
+        result = (
+            page.get_pvgis_configuration()
+        )
+
+        assert isinstance(
+            result,
+            SolarConfiguration,
+        )
+
+        assert (
+            result.latitude
+            == configuration.latitude
+        )
+
+        assert (
+            result.longitude
+            == configuration.longitude
+        )
+
+        assert (
+            result.tilt
+            == configuration.tilt
+        )
+
+        assert (
+            result.azimuth
+            == configuration.azimuth
+        )
+
+        assert (
+            result.reference_year
+            == configuration.reference_year
+        )
+
+        assert (
+            result.losses
+            == configuration.losses
+        )
+
+        assert (
+            result.pv_technology
+            == configuration.pv_technology
+        )
+
+        assert (
+            result.mounting_place
+            == configuration.mounting_place
+        )
+
+    def test_get_pvgis_configuration_does_not_use_installed_power(
+        self,
+    ):
+        configuration = (
+            self.create_solar_configuration()
+        )
+
+        configuration.installed_power_kwp = 15.0
+
+        page, _ = self.create_page(
+            configuration,
+        )
+
+        result = (
+            page.get_pvgis_configuration()
+        )
+
+        assert result.latitude == configuration.latitude
+        assert result.longitude == configuration.longitude
+        assert result.tilt == configuration.tilt
+        assert result.azimuth == configuration.azimuth
+        assert result.reference_year == configuration.reference_year
+        assert result.losses == configuration.losses
+        assert result.pv_technology == configuration.pv_technology
+        assert result.mounting_place == configuration.mounting_place
+
+        # SolarConfiguration ya no contiene la potencia instalada.
+        assert not hasattr(
+            result,
+            "installed_power_kwp",
+        )
+
+
+    def test_get_pvgis_configuration_without_solar_configuration_raises(
+        self,
+    ):
+
+        page, _ = self.create_page(
+            solar_configuration=None,
+        )
+
+        with pytest.raises(
+            ValueError,
+            match=(
+                "La configuración solar "
+                "no está disponible."
+            ),
+        ):
+
+            page.get_pvgis_configuration()
+
+    # ==========================================================
+    # PRODUCCIÓN
+    # ==========================================================
+
+    def test_calculate_installation_production(
+        self,
+    ):
+
+        page, _ = self.create_page(
+            self.create_solar_configuration()
+        )
+
+        candidate = MagicMock()
+
+        candidate.installed_power_kwp = (
+            8.1
+        )
+
+        result = (
+            page._calculate_installation_production(
+                candidate,
+                1500.0,
             )
+        )
+
+        assert (
+            result
+            == pytest.approx(
+                8.1 * 1500.0
+            )
+        )
+
+    def test_calculate_installation_production_returns_float(
+        self,
+    ):
+
+        page, _ = self.create_page(
+            self.create_solar_configuration()
+        )
+
+        candidate = MagicMock()
+
+        candidate.installed_power_kwp = 10
+
+        result = (
+            page._calculate_installation_production(
+                candidate,
+                1000,
+            )
+        )
+
+        assert isinstance(
+            result,
+            float,
+        )
+
+        assert result == 10000.0
+
+    def test_calculate_installation_production_rejects_zero_specific_production(
+        self,
+    ):
+
+        page, _ = self.create_page(
+            self.create_solar_configuration()
+        )
+
+        candidate = MagicMock()
+
+        candidate.installed_power_kwp = 10.0
+
+        with pytest.raises(
+            ValueError,
+            match=(
+                "PVGIS specific production "
+                "must be greater than zero."
+            ),
+        ):
+
+            page._calculate_installation_production(
+                candidate,
+                0.0,
+            )
+
+    def test_calculate_installation_production_rejects_negative_specific_production(
+        self,
+    ):
+
+        page, _ = self.create_page(
+            self.create_solar_configuration()
+        )
+
+        candidate = MagicMock()
+
+        candidate.installed_power_kwp = 10.0
+
+        with pytest.raises(
+            ValueError,
+            match=(
+                "PVGIS specific production "
+                "must be greater than zero."
+            ),
+        ):
+
+            page._calculate_installation_production(
+                candidate,
+                -1.0,
+            )
+
+    # ==========================================================
+    # RESULTADO
+    # ==========================================================
+
+    def create_result(self):
+
+        result = MagicMock()
+
+        result.panel_count = 15
+
+        result.installed_power_kwp = 8.10
+
+        result.annual_production_kwh = (
+            12150.0
+        )
+
+        result.annual_consumption_kwh = (
+            19541.72
+        )
+
+        result.occupied_area_m2 = (
+            39.5
+        )
+
+        result.remaining_area_m2 = (
+            2.75
+        )
+
+        result.area_utilization_percent = (
+            93.5
+        )
+
+        result.self_sufficiency_percent = (
+            42.5
+        )
+
+        result.production_coverage_percent = (
+            62.2
+        )
+
+        result.energy_surplus_kwh = (
+            1250.0
+        )
+
+        result.energy_deficit_kwh = (
+            8650.0
+        )
+
+        result.layout = None
+
+        return result
+
+    def test_show_optimization_result_updates_numeric_labels(
+        self,
+    ):
+
+        page, _ = self.create_page(
+            self.create_solar_configuration()
+        )
+
+        result = self.create_result()
+
+        page.show_optimization_result(
+            result
+        )
+
+        assert (
+            page.result_panel_count_label.text()
+            == "15"
+        )
+
+        assert (
+            page.result_power_label.text()
+            == "8.10 kWp"
+        )
+
+        assert (
+            page.result_production_label.text()
+            == "12,150 kWh/año"
+        )
+
+        assert (
+            page.result_consumption_label.text()
+            == "19,542 kWh/año"
+        )
+
+        assert (
+            page.result_occupied_area_label.text()
+            == "39.50 m²"
+        )
+
+        assert (
+            page.result_remaining_area_label.text()
+            == "2.75 m²"
+        )
+
+        assert (
+            page.result_utilization_label.text()
+            == "93.5 %"
+        )
+
+        assert (
+            page.result_self_sufficiency_label.text()
+            == "42.5 %"
+        )
+
+        assert (
+            page.result_coverage_label.text()
+            == "62.2 %"
+        )
+
+        assert (
+            page.result_surplus_label.text()
+            == "1,250 kWh/año"
+        )
+
+        assert (
+            page.result_deficit_label.text()
+            == "8,650 kWh/año"
+        )
+
+    def test_show_optimization_result_shows_south_orientation(
+        self,
+    ):
+
+        page, _ = self.create_page(
+            self.create_solar_configuration()
+        )
+
+        result = self.create_result()
+
+        page.show_optimization_result(
+            result
+        )
+
+        assert (
+            page.result_orientation_label.text()
+            == "Sur (0°)"
+        )
+
+    @pytest.mark.parametrize(
+        "azimuth, expected",
+        [
+            (
+                15,
+                "15° respecto al Sur (15°)",
+            ),
+            (
+                -15,
+                "-15° respecto al Sur (-15°)",
+            ),
+        ],
+    )
+    def test_show_optimization_result_shows_non_zero_azimuth(
+        self,
+        azimuth,
+        expected,
+    ):
+
+        configuration = (
+            self.create_solar_configuration()
+        )
+
+        configuration.azimuth = azimuth
+
+        page, _ = self.create_page(
+            configuration,
+        )
+
+        result = self.create_result()
+
+        page.show_optimization_result(
+            result
+        )
+
+        assert (
+            page.result_orientation_label.text()
+            == expected
+        )
+
+    def test_show_optimization_result_without_configuration(
+        self,
+    ):
+
+        page, _ = self.create_page(
+            solar_configuration=None,
+        )
+
+        result = self.create_result()
+
+        page.show_optimization_result(
+            result
+        )
+
+        assert (
+            page.result_orientation_label.text()
+            == "-"
+        )
+
+    def test_show_optimization_result_enables_report_button(
+        self,
+    ):
+
+        page, _ = self.create_page(
+            self.create_solar_configuration()
+        )
+
+        assert (
+            page.simulation_report_button.isEnabled()
+            is False
+        )
+
+        result = self.create_result()
+
+        page.show_optimization_result(
+            result
+        )
+
+        assert (
+            page.simulation_report_button.isEnabled()
+            is True
+        )
+
+    # ==========================================================
+    # LAYOUT FÍSICO
+    # ==========================================================
+
+    def create_layout(self):
+
+        layout = MagicMock()
+
+        layout.rows = 3
+        layout.columns = 5
+
+        layout.orientation = "vertical"
+
+        layout.occupied_width_m = (
+            5.67
+        )
+
+        layout.occupied_height_m = (
+            6.83
+        )
+
+        layout.occupied_area_m2 = (
+            38.71
+        )
+
+        layout.walkway_width_m = (
+            0.45
+        )
+
+        layout.walkway_position = (
+            "vertical"
+        )
+
+        return layout
+
+    def test_show_installation_layout_without_layout(
+        self,
+    ):
+
+        page, _ = self.create_page(
+            self.create_solar_configuration()
+        )
+
+        result = MagicMock()
+
+        result.layout = None
+
+        page.walkway_slider.setEnabled(
+            True
+        )
+
+        page.show_installation_layout(
+            result
+        )
+
+        assert (
+            page.result_rows_label.text()
+            == "-"
+        )
+
+        assert (
+            page.result_columns_label.text()
+            == "-"
+        )
+
+        assert (
+            page.result_dimensions_label.text()
+            == "-"
+        )
+
+        assert (
+            page.result_walkway_label.text()
+            == "-"
+        )
+
+        assert (
+            page.walkway_slider.isEnabled()
+            is False
+        )
+
+        assert (
+            page.layout_info_label.text()
+            == (
+                "No hay una distribución "
+                "física disponible."
+            )
+        )
+
+    def test_show_installation_layout_with_vertical_walkway(
+        self,
+    ):
+
+        page, _ = self.create_page(
+            self.create_solar_configuration()
+        )
+
+        result = MagicMock()
+
+        result.layout = self.create_layout()
+
+        page.roof_width_spinbox.setValue(
+            6.5
+        )
+
+        page.roof_height_spinbox.setValue(
+            6.5
+        )
+
+        page.panel_width_spinbox.setValue(
+            1.134
+        )
+
+        page.panel_height_spinbox.setValue(
+            2.278
+        )
+
+        page.show_installation_layout(
+            result
+        )
+
+        assert (
+            page.result_rows_label.text()
+            == "3"
+        )
+
+        assert (
+            page.result_columns_label.text()
+            == "5"
+        )
+
+        assert (
+            page.result_dimensions_label.text()
+            == "5.67 × 6.83 m"
+        )
+
+        assert (
+            page.result_walkway_label.text()
+            == "0.45 m vertical"
+        )
+
+        assert (
+            page.walkway_slider.isEnabled()
+            is True
+        )
+
+        assert (
+            "3 filas × 5 columnas"
+            in page.layout_info_label.text()
+        )
+
+        assert (
+            "Orientación de los paneles: Vertical"
+            in page.layout_info_label.text()
+        )
+
+        assert (
+            "Superficie ocupada: 38.71 m²"
+            in page.layout_info_label.text()
+        )
+
+    def test_show_installation_layout_with_horizontal_walkway(
+        self,
+    ):
+
+        page, _ = self.create_page(
+            self.create_solar_configuration()
+        )
+
+        layout = self.create_layout()
+
+        layout.orientation = (
+            "horizontal"
+        )
+
+        layout.walkway_position = (
+            "horizontal"
+        )
+
+        result = MagicMock()
+
+        result.layout = layout
+
+        page.show_installation_layout(
+            result
+        )
+
+        assert (
+            page.result_walkway_label.text()
+            == "0.45 m horizontal"
+        )
+
+        assert (
+            page.walkway_slider.isEnabled()
+            is True
+        )
+
+    def test_show_installation_layout_without_walkway(
+        self,
+    ):
+
+        page, _ = self.create_page(
+            self.create_solar_configuration()
+        )
+
+        layout = self.create_layout()
+
+        layout.walkway_width_m = 0.0
+
+        result = MagicMock()
+
+        result.layout = layout
+
+        page.show_installation_layout(
+            result
+        )
+
+        assert (
+            page.result_walkway_label.text()
+            == "No requerido"
+        )
+
+        assert (
+            page.walkway_slider.isEnabled()
+            is False
+        )
+
+    # ==========================================================
+    # SLIDER DEL PASILLO
+    # ==========================================================
+
+    def test_on_walkway_position_changed_updates_label(
+        self,
+    ):
+
+        page, _ = self.create_page(
+            self.create_solar_configuration()
+        )
+
+        page.on_walkway_position_changed(
+            25
+        )
+
+        assert (
+            page.walkway_position_label.text()
+            == "25 %"
+        )
+
+        assert (
+            page.roof_layout_widget.walkway_offset_percent
+            == 25
+        )
+
+    def test_walkway_slider_updates_roof_layout(
+        self,
+    ):
+
+        page, _ = self.create_page(
+            self.create_solar_configuration()
+        )
+
+        page.walkway_slider.setValue(
+            75
+        )
+
+        assert (
+            page.walkway_position_label.text()
+            == "75 %"
+        )
+
+        assert (
+            page.roof_layout_widget.walkway_offset_percent
+            == 75
+        )
+
+    # ==========================================================
+    # RESET
+    # ==========================================================
+
+    def test_clear_optimization_result(
+        self,
+    ):
+
+        page, _ = self.create_page(
+            self.create_solar_configuration()
+        )
+
+        result = self.create_result()
+
+        page.show_optimization_result(
+            result
+        )
+
+        page.walkway_slider.setEnabled(
+            True
+        )
+
+        page.walkway_position_label.setText(
+            "80 %"
+        )
+
+        page.clear_optimization_result()
+
+        assert (
+            page.result_panel_count_label.text()
+            == "-"
+        )
+
+        assert (
+            page.result_power_label.text()
+            == "-"
+        )
+
+        assert (
+            page.result_production_label.text()
+            == "-"
+        )
+
+        assert (
+            page.result_consumption_label.text()
+            == "-"
+        )
+
+        assert (
+            page.result_occupied_area_label.text()
+            == "-"
+        )
+
+        assert (
+            page.result_remaining_area_label.text()
+            == "-"
+        )
+
+        assert (
+            page.result_utilization_label.text()
+            == "-"
+        )
+
+        assert (
+            page.result_self_sufficiency_label.text()
+            == "-"
+        )
+
+        assert (
+            page.result_coverage_label.text()
+            == "-"
+        )
+
+        assert (
+            page.result_surplus_label.text()
+            == "-"
+        )
+
+        assert (
+            page.result_deficit_label.text()
+            == "-"
+        )
+
+        assert (
+            page.result_orientation_label.text()
+            == "-"
+        )
+
+        assert (
+            page.result_rows_label.text()
+            == "-"
+        )
+
+        assert (
+            page.result_columns_label.text()
+            == "-"
+        )
+
+        assert (
+            page.result_dimensions_label.text()
+            == "-"
+        )
+
+        assert (
+            page.result_walkway_label.text()
+            == "-"
+        )
+
+        assert (
+            page.walkway_slider.isEnabled()
+            is False
+        )
+
+        assert (
+            page.walkway_position_label.text()
+            == "50 %"
+        )
+
+        assert (
+            page.layout_info_label.text()
+            == "No hay una instalación calculada."
+        )
+
+        assert (
+            page.roof_layout_widget.roof_width
+            == 0.0
+        )
+
+        assert (
+            page.roof_layout_widget.roof_height
+            == 0.0
+        )
+
+    def test_reset_clears_results_and_disables_report_button(
+        self,
+    ):
+
+        page, _ = self.create_page(
+            self.create_solar_configuration()
+        )
+
+        result = self.create_result()
+
+        page.show_optimization_result(
+            result
+        )
+
+        assert (
+            page.simulation_report_button.isEnabled()
+            is True
+        )
+
+        page.reset()
+
+        assert (
+            page.simulation_report_button.isEnabled()
+            is False
+        )
+
+        assert (
+            page.optimize_button.isEnabled()
+            is True
+        )
+
+        assert (
+            page.status_label.text()
+            == "Configuración solar disponible"
+        )
+
+    # ==========================================================
+    # UPDATE DATA
+    # ==========================================================
+
+    def test_update_data_reloads_solar_basis(
+        self,
+    ):
+
+        configuration = (
+            self.create_solar_configuration()
+        )
+
+        page, project = self.create_page(
+            configuration,
+        )
+
+        project.solar_configuration = (
+            SolarConfiguration(
+                latitude=40.000000,
+                longitude=1.000000,
+                tilt=20,
+                azimuth=10,
+                reference_year=2024,
+                losses=10.0,
+                pv_technology="CIS",
+                mounting_place="free",
+            )
+        )
+
+        page.update_data()
+
+        assert (
+            page.latitude_label.text()
+            == "40.000000°"
+        )
+
+        assert (
+            page.longitude_label.text()
+            == "1.000000°"
+        )
+
+        assert (
+            page.tilt_label.text()
+            == "20°"
+        )
+
+        assert (
+            page.azimuth_label.text()
+            == "10°"
+        )
+
+        assert (
+            page.reference_year_label.text()
+            == "2024"
+        )
+
+        assert (
+            page.losses_label.text()
+            == "10.0 %"
+        )
+
+        assert (
+            page.technology_label.text()
             == "CIS"
         )
 
         assert (
-            SolarConfigPage.get_technology_name(
-                "CdTe"
-            )
-            == "CdTe"
-        )
-
-    def test_get_technology_name_unknown_value(
-        self,
-    ):
-
-        assert (
-            SolarConfigPage.get_technology_name(
-                "unknown"
-            )
-            == "unknown"
-        )
-
-    def test_get_mounting_name_known_values(
-        self,
-    ):
-
-        assert (
-            SolarConfigPage.get_mounting_name(
-                "free"
-            )
+            page.mounting_label.text()
             == "Estructura sobre el suelo"
         )
 
-        assert (
-            SolarConfigPage.get_mounting_name(
-                "building"
-            )
-            == "Integrado en edificio"
-        )
+    # ==========================================================
+    # INFORME DE SIMULACIÓN
+    # ==========================================================
 
-    def test_get_mounting_name_unknown_value(
+    def test_generate_simulation_report_without_recommendation(
         self,
     ):
 
-        assert (
-            SolarConfigPage.get_mounting_name(
-                "unknown"
-            )
-            == "unknown"
+        page, project = self.create_page(
+            self.create_solar_configuration()
         )
-
-    # ==================================================
-    # Optimization
-    # ==================================================
-
-    def test_start_optimization_completes_successfully(
-        self,
-        page,
-        project,
-    ):
-
-        page.pvgis_service.get_specific_production = MagicMock(
-            return_value=1000.0
-        )
-
-        page.available_area_spinbox.setValue(
-            42.25
-        )
-
-        page.panel_width_spinbox.setValue(
-            1.134
-        )
-
-        page.panel_height_spinbox.setValue(
-            1.762
-        )
-
-        page.panel_power_spinbox.setValue(
-            540
-        )
-
-        page.min_panels_spinbox.setValue(
-            5
-        )
-
-        page.start_optimization()
-
-        assert page.status_label.text() == (
-            "Optimización completada"
-        )
-
-        assert (
-            project.solar.sizing_result
-            is not None
-        )
-
-        result = project.solar.sizing_result
-
-        assert result.panel_count >= 5
-
-        assert result.installed_power_kwp == pytest.approx(
-            result.panel_count * 0.54
-        )
-
-        assert result.annual_production_kwh == pytest.approx(
-            result.installed_power_kwp * 1000.0
-        )
-
-    def test_start_optimization_stores_installation_result(
-        self,
-        page,
-        project,
-    ):
-
-        page.pvgis_service.get_specific_production = MagicMock(
-            return_value=1000.0
-        )
-
-        page.available_area_spinbox.setValue(
-            42.25
-        )
-
-        page.panel_width_spinbox.setValue(
-            1.134
-        )
-
-        page.panel_height_spinbox.setValue(
-            1.762
-        )
-
-        page.panel_power_spinbox.setValue(
-            540
-        )
-
-        page.min_panels_spinbox.setValue(
-            5
-        )
-
-        page.start_optimization()
-
-        result = project.solar.sizing_result
-
-        assert isinstance(
-            result,
-            InstallationRecommendation,
-        )
-
-        assert result.panel_count >= 5
-
-        assert result.installed_power_kwp == pytest.approx(
-            result.panel_count * 0.54
-        )
-
-        assert result.annual_production_kwh == pytest.approx(
-            result.installed_power_kwp * 1000.0
-        )
-
-    def test_start_optimization_result_is_consistent(
-        self,
-        page,
-        project,
-    ):
-
-        page.pvgis_service.get_specific_production = MagicMock(
-            return_value=1000.0
-        )
-
-        page.available_area_spinbox.setValue(
-            42.25
-        )
-
-        page.panel_width_spinbox.setValue(
-            1.134
-        )
-
-        page.panel_height_spinbox.setValue(
-            1.762
-        )
-
-        page.panel_power_spinbox.setValue(
-            540
-        )
-
-        page.min_panels_spinbox.setValue(
-            5
-        )
-
-        page.start_optimization()
-
-        result = (
-            project.solar.sizing_result
-        )
-
-        assert result.panel_count >= 5
-
-        assert result.installed_power_kwp == pytest.approx(
-            result.panel_count * 0.54
-        )
-
-        assert result.annual_production_kwh == pytest.approx(
-            result.installed_power_kwp * 1000.0
-        )
-
-    def test_start_optimization_reenables_button_after_success(
-        self,
-        page,
-        project,
-    ):
-
-        page.pvgis_service.get_specific_production = MagicMock(
-            return_value=1000.0
-        )
-
-        page.available_area_spinbox.setValue(
-            42.25
-        )
-
-        page.panel_width_spinbox.setValue(
-            1.134
-        )
-
-        page.panel_height_spinbox.setValue(
-            1.762
-        )
-
-        page.panel_power_spinbox.setValue(
-            540
-        )
-
-        page.min_panels_spinbox.setValue(
-            5
-        )
-
-        page.optimize_button.setEnabled(
-            False
-        )
-
-        page.start_optimization()
-
-        assert page.optimize_button.isEnabled()
-
-        assert page.status_label.text() == (
-            "Optimización completada"
-        )
-
-        assert (
-            project.solar.sizing_result
-            is not None
-        )
-
-        # ==================================================
-    # Installation simulation report
-    # ==================================================
-
-    def test_simulation_report_button_is_disabled_by_default(
-        self,
-        page,
-    ):
-
-        assert not (
-            page.simulation_report_button.isEnabled()
-        )
-
-    def test_simulation_report_button_is_enabled_after_success(
-        self,
-        page,
-        project,
-    ):
-
-        page.pvgis_service.get_specific_production = MagicMock(
-            return_value=1000.0
-        )
-
-        page.available_area_spinbox.setValue(
-            42.25
-        )
-
-        page.panel_width_spinbox.setValue(
-            1.134
-        )
-
-        page.panel_height_spinbox.setValue(
-            1.762
-        )
-
-        page.panel_power_spinbox.setValue(
-            540
-        )
-
-        page.min_panels_spinbox.setValue(
-            5
-        )
-
-        page.start_optimization()
-
-        assert (
-            project.solar.sizing_result
-            is not None
-        )
-
-        assert (
-            page.simulation_report_button.isEnabled()
-        )
-
-    # ==================================================
-    # Installation simulation report
-    # ==================================================
-
-    def test_generate_simulation_report_without_result(
-        self,
-        page,
-        project,
-    ):
 
         project.solar.sizing_result = None
 
@@ -989,17 +1519,17 @@ class TestSolarConfigPage:
             == "No hay una simulación disponible."
         )
 
-    def test_generate_simulation_report_delegates_to_solar(
+        project.solar.installation_simulation_report.assert_not_called()
+
+    def test_generate_simulation_report_calls_project(
         self,
-        page,
-        project,
     ):
 
-        recommendation = MagicMock()
+        page, project = self.create_page(
+            self.create_solar_configuration()
+        )
 
-        project.solar.sizing_result = recommendation
-
-        project.solar.installation_simulation_report = (
+        project.solar.sizing_result = (
             MagicMock()
         )
 
@@ -1014,345 +1544,636 @@ class TestSolarConfigPage:
 
     def test_generate_simulation_report_handles_error(
         self,
-        page,
-        project,
     ):
 
-        recommendation = MagicMock()
+        page, project = self.create_page(
+            self.create_solar_configuration()
+        )
 
-        project.solar.sizing_result = recommendation
-        project.solar.specific_production = 1000.0
+        project.solar.sizing_result = (
+            MagicMock()
+        )
 
-        project.solar.installation_simulation_report = (
-            MagicMock(
-                side_effect=RuntimeError(
-                    "Report generation failed."
-                )
-            )
+        project.solar.installation_simulation_report.side_effect = (
+            RuntimeError("test error")
         )
 
         page.generate_simulation_report()
 
         assert (
             page.status_label.text()
-            == "Error al generar el informe: "
-            "Report generation failed."
+            == "Error al generar el informe: test error"
         )
 
-    def test_reset_disables_simulation_report_button(
+    # ==========================================================
+    # OPTIMIZACIÓN
+    # ==========================================================
+
+    def test_start_optimization_rejects_empty_dataset(
         self,
-        page,
-        project,
     ):
 
-        page.pvgis_service.get_specific_production = MagicMock(
-            return_value=1000.0
+        page, project = self.create_page(
+            self.create_solar_configuration()
         )
 
-        page.available_area_spinbox.setValue(
-            42.25
+        project.analyzer.valid_dataset.return_value = None
+
+        page.start_optimization()
+
+        assert (
+            page.status_label.text()
+            == (
+                "Error: A valid consumption "
+                "dataset is required."
+            )
         )
 
-        page.panel_width_spinbox.setValue(
-            1.134
+        assert (
+            page.optimize_button.isEnabled()
+            is True
         )
 
-        page.panel_height_spinbox.setValue(
-            1.762
+    def test_start_optimization_rejects_empty_dataframe(
+        self,
+    ):
+
+        page, project = self.create_page(
+            self.create_solar_configuration()
         )
 
-        page.panel_power_spinbox.setValue(
-            540
-        )
-
-        page.min_panels_spinbox.setValue(
-            5
+        project.analyzer.valid_dataset.return_value = (
+            pd.DataFrame()
         )
 
         page.start_optimization()
 
         assert (
-            page.simulation_report_button.isEnabled()
+            page.status_label.text()
+            == (
+                "Error: A valid consumption "
+                "dataset is required."
+            )
         )
 
-        page.reset()
-
-        assert not (
-            page.simulation_report_button.isEnabled()
-        )
-
-    # ==================================================
-    # Reset
-    # ==================================================
-
-    def test_reset_restores_available_configuration_status(
+    def test_start_optimization_rejects_zero_consumption(
         self,
-        page,
     ):
 
-        assert page.status_label.text() == (
-            "Configuración solar disponible"
+        page, project = self.create_page(
+            self.create_solar_configuration()
         )
 
-        page.optimize_button.setEnabled(
-            False
-        )
-
-        page.reset()
-
-        assert page.status_label.text() == (
-            "Configuración solar disponible"
-        )
-
-        assert page.optimize_button.isEnabled()
-
-    # ==================================================
-    # Missing solar configuration
-    # ==================================================
-
-    def test_missing_solar_configuration_is_handled(
-        self,
-        qtbot,
-    ):
-
-        class EmptySolar:
-            sizing_result = None
-
-        class EmptyProject:
-            analyzer = MagicMock()
-            solar = EmptySolar()
-            solar_configuration = None
-
-        page = SolarConfigPage(
-            EmptyProject()
-        )
-
-        qtbot.addWidget(page)
-
-        assert page.status_label.text() == (
-            "Configuración solar no disponible"
-        )
-
-    def test_start_optimization_uses_valid_dataset_consumption(
-        self,
-        page,
-        project,
-    ):
-
-        page.pvgis_service.get_specific_production = MagicMock(
-            return_value=1000.0
-        )
-
-        project.analyzer.valid_dataset = MagicMock(
-            return_value=pd.DataFrame(
+        project.analyzer.valid_dataset.return_value = (
+            pd.DataFrame(
                 {
-                    "AE_kWh": [
-                        1000.0,
-                        1500.0,
-                        2000.0,
-                    ]
+                    "AE_kWh": [0.0, 0.0, 0.0],
                 }
             )
         )
 
-        page.available_area_spinbox.setValue(
-            42.25
+        page.start_optimization()
+
+        assert (
+            page.status_label.text()
+            == (
+                "Error: Annual consumption must "
+                "be greater than zero."
+            )
         )
 
-        page.panel_width_spinbox.setValue(
-            1.134
+    def test_start_optimization_rejects_zero_pvgis_production(
+        self,
+    ):
+        page, project = self.create_page(
+            self.create_solar_configuration()
         )
 
-        page.panel_height_spinbox.setValue(
-            1.762
+        project.analyzer.valid_dataset.return_value = (
+            pd.DataFrame(
+                {
+                    "AE_kWh": [
+                        1.0,
+                        2.0,
+                        3.0,
+                    ],
+                }
+            )
         )
 
-        page.panel_power_spinbox.setValue(
-            540
+        project.solar.sizing_result = None
+
+        with patch.object(
+            page.pvgis_service,
+            "get_specific_production",
+            return_value=0.0,
+        ):
+            page.start_optimization()
+
+        assert (
+            page.status_label.text()
+            == "Error: PVGIS specific production must be greater than zero."
         )
 
-        page.min_panels_spinbox.setValue(
-            5
+        assert (
+            project.solar.sizing_result
+            is None
+        )
+        
+    def test_start_optimization_restores_button_after_error(
+        self,
+    ):
+
+        page, project = self.create_page(
+            self.create_solar_configuration()
         )
 
-        page.max_panels_checkbox.setChecked(
-            True
-        )
-
-        page.max_panels_spinbox.setValue(
-            15
+        project.analyzer.valid_dataset.side_effect = (
+            RuntimeError("dataset error")
         )
 
         page.start_optimization()
+
+        assert (
+            page.optimize_button.isEnabled()
+            is True
+        )
+
+    def test_start_optimization_disables_button_during_execution(
+        self,
+    ):
+        page, project = self.create_page(
+            self.create_solar_configuration()
+        )
+
+        project.analyzer.valid_dataset.return_value = (
+            pd.DataFrame(
+                {
+                    "AE_kWh": [
+                        1.0,
+                    ],
+                }
+            )
+        )
+
+        original_enabled_states = []
+
+        def fake_get_specific_production(
+            configuration,
+        ):
+            original_enabled_states.append(
+                page.optimize_button.isEnabled()
+            )
+
+            return 1000.0
+
+        installation_result = MagicMock()
+
+        installation_result.panel_count = 10
+        installation_result.installed_power_kwp = 5.0
+        installation_result.annual_production_kwh = 5000.0
+        installation_result.annual_consumption_kwh = 1.0
+        installation_result.occupied_area_m2 = 20.0
+        installation_result.remaining_area_m2 = 10.0
+        installation_result.area_utilization_percent = 66.7
+        installation_result.self_sufficiency_percent = 100.0
+        installation_result.production_coverage_percent = 100.0
+        installation_result.energy_surplus_kwh = 4999.0
+        installation_result.energy_deficit_kwh = 0.0
+        installation_result.layout = None
+
+        with patch.object(
+            page.pvgis_service,
+            "get_specific_production",
+            side_effect=fake_get_specific_production,
+        ):
+            with patch(
+                "helios.gui.widgets.solar_config_page.InstallationCoordinator"
+            ) as coordinator_class:
+
+                coordinator = (
+                    coordinator_class.return_value
+                )
+
+                coordinator.recommend.return_value = (
+                    installation_result
+                )
+
+                page.start_optimization()
+
+        assert original_enabled_states == [False]
+
+        assert (
+            page.optimize_button.isEnabled()
+            is True
+        )
 
         assert (
             page.status_label.text()
             == "Optimización completada"
         )
 
-        assert (
-            project.solar.sizing_result
-            is not None
-        )
+    # ==================================================
+    # RoofLayoutWidget
+    # ==================================================
 
-        assert (
-            project.solar.sizing_result
-            .annual_consumption_kwh
-            == pytest.approx(4500.0)
-        )
-
-
-    def test_start_optimization_rejects_empty_dataset(
+    def test_panel_dimensions_returns_original_dimensions_for_vertical(
         self,
-        page,
-        project,
     ):
 
-        previous_result = (
-            project.solar.sizing_result
+        widget = RoofLayoutWidget()
+
+        widget.panel_width = 1.10
+        widget.panel_height = 2.00
+        widget.panel_orientation = "vertical"
+
+        assert widget._panel_dimensions() == (
+            1.10,
+            2.00,
         )
 
-        project.analyzer.valid_dataset = MagicMock(
-            return_value=pd.DataFrame(
-                columns=["AE_kWh"]
-            )
-        )
 
-        page.start_optimization()
-
-        assert (
-            page.status_label.text()
-            == "Error: A valid consumption dataset is required."
-        )
-
-        assert (
-            project.solar.sizing_result
-            is previous_result
-        )
-
-        assert page.optimize_button.isEnabled()
-
-    def test_start_optimization_rejects_missing_dataset(
+    def test_panel_dimensions_swaps_dimensions_for_horizontal(
         self,
-        page,
-        project,
     ):
 
-        previous_result = (
-            project.solar.sizing_result
+        widget = RoofLayoutWidget()
+
+        widget.panel_width = 1.10
+        widget.panel_height = 2.00
+        widget.panel_orientation = "horizontal"
+
+        assert widget._panel_dimensions() == (
+            2.00,
+            1.10,
         )
 
-        project.analyzer.valid_dataset = MagicMock(
-            return_value=None
-        )
 
-        page.start_optimization()
-
-        assert (
-            page.status_label.text()
-            == "Error: A valid consumption dataset is required."
-        )
-
-        assert (
-            project.solar.sizing_result
-            is previous_result
-        )
-
-        assert page.optimize_button.isEnabled()
-
-    def test_start_optimization_rejects_zero_consumption(
+    def test_paint_event_handles_empty_layout(
         self,
-        page,
-        project,
+        qtbot,
     ):
 
-        previous_result = (
-            project.solar.sizing_result
+        widget = RoofLayoutWidget()
+
+        qtbot.addWidget(widget)
+
+        widget.resize(
+            500,
+            360,
         )
 
-        project.analyzer.valid_dataset = MagicMock(
-            return_value=pd.DataFrame(
-                {
-                    "AE_kWh": [
-                        0.0,
-                        0.0,
-                        0.0,
-                    ]
-                }
-            )
-        )
+        widget.show()
 
-        page.start_optimization()
+        widget.repaint()
 
-        assert (
-            page.status_label.text()
-            == "Error: Annual consumption must be greater than zero."
-        )
+        assert widget.roof_width == 0.0
+        assert widget.roof_height == 0.0
+        assert widget.rows == 0
+        assert widget.columns == 0
 
-        assert (
-            project.solar.sizing_result
-            is previous_result
-        )
 
-        assert page.optimize_button.isEnabled()
-
-    def test_get_pvgis_configuration_contains_only_solar_basis(
+    def test_paint_event_handles_insufficient_available_size(
         self,
-        page,
+        qtbot,
     ):
 
-        configuration = page.get_pvgis_configuration()
+        widget = RoofLayoutWidget()
 
-        assert isinstance(
-            configuration,
-            SolarConfiguration,
+        qtbot.addWidget(widget)
+
+        widget.set_layout_data(
+            roof_width=10.0,
+            roof_height=10.0,
+            panel_width=1.0,
+            panel_height=2.0,
+            rows=2,
+            columns=2,
+            orientation="vertical",
         )
 
-        assert configuration.latitude == pytest.approx(
-            41.6167
-        )
+        with patch.object(
+            widget,
+            "width",
+            return_value=500,
+        ):
+            with patch.object(
+                widget,
+                "height",
+                return_value=90,
+            ):
+                widget.repaint()
 
-        assert configuration.longitude == pytest.approx(
-            2.0833
-        )
 
-        assert configuration.tilt == pytest.approx(
-            30
-        )
-
-        assert configuration.azimuth == pytest.approx(
-            0
-        )
-
-        assert configuration.reference_year == 2025
-
-        assert configuration.losses == pytest.approx(
-            14.0
-        )
-
-        assert configuration.pv_technology == "crystSi"
-
-        assert configuration.mounting_place == "building"
-
-    def test_get_pvgis_configuration_is_independent_of_panel_power(
+    def test_paint_event_draws_normal_vertical_layout(
         self,
-        page,
+        qtbot,
     ):
 
-        page.panel_power_spinbox.setValue(
-            540
+        widget = RoofLayoutWidget()
+
+        qtbot.addWidget(widget)
+
+        widget.set_layout_data(
+            roof_width=6.50,
+            roof_height=6.50,
+            panel_width=1.10,
+            panel_height=2.00,
+            rows=2,
+            columns=3,
+            orientation="vertical",
         )
 
-        configuration_540 = (
-            page.get_pvgis_configuration()
+        widget.resize(
+            700,
+            500,
         )
 
-        page.panel_power_spinbox.setValue(
-            450
+        widget.show()
+
+        widget.repaint()
+
+        assert widget.rows == 2
+        assert widget.columns == 3
+        assert widget.panel_orientation == "vertical"
+
+
+    def test_paint_event_draws_horizontal_layout(
+        self,
+        qtbot,
+    ):
+
+        widget = RoofLayoutWidget()
+
+        qtbot.addWidget(widget)
+
+        widget.set_layout_data(
+            roof_width=6.50,
+            roof_height=6.50,
+            panel_width=1.10,
+            panel_height=2.00,
+            rows=2,
+            columns=3,
+            orientation="horizontal",
         )
 
-        configuration_450 = (
-            page.get_pvgis_configuration()
+        widget.resize(
+            700,
+            500,
         )
 
-        assert configuration_540 == configuration_450
+        widget.show()
+
+        widget.repaint()
+
+        assert widget.panel_orientation == "horizontal"
+
+
+    def test_paint_event_draws_vertical_maintenance_passage(
+        self,
+        qtbot,
+    ):
+
+        widget = RoofLayoutWidget()
+
+        qtbot.addWidget(widget)
+
+        widget.set_layout_data(
+            roof_width=6.50,
+            roof_height=6.50,
+            panel_width=1.10,
+            panel_height=2.00,
+            rows=2,
+            columns=3,
+            orientation="vertical",
+            walkway_width=0.45,
+            walkway_position="vertical",
+        )
+
+        widget.resize(
+            700,
+            500,
+        )
+
+        widget.show()
+
+        widget.repaint()
+
+        assert widget.walkway_width == 0.45
+        assert widget.walkway_position == "vertical"
+
+
+    def test_paint_event_draws_horizontal_maintenance_passage(
+        self,
+        qtbot,
+    ):
+
+        widget = RoofLayoutWidget()
+
+        qtbot.addWidget(widget)
+
+        widget.set_layout_data(
+            roof_width=6.50,
+            roof_height=6.50,
+            panel_width=1.10,
+            panel_height=2.00,
+            rows=3,
+            columns=2,
+            orientation="vertical",
+            walkway_width=0.45,
+            walkway_position="horizontal",
+        )
+
+        widget.resize(
+            700,
+            500,
+        )
+
+        widget.show()
+
+        widget.repaint()
+
+        assert widget.walkway_width == 0.45
+        assert widget.walkway_position == "horizontal"
+
+
+    def test_paint_event_handles_vertical_passage_offset(
+        self,
+        qtbot,
+    ):
+
+        widget = RoofLayoutWidget()
+
+        qtbot.addWidget(widget)
+
+        widget.set_layout_data(
+            roof_width=10.0,
+            roof_height=6.0,
+            panel_width=1.0,
+            panel_height=2.0,
+            rows=2,
+            columns=3,
+            orientation="vertical",
+            walkway_width=0.50,
+            walkway_position="vertical",
+        )
+
+        widget.set_walkway_offset(0)
+
+        widget.resize(
+            700,
+            500,
+        )
+
+        widget.show()
+
+        widget.repaint()
+
+        widget.set_walkway_offset(100)
+
+        widget.repaint()
+
+        assert widget.walkway_offset_percent == 100
+
+
+    def test_paint_event_handles_horizontal_passage_offset(
+        self,
+        qtbot,
+    ):
+
+        widget = RoofLayoutWidget()
+
+        qtbot.addWidget(widget)
+
+        widget.set_layout_data(
+            roof_width=6.0,
+            roof_height=10.0,
+            panel_width=1.0,
+            panel_height=2.0,
+            rows=3,
+            columns=2,
+            orientation="vertical",
+            walkway_width=0.50,
+            walkway_position="horizontal",
+        )
+
+        widget.set_walkway_offset(0)
+
+        widget.resize(
+            700,
+            500,
+        )
+
+        widget.show()
+
+        widget.repaint()
+
+        widget.set_walkway_offset(100)
+
+        widget.repaint()
+
+        assert widget.walkway_offset_percent == 100
+
+
+    def test_paint_event_handles_single_column_without_vertical_panel_shift(
+        self,
+        qtbot,
+    ):
+
+        widget = RoofLayoutWidget()
+
+        qtbot.addWidget(widget)
+
+        widget.set_layout_data(
+            roof_width=4.0,
+            roof_height=6.0,
+            panel_width=1.0,
+            panel_height=2.0,
+            rows=2,
+            columns=1,
+            orientation="vertical",
+            walkway_width=0.45,
+            walkway_position="vertical",
+        )
+
+        widget.resize(
+            700,
+            500,
+        )
+
+        widget.show()
+
+        widget.repaint()
+
+        assert widget.columns == 1
+
+
+    def test_paint_event_handles_single_row_without_horizontal_panel_shift(
+        self,
+        qtbot,
+    ):
+
+        widget = RoofLayoutWidget()
+
+        qtbot.addWidget(widget)
+
+        widget.set_layout_data(
+            roof_width=6.0,
+            roof_height=4.0,
+            panel_width=1.0,
+            panel_height=2.0,
+            rows=1,
+            columns=2,
+            orientation="vertical",
+            walkway_width=0.45,
+            walkway_position="horizontal",
+        )
+
+        widget.resize(
+            700,
+            500,
+        )
+
+        widget.show()
+
+        widget.repaint()
+
+        assert widget.rows == 1
+
+    def test_show_installation_layout_handles_layout_without_walkway(
+        self,
+    ):
+
+        page, _ = self.create_page(
+            self.create_solar_configuration()
+        )
+
+        layout = MagicMock()
+
+        layout.rows = 2
+        layout.columns = 3
+        layout.orientation = "vertical"
+
+        layout.occupied_width_m = 3.0
+        layout.occupied_height_m = 4.0
+        layout.occupied_area_m2 = 12.0
+
+        layout.walkway_width_m = 0.0
+        layout.walkway_position = None
+
+        result = MagicMock()
+        result.layout = layout
+
+        page.show_installation_layout(
+            result
+        )
+
+        assert (
+            page.result_walkway_label.text()
+            == "No requerido"
+        )
+
+        assert (
+            page.walkway_slider.isEnabled()
+            is False
+        )

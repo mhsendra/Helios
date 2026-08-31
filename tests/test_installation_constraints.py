@@ -280,6 +280,99 @@ class TestInstallationConstraints:
         assert constraints.max_panels is None
 
     # ==================================================
+    # Panel orientation
+    # ==================================================
+
+    def test_panel_orientation_defaults_to_auto(self):
+
+        constraints = InstallationConstraints(
+            available_area_m2=42.25,
+            panel_width_m=1.13,
+            panel_height_m=2.28,
+            panel_power_wp=540,
+        )
+
+        assert constraints.panel_orientation == "auto"
+
+
+    @pytest.mark.parametrize(
+        "orientation",
+        [
+            "horizontal",
+            "vertical",
+            "auto",
+        ],
+    )
+    def test_accepts_valid_panel_orientations(
+        self,
+        orientation,
+    ):
+
+        constraints = InstallationConstraints(
+            available_area_m2=42.25,
+            panel_width_m=1.13,
+            panel_height_m=2.28,
+            panel_power_wp=540,
+            panel_orientation=orientation,
+        )
+
+        assert (
+            constraints.panel_orientation
+            == orientation
+        )
+
+
+    def test_rejects_invalid_panel_orientation(self):
+
+        with pytest.raises(
+            ValueError,
+            match=(
+                "Panel orientation must be "
+                "'horizontal', 'vertical' or 'auto'."
+            ),
+        ):
+
+            InstallationConstraints(
+                available_area_m2=42.25,
+                panel_width_m=1.13,
+                panel_height_m=2.28,
+                panel_power_wp=540,
+                panel_orientation="diagonal",
+            )
+
+
+    @pytest.mark.parametrize(
+        "orientation",
+        [
+            "",
+            "Horizontal",
+            "Vertical",
+            "AUTO",
+            "invalid",
+        ],
+    )
+    def test_rejects_invalid_panel_orientation_values(
+        self,
+        orientation,
+    ):
+
+        with pytest.raises(
+            ValueError,
+            match=(
+                "Panel orientation must be "
+                "'horizontal', 'vertical' or 'auto'."
+            ),
+        ):
+
+            InstallationConstraints(
+                available_area_m2=42.25,
+                panel_width_m=1.13,
+                panel_height_m=2.28,
+                panel_power_wp=540,
+                panel_orientation=orientation,
+            )
+
+    # ==================================================
     # panel_area_m2
     # ==================================================
 
@@ -409,6 +502,130 @@ class TestInstallationConstraints:
 
         assert constraints.maximum_panels_by_area == 5
         assert constraints.effective_max_panels == 5
+
+    # ==================================================
+    # Roof geometry validation
+    # ==================================================
+
+    @pytest.mark.parametrize(
+        "width",
+        [
+            0.0,
+            -1.0,
+        ],
+    )
+    def test_rejects_invalid_roof_width_when_maintenance_is_required(
+        self,
+        width,
+    ):
+
+        with pytest.raises(
+            ValueError,
+            match="Roof width must be greater than zero.",
+        ):
+
+            self._constraints(
+                maintenance_passage_required=True,
+                maintenance_passage_orientation="vertical",
+                roof_width_m=width,
+                roof_height_m=6.50,
+            )
+
+
+    @pytest.mark.parametrize(
+        "height",
+        [
+            0.0,
+            -1.0,
+        ],
+    )
+    def test_rejects_invalid_roof_height_when_maintenance_is_required(
+        self,
+        height,
+    ):
+
+        with pytest.raises(
+            ValueError,
+            match="Roof height must be greater than zero.",
+        ):
+
+            self._constraints(
+                maintenance_passage_required=True,
+                maintenance_passage_orientation="horizontal",
+                roof_width_m=6.50,
+                roof_height_m=height,
+            )
+
+
+    def test_roof_geometry_is_allowed_when_maintenance_is_disabled(
+        self,
+    ):
+
+        constraints = self._constraints(
+            maintenance_passage_required=False,
+            roof_width_m=6.50,
+            roof_height_m=6.50,
+        )
+
+        assert constraints.roof_width_m == pytest.approx(
+            6.50
+        )
+
+        assert constraints.roof_height_m == pytest.approx(
+            6.50
+        )
+
+
+    def test_maintenance_passage_area_is_none_for_auto_orientation(
+        self,
+    ):
+
+        constraints = self._constraints(
+            maintenance_passage_required=True,
+            maintenance_passage_width_m=0.45,
+            maintenance_passage_orientation="auto",
+            roof_width_m=6.50,
+            roof_height_m=6.50,
+        )
+
+        assert (
+            constraints.maintenance_passage_area_m2
+            is None
+        )
+
+
+    def test_maintenance_passage_orientations_for_horizontal(
+        self,
+    ):
+
+        constraints = self._constraints(
+            maintenance_passage_required=True,
+            maintenance_passage_orientation="horizontal",
+            roof_width_m=6.50,
+            roof_height_m=6.50,
+        )
+
+        assert (
+            constraints.maintenance_passage_orientations
+            == ("horizontal",)
+        )
+
+
+    def test_maintenance_passage_orientations_for_vertical(
+        self,
+    ):
+
+        constraints = self._constraints(
+            maintenance_passage_required=True,
+            maintenance_passage_orientation="vertical",
+            roof_width_m=6.50,
+            roof_height_m=6.50,
+        )
+
+        assert (
+            constraints.maintenance_passage_orientations
+            == ("vertical",)
+        )
 
     # ==================================================
     # Immutability
@@ -852,4 +1069,22 @@ class TestInstallationConstraintsMaintenancePassage:
             == ()
         )
 
-    
+    def test_maintenance_passage_area_returns_none_for_auto_orientation(
+        self,
+    ):
+
+        constraints = InstallationConstraints(
+            roof_width_m=10.0,
+            roof_height_m=8.0,
+            available_area_m2=80.0,
+            panel_width_m=1.0,
+            panel_height_m=2.0,
+            panel_power_wp=500.0,
+            maintenance_passage_required=True,
+            maintenance_passage_width_m=1.0,
+            maintenance_passage_orientation="auto",
+        )
+
+        result = constraints.maintenance_passage_area_m2
+
+        assert result is None

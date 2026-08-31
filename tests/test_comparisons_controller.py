@@ -1,5 +1,7 @@
 from unittest.mock import MagicMock, call
 
+import pytest
+
 from helios.core.controllers.comparisons_controller import (
     ComparisonsController,
 )
@@ -417,4 +419,278 @@ class TestComparisonsController:
         assert (
             self.controller.get_yearly_comparison()
             is value
+        )
+
+    # ==================================================
+    # Validación de delegación y comportamiento
+    # ==================================================
+
+    def test_compare_months_by_year_uses_valid_dataset_once(self):
+
+        dataset = object()
+
+        self.analyzer.valid_dataset.return_value = dataset
+
+        self.controller.compare_months_by_year()
+
+        self.analyzer.valid_dataset.assert_called_once_with()
+
+        self.analyzer.comparisons_engine.compare_months_by_year.assert_called_once_with(
+            dataset
+        )
+
+
+    def test_compare_weeks_by_year_uses_valid_dataset_once(self):
+
+        dataset = object()
+
+        self.analyzer.valid_dataset.return_value = dataset
+
+        self.controller.compare_weeks_by_year()
+
+        self.analyzer.valid_dataset.assert_called_once_with()
+
+        self.analyzer.comparisons_engine.compare_weeks_by_year.assert_called_once_with(
+            dataset
+        )
+
+
+    def test_compare_years_uses_valid_dataset_once(self):
+
+        dataset = object()
+
+        self.analyzer.valid_dataset.return_value = dataset
+
+        self.controller.compare_years()
+
+        self.analyzer.valid_dataset.assert_called_once_with()
+
+        self.analyzer.comparisons_engine.compare_years.assert_called_once_with(
+            dataset
+        )
+
+
+    def test_calculate_monthly_variation_does_not_request_dataset(self):
+
+        self.controller.calculate_monthly_variation()
+
+        self.analyzer.valid_dataset.assert_not_called()
+
+        self.analyzer.comparisons_engine.calculate_monthly_variation.assert_called_once_with()
+
+
+    def test_calculate_weekly_variation_does_not_request_dataset(self):
+
+        self.controller.calculate_weekly_variation()
+
+        self.analyzer.valid_dataset.assert_not_called()
+
+        self.analyzer.comparisons_engine.calculate_weekly_variation.assert_called_once_with()
+
+
+    def test_calculate_requests_valid_dataset_for_each_comparison(self):
+
+        dataset = object()
+
+        self.analyzer.valid_dataset.return_value = dataset
+
+        self.controller.calculate()
+
+        assert self.analyzer.valid_dataset.call_count == 3
+
+        self.analyzer.comparisons_engine.compare_months_by_year.assert_called_once_with(
+            dataset
+        )
+
+        self.analyzer.comparisons_engine.compare_weeks_by_year.assert_called_once_with(
+            dataset
+        )
+
+        self.analyzer.comparisons_engine.compare_years.assert_called_once_with(
+            dataset
+        )
+
+
+    def test_calculate_stops_when_monthly_comparison_fails(self):
+
+        error = RuntimeError(
+            "monthly comparison failed"
+        )
+
+        engine = self.analyzer.comparisons_engine
+
+        engine.compare_months_by_year.side_effect = error
+
+        with pytest.raises(
+            RuntimeError,
+            match="monthly comparison failed",
+        ):
+            self.controller.calculate()
+
+        engine.compare_months_by_year.assert_called_once_with(
+            self.analyzer.valid_dataset.return_value
+        )
+
+        engine.calculate_monthly_variation.assert_not_called()
+        engine.compare_weeks_by_year.assert_not_called()
+        engine.calculate_weekly_variation.assert_not_called()
+        engine.compare_years.assert_not_called()
+
+
+    def test_calculate_stops_when_monthly_variation_fails(self):
+
+        error = RuntimeError(
+            "monthly variation failed"
+        )
+
+        engine = self.analyzer.comparisons_engine
+
+        engine.calculate_monthly_variation.side_effect = error
+
+        with pytest.raises(
+            RuntimeError,
+            match="monthly variation failed",
+        ):
+            self.controller.calculate()
+
+        engine.compare_months_by_year.assert_called_once_with(
+            self.analyzer.valid_dataset.return_value
+        )
+
+        engine.calculate_monthly_variation.assert_called_once_with()
+
+        engine.compare_weeks_by_year.assert_not_called()
+        engine.calculate_weekly_variation.assert_not_called()
+        engine.compare_years.assert_not_called()
+
+
+    def test_reports_does_not_request_valid_dataset(self):
+
+        self.controller.reports()
+
+        self.analyzer.valid_dataset.assert_not_called()
+
+
+    def test_plots_does_not_request_valid_dataset(self):
+
+        self.controller.plots()
+
+        self.analyzer.valid_dataset.assert_not_called()
+
+
+    def test_insight_methods_return_exact_engine_result(self):
+
+        engine = self.analyzer.comparisons_engine
+
+        weekly_insights = object()
+        weekly_extremes = object()
+        monthly_anomalies = object()
+        monthly_extremes = object()
+        monthly_trends = object()
+        yearly_trend = object()
+        annual_stability = object()
+
+        engine.detailed_weekly_insights.return_value = (
+            weekly_insights
+        )
+
+        engine.weekly_stability_extremes.return_value = (
+            weekly_extremes
+        )
+
+        engine.detect_monthly_anomalies.return_value = (
+            monthly_anomalies
+        )
+
+        engine.monthly_stability_extremes.return_value = (
+            monthly_extremes
+        )
+
+        engine.monthly_trends.return_value = (
+            monthly_trends
+        )
+
+        engine.yearly_trend.return_value = (
+            yearly_trend
+        )
+
+        engine.annual_stability.return_value = (
+            annual_stability
+        )
+
+        assert (
+            self.controller.detailed_weekly_insights()
+            is weekly_insights
+        )
+
+        assert (
+            self.controller.weekly_stability_extremes()
+            is weekly_extremes
+        )
+
+        assert (
+            self.controller.detect_monthly_anomalies()
+            is monthly_anomalies
+        )
+
+        assert (
+            self.controller.monthly_stability_extremes()
+            is monthly_extremes
+        )
+
+        assert (
+            self.controller.monthly_trends()
+            is monthly_trends
+        )
+
+        assert (
+            self.controller.yearly_trend()
+            is yearly_trend
+        )
+
+        assert (
+            self.controller.annual_stability()
+            is annual_stability
+        )
+
+
+    def test_getters_return_current_engine_state(self):
+
+        engine = self.analyzer.comparisons_engine
+
+        monthly_comparison = object()
+        monthly_variation = object()
+        weekly_comparison = object()
+        weekly_variation = object()
+        yearly_comparison = object()
+
+        engine.monthly_comparison = monthly_comparison
+        engine.monthly_variation = monthly_variation
+        engine.weekly_comparison = weekly_comparison
+        engine.weekly_variation = weekly_variation
+        engine.yearly_comparison = yearly_comparison
+
+        assert (
+            self.controller.get_monthly_comparison()
+            is monthly_comparison
+        )
+
+        assert (
+            self.controller.get_monthly_variation()
+            is monthly_variation
+        )
+
+        assert (
+            self.controller.get_weekly_comparison()
+            is weekly_comparison
+        )
+
+        assert (
+            self.controller.get_weekly_variation()
+            is weekly_variation
+        )
+
+        assert (
+            self.controller.get_yearly_comparison()
+            is yearly_comparison
         )
