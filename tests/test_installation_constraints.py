@@ -1088,3 +1088,125 @@ class TestInstallationConstraintsMaintenancePassage:
         result = constraints.maintenance_passage_area_m2
 
         assert result is None
+
+    def test_rejects_passage_width_equal_to_roof_width_horizontal(self):
+
+        with pytest.raises(
+            ValueError,
+            match=(
+                "Maintenance passage width cannot be "
+                "greater than or equal to roof width."
+            ),
+        ):
+
+            self._constraints(
+                maintenance_passage_required=True,
+                maintenance_passage_width_m=6.50,
+                maintenance_passage_orientation="horizontal",
+                roof_width_m=6.50,
+                roof_height_m=10.0,
+            )
+
+
+    def test_rejects_passage_width_equal_to_roof_height_vertical(self):
+
+        with pytest.raises(
+            ValueError,
+            match=(
+                "Maintenance passage width cannot be "
+                "greater than or equal to roof height."
+            ),
+        ):
+
+            self._constraints(
+                maintenance_passage_required=True,
+                maintenance_passage_width_m=6.50,
+                maintenance_passage_orientation="vertical",
+                roof_width_m=10.0,
+                roof_height_m=6.50,
+            )
+
+
+    def test_rejects_passage_width_equal_to_roof_width_with_auto_orientation(
+        self,
+    ):
+
+        with pytest.raises(
+            ValueError,
+            match=(
+                "Maintenance passage width cannot be "
+                "greater than or equal to roof width."
+            ),
+        ):
+
+            self._constraints(
+                maintenance_passage_required=True,
+                maintenance_passage_width_m=6.50,
+                maintenance_passage_orientation="auto",
+                roof_width_m=6.50,
+                roof_height_m=10.0,
+            )
+
+
+    def test_rejects_passage_width_equal_to_roof_height_with_auto_orientation(
+        self,
+    ):
+
+        with pytest.raises(
+            ValueError,
+            match=(
+                "Maintenance passage width cannot be "
+                "greater than or equal to roof height."
+            ),
+        ):
+
+            self._constraints(
+                maintenance_passage_required=True,
+                maintenance_passage_width_m=6.50,
+                maintenance_passage_orientation="auto",
+                roof_width_m=10.0,
+                roof_height_m=6.50,
+            )
+
+
+    def test_calculates_horizontal_maintenance_passage_area(self):
+
+        constraints = self._constraints(
+            maintenance_passage_required=True,
+            maintenance_passage_width_m=0.45,
+            maintenance_passage_orientation="horizontal",
+            roof_width_m=10.0,
+            roof_height_m=8.0,
+        )
+
+        assert constraints.maintenance_passage_area_m2 == pytest.approx(
+            4.5
+        )
+
+
+    def test_calculates_vertical_maintenance_passage_area(self):
+
+        constraints = self._constraints(
+            maintenance_passage_required=True,
+            maintenance_passage_width_m=0.45,
+            maintenance_passage_orientation="vertical",
+            roof_width_m=10.0,
+            roof_height_m=8.0,
+        )
+
+        assert constraints.maintenance_passage_area_m2 == pytest.approx(
+            3.6
+        )
+
+
+    def test_auto_orientation_does_not_reserve_maintenance_area(self):
+
+        constraints = self._constraints(
+            maintenance_passage_required=True,
+            maintenance_passage_width_m=0.45,
+            maintenance_passage_orientation="auto",
+            roof_width_m=10.0,
+            roof_height_m=8.0,
+        )
+
+        assert constraints.maintenance_passage_area_m2 is None

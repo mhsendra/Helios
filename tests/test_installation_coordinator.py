@@ -1428,3 +1428,160 @@ class TestInstallationCoordinator:
             ),
         ):
             coordinator._generate_evaluations()
+
+    def test_generate_evaluations_raises_when_all_candidates_are_discarded(
+        self,
+        monkeypatch,
+    ):
+
+        configuration = InstallationConfiguration(
+            available_area_m2=42.25,
+            panel_width_m=1.134,
+            panel_height_m=1.762,
+            panel_power_wp=540,
+            min_panels=5,
+            max_panels=5,
+            maintenance_passage_required=False,
+            maintenance_passage_width_m=0.45,
+            maintenance_passage_orientation="auto",
+            roof_width_m=10.0,
+            roof_height_m=8.0,
+        )
+
+        optimizer = InstallationOptimizer(
+            configuration.to_constraints()
+        )
+
+        evaluator = InstallationEvaluator(
+            configuration.to_constraints()
+        )
+
+        coordinator = self.coordinator(
+            optimizer,
+            evaluator,
+            InstallationRecommender(),
+            lambda candidate: 1000.0,
+        )
+
+        candidate = self.candidate(5)
+
+        monkeypatch.setattr(
+            optimizer,
+            "generate_candidates",
+            lambda: [candidate],
+        )
+
+        monkeypatch.setattr(
+            coordinator,
+            "_generate_candidate_layouts",
+            lambda candidate: [],
+        )
+
+        with pytest.raises(
+            ValueError,
+            match=(
+                "No valid installation candidates "
+                "fit the available installation geometry."
+            ),
+        ):
+
+            coordinator._generate_evaluations()
+
+    def test_generate_evaluations_uses_smallest_occupied_layout(
+        self,
+        monkeypatch,
+    ):
+
+        configuration = InstallationConfiguration(
+            available_area_m2=42.25,
+            panel_width_m=1.134,
+            panel_height_m=1.762,
+            panel_power_wp=540,
+            min_panels=5,
+            max_panels=5,
+            maintenance_passage_required=False,
+            maintenance_passage_width_m=0.45,
+            maintenance_passage_orientation="auto",
+            roof_width_m=10.0,
+            roof_height_m=8.0,
+        )
+
+        optimizer = InstallationOptimizer(
+            configuration.to_constraints()
+        )
+
+        evaluator = InstallationEvaluator(
+            configuration.to_constraints()
+        )
+
+        coordinator = self.coordinator(
+            optimizer,
+            evaluator,
+            InstallationRecommender(),
+            lambda candidate: 1000.0,
+        )
+
+        candidate = self.candidate(5)
+
+        layout_large = type(
+            "Layout",
+            (),
+            {
+                "occupied_area_m2": 20.0,
+                "occupied_width_m": 5.0,
+                "occupied_height_m": 4.0,
+            },
+        )()
+
+        layout_small = type(
+            "Layout",
+            (),
+            {
+                "occupied_area_m2": 18.0,
+                "occupied_width_m": 6.0,
+                "occupied_height_m": 3.0,
+            },
+        )()
+
+        monkeypatch.setattr(
+            optimizer,
+            "generate_candidates",
+            lambda: [candidate],
+        )
+
+        monkeypatch.setattr(
+            coordinator,
+            "_generate_candidate_layouts",
+            lambda candidate: [
+                layout_large,
+                layout_small,
+            ],
+        )
+
+        calls = []
+
+        def evaluate_layout(candidate, layout):
+
+            calls.append(layout)
+
+            return InstallationEvaluation(
+                candidate=candidate,
+                available_area_m2=42.25,
+                layout=layout,
+            )
+
+        monkeypatch.setattr(
+            evaluator,
+            "evaluate_layout",
+            evaluate_layout,
+        )
+
+        result = coordinator._generate_evaluations()
+
+        assert len(result) == 1
+
+        assert calls == [
+            layout_small,
+        ]
+
+        assert result[0].layout is layout_small
