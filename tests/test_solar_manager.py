@@ -590,3 +590,82 @@ class TestSolarManager:
         assert self.manager.yearly_production is None
         assert self.manager.energy_balance is None
         assert self.manager.statistics is None
+
+    # ==================================================
+    # Defensive validation
+    # ==================================================
+
+    def test_calculate_hourly_production_rejects_non_positive_installed_power(
+        self,
+    ):
+
+        configuration = SolarConfiguration(
+            latitude=41.62,
+            longitude=2.09,
+            tilt=30,
+            azimuth=0,
+        )
+
+        self.manager.client.fetch = MagicMock(
+            return_value=object()
+        )
+
+        self.manager.parser.parse = MagicMock(
+            return_value=pd.DataFrame(
+                {
+                    "production_kwh": [1.0, 2.0],
+                }
+            )
+        )
+
+        with pytest.raises(
+            ValueError,
+            match="Installed power must be greater than zero.",
+        ):
+            self.manager.calculate_hourly_production(
+                configuration,
+                installed_power_kwp=0.0,
+            )
+            
+    def test_installation_simulation_report_requires_yearly_production(
+        self,
+    ):
+
+        configuration = object()
+        recommendation = MagicMock()
+
+        recommendation.installed_power_kwp = 5.0
+
+        self.manager.yearly_production = None
+
+        with pytest.raises(
+            RuntimeError,
+            match="Yearly production has not been calculated.",
+        ):
+            self.manager.installation_simulation_report(
+                configuration=configuration,
+                recommendation=recommendation,
+            )
+
+
+    def test_installation_simulation_report_rejects_non_positive_installed_power(
+        self,
+    ):
+
+        configuration = object()
+        recommendation = MagicMock()
+
+        recommendation.installed_power_kwp = 0.0
+
+        self.manager.yearly_production = pd.Series(
+            [1000.0]
+        )
+
+        with pytest.raises(
+            ValueError,
+            match="Installed power must be greater than zero.",
+        ):
+            self.manager.installation_simulation_report(
+                configuration=configuration,
+                recommendation=recommendation,
+            )

@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock
 
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QTreeWidgetItem
 
 from helios.gui.main_window import MainWindow
 from helios.core.economics_configuration import EconomicsConfiguration
@@ -456,4 +456,40 @@ class TestMainWindow:
         assert (
             self.window.pages.currentWidget()
             is self.window.solar_config_page
+        )
+
+    def test_set_solar_calculated_true_is_ignored_when_project_is_not_loaded(
+        self,
+    ):
+
+        self.window.set_solar_calculated(True)
+
+        assert self.window.solar_calculated is False
+
+        assert self.window.economics_item.isDisabled()
+
+
+    def test_set_solar_calculated_false_remains_false_when_project_is_not_loaded(
+        self,
+    ):
+
+        self.window.set_solar_calculated(False)
+
+        assert self.window.solar_calculated is False
+
+        assert self.window.economics_item.isDisabled()
+
+    def test_change_page_ignores_item_without_mapped_page(
+        self,
+    ):
+
+        item = QTreeWidgetItem(
+            ["Página inexistente"]
+        )
+
+        self.window.change_page(item)
+
+        assert (
+            self.window.pages.currentWidget()
+            is self.window.home_page
         )

@@ -1273,3 +1273,93 @@ class TestSolarPage:
             self.project.solar_configuration.mounting_place
             == "free"
         )
+
+    def test_reset_clears_all_page_results(self):
+
+        self.page.set_results_available(
+            True
+        )
+
+        self.page.update_production_status(
+            source="PVGIS",
+            database="SARAH3",
+            reference_year=2023,
+            last_update="Ahora",
+            status="Calculada",
+            annual_production=12000.0,
+            specific_production=1500.0,
+            coverage=80.0,
+        )
+
+        self.page.monthly_production_table.setRowCount(
+            3
+        )
+
+        self.page.balance_table.setRowCount(
+            3
+        )
+
+        self.page.update_balance_summary = MagicMock()
+        self.page.update_statistics = MagicMock()
+
+        self.page.reset()
+
+        balance_index = self.page.tabs.indexOf(
+            self.page.balance_tab
+        )
+
+        statistics_index = self.page.tabs.indexOf(
+            self.page.statistics_tab
+        )
+
+        assert not self.page.tabs.isTabEnabled(
+            balance_index
+        )
+
+        assert not self.page.tabs.isTabEnabled(
+            statistics_index
+        )
+
+        assert (
+            self.page.production_status_label.text()
+            == "No calculada"
+        )
+
+        assert (
+            self.page.production_annual_label.text()
+            == "-"
+        )
+
+        assert (
+            self.page.production_specific_label.text()
+            == "-"
+        )
+
+        assert (
+            self.page.production_coverage_label.text()
+            == "-"
+        )
+
+        assert (
+            self.page.reference_year_label.text()
+            == "-"
+        )
+
+        assert (
+            self.page.last_update_label.text()
+            == "Nunca"
+        )
+
+        assert (
+            self.page.monthly_production_table.rowCount()
+            == 0
+        )
+
+        assert (
+            self.page.balance_table.rowCount()
+            == 0
+        )
+
+        self.page.update_balance_summary.assert_called_once_with()
+
+        self.page.update_statistics.assert_called_once_with()
