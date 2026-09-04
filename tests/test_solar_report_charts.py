@@ -125,3 +125,40 @@ class TestSolarReportCharts:
             SolarReportCharts.monthly_production(
                 monthly_production,
             )
+
+    def test_energy_balance_creates_drawing(self):
+        result = SolarReportCharts.energy_balance(
+            yearly_production_kwh=12500.0,
+            yearly_consumption_kwh=19541.72,
+            self_consumption_kwh=8500.0,
+            grid_import_kwh=11041.72,
+            grid_export_kwh=4000.0,
+        )
+
+        assert result is not None
+
+    def test_energy_balance_rejects_negative_production(self):
+        with pytest.raises(
+            ValueError,
+            match="energy balance values cannot be negative",
+        ):
+            SolarReportCharts.energy_balance(
+                yearly_production_kwh=-1.0,
+                yearly_consumption_kwh=19541.72,
+                self_consumption_kwh=8500.0,
+                grid_import_kwh=11041.72,
+                grid_export_kwh=4000.0,
+            )
+
+    def test_energy_balance_rejects_negative_consumption(self):
+        with pytest.raises(
+            ValueError,
+            match="energy balance values cannot be negative",
+        ):
+            SolarReportCharts.energy_balance(
+                yearly_production_kwh=12500.0,
+                yearly_consumption_kwh=-1.0,
+                self_consumption_kwh=8500.0,
+                grid_import_kwh=11041.72,
+                grid_export_kwh=4000.0,
+            )

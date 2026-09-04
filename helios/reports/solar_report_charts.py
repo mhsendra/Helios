@@ -133,3 +133,77 @@ class SolarReportCharts:
         drawing.add(chart)
 
         return drawing
+
+    @staticmethod
+    def energy_balance(
+        yearly_production_kwh: float,
+        yearly_consumption_kwh: float,
+        self_consumption_kwh: float,
+        grid_import_kwh: float,
+        grid_export_kwh: float,
+    ) -> Drawing:
+
+        values = [
+            yearly_production_kwh,
+            yearly_consumption_kwh,
+            self_consumption_kwh,
+            grid_import_kwh,
+            grid_export_kwh,
+        ]
+
+        if any(value < 0 for value in values):
+            raise ValueError(
+                "energy balance values cannot be negative"
+            )
+
+        drawing = Drawing(
+            500,
+            300,
+        )
+
+        title = String(
+            250,
+            275,
+            "Balance energético anual",
+            textAnchor="middle",
+            fontSize=16,
+        )
+
+        chart = VerticalBarChart()
+
+        chart.x = 45
+        chart.y = 60
+        chart.height = 180
+        chart.width = 410
+
+        chart.data = [
+            values,
+        ]
+
+        chart.categoryAxis.categoryNames = [
+            "Producción",
+            "Consumo",
+            "Autoconsumo",
+            "Importación",
+            "Exportación",
+        ]
+
+        chart.valueAxis.valueMin = 0
+        chart.valueAxis.valueMax = max(
+            max(values) * 1.2,
+            1,
+        )
+
+        chart.valueAxis.valueStep = max(
+            max(values) / 5,
+            1,
+        )
+
+        chart.bars[0].fillColor = colors.HexColor(
+            "#7f6000"
+        )
+
+        drawing.add(title)
+        drawing.add(chart)
+
+        return drawing

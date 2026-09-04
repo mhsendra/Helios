@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from helios.reports.solar_report_charts import SolarReportCharts
+from helios.reports.solar_report_data import SolarReportData
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
@@ -12,8 +13,6 @@ from reportlab.platypus import (
     Table,
     TableStyle,
 )
-
-from helios.reports.solar_report_data import SolarReportData
 
 
 class SolarReportGenerator:
@@ -52,6 +51,10 @@ class SolarReportGenerator:
             ),
             Spacer(1, 10),
         ]
+
+        # ==================================================
+        # Instalación
+        # ==================================================
 
         installation_data = [
             ["Concepto", "Valor"],
@@ -143,6 +146,10 @@ class SolarReportGenerator:
         )
 
         story.append(installation_table)
+
+        # ==================================================
+        # Producción solar
+        # ==================================================
 
         story.extend(
             [
@@ -273,6 +280,124 @@ class SolarReportGenerator:
             )
         )
 
+        # ==================================================
+        # Estadísticas solares
+        # ==================================================
+
+        story.extend(
+            [
+                Spacer(1, 25),
+                Paragraph(
+                    "Estadísticas solares",
+                    styles["Heading2"],
+                ),
+                Spacer(1, 10),
+            ]
+        )
+
+        solar_statistics_data = [
+            ["Métrica", "Valor"],
+            [
+                "Horas productivas",
+                f"{data.productive_hours:,}",
+            ],
+            [
+                "Producción media diaria",
+                f"{data.daily_average_kwh:,.2f} kWh/día",
+            ],
+            [
+                "Producción media mensual",
+                f"{data.monthly_average_kwh:,.2f} kWh/mes",
+            ],
+            [
+                "Máxima producción horaria",
+                f"{data.maximum_power_kw:,.2f} kWh",
+            ],
+            [
+                "Factor de capacidad",
+                f"{data.capacity_factor_percent:.2f} %",
+            ],
+        ]
+
+        solar_statistics_table = Table(
+            solar_statistics_data,
+            colWidths=[260, 180],
+        )
+
+        solar_statistics_table.setStyle(
+            TableStyle(
+                [
+                    (
+                        "BACKGROUND",
+                        (0, 0),
+                        (-1, 0),
+                        colors.HexColor("#38761d"),
+                    ),
+                    (
+                        "TEXTCOLOR",
+                        (0, 0),
+                        (-1, 0),
+                        colors.white,
+                    ),
+                    (
+                        "FONTNAME",
+                        (0, 0),
+                        (-1, 0),
+                        "Helvetica-Bold",
+                    ),
+                    (
+                        "GRID",
+                        (0, 0),
+                        (-1, -1),
+                        0.5,
+                        colors.grey,
+                    ),
+                    (
+                        "BACKGROUND",
+                        (0, 1),
+                        (-1, -1),
+                        colors.whitesmoke,
+                    ),
+                    (
+                        "VALIGN",
+                        (0, 0),
+                        (-1, -1),
+                        "MIDDLE",
+                    ),
+                    (
+                        "LEFTPADDING",
+                        (0, 0),
+                        (-1, -1),
+                        8,
+                    ),
+                    (
+                        "RIGHTPADDING",
+                        (0, 0),
+                        (-1, -1),
+                        8,
+                    ),
+                    (
+                        "TOPPADDING",
+                        (0, 0),
+                        (-1, -1),
+                        6,
+                    ),
+                    (
+                        "BOTTOMPADDING",
+                        (0, 0),
+                        (-1, -1),
+                        6,
+                    ),
+                ]
+            )
+        )
+
+        story.append(solar_statistics_table)
+
+        # ==================================================
+        # Balance energético
+        # ==================================================
+
         story.extend(
             [
                 Spacer(1, 25),
@@ -387,6 +512,10 @@ class SolarReportGenerator:
 
         story.append(balance_table)
 
+        # ==================================================
+        # Rentabilidad económica
+        # ==================================================
+
         story.extend(
             [
                 Spacer(1, 25),
@@ -496,5 +625,138 @@ class SolarReportGenerator:
         )
 
         story.append(economics_table)
+
+        # ==================================================
+        # Escenarios económicos
+        # ==================================================
+
+        story.extend(
+            [
+                Spacer(1, 25),
+                Paragraph(
+                    "Escenarios económicos",
+                    styles["Heading2"],
+                ),
+                Spacer(1, 10),
+            ]
+        )
+
+        scenarios_data = [
+            [
+                "Escenario",
+                "Ahorro anual",
+                "Payback",
+                "VAN",
+                "TIR",
+            ],
+        ]
+
+        for result in data.scenario_results:
+            scenarios_data.append(
+                [
+                    result.name,
+                    f"{result.annual_savings:,.2f} €",
+                    f"{result.payback_years:.2f} años",
+                    f"{result.npv:,.2f} €",
+                    f"{result.irr * 100:.2f} %",
+                ]
+            )
+
+        scenarios_table = Table(
+            scenarios_data,
+            colWidths=[
+                105,
+                105,
+                85,
+                105,
+                80,
+            ],
+        )
+
+        scenarios_table.setStyle(
+            TableStyle(
+                [
+                    (
+                        "BACKGROUND",
+                        (0, 0),
+                        (-1, 0),
+                        colors.HexColor("#674ea7"),
+                    ),
+                    (
+                        "TEXTCOLOR",
+                        (0, 0),
+                        (-1, 0),
+                        colors.white,
+                    ),
+                    (
+                        "FONTNAME",
+                        (0, 0),
+                        (-1, 0),
+                        "Helvetica-Bold",
+                    ),
+                    (
+                        "GRID",
+                        (0, 0),
+                        (-1, -1),
+                        0.5,
+                        colors.grey,
+                    ),
+                    (
+                        "BACKGROUND",
+                        (0, 1),
+                        (-1, -1),
+                        colors.whitesmoke,
+                    ),
+                    (
+                        "VALIGN",
+                        (0, 0),
+                        (-1, -1),
+                        "MIDDLE",
+                    ),
+                    (
+                        "ALIGN",
+                        (1, 1),
+                        (-1, -1),
+                        "RIGHT",
+                    ),
+                    (
+                        "ALIGN",
+                        (0, 0),
+                        (0, -1),
+                        "LEFT",
+                    ),
+                    (
+                        "LEFTPADDING",
+                        (0, 0),
+                        (-1, -1),
+                        6,
+                    ),
+                    (
+                        "RIGHTPADDING",
+                        (0, 0),
+                        (-1, -1),
+                        6,
+                    ),
+                    (
+                        "TOPPADDING",
+                        (0, 0),
+                        (-1, -1),
+                        6,
+                    ),
+                    (
+                        "BOTTOMPADDING",
+                        (0, 0),
+                        (-1, -1),
+                        6,
+                    ),
+                ]
+            )
+        )
+
+        story.append(scenarios_table)
+
+        # ==================================================
+        # Generación
+        # ==================================================
 
         document.build(story)
