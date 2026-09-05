@@ -8,6 +8,8 @@ from helios.reports.solar_report_data_factory import (
 )
 from helios.solar.configuration import SolarConfiguration
 
+from helios.core.economics_configuration import EconomicsConfiguration
+
 
 class TestSolarReportDataFactory:
 
@@ -184,6 +186,21 @@ class TestSolarReportDataFactory:
             {},
         )()
 
+        economics_controller.configuration = (
+            EconomicsConfiguration(
+                installation_cost=12490.0,
+                subsidies=0.0,
+                tax_deductions=0.0,
+                first_year_degradation=0.01,
+                annual_degradation=0.0035,
+                annual_electricity_price_growth=0.02,
+                annual_export_price_growth=0.0,
+                annual_maintenance_cost=150.0,
+                annual_maintenance_growth=0.02,
+                discount_rate=0.05,
+            )
+        )
+
         economics_engine = type(
             "EconomicsEngine",
             (),
@@ -195,6 +212,21 @@ class TestSolarReportDataFactory:
         economics_engine.payback_years = 5.34
         economics_engine.npv = 22071.16
         economics_engine.irr = 0.188
+        economics_engine.cost_without_pv = 3719.0
+        economics_engine.grid_import_cost = 2461.0
+        economics_engine.export_income = 1226.84
+        economics_engine.cost_with_pv = 1234.16
+        economics_engine.self_consumption_savings = 1257.16
+
+        economics_engine.cash_flow = pd.DataFrame(
+            {
+                "year": list(range(26)),
+                "cash_flow": [
+                    0.0
+                    for _ in range(26)
+                ],
+            }
+        )
 
         economics_engine.scenario_results = [
             type(
@@ -478,6 +510,97 @@ class TestSolarReportDataFactory:
             == 18.8
         )
 
+    def test_create_contains_economic_breakdown_values(
+        self,
+    ):
+
+        result = SolarReportDataFactory.create(
+            self._solar_controller(),
+            self._economics_controller(),
+        )
+
+        assert result.cost_without_pv_eur == 3719.0
+        assert result.grid_import_cost_eur == 2461.0
+        assert result.export_income_eur == 1226.84
+        assert result.cost_with_pv_eur == 1234.16
+        assert (
+            result.self_consumption_savings_eur
+            == 1257.16
+        )
+
+    def test_create_contains_economic_assumptions(
+        self,
+    ):
+
+        result = SolarReportDataFactory.create(
+            self._solar_controller(),
+            self._economics_controller(),
+        )
+
+        assert result.economic_horizon_years == 25
+
+        assert (
+            result.first_year_degradation_percent
+            == 1.0
+        )
+
+        assert (
+            result.annual_degradation_percent
+            == pytest.approx(0.35)
+        )
+
+        assert (
+            result.annual_electricity_price_growth_percent
+            == 2.0
+        )
+
+        assert (
+            result.annual_export_price_growth_percent
+            == 0.0
+        )
+
+        assert (
+            result.annual_maintenance_cost_eur
+            == 150.0
+        )
+
+        assert (
+            result.annual_maintenance_growth_percent
+            == 2.0
+        )
+
+        assert (
+            result.discount_rate_percent
+            == 5.0
+        )
+
+    def test_create_derives_economic_horizon_from_cash_flow(
+        self,
+    ):
+
+        economics_controller = (
+            self._economics_controller()
+        )
+
+        economics_controller.analyzer.economics_engine.cash_flow = (
+            pd.DataFrame(
+                {
+                    "year": list(range(16)),
+                    "cash_flow": [
+                        0.0
+                        for _ in range(16)
+                    ],
+                }
+            )
+        )
+
+        result = SolarReportDataFactory.create(
+            self._solar_controller(),
+            economics_controller,
+        )
+
+        assert result.economic_horizon_years == 15
+
     def test_create_contains_economic_scenarios(
         self,
     ):
@@ -730,4 +853,96 @@ class TestSolarReportDataFactory:
             SolarReportDataFactory.create(
                 solar_controller,
                 self._economics_controller(),
+            )
+
+
+    def test_create_requires_economic_cash_flow(
+        self,
+    ):
+
+        economics_controller = (
+            self._economics_controller()
+        )
+
+        economics_controller.analyzer.economics_engine.cash_flow = (
+            None
+        )
+
+        with pytest.raises(
+            ValueError,
+            match="economic cash flow is required",
+        ):
+            SolarReportDataFactory.create(
+                self._solar_controller(),
+                economics_controller,
+            )
+
+    def test_create_requires_economic_cash_flow_year_column(
+        self,
+    ):
+
+        economics_controller = (
+            self._economics_controller()
+        )
+
+        economics_controller.analyzer.economics_engine.cash_flow = (
+            pd.DataFrame(
+                {
+                    "cash_flow": [0.0, 1000.0],
+                }
+            )
+        )
+
+        with pytest.raises(
+            ValueError,
+            match="economic cash flow year column is required",
+        ):
+            SolarReportDataFactory.create(
+                self._solar_controller(),
+                economics_controller,
+            )
+
+    def test_create_requires_non_empty_economic_cash_flow(
+        self,
+    ):
+
+        economics_controller = (
+            self._economics_controller()
+        )
+
+        economics_controller.analyzer.economics_engine.cash_flow = (
+            pd.DataFrame(
+                columns=[
+                    "year",
+                    "cash_flow",
+                ]
+            )
+        )
+
+        with pytest.raises(
+            ValueError,
+            match="economic cash flow cannot be empty",
+        ):
+            SolarReportDataFactory.create(
+                self._solar_controller(),
+                economics_controller,
+            )
+
+    def test_create_requires_economic_configuration(
+        self,
+    ):
+
+        economics_controller = (
+            self._economics_controller()
+        )
+
+        economics_controller.configuration = None
+
+        with pytest.raises(
+            ValueError,
+            match="economic configuration is required",
+        ):
+            SolarReportDataFactory.create(
+                self._solar_controller(),
+                economics_controller,
             )

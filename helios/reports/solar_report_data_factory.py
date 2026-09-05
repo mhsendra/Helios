@@ -142,6 +142,36 @@ class SolarReportDataFactory:
                 "economic scenario results are required"
             )
 
+        cash_flow = economics.cash_flow
+
+        if cash_flow is None:
+            raise ValueError(
+                "economic cash flow is required"
+            )
+
+        if "year" not in cash_flow.columns:
+            raise ValueError(
+                "economic cash flow year column is required"
+            )
+
+        if cash_flow.empty:
+            raise ValueError(
+                "economic cash flow cannot be empty"
+            )
+
+        economic_horizon_years = int(
+            cash_flow["year"].max()
+        )
+
+        economic_configuration = (
+            economics_controller.configuration
+        )
+
+        if economic_configuration is None:
+            raise ValueError(
+                "economic configuration is required"
+            )
+
         # ==================================================
         # Report data
         # ==================================================
@@ -236,6 +266,26 @@ class SolarReportDataFactory:
             # Economics
             # ==================================================
 
+            cost_without_pv_eur=(
+                economics.cost_without_pv
+            ),
+
+            grid_import_cost_eur=(
+                economics.grid_import_cost
+            ),
+
+            export_income_eur=(
+                economics.export_income
+            ),
+
+            cost_with_pv_eur=(
+                economics.cost_with_pv
+            ),
+
+            self_consumption_savings_eur=(
+                economics.self_consumption_savings
+            ),
+
             investment_eur=(
                 economics.net_investment
             ),
@@ -264,6 +314,55 @@ class SolarReportDataFactory:
 
             scenario_results=(
                 scenario_results
+            ),
+
+            # ==================================================
+            # Economic assumptions
+            # ==================================================
+
+            economic_horizon_years=(
+                economic_horizon_years
+            ),
+
+            first_year_degradation_percent=(
+                economic_configuration
+                .first_year_degradation
+                * 100
+            ),
+
+            annual_degradation_percent=(
+                economic_configuration
+                .annual_degradation
+                * 100
+            ),
+
+            annual_electricity_price_growth_percent=(
+                economic_configuration
+                .annual_electricity_price_growth
+                * 100
+            ),
+
+            annual_export_price_growth_percent=(
+                economic_configuration
+                .annual_export_price_growth
+                * 100
+            ),
+
+            annual_maintenance_cost_eur=(
+                economic_configuration
+                .annual_maintenance_cost
+            ),
+
+            annual_maintenance_growth_percent=(
+                economic_configuration
+                .annual_maintenance_growth
+                * 100
+            ),
+
+            discount_rate_percent=(
+                economic_configuration
+                .discount_rate
+                * 100
             ),
 
             # ==================================================

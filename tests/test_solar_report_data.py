@@ -18,6 +18,12 @@ class TestSolarReportData:
 
         values = {
             # ==================================================
+            # Calculation mode
+            # ==================================================
+
+            "calculation_mode": "automatic",
+
+            # ==================================================
             # Installation
             # ==================================================
 
@@ -56,6 +62,16 @@ class TestSolarReportData:
             "specific_production_kwh_kwp": 1543.21,
 
             # ==================================================
+            # Solar statistics
+            # ==================================================
+
+            "productive_hours": 4380,
+            "daily_average_kwh": 34.25,
+            "monthly_average_kwh": 1041.67,
+            "maximum_power_kw": 8.05,
+            "capacity_factor_percent": 17.62,
+
+            # ==================================================
             # Energy balance
             # ==================================================
 
@@ -75,7 +91,23 @@ class TestSolarReportData:
             "payback_years": 5.34,
             "net_present_value_eur": 22071.16,
             "internal_rate_of_return_percent": 18.80,
+
+            "economic_horizon_years": 25,
+            "first_year_degradation_percent": 1.0,
+            "annual_degradation_percent": 0.35,
+            "annual_electricity_price_growth_percent": 2.0,
+            "annual_export_price_growth_percent": 0.0,
+            "annual_maintenance_cost_eur": 150.0,
+            "annual_maintenance_growth_percent": 2.0,
+            "discount_rate_percent": 5.0,
+
+            # ==================================================
+            # Economic scenarios
+            # ==================================================
+
+            "scenario_results": [],
         }
+
 
         values.update(
             overrides
@@ -153,6 +185,49 @@ class TestSolarReportData:
         assert (
             data.monthly_production.iloc[-1]
             == 780.0
+        )
+
+    def test_contains_economic_assumptions(
+        self,
+    ):
+
+        data = self._data()
+
+        assert data.economic_horizon_years == 25
+
+        assert (
+            data.first_year_degradation_percent
+            == 1.0
+        )
+
+        assert (
+            data.annual_degradation_percent
+            == 0.35
+        )
+
+        assert (
+            data.annual_electricity_price_growth_percent
+            == 2.0
+        )
+
+        assert (
+            data.annual_export_price_growth_percent
+            == 0.0
+        )
+
+        assert (
+            data.annual_maintenance_cost_eur
+            == 150.0
+        )
+
+        assert (
+            data.annual_maintenance_growth_percent
+            == 2.0
+        )
+
+        assert (
+            data.discount_rate_percent
+            == 5.0
         )
 
 

@@ -81,11 +81,25 @@ class TestSolarReportGenerator:
             # Economics
             # ==================================================
 
+            cost_without_pv_eur=5000.00,
+            grid_import_cost_eur=3000.00,
+            export_income_eur=338.00,
+            cost_with_pv_eur=2662.00,
+            self_consumption_savings_eur=2000.00,
+
             investment_eur=12490.0,
             yearly_savings_eur=2338.0,
             payback_years=5.34,
             net_present_value_eur=22071.16,
             internal_rate_of_return_percent=18.8,
+            economic_horizon_years=25,
+            first_year_degradation_percent=1.00,
+            annual_degradation_percent=0.35,
+            annual_electricity_price_growth_percent=2.00,
+            annual_export_price_growth_percent=0.00,
+            annual_maintenance_cost_eur=150.00,
+            annual_maintenance_growth_percent=2.00,
+            discount_rate_percent=5.00,
 
             # ==================================================
             # Economic scenarios
@@ -335,7 +349,7 @@ class TestSolarReportGenerator:
         assert data.productive_hours == 4380
         assert data.capacity_factor_percent == 17.62
 
-    def test_report_contains_six_main_tables(
+    def test_report_contains_seven_main_tables(
         self,
         monkeypatch,
         tmp_path,
@@ -354,7 +368,64 @@ class TestSolarReportGenerator:
             captured["story"]
         )
 
-        assert len(tables) == 6
+        assert len(tables) == 7
+
+    def test_economic_assumptions_table_contains_exact_values(
+        self,
+        monkeypatch,
+        tmp_path,
+    ):
+
+        captured = self._capture_story(monkeypatch)
+
+        generator = SolarReportGenerator()
+
+        generator.generate(
+            self._report_data(),
+            tmp_path / "report.pdf",
+        )
+
+        tables = self._get_tables(
+            captured["story"]
+        )
+
+        rows = self._table_rows(tables[5])
+
+        assert rows == [
+            ["Hipótesis", "Valor"],
+            [
+                "Horizonte económico",
+                "25 años",
+            ],
+            [
+                "Degradación primer año",
+                "1.00 %",
+            ],
+            [
+                "Degradación anual",
+                "0.35 %",
+            ],
+            [
+                "Incremento anual precio electricidad",
+                "2.00 %",
+            ],
+            [
+                "Incremento anual precio excedentes",
+                "0.00 %",
+            ],
+            [
+                "Coste anual de mantenimiento",
+                "150.00 €",
+            ],
+            [
+                "Incremento anual del mantenimiento",
+                "2.00 %",
+            ],
+            [
+                "Tasa de descuento",
+                "5.00 %",
+            ],
+        ]
 
     def test_report_tables_have_expected_row_counts(
         self,
@@ -385,7 +456,8 @@ class TestSolarReportGenerator:
             4,
             6,
             7,
-            6,
+            11,
+            9,
             4,
         ]
 
@@ -419,6 +491,7 @@ class TestSolarReportGenerator:
             ["Métrica", "Valor"],
             ["Concepto", "Valor"],
             ["Concepto", "Valor"],
+            ["Hipótesis", "Valor"],
             [
                 "Escenario",
                 "Ahorro anual",
@@ -539,7 +612,7 @@ class TestSolarReportGenerator:
             ],
             [
                 "Máxima producción horaria",
-                "7.85 kWh",
+                "7.85 kW",
             ],
             [
                 "Factor de capacidad",
@@ -620,12 +693,32 @@ class TestSolarReportGenerator:
         assert rows == [
             ["Concepto", "Valor"],
             [
-                "Inversión neta",
-                "12,490.00 €",
+                "Coste anual sin FV",
+                "5,000.00 €",
             ],
             [
-                "Ahorro anual",
+                "Coste energía importada con FV",
+                "3,000.00 €",
+            ],
+            [
+                "Ingresos por excedentes",
+                "338.00 €",
+            ],
+            [
+                "Coste neto con FV",
+                "2,662.00 €",
+            ],
+            [
+                "Ahorro por autoconsumo",
+                "2,000.00 €",
+            ],
+            [
+                "Ahorro anual total",
                 "2,338.00 €",
+            ],
+            [
+                "Inversión neta",
+                "12,490.00 €",
             ],
             [
                 "Periodo de retorno",
@@ -660,7 +753,7 @@ class TestSolarReportGenerator:
             captured["story"]
         )
 
-        rows = self._table_rows(tables[5])
+        rows = self._table_rows(tables[6])
 
         assert rows == [
             [
@@ -889,7 +982,7 @@ class TestSolarReportGenerator:
             "4,380",
             "34.25 kWh/día",
             "1,041.67 kWh/mes",
-            "7.85 kWh",
+            "7.85 kW",
             "17.62 %",
             "19,541.72 kWh",
             "8,500.00 kWh",
@@ -1156,6 +1249,7 @@ class TestSolarReportGenerator:
             "Estadísticas solares",
             "Consumo y balance energético",
             "Rentabilidad económica",
+            "Hipótesis económicas",
             "Escenarios económicos",
         ]
 
@@ -1180,7 +1274,7 @@ class TestSolarReportGenerator:
             captured["story"]
         )
 
-        assert len(tables) == 6
+        assert len(tables) == 7
 
         assert [
             len(table._cellvalues)
@@ -1190,7 +1284,8 @@ class TestSolarReportGenerator:
             4,
             6,
             7,
-            6,
+            11,
+            9,
             4,
         ]
 

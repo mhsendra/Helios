@@ -365,7 +365,7 @@ class SolarReportGenerator:
             ],
             [
                 "Máxima producción horaria",
-                f"{data.maximum_power_kw:,.2f} kWh",
+                f"{data.maximum_power_kw:,.2f} kW",
             ],
             [
                 "Factor de capacidad",
@@ -584,12 +584,32 @@ class SolarReportGenerator:
         economics_data = [
             ["Concepto", "Valor"],
             [
-                "Inversión neta",
-                f"{data.investment_eur:,.2f} €",
+                "Coste anual sin FV",
+                f"{data.cost_without_pv_eur:,.2f} €",
             ],
             [
-                "Ahorro anual",
+                "Coste energía importada con FV",
+                f"{data.grid_import_cost_eur:,.2f} €",
+            ],
+            [
+                "Ingresos por excedentes",
+                f"{data.export_income_eur:,.2f} €",
+            ],
+            [
+                "Coste neto con FV",
+                f"{data.cost_with_pv_eur:,.2f} €",
+            ],
+            [
+                "Ahorro por autoconsumo",
+                f"{data.self_consumption_savings_eur:,.2f} €",
+            ],
+            [
+                "Ahorro anual total",
                 f"{data.yearly_savings_eur:,.2f} €",
+            ],
+            [
+                "Inversión neta",
+                f"{data.investment_eur:,.2f} €",
             ],
             [
                 "Periodo de retorno",
@@ -684,6 +704,136 @@ class SolarReportGenerator:
         )
 
         story.append(economics_table)
+
+        # ==================================================
+        # Hipótesis económicas
+        # ==================================================
+
+        story.extend(
+            [
+                Spacer(1, 25),
+                Paragraph(
+                    "Hipótesis económicas",
+                    styles["Heading2"],
+                ),
+                Spacer(1, 10),
+            ]
+        )
+
+        economic_assumptions_data = [
+            ["Hipótesis", "Valor"],
+            [
+                "Horizonte económico",
+                f"{data.economic_horizon_years} años",
+            ],
+            [
+                "Degradación primer año",
+                f"{data.first_year_degradation_percent:.2f} %",
+            ],
+            [
+                "Degradación anual",
+                f"{data.annual_degradation_percent:.2f} %",
+            ],
+            [
+                "Incremento anual precio electricidad",
+                (
+                    f"{data.annual_electricity_price_growth_percent:.2f} %"
+                ),
+            ],
+            [
+                "Incremento anual precio excedentes",
+                (
+                    f"{data.annual_export_price_growth_percent:.2f} %"
+                ),
+            ],
+            [
+                "Coste anual de mantenimiento",
+                f"{data.annual_maintenance_cost_eur:,.2f} €",
+            ],
+            [
+                "Incremento anual del mantenimiento",
+                f"{data.annual_maintenance_growth_percent:.2f} %",
+            ],
+            [
+                "Tasa de descuento",
+                f"{data.discount_rate_percent:.2f} %",
+            ],
+        ]
+
+        economic_assumptions_table = Table(
+            economic_assumptions_data,
+            colWidths=[260, 180],
+        )
+
+        economic_assumptions_table.setStyle(
+            TableStyle(
+                [
+                    (
+                        "BACKGROUND",
+                        (0, 0),
+                        (-1, 0),
+                        colors.HexColor("#7030a0"),
+                    ),
+                    (
+                        "TEXTCOLOR",
+                        (0, 0),
+                        (-1, 0),
+                        colors.white,
+                    ),
+                    (
+                        "FONTNAME",
+                        (0, 0),
+                        (-1, 0),
+                        "Helvetica-Bold",
+                    ),
+                    (
+                        "GRID",
+                        (0, 0),
+                        (-1, -1),
+                        0.5,
+                        colors.grey,
+                    ),
+                    (
+                        "BACKGROUND",
+                        (0, 1),
+                        (-1, -1),
+                        colors.whitesmoke,
+                    ),
+                    (
+                        "VALIGN",
+                        (0, 0),
+                        (-1, -1),
+                        "MIDDLE",
+                    ),
+                    (
+                        "LEFTPADDING",
+                        (0, 0),
+                        (-1, -1),
+                        8,
+                    ),
+                    (
+                        "RIGHTPADDING",
+                        (0, 0),
+                        (-1, -1),
+                        8,
+                    ),
+                    (
+                        "TOPPADDING",
+                        (0, 0),
+                        (-1, -1),
+                        6,
+                    ),
+                    (
+                        "BOTTOMPADDING",
+                        (0, 0),
+                        (-1, -1),
+                        6,
+                    ),
+                ]
+            )
+        )
+
+        story.append(economic_assumptions_table)
 
         # ==================================================
         # Escenarios económicos

@@ -51,6 +51,12 @@ class SolarReportData:
     # Economics
     # ==================================================
 
+    cost_without_pv_eur: float
+    grid_import_cost_eur: float
+    export_income_eur: float
+    cost_with_pv_eur: float
+    self_consumption_savings_eur: float
+
     investment_eur: float
     yearly_savings_eur: float
     payback_years: float
@@ -58,11 +64,24 @@ class SolarReportData:
     internal_rate_of_return_percent: float | None
 
     # ==================================================
+    # Economic assumptions
+    # ==================================================
+
+    economic_horizon_years: int
+    first_year_degradation_percent: float
+    annual_degradation_percent: float
+    annual_electricity_price_growth_percent: float
+    annual_export_price_growth_percent: float
+    annual_maintenance_cost_eur: float
+    annual_maintenance_growth_percent: float
+    discount_rate_percent: float
+
+    # ==================================================
     # Economic scenarios
     # ==================================================
 
     scenario_results: list
-
+    
     # ==================================================
     # Automatic dimensioning
     # ==================================================
