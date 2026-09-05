@@ -566,6 +566,23 @@ class SolarReportGenerator:
 
         story.append(balance_table)
 
+        story.append(
+            Spacer(
+                1,
+                15,
+            )
+        )
+
+        story.append(
+            SolarReportCharts.energy_balance(
+                data.yearly_production_kwh,
+                data.yearly_consumption_kwh,
+                data.self_consumption_kwh,
+                data.grid_import_kwh,
+                data.grid_export_kwh,
+            )
+        )
+
         # ==================================================
         # Rentabilidad económica
         # ==================================================
@@ -964,6 +981,19 @@ class SolarReportGenerator:
         )
 
         story.append(scenarios_table)
+
+        story.append(
+            Spacer(
+                1,
+                15,
+            )
+        )
+
+        story.append(
+            SolarReportCharts.economic_scenarios(
+                data.scenario_results,
+            )
+        )
 
         # ==================================================
         # Generación

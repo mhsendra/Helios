@@ -207,3 +207,77 @@ class SolarReportCharts:
         drawing.add(chart)
 
         return drawing
+
+    @staticmethod
+    def economic_scenarios(
+        scenario_results,
+    ) -> Drawing:
+
+        if (
+            scenario_results is None
+            or not scenario_results
+        ):
+            raise ValueError(
+                "economic scenario data is required"
+            )
+
+        names = [
+            scenario.name
+            for scenario in scenario_results
+        ]
+
+        values = [
+            scenario.annual_savings
+            for scenario in scenario_results
+        ]
+
+        if any(value < 0 for value in values):
+            raise ValueError(
+                "annual savings cannot be negative"
+            )
+
+        drawing = Drawing(
+            500,
+            300,
+        )
+
+        title = String(
+            250,
+            275,
+            "Ahorro anual por escenario",
+            textAnchor="middle",
+            fontSize=16,
+        )
+
+        chart = VerticalBarChart()
+
+        chart.x = 60
+        chart.y = 60
+        chart.height = 180
+        chart.width = 390
+
+        chart.data = [
+            values,
+        ]
+
+        chart.categoryAxis.categoryNames = names
+
+        chart.valueAxis.valueMin = 0
+        chart.valueAxis.valueMax = max(
+            max(values) * 1.2,
+            1,
+        )
+
+        chart.valueAxis.valueStep = max(
+            max(values) / 5,
+            1,
+        )
+
+        chart.bars[0].fillColor = colors.HexColor(
+            "#7f6000"
+        )
+
+        drawing.add(title)
+        drawing.add(chart)
+
+        return drawing

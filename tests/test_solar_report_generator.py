@@ -954,6 +954,71 @@ class TestSolarReportGenerator:
 
         assert "story" in captured
 
+    def test_report_contains_energy_balance_chart_data(
+        self,
+        monkeypatch,
+        tmp_path,
+    ):
+        captured = self._capture_story(monkeypatch)
+
+        balance_called = {}
+
+        def fake_energy_balance(
+            yearly_production_kwh,
+            yearly_consumption_kwh,
+            self_consumption_kwh,
+            grid_import_kwh,
+            grid_export_kwh,
+        ):
+            balance_called["yearly_production_kwh"] = (
+                yearly_production_kwh
+            )
+            balance_called["yearly_consumption_kwh"] = (
+                yearly_consumption_kwh
+            )
+            balance_called["self_consumption_kwh"] = (
+                self_consumption_kwh
+            )
+            balance_called["grid_import_kwh"] = (
+                grid_import_kwh
+            )
+            balance_called["grid_export_kwh"] = (
+                grid_export_kwh
+            )
+
+            return object()
+
+        monkeypatch.setattr(
+            SolarReportCharts,
+            "energy_balance",
+            fake_energy_balance,
+        )
+
+        output_path = (
+            tmp_path
+            / "solar_report.pdf"
+        )
+
+        generator = SolarReportGenerator()
+
+        generator.generate(
+            self._report_data(),
+            output_path,
+        )
+
+        assert balance_called == {
+            "yearly_production_kwh": 12500.0,
+            "yearly_consumption_kwh": 19541.72,
+            "self_consumption_kwh": 8500.0,
+            "grid_import_kwh": 11041.72,
+            "grid_export_kwh": 4000.0,
+        }
+
+        assert any(
+            item.__class__.__name__ == "object"
+            for item in captured["story"]
+        )
+
     def test_report_story_contains_expected_text(
         self,
         monkeypatch,

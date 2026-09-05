@@ -4,6 +4,8 @@ import pandas as pd
 
 from reportlab.graphics.shapes import Drawing
 
+from reportlab.graphics.charts.barcharts import VerticalBarChart
+
 from helios.reports.solar_report_charts import SolarReportCharts
 
 
@@ -161,4 +163,132 @@ class TestSolarReportCharts:
                 self_consumption_kwh=8500.0,
                 grid_import_kwh=11041.72,
                 grid_export_kwh=4000.0,
+            )
+
+    def test_economic_scenarios_returns_drawing(self):
+
+        scenarios = [
+            type(
+                "ScenarioResult",
+                (),
+                {
+                    "name": "Conservador",
+                    "annual_savings": 2000.0,
+                },
+            )(),
+            type(
+                "ScenarioResult",
+                (),
+                {
+                    "name": "Base",
+                    "annual_savings": 2338.0,
+                },
+            )(),
+            type(
+                "ScenarioResult",
+                (),
+                {
+                    "name": "Optimista",
+                    "annual_savings": 2700.0,
+                },
+            )(),
+        ]
+
+        drawing = SolarReportCharts.economic_scenarios(
+            scenarios
+        )
+
+        assert isinstance(
+            drawing,
+            Drawing,
+        )
+
+
+    def test_economic_scenarios_contains_expected_data(self):
+
+        scenarios = [
+            type(
+                "ScenarioResult",
+                (),
+                {
+                    "name": "Conservador",
+                    "annual_savings": 2000.0,
+                },
+            )(),
+            type(
+                "ScenarioResult",
+                (),
+                {
+                    "name": "Base",
+                    "annual_savings": 2338.0,
+                },
+            )(),
+            type(
+                "ScenarioResult",
+                (),
+                {
+                    "name": "Optimista",
+                    "annual_savings": 2700.0,
+                },
+            )(),
+        ]
+
+        drawing = SolarReportCharts.economic_scenarios(
+            scenarios
+        )
+
+        chart = next(
+            item
+            for item in drawing.contents
+            if isinstance(item, VerticalBarChart)
+        )
+
+        assert chart.data == [
+            [2000.0, 2338.0, 2700.0]
+        ]
+
+        assert chart.categoryAxis.categoryNames == [
+            "Conservador",
+            "Base",
+            "Optimista",
+        ]
+
+
+    def test_economic_scenarios_rejects_empty_data(self):
+
+        with pytest.raises(
+            ValueError,
+            match="economic scenario data is required",
+        ):
+            SolarReportCharts.economic_scenarios([])
+
+
+    def test_economic_scenarios_rejects_none(self):
+
+        with pytest.raises(
+            ValueError,
+            match="economic scenario data is required",
+        ):
+            SolarReportCharts.economic_scenarios(None)
+
+
+    def test_economic_scenarios_rejects_negative_savings(self):
+
+        scenarios = [
+            type(
+                "ScenarioResult",
+                (),
+                {
+                    "name": "Conservador",
+                    "annual_savings": -100.0,
+                },
+            )(),
+        ]
+
+        with pytest.raises(
+            ValueError,
+            match="annual savings cannot be negative",
+        ):
+            SolarReportCharts.economic_scenarios(
+                scenarios
             )
