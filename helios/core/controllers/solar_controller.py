@@ -147,6 +147,23 @@ class SolarController:
         return self.sizing_result.installed_power_kwp
 
     @property
+    def simulation_installed_power_kwp(self) -> float | None:
+        """
+        Potencia instalada utilizada por la simulación solar actual.
+
+        Esta propiedad es independiente del resultado de
+        dimensionamiento automático.
+        """
+
+        solar_engine = self.analyzer.solar_engine
+
+        return getattr(
+            solar_engine.manager,
+            "installed_power_kwp",
+            None,
+        )
+
+    @property
     def coverage(self) -> float | None:
 
         balance = (

@@ -1,4 +1,4 @@
-import os
+from dataclasses import replace
 
 import pandas as pd
 
@@ -21,6 +21,7 @@ class TestSolarReportGenerator:
             # Installation
             # ==================================================
 
+            calculation_mode="automatic",
             installed_power_kwp=8.1,
             panel_count=15,
             panel_power_wp=540.0,
@@ -125,6 +126,24 @@ class TestSolarReportGenerator:
                     },
                 ),
             ],
+        )
+
+    @staticmethod
+    def _manual_report_data():
+
+        return replace(
+            TestSolarReportGenerator._report_data(),
+            calculation_mode="manual",
+            panel_count=None,
+            panel_power_wp=None,
+            latitude=41.62000,
+            longitude=2.09000,
+            tilt=30,
+            azimuth=0,
+            reference_year=2023,
+            losses=14.0,
+            pv_technology="crystSi",
+            mounting_place="building",
         )
 
     @staticmethod
@@ -927,3 +946,276 @@ class TestSolarReportGenerator:
 
         for value in expected_values:
             assert value in text
+
+    # ==================================================
+    # Manual calculation mode
+    # ==================================================
+
+    def test_manual_report_creates_pdf(
+        self,
+        tmp_path,
+    ):
+
+        output_path = (
+            tmp_path
+            / "manual_solar_report.pdf"
+        )
+
+        generator = SolarReportGenerator()
+
+        generator.generate(
+            self._manual_report_data(),
+            output_path,
+        )
+
+        assert output_path.exists()
+        assert output_path.stat().st_size > 0
+
+        with open(output_path, "rb") as file:
+            assert file.read(4) == b"%PDF"
+
+    def test_manual_installation_table_contains_exact_values(
+        self,
+        monkeypatch,
+        tmp_path,
+    ):
+
+        captured = self._capture_story(monkeypatch)
+
+        generator = SolarReportGenerator()
+
+        generator.generate(
+            self._manual_report_data(),
+            tmp_path / "manual_report.pdf",
+        )
+
+        tables = self._get_tables(
+            captured["story"]
+        )
+
+        rows = self._table_rows(tables[0])
+
+        assert rows == [
+            ["Concepto", "Valor"],
+            [
+                "Potencia instalada",
+                "8.10 kWp",
+            ],
+            [
+                "Latitud",
+                "41.62000°",
+            ],
+            [
+                "Longitud",
+                "2.09000°",
+            ],
+            [
+                "Inclinación",
+                "30°",
+            ],
+            [
+                "Azimut",
+                "0°",
+            ],
+            [
+                "Año de referencia",
+                "2023",
+            ],
+            [
+                "Pérdidas del sistema",
+                "14.0 %",
+            ],
+            [
+                "Tecnología FV",
+                "crystSi",
+            ],
+            [
+                "Tipo de montaje",
+                "building",
+            ],
+        ]
+
+    def test_manual_installation_table_has_expected_row_count(
+        self,
+        monkeypatch,
+        tmp_path,
+    ):
+
+        captured = self._capture_story(monkeypatch)
+
+        generator = SolarReportGenerator()
+
+        generator.generate(
+            self._manual_report_data(),
+            tmp_path / "manual_report.pdf",
+        )
+
+        tables = self._get_tables(
+            captured["story"]
+        )
+
+        installation_table = tables[0]
+
+        assert len(
+            installation_table._cellvalues
+        ) == 10
+
+    def test_manual_installation_does_not_contain_panel_data(
+        self,
+        monkeypatch,
+        tmp_path,
+    ):
+
+        captured = self._capture_story(monkeypatch)
+
+        generator = SolarReportGenerator()
+
+        generator.generate(
+            self._manual_report_data(),
+            tmp_path / "manual_report.pdf",
+        )
+
+        installation_table = self._get_tables(
+            captured["story"]
+        )[0]
+
+        rows = self._table_rows(
+            installation_table
+        )
+
+        text = "\n".join(
+            cell
+            for row in rows
+            for cell in row
+        )
+
+        assert "Número de paneles" not in text
+        assert "Potencia por panel" not in text
+
+    def test_manual_report_contains_pvgis_configuration(
+        self,
+        monkeypatch,
+        tmp_path,
+    ):
+
+        captured = self._capture_story(monkeypatch)
+
+        generator = SolarReportGenerator()
+
+        generator.generate(
+            self._manual_report_data(),
+            tmp_path / "manual_report.pdf",
+        )
+
+        text = self._story_text(
+            captured["story"]
+        )
+
+        expected_values = [
+            "41.62000°",
+            "2.09000°",
+            "30°",
+            "0°",
+            "2023",
+            "14.0 %",
+            "crystSi",
+            "building",
+        ]
+
+        for value in expected_values:
+            assert value in text
+
+    def test_manual_report_keeps_common_sections(
+        self,
+        monkeypatch,
+        tmp_path,
+    ):
+
+        captured = self._capture_story(monkeypatch)
+
+        generator = SolarReportGenerator()
+
+        generator.generate(
+            self._manual_report_data(),
+            tmp_path / "manual_report.pdf",
+        )
+
+        paragraphs = self._get_paragraphs(
+            captured["story"]
+        )
+
+        paragraph_text = [
+            paragraph.text
+            for paragraph in paragraphs
+        ]
+
+        expected_sections = [
+            "Informe solar",
+            "Resumen de la instalación",
+            "Producción solar",
+            "Estadísticas solares",
+            "Consumo y balance energético",
+            "Rentabilidad económica",
+            "Escenarios económicos",
+        ]
+
+        assert paragraph_text == expected_sections
+
+    def test_manual_report_keeps_common_tables(
+        self,
+        monkeypatch,
+        tmp_path,
+    ):
+
+        captured = self._capture_story(monkeypatch)
+
+        generator = SolarReportGenerator()
+
+        generator.generate(
+            self._manual_report_data(),
+            tmp_path / "manual_report.pdf",
+        )
+
+        tables = self._get_tables(
+            captured["story"]
+        )
+
+        assert len(tables) == 6
+
+        assert [
+            len(table._cellvalues)
+            for table in tables
+        ] == [
+            10,
+            4,
+            6,
+            7,
+            6,
+            4,
+        ]
+
+    def test_invalid_calculation_mode_is_rejected(
+        self,
+        monkeypatch,
+        tmp_path,
+    ):
+
+        captured = self._capture_story(monkeypatch)
+
+        data = replace(
+            self._report_data(),
+            calculation_mode="invalid",
+        )
+
+        generator = SolarReportGenerator()
+
+        with pytest.raises(
+            ValueError,
+            match="unsupported calculation mode",
+        ):
+            generator.generate(
+                data,
+                tmp_path / "invalid_report.pdf",
+            )
+
+        assert "story" not in captured

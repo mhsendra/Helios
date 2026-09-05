@@ -23,6 +23,7 @@ class SolarReportGenerator:
         data: SolarReportData,
         output_path: str | Path,
     ) -> None:
+
         if data is None:
             raise ValueError("report data is required")
 
@@ -30,7 +31,10 @@ class SolarReportGenerator:
             raise ValueError("output path is required")
 
         output_path = Path(output_path)
-        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.parent.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
 
         styles = getSampleStyleSheet()
 
@@ -56,21 +60,71 @@ class SolarReportGenerator:
         # Instalación
         # ==================================================
 
-        installation_data = [
-            ["Concepto", "Valor"],
-            [
-                "Potencia instalada",
-                f"{data.installed_power_kwp:.2f} kWp",
-            ],
-            [
-                "Número de paneles",
-                str(data.panel_count),
-            ],
-            [
-                "Potencia por panel",
-                f"{data.panel_power_wp:.0f} Wp",
-            ],
-        ]
+        if data.calculation_mode == "automatic":
+
+            installation_data = [
+                ["Concepto", "Valor"],
+                [
+                    "Potencia instalada",
+                    f"{data.installed_power_kwp:.2f} kWp",
+                ],
+                [
+                    "Número de paneles",
+                    str(data.panel_count),
+                ],
+                [
+                    "Potencia por panel",
+                    f"{data.panel_power_wp:.0f} Wp",
+                ],
+            ]
+
+        elif data.calculation_mode == "manual":
+
+            installation_data = [
+                ["Concepto", "Valor"],
+                [
+                    "Potencia instalada",
+                    f"{data.installed_power_kwp:.2f} kWp",
+                ],
+                [
+                    "Latitud",
+                    f"{data.latitude:.5f}°",
+                ],
+                [
+                    "Longitud",
+                    f"{data.longitude:.5f}°",
+                ],
+                [
+                    "Inclinación",
+                    f"{data.tilt}°",
+                ],
+                [
+                    "Azimut",
+                    f"{data.azimuth}°",
+                ],
+                [
+                    "Año de referencia",
+                    str(data.reference_year),
+                ],
+                [
+                    "Pérdidas del sistema",
+                    f"{data.losses:.1f} %",
+                ],
+                [
+                    "Tecnología FV",
+                    str(data.pv_technology),
+                ],
+                [
+                    "Tipo de montaje",
+                    str(data.mounting_place),
+                ],
+            ]
+
+        else:
+
+            raise ValueError(
+                "unsupported calculation mode"
+            )
 
         installation_table = Table(
             installation_data,
@@ -547,7 +601,12 @@ class SolarReportGenerator:
             ],
             [
                 "Tasa interna de retorno (TIR)",
-                f"{data.internal_rate_of_return_percent:.2f} %",
+                (
+                    f"{data.internal_rate_of_return_percent:.2f} %"
+                    if data.internal_rate_of_return_percent
+                    is not None
+                    else "N/D"
+                ),
             ],
         ]
 
@@ -652,6 +711,7 @@ class SolarReportGenerator:
         ]
 
         for result in data.scenario_results:
+
             scenarios_data.append(
                 [
                     result.name,

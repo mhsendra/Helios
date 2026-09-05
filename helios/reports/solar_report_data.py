@@ -7,12 +7,16 @@ import pandas as pd
 class SolarReportData:
 
     # ==================================================
-    # Installation
+    # Calculation mode
+    # ==================================================
+
+    calculation_mode: str
+
+    # ==================================================
+    # Installation / simulation
     # ==================================================
 
     installed_power_kwp: float
-    panel_count: int
-    panel_power_wp: float
 
     # ==================================================
     # Solar production
@@ -51,10 +55,30 @@ class SolarReportData:
     yearly_savings_eur: float
     payback_years: float
     net_present_value_eur: float
-    internal_rate_of_return_percent: float
+    internal_rate_of_return_percent: float | None
 
     # ==================================================
     # Economic scenarios
     # ==================================================
 
     scenario_results: list
+
+    # ==================================================
+    # Automatic dimensioning
+    # ==================================================
+
+    panel_count: int | None = None
+    panel_power_wp: float | None = None
+
+    # ==================================================
+    # Manual simulation configuration
+    # ==================================================
+
+    latitude: float | None = None
+    longitude: float | None = None
+    tilt: int | None = None
+    azimuth: int | None = None
+    reference_year: int | None = None
+    losses: float | None = None
+    pv_technology: str | None = None
+    mounting_place: str | None = None

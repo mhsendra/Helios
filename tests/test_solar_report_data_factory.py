@@ -6,16 +6,39 @@ from helios.reports.solar_report_data import SolarReportData
 from helios.reports.solar_report_data_factory import (
     SolarReportDataFactory,
 )
+from helios.solar.configuration import SolarConfiguration
 
 
 class TestSolarReportDataFactory:
 
     @staticmethod
+    def _solar_configuration():
+
+        return SolarConfiguration(
+            latitude=41.62,
+            longitude=2.09,
+            tilt=30,
+            azimuth=0,
+            reference_year=2023,
+            losses=14,
+            pv_technology="crystSi",
+            mounting_place="building",
+        )
+
+    @staticmethod
     def _solar_controller():
 
-        solar = type("SolarController", (), {})()
+        solar = type(
+            "SolarController",
+            (),
+            {},
+        )()
 
-        sizing_result = type("SizingResult", (), {})()
+        sizing_result = type(
+            "SizingResult",
+            (),
+            {},
+        )()
 
         sizing_result.installed_power_kwp = 8.1
         sizing_result.panel_count = 15
@@ -23,16 +46,36 @@ class TestSolarReportDataFactory:
         sizing_result.annual_consumption_kwh = 19541.72
         sizing_result.self_sufficiency_percent = 64.0
 
-        evaluation = type("Evaluation", (), {})()
-        candidate = type("Candidate", (), {})()
+        evaluation = type(
+            "Evaluation",
+            (),
+            {},
+        )()
+
+        candidate = type(
+            "Candidate",
+            (),
+            {},
+        )()
 
         candidate.panel_power_wp = 540.0
+
         evaluation.candidate = candidate
+
         sizing_result.evaluation = evaluation
 
         solar.sizing_result = sizing_result
 
+        solar.configuration = (
+            TestSolarReportDataFactory
+            ._solar_configuration()
+        )
+
+        solar.simulation_installed_power_kwp = 8.1
+
         solar.specific_production = 1543.21
+        solar.annual_production = 12500.0
+
         solar.self_consumption = 8500.0
         solar.grid_export = 4000.0
         solar.grid_import = 11041.72
@@ -66,6 +109,68 @@ class TestSolarReportDataFactory:
             "monthly_average": 1041.67,
             "maximum_power": 7.85,
             "capacity_factor": 17.62,
+            "consumption": 19541.72,
+            "self_sufficiency": 64.0,
+        }
+
+        return solar
+
+    @staticmethod
+    def _manual_solar_controller():
+
+        solar = type(
+            "SolarController",
+            (),
+            {},
+        )()
+
+        solar.sizing_result = None
+
+        solar.configuration = (
+            TestSolarReportDataFactory
+            ._solar_configuration()
+        )
+
+        solar.simulation_installed_power_kwp = 8.1
+
+        solar.specific_production = 1543.21
+        solar.annual_production = 12500.0
+
+        solar.self_consumption = 8500.0
+        solar.grid_export = 4000.0
+        solar.grid_import = 11041.72
+        solar.coverage = 43.5
+
+        solar.monthly_production = pd.Series(
+            [
+                850,
+                1020,
+                1250,
+                1480,
+                1650,
+                1720,
+                1800,
+                1760,
+                1510,
+                1180,
+                920,
+                780,
+            ],
+            index=pd.date_range(
+                "2025-01-31",
+                periods=12,
+                freq="ME",
+            ),
+        )
+
+        solar.statistics = {
+            "productive_hours": 4380,
+            "daily_average": 34.25,
+            "monthly_average": 1041.67,
+            "maximum_power": 7.85,
+            "capacity_factor": 17.62,
+            "consumption": 19541.72,
+            "self_sufficiency": 64.0,
         }
 
         return solar
@@ -127,21 +232,33 @@ class TestSolarReportDataFactory:
             )(),
         ]
 
-        analyzer = type("Analyzer", (), {})()
-        analyzer.economics_engine = economics_engine
+        analyzer = type(
+            "Analyzer",
+            (),
+            {},
+        )()
 
-        economics_controller.analyzer = analyzer
+        analyzer.economics_engine = (
+            economics_engine
+        )
+
+        economics_controller.analyzer = (
+            analyzer
+        )
 
         return economics_controller
 
-    def test_create_returns_solar_report_data(self):
+    # ==================================================
+    # Automatic mode
+    # ==================================================
 
-        solar_controller = self._solar_controller()
-        economics_controller = self._economics_controller()
+    def test_create_returns_solar_report_data(
+        self,
+    ):
 
         result = SolarReportDataFactory.create(
-            solar_controller,
-            economics_controller,
+            self._solar_controller(),
+            self._economics_controller(),
         )
 
         assert isinstance(
@@ -149,7 +266,20 @@ class TestSolarReportDataFactory:
             SolarReportData,
         )
 
-    def test_create_contains_installation_values(self):
+    def test_create_detects_automatic_mode(
+        self,
+    ):
+
+        result = SolarReportDataFactory.create(
+            self._solar_controller(),
+            self._economics_controller(),
+        )
+
+        assert result.calculation_mode == "automatic"
+
+    def test_create_contains_installation_values(
+        self,
+    ):
 
         result = SolarReportDataFactory.create(
             self._solar_controller(),
@@ -160,7 +290,9 @@ class TestSolarReportDataFactory:
         assert result.panel_count == 15
         assert result.panel_power_wp == 540.0
 
-    def test_create_contains_production_values(self):
+    def test_create_contains_production_values(
+        self,
+    ):
 
         result = SolarReportDataFactory.create(
             self._solar_controller(),
@@ -168,14 +300,20 @@ class TestSolarReportDataFactory:
         )
 
         assert result.yearly_production_kwh == 12500.0
-        assert result.specific_production_kwh_kwp == 1543.21
+        assert (
+            result.specific_production_kwh_kwp
+            == 1543.21
+        )
 
         pd.testing.assert_series_equal(
             result.monthly_production,
-            self._solar_controller().monthly_production,
+            self._solar_controller()
+            .monthly_production,
         )
 
-    def test_create_uses_solar_statistics_results(self):
+    def test_create_uses_solar_statistics_results(
+        self,
+    ):
 
         result = SolarReportDataFactory.create(
             self._solar_controller(),
@@ -188,7 +326,9 @@ class TestSolarReportDataFactory:
         assert result.maximum_power_kw == 7.85
         assert result.capacity_factor_percent == 17.62
 
-    def test_create_contains_energy_balance_values(self):
+    def test_create_contains_energy_balance_values(
+        self,
+    ):
 
         result = SolarReportDataFactory.create(
             self._solar_controller(),
@@ -199,10 +339,130 @@ class TestSolarReportDataFactory:
         assert result.self_consumption_kwh == 8500.0
         assert result.grid_export_kwh == 4000.0
         assert result.grid_import_kwh == 11041.72
-        assert result.self_consumption_rate_percent == 43.5
-        assert result.self_sufficiency_rate_percent == 64.0
+        assert (
+            result.self_consumption_rate_percent
+            == 43.5
+        )
+        assert (
+            result.self_sufficiency_rate_percent
+            == 64.0
+        )
 
-    def test_create_contains_economics_values(self):
+    # ==================================================
+    # Manual mode
+    # ==================================================
+
+    def test_create_supports_manual_mode(
+        self,
+    ):
+
+        result = SolarReportDataFactory.create(
+            self._manual_solar_controller(),
+            self._economics_controller(),
+        )
+
+        assert isinstance(
+            result,
+            SolarReportData,
+        )
+
+        assert result.calculation_mode == "manual"
+
+    def test_manual_mode_does_not_require_sizing_result(
+        self,
+    ):
+
+        solar_controller = (
+            self._manual_solar_controller()
+        )
+
+        assert solar_controller.sizing_result is None
+
+        result = SolarReportDataFactory.create(
+            solar_controller,
+            self._economics_controller(),
+        )
+
+        assert result.calculation_mode == "manual"
+
+    def test_manual_mode_uses_simulation_power(
+        self,
+    ):
+
+        result = SolarReportDataFactory.create(
+            self._manual_solar_controller(),
+            self._economics_controller(),
+        )
+
+        assert result.installed_power_kwp == 8.1
+
+    def test_manual_mode_has_no_panel_sizing_data(
+        self,
+    ):
+
+        result = SolarReportDataFactory.create(
+            self._manual_solar_controller(),
+            self._economics_controller(),
+        )
+
+        assert result.panel_count is None
+        assert result.panel_power_wp is None
+
+    def test_manual_mode_uses_simulation_production(
+        self,
+    ):
+
+        result = SolarReportDataFactory.create(
+            self._manual_solar_controller(),
+            self._economics_controller(),
+        )
+
+        assert result.yearly_production_kwh == 12500.0
+        assert (
+            result.specific_production_kwh_kwp
+            == 1543.21
+        )
+
+    def test_manual_mode_uses_statistics_for_consumption(
+        self,
+    ):
+
+        result = SolarReportDataFactory.create(
+            self._manual_solar_controller(),
+            self._economics_controller(),
+        )
+
+        assert result.yearly_consumption_kwh == 19541.72
+        assert (
+            result.self_sufficiency_rate_percent
+            == 64.0
+        )
+
+    def test_manual_mode_preserves_configuration(
+        self,
+    ):
+
+        result = SolarReportDataFactory.create(
+            self._manual_solar_controller(),
+            self._economics_controller(),
+        )
+
+        assert result.latitude == 41.62
+        assert result.longitude == 2.09
+        assert result.tilt == 30
+        assert result.azimuth == 0
+        assert result.reference_year == 2023
+        assert result.losses == 14
+        assert result.pv_technology == "crystSi"
+        assert result.mounting_place == "building"
+
+    # ==================================================
+    # Economics
+    # ==================================================
+
+    def test_create_contains_economics_values(
+        self,
+    ):
 
         result = SolarReportDataFactory.create(
             self._solar_controller(),
@@ -218,7 +478,9 @@ class TestSolarReportDataFactory:
             == 18.8
         )
 
-    def test_create_contains_economic_scenarios(self):
+    def test_create_contains_economic_scenarios(
+        self,
+    ):
 
         result = SolarReportDataFactory.create(
             self._solar_controller(),
@@ -236,7 +498,9 @@ class TestSolarReportDataFactory:
             "Optimista",
         ]
 
-    def test_create_preserves_economic_scenario_results(self):
+    def test_create_preserves_economic_scenario_results(
+        self,
+    ):
 
         economics_controller = (
             self._economics_controller()
@@ -298,6 +562,10 @@ class TestSolarReportDataFactory:
             ),
         ]
 
+    # ==================================================
+    # Validation
+    # ==================================================
+
     def test_create_requires_economic_scenario_results(
         self,
     ):
@@ -306,7 +574,12 @@ class TestSolarReportDataFactory:
             self._economics_controller()
         )
 
-        economics_controller.analyzer.economics_engine.scenario_results = []
+        (
+            economics_controller
+            .analyzer
+            .economics_engine
+            .scenario_results
+        ) = []
 
         with pytest.raises(
             ValueError,
@@ -317,10 +590,17 @@ class TestSolarReportDataFactory:
                 economics_controller,
             )
 
-    def test_factory_does_not_calculate_solar(self):
+    def test_factory_does_not_calculate_solar(
+        self,
+    ):
 
-        solar_controller = self._solar_controller()
-        economics_controller = self._economics_controller()
+        solar_controller = (
+            self._solar_controller()
+        )
+
+        economics_controller = (
+            self._economics_controller()
+        )
 
         solar_controller.calculate = pytest.fail
 
@@ -329,10 +609,17 @@ class TestSolarReportDataFactory:
             economics_controller,
         )
 
-    def test_factory_does_not_calculate_economics(self):
+    def test_factory_does_not_calculate_economics(
+        self,
+    ):
 
-        solar_controller = self._solar_controller()
-        economics_controller = self._economics_controller()
+        solar_controller = (
+            self._solar_controller()
+        )
+
+        economics_controller = (
+            self._economics_controller()
+        )
 
         economics_controller.calculate = pytest.fail
 
@@ -341,7 +628,9 @@ class TestSolarReportDataFactory:
             economics_controller,
         )
 
-    def test_create_requires_solar_controller(self):
+    def test_create_requires_solar_controller(
+        self,
+    ):
 
         with pytest.raises(
             ValueError,
@@ -352,7 +641,9 @@ class TestSolarReportDataFactory:
                 self._economics_controller(),
             )
 
-    def test_create_requires_economics_controller(self):
+    def test_create_requires_economics_controller(
+        self,
+    ):
 
         with pytest.raises(
             ValueError,
@@ -363,28 +654,78 @@ class TestSolarReportDataFactory:
                 None,
             )
 
-    def test_create_requires_sizing_result(self):
+    def test_create_requires_solar_statistics(
+        self,
+    ):
 
-        solar_controller = self._solar_controller()
-        solar_controller.sizing_result = None
+        solar_controller = (
+            self._solar_controller()
+        )
+
+        solar_controller.statistics = None
 
         with pytest.raises(
             ValueError,
-            match="solar installation sizing is required",
+            match="solar statistics are required",
         ):
             SolarReportDataFactory.create(
                 solar_controller,
                 self._economics_controller(),
             )
 
-    def test_create_requires_solar_statistics(self):
+    def test_manual_mode_requires_configuration(
+        self,
+    ):
 
-        solar_controller = self._solar_controller()
-        solar_controller.statistics = None
+        solar_controller = (
+            self._manual_solar_controller()
+        )
+
+        solar_controller.configuration = None
 
         with pytest.raises(
             ValueError,
-            match="solar statistics are required",
+            match="solar configuration is required",
+        ):
+            SolarReportDataFactory.create(
+                solar_controller,
+                self._economics_controller(),
+            )
+
+    def test_manual_mode_requires_simulation_power(
+        self,
+    ):
+
+        solar_controller = (
+            self._manual_solar_controller()
+        )
+
+        solar_controller.simulation_installed_power_kwp = (
+            None
+        )
+
+        with pytest.raises(
+            ValueError,
+            match="simulation installed power is required",
+        ):
+            SolarReportDataFactory.create(
+                solar_controller,
+                self._economics_controller(),
+            )
+
+    def test_manual_mode_requires_annual_production(
+        self,
+    ):
+
+        solar_controller = (
+            self._manual_solar_controller()
+        )
+
+        solar_controller.annual_production = None
+
+        with pytest.raises(
+            ValueError,
+            match="solar annual production is required",
         ):
             SolarReportDataFactory.create(
                 solar_controller,
