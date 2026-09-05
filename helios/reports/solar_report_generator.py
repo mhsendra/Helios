@@ -2,6 +2,7 @@ from pathlib import Path
 
 from helios.reports.solar_report_charts import SolarReportCharts
 from helios.reports.solar_report_data import SolarReportData
+from helios.reports.solar_report_text import SolarReportText
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
@@ -47,6 +48,16 @@ class SolarReportGenerator:
             Paragraph(
                 "Informe solar",
                 styles["Title"],
+            ),
+            Spacer(1, 20),
+            Paragraph(
+                "Resumen ejecutivo",
+                styles["Heading2"],
+            ),
+            Spacer(1, 10),
+            Paragraph(
+                SolarReportText.executive_summary(data),
+                styles["BodyText"],
             ),
             Spacer(1, 20),
             Paragraph(
@@ -334,6 +345,20 @@ class SolarReportGenerator:
             )
         )
 
+        story.append(
+            Spacer(
+                1,
+                15,
+            )
+        )
+
+        story.append(
+            Paragraph(
+                SolarReportText.production_analysis(data),
+                styles["BodyText"],
+            )
+        )
+
         # ==================================================
         # Estadísticas solares
         # ==================================================
@@ -583,6 +608,20 @@ class SolarReportGenerator:
             )
         )
 
+        story.append(
+            Spacer(
+                1,
+                15,
+            )
+        )
+
+        story.append(
+            Paragraph(
+                SolarReportText.energy_balance_analysis(data),
+                styles["BodyText"],
+            )
+        )
+
         # ==================================================
         # Rentabilidad económica
         # ==================================================
@@ -721,6 +760,20 @@ class SolarReportGenerator:
         )
 
         story.append(economics_table)
+
+        story.append(
+            Spacer(
+                1,
+                15,
+            )
+        )
+
+        story.append(
+            Paragraph(
+                SolarReportText.economic_analysis(data),
+                styles["BodyText"],
+            )
+        )
 
         # ==================================================
         # Hipótesis económicas
@@ -992,6 +1045,48 @@ class SolarReportGenerator:
         story.append(
             SolarReportCharts.economic_scenarios(
                 data.scenario_results,
+            )
+        )
+
+        story.append(
+            Spacer(
+                1,
+                15,
+            )
+        )
+
+        story.append(
+            Paragraph(
+                SolarReportText.scenario_analysis(data),
+                styles["BodyText"],
+            )
+        )
+
+        story.append(
+            Spacer(
+                1,
+                25,
+            )
+        )
+
+        story.append(
+            Paragraph(
+                "Conclusión",
+                styles["Heading2"],
+            )
+        )
+
+        story.append(
+            Spacer(
+                1,
+                10,
+            )
+        )
+
+        story.append(
+            Paragraph(
+                SolarReportText.conclusion(data),
+                styles["BodyText"],
             )
         )
 

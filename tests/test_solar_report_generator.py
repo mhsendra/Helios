@@ -1309,13 +1309,21 @@ class TestSolarReportGenerator:
 
         expected_sections = [
             "Informe solar",
+            "Resumen ejecutivo",
+            "La instalación fotovoltaica analizada tiene una potencia instalada de 8.10 kWp y una producción solar estimada de 12,500 kWh anuales. Esta producción permite cubrir directamente 64.0 % del consumo eléctrico anual mediante energía solar. El ahorro económico estimado alcanza 2,338.00 € al año, con una inversión de 12,490.00 € y un periodo de retorno de 5.34 años.",
             "Resumen de la instalación",
             "Producción solar",
+            "La instalación genera aproximadamente 12,500 kWh al año, equivalentes a 1,543 kWh/kWp de producción específica. Se registran aproximadamente 4,380 horas productivas al año y una producción media de 1,042 kWh mensuales. El factor de capacidad refleja un nivel de aprovechamiento razonable de la potencia instalada para una instalación fotovoltaica.",
             "Estadísticas solares",
             "Consumo y balance energético",
+            "El consumo eléctrico anual asciende a 19,542 kWh. De la producción fotovoltaica, 8,500 kWh se consumen directamente en la instalación, mientras que 4,000 kWh se vierten a la red. La energía importada de la red asciende a 11,042 kWh. La tasa de autoconsumo es del 43.5 % y la autosuficiencia alcanza el 64.0 %. La tasa de autoconsumo muestra un aprovechamiento moderado de la energía generada directamente en la instalación.",
             "Rentabilidad económica",
+            "La inversión neta asciende a 12,490.00 € y genera un ahorro anual estimado de 2,338.00 €. El periodo de retorno de la inversión es de 5.34 años. El valor actual neto alcanza 22,071.16 €. La tasa interna de retorno estimada es del 18.80 %. El valor actual neto es positivo, lo que indica que la inversión genera valor por encima de la tasa de descuento considerada.",
             "Hipótesis económicas",
             "Escenarios económicos",
+            "El análisis de escenarios muestra una variación de la rentabilidad en función de las hipótesis económicas. El escenario con mayor valor actual neto es «Optimista», con un VAN de 28,000.00 €, mientras que el escenario con menor valor actual neto es «Conservador», con 18,000.00 €. Esta comparación permite valorar la sensibilidad de la inversión ante diferentes condiciones económicas.",
+                    "Conclusión",
+        "La instalación fotovoltaica analizada presenta una producción anual estimada de 12,500 kWh y permite cubrir el 64.0 % del consumo eléctrico anual mediante generación solar. El ahorro anual estimado es de 2,338.00 €, con un periodo de retorno de 5.34 años. Desde el punto de vista económico, los resultados indican una inversión favorable bajo las hipótesis consideradas.",
         ]
 
         assert paragraph_text == expected_sections
