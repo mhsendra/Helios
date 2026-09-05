@@ -251,6 +251,8 @@ class EconomicsEngine:
             -self.net_investment
         ]
 
+        first_year_annual_savings = None
+
         for year in range(1, years + 1):
 
             degradation_factor = (
@@ -296,6 +298,19 @@ class EconomicsEngine:
                 * degradation_factor
                 * export_price_factor
             )
+
+            # Ahorro bruto del primer año del escenario.
+            #
+            # No incluye mantenimiento, ya que este valor
+            # representa el ahorro energético/económico bruto.
+            # Los costes de mantenimiento sí se incorporan
+            # al flujo de caja utilizado para payback, VAN y TIR.
+            if year == 1:
+
+                first_year_annual_savings = (
+                    self_consumption_savings
+                    + export_income
+                )
 
             maintenance_cost = (
                 self.calculate_maintenance_cost(
@@ -401,8 +416,7 @@ class EconomicsEngine:
         return EconomicScenarioResult(
             name=scenario.name,
             annual_savings=(
-                self.self_consumption_savings
-                + self.export_income
+                first_year_annual_savings
             ),
             payback_years=payback_years,
             npv=float(npv),
