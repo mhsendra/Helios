@@ -5,9 +5,18 @@ from helios.reports.solar_report_data import SolarReportData
 from helios.reports.solar_report_text import SolarReportText
 
 from reportlab.lib import colors
+from reportlab.pdfgen import canvas
+from reportlab.lib.enums import TA_CENTER
 from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.styles import (
+    ParagraphStyle,
+    getSampleStyleSheet,
+)
+from reportlab.lib.units import mm
 from reportlab.platypus import (
+    HRFlowable,
+    KeepTogether,
+    PageBreak,
     Paragraph,
     SimpleDocTemplate,
     Spacer,
@@ -15,9 +24,207 @@ from reportlab.platypus import (
     TableStyle,
 )
 
+class NumberedCanvas(canvas.Canvas):
+    """Canvas de ReportLab que permite mostrar 'Página X de Y'."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._saved_page_states = []
+
+    def showPage(self):
+        """Guarda el estado de la página actual."""
+
+        self._saved_page_states.append(
+            self.__dict__.copy()
+        )
+
+        self._startPage()
+
+    def save(self):
+        """Genera las páginas definitivas con encabezado y pie."""
+
+        total_pages = len(self._saved_page_states)
+
+        for page_state in self._saved_page_states:
+
+            self.__dict__.update(page_state)
+
+            self._draw_header_footer(
+                total_pages
+            )
+
+            canvas.Canvas.showPage(self)
+
+        canvas.Canvas.save(self)
+
+    def _draw_header_footer(self, total_pages: int):
+        """Dibuja encabezado y pie de página."""
+
+        page_number = self._pageNumber
+
+        if page_number == 1:
+            return
+
+        width, height = A4
+
+        self.saveState()
+
+        # Encabezado
+        self.setFont(
+            "Helvetica-Bold",
+            8,
+        )
+
+        self.setFillColor(
+            colors.HexColor("#1f4e78")
+        )
+
+        self.drawString(
+            18 * mm,
+            height - 11 * mm,
+            "HELIOS — Solar Performance Report",
+        )
+
+        self.setStrokeColor(
+            colors.HexColor("#d0d7de")
+        )
+
+        self.setLineWidth(0.5)
+
+        self.line(
+            18 * mm,
+            height - 14 * mm,
+            width - 18 * mm,
+            height - 14 * mm,
+        )
+
+        # Pie
+        self.setFont(
+            "Helvetica",
+            7.5,
+        )
+
+        self.setFillColor(
+            colors.HexColor("#666666")
+        )
+
+        self.drawString(
+            18 * mm,
+            9 * mm,
+            "HELIOS Energy Analytics",
+        )
+
+        self.drawRightString(
+            width - 18 * mm,
+            9 * mm,
+            f"Página {page_number} de {total_pages}",
+        )
+
+        self.restoreState()
 
 class SolarReportGenerator:
     """Genera informes PDF a partir de datos solares previamente calculados."""
+
+    @staticmethod
+    def _style_table(
+        table: Table,
+        header_color: str,
+        header_rows: int = 1,
+    ) -> None:
+        """Aplica el estilo visual común a las tablas del informe."""
+
+        table.setStyle(
+            TableStyle(
+                [
+                    (
+                        "BACKGROUND",
+                        (0, 0),
+                        (-1, header_rows - 1),
+                        colors.HexColor(header_color),
+                    ),
+                    (
+                        "TEXTCOLOR",
+                        (0, 0),
+                        (-1, header_rows - 1),
+                        colors.white,
+                    ),
+                    (
+                        "FONTNAME",
+                        (0, 0),
+                        (-1, header_rows - 1),
+                        "Helvetica-Bold",
+                    ),
+                    (
+                        "GRID",
+                        (0, 0),
+                        (-1, -1),
+                        0.5,
+                        colors.HexColor("#d0d7de"),
+                    ),
+                    (
+                        "BACKGROUND",
+                        (0, header_rows),
+                        (-1, -1),
+                        colors.HexColor("#f8f9fa"),
+                    ),
+                    (
+                        "VALIGN",
+                        (0, 0),
+                        (-1, -1),
+                        "MIDDLE",
+                    ),
+                    (
+                        "LEFTPADDING",
+                        (0, 0),
+                        (-1, -1),
+                        8,
+                    ),
+                    (
+                        "RIGHTPADDING",
+                        (0, 0),
+                        (-1, -1),
+                        8,
+                    ),
+                    (
+                        "TOPPADDING",
+                        (0, 0),
+                        (-1, -1),
+                        7,
+                    ),
+                    (
+                        "BOTTOMPADDING",
+                        (0, 0),
+                        (-1, -1),
+                        7,
+                    ),
+                ]
+            )
+        )
+
+    @staticmethod
+    def _section_header(
+        title: str,
+        styles,
+        color: str = "#1f4e78",
+    ) -> KeepTogether:
+        """Crea un encabezado de sección con separador visual."""
+
+        return KeepTogether(
+            [
+                Spacer(1, 6 * mm),
+                Paragraph(
+                    title,
+                    styles["HeliosSectionTitle"],
+                ),
+                HRFlowable(
+                    width="100%",
+                    thickness=1,
+                    color=colors.HexColor(color),
+                    spaceBefore=1,
+                    spaceAfter=7,
+                ),
+            ]
+        )
 
     def generate(
         self,
@@ -39,33 +246,255 @@ class SolarReportGenerator:
 
         styles = getSampleStyleSheet()
 
+        styles.add(
+            ParagraphStyle(
+                name="HeliosCoverTitle",
+                parent=styles["Title"],
+                fontName="Helvetica-Bold",
+                fontSize=28,
+                leading=32,
+                alignment=TA_CENTER,
+                textColor=colors.HexColor("#1f4e78"),
+            )
+        )
+
+        styles.add(
+            ParagraphStyle(
+                name="HeliosCoverSubtitle",
+                parent=styles["Normal"],
+                fontName="Helvetica",
+                fontSize=14,
+                leading=18,
+                alignment=TA_CENTER,
+                textColor=colors.HexColor("#666666"),
+            )
+        )
+
+        styles.add(
+            ParagraphStyle(
+                name="HeliosKpiLabel",
+                parent=styles["Normal"],
+                fontName="Helvetica",
+                fontSize=8,
+                leading=10,
+                alignment=TA_CENTER,
+                textColor=colors.HexColor("#666666"),
+            )
+        )
+
+        styles.add(
+            ParagraphStyle(
+                name="HeliosKpiValue",
+                parent=styles["Normal"],
+                fontName="Helvetica-Bold",
+                fontSize=15,
+                leading=18,
+                alignment=TA_CENTER,
+                textColor=colors.HexColor("#1f4e78"),
+            )
+        )
+
+        styles.add(
+            ParagraphStyle(
+                name="HeliosSectionTitle",
+                parent=styles["Heading2"],
+                fontName="Helvetica-Bold",
+                fontSize=17,
+                leading=21,
+                spaceBefore=8,
+                spaceAfter=5,
+                textColor=colors.HexColor("#1f4e78"),
+            )
+        )
+
         document = SimpleDocTemplate(
             str(output_path),
             pagesize=A4,
+            rightMargin=18 * mm,
+            leftMargin=18 * mm,
+            topMargin=18 * mm,
+            bottomMargin=18 * mm,
         )
 
         story = [
+
+            Spacer(1, 45 * mm),
+
             Paragraph(
-                "Informe solar",
-                styles["Title"],
+                "HELIOS",
+                styles["HeliosCoverTitle"],
             ),
-            Spacer(1, 20),
+
+            Spacer(1, 7 * mm),
+
             Paragraph(
-                "Resumen ejecutivo",
-                styles["Heading2"],
+                "Informe de rendimiento solar",
+                styles["HeliosCoverSubtitle"],
             ),
-            Spacer(1, 10),
+
+            Spacer(1, 12 * mm),
+
+            HRFlowable(
+                width="55%",
+                thickness=1.2,
+                color=colors.HexColor("#1f4e78"),
+                hAlign="CENTER",
+            ),
+
+            Spacer(1, 10 * mm),
+
             Paragraph(
-                SolarReportText.executive_summary(data),
-                styles["BodyText"],
+                f"Instalación fotovoltaica — "
+                f"{data.installed_power_kwp:.2f} kWp",
+                styles["HeliosCoverSubtitle"],
             ),
-            Spacer(1, 20),
-            Paragraph(
-                "Resumen de la instalación",
-                styles["Heading2"],
-            ),
-            Spacer(1, 10),
+
+            Spacer(1, 45 * mm),
         ]
+
+        kpi_data = [
+            [
+                Paragraph(
+                    "Producción anual",
+                    styles["HeliosKpiLabel"],
+                ),
+                Paragraph(
+                    "Potencia instalada",
+                    styles["HeliosKpiLabel"],
+                ),
+                Paragraph(
+                    "Ahorro anual",
+                    styles["HeliosKpiLabel"],
+                ),
+            ],
+            [
+                Paragraph(
+                    f"{data.yearly_production_kwh:,.0f} kWh",
+                    styles["HeliosKpiValue"],
+                ),
+                Paragraph(
+                    f"{data.installed_power_kwp:.2f} kWp",
+                    styles["HeliosKpiValue"],
+                ),
+                Paragraph(
+                    f"{data.yearly_savings_eur:,.0f} €",
+                    styles["HeliosKpiValue"],
+                ),
+            ],
+            [
+                Paragraph(
+                    "Periodo de retorno",
+                    styles["HeliosKpiLabel"],
+                ),
+                Paragraph(
+                    "VAN",
+                    styles["HeliosKpiLabel"],
+                ),
+                Paragraph(
+                    "TIR",
+                    styles["HeliosKpiLabel"],
+                ),
+            ],
+            [
+                Paragraph(
+                    f"{data.payback_years:.2f} años",
+                    styles["HeliosKpiValue"],
+                ),
+                Paragraph(
+                    f"{data.net_present_value_eur:,.0f} €",
+                    styles["HeliosKpiValue"],
+                ),
+                Paragraph(
+                    (
+                        f"{data.internal_rate_of_return_percent:.2f} %"
+                        if data.internal_rate_of_return_percent is not None
+                        else "N/D"
+                    ),
+                    styles["HeliosKpiValue"],
+                ),
+            ],
+        ]
+
+        kpi_table = Table(
+            kpi_data,
+            colWidths=[
+                56 * mm,
+                56 * mm,
+                56 * mm,
+            ],
+        )
+
+        kpi_table.setStyle(
+            TableStyle(
+                [
+                    (
+                        "BACKGROUND",
+                        (0, 0),
+                        (-1, -1),
+                        colors.HexColor("#f4f6f8"),
+                    ),
+                    (
+                        "BOX",
+                        (0, 0),
+                        (-1, -1),
+                        0.6,
+                        colors.HexColor("#d0d7de"),
+                    ),
+                    (
+                        "INNERGRID",
+                        (0, 0),
+                        (-1, -1),
+                        0.4,
+                        colors.HexColor("#d0d7de"),
+                    ),
+                    (
+                        "VALIGN",
+                        (0, 0),
+                        (-1, -1),
+                        "MIDDLE",
+                    ),
+                    (
+                        "TOPPADDING",
+                        (0, 0),
+                        (-1, -1),
+                        5,
+                    ),
+                    (
+                        "BOTTOMPADDING",
+                        (0, 0),
+                        (-1, -1),
+                        5,
+                    ),
+                ]
+            )
+        )
+
+        story.extend(
+            [
+                kpi_table,
+
+                PageBreak(),
+
+                self._section_header(
+                    "Resumen ejecutivo",
+                    styles,
+                ),
+
+                Paragraph(
+                    SolarReportText.executive_summary(data),
+                    styles["BodyText"],
+                ),
+
+                Spacer(1, 12),
+
+                self._section_header(
+                    "Resumen de la instalación",
+                    styles,
+                ),
+
+                Spacer(1, 4),
+            ]
+        )
 
         # ==================================================
         # Instalación
@@ -86,6 +515,14 @@ class SolarReportGenerator:
                 [
                     "Potencia por panel",
                     f"{data.panel_power_wp:.0f} Wp",
+                ],
+                [
+                    "Tecnología fotovoltaica",
+                    "Silicio cristalino",
+                ],
+                [
+                    "Tipo de montaje",
+                    "Coplanar a cubierta",
                 ],
             ]
 
@@ -122,12 +559,12 @@ class SolarReportGenerator:
                     f"{data.losses:.1f} %",
                 ],
                 [
-                    "Tecnología FV",
-                    str(data.pv_technology),
+                    "Tecnología fotovoltaica",
+                    "Silicio cristalino",
                 ],
                 [
                     "Tipo de montaje",
-                    str(data.mounting_place),
+                    "Coplanar a cubierta",
                 ],
             ]
 
@@ -142,75 +579,18 @@ class SolarReportGenerator:
             colWidths=[260, 180],
         )
 
-        installation_table.setStyle(
-            TableStyle(
-                [
-                    (
-                        "BACKGROUND",
-                        (0, 0),
-                        (-1, 0),
-                        colors.HexColor("#1f4e78"),
-                    ),
-                    (
-                        "TEXTCOLOR",
-                        (0, 0),
-                        (-1, 0),
-                        colors.white,
-                    ),
-                    (
-                        "FONTNAME",
-                        (0, 0),
-                        (-1, 0),
-                        "Helvetica-Bold",
-                    ),
-                    (
-                        "GRID",
-                        (0, 0),
-                        (-1, -1),
-                        0.5,
-                        colors.grey,
-                    ),
-                    (
-                        "BACKGROUND",
-                        (0, 1),
-                        (-1, -1),
-                        colors.whitesmoke,
-                    ),
-                    (
-                        "VALIGN",
-                        (0, 0),
-                        (-1, -1),
-                        "MIDDLE",
-                    ),
-                    (
-                        "LEFTPADDING",
-                        (0, 0),
-                        (-1, -1),
-                        8,
-                    ),
-                    (
-                        "RIGHTPADDING",
-                        (0, 0),
-                        (-1, -1),
-                        8,
-                    ),
-                    (
-                        "TOPPADDING",
-                        (0, 0),
-                        (-1, -1),
-                        6,
-                    ),
-                    (
-                        "BOTTOMPADDING",
-                        (0, 0),
-                        (-1, -1),
-                        6,
-                    ),
-                ]
-            )
+        self._style_table(
+            installation_table,
+            "#1f4e78",
         )
 
         story.append(installation_table)
+
+        # ==================================================
+        # Nueva página: detalle técnico
+        # ==================================================
+
+        story.append(PageBreak())
 
         # ==================================================
         # Producción solar
@@ -219,9 +599,10 @@ class SolarReportGenerator:
         story.extend(
             [
                 Spacer(1, 25),
-                Paragraph(
+                self._section_header(
                     "Producción solar",
-                    styles["Heading2"],
+                    styles,
+                    "#548235",
                 ),
                 Spacer(1, 10),
             ]
@@ -249,72 +630,9 @@ class SolarReportGenerator:
             colWidths=[260, 180],
         )
 
-        production_table.setStyle(
-            TableStyle(
-                [
-                    (
-                        "BACKGROUND",
-                        (0, 0),
-                        (-1, 0),
-                        colors.HexColor("#548235"),
-                    ),
-                    (
-                        "TEXTCOLOR",
-                        (0, 0),
-                        (-1, 0),
-                        colors.white,
-                    ),
-                    (
-                        "FONTNAME",
-                        (0, 0),
-                        (-1, 0),
-                        "Helvetica-Bold",
-                    ),
-                    (
-                        "GRID",
-                        (0, 0),
-                        (-1, -1),
-                        0.5,
-                        colors.grey,
-                    ),
-                    (
-                        "BACKGROUND",
-                        (0, 1),
-                        (-1, -1),
-                        colors.whitesmoke,
-                    ),
-                    (
-                        "VALIGN",
-                        (0, 0),
-                        (-1, -1),
-                        "MIDDLE",
-                    ),
-                    (
-                        "LEFTPADDING",
-                        (0, 0),
-                        (-1, -1),
-                        8,
-                    ),
-                    (
-                        "RIGHTPADDING",
-                        (0, 0),
-                        (-1, -1),
-                        8,
-                    ),
-                    (
-                        "TOPPADDING",
-                        (0, 0),
-                        (-1, -1),
-                        6,
-                    ),
-                    (
-                        "BOTTOMPADDING",
-                        (0, 0),
-                        (-1, -1),
-                        6,
-                    ),
-                ]
-            )
+        self._style_table(
+            production_table,
+            "#548235",
         )
 
         story.append(production_table)
@@ -366,9 +684,10 @@ class SolarReportGenerator:
         story.extend(
             [
                 Spacer(1, 25),
-                Paragraph(
+                self._section_header(
                     "Estadísticas solares",
-                    styles["Heading2"],
+                    styles,
+                    "#38761d",
                 ),
                 Spacer(1, 10),
             ]
@@ -403,75 +722,14 @@ class SolarReportGenerator:
             colWidths=[260, 180],
         )
 
-        solar_statistics_table.setStyle(
-            TableStyle(
-                [
-                    (
-                        "BACKGROUND",
-                        (0, 0),
-                        (-1, 0),
-                        colors.HexColor("#38761d"),
-                    ),
-                    (
-                        "TEXTCOLOR",
-                        (0, 0),
-                        (-1, 0),
-                        colors.white,
-                    ),
-                    (
-                        "FONTNAME",
-                        (0, 0),
-                        (-1, 0),
-                        "Helvetica-Bold",
-                    ),
-                    (
-                        "GRID",
-                        (0, 0),
-                        (-1, -1),
-                        0.5,
-                        colors.grey,
-                    ),
-                    (
-                        "BACKGROUND",
-                        (0, 1),
-                        (-1, -1),
-                        colors.whitesmoke,
-                    ),
-                    (
-                        "VALIGN",
-                        (0, 0),
-                        (-1, -1),
-                        "MIDDLE",
-                    ),
-                    (
-                        "LEFTPADDING",
-                        (0, 0),
-                        (-1, -1),
-                        8,
-                    ),
-                    (
-                        "RIGHTPADDING",
-                        (0, 0),
-                        (-1, -1),
-                        8,
-                    ),
-                    (
-                        "TOPPADDING",
-                        (0, 0),
-                        (-1, -1),
-                        6,
-                    ),
-                    (
-                        "BOTTOMPADDING",
-                        (0, 0),
-                        (-1, -1),
-                        6,
-                    ),
-                ]
-            )
+        self._style_table(
+            solar_statistics_table,
+            "#38761d",
         )
 
         story.append(solar_statistics_table)
+
+        story.append(PageBreak())
 
         # ==================================================
         # Balance energético
@@ -480,9 +738,10 @@ class SolarReportGenerator:
         story.extend(
             [
                 Spacer(1, 25),
-                Paragraph(
+                self._section_header(
                     "Consumo y balance energético",
-                    styles["Heading2"],
+                    styles,
+                    "#7f6000",
                 ),
                 Spacer(1, 10),
             ]
@@ -521,72 +780,9 @@ class SolarReportGenerator:
             colWidths=[260, 180],
         )
 
-        balance_table.setStyle(
-            TableStyle(
-                [
-                    (
-                        "BACKGROUND",
-                        (0, 0),
-                        (-1, 0),
-                        colors.HexColor("#7f6000"),
-                    ),
-                    (
-                        "TEXTCOLOR",
-                        (0, 0),
-                        (-1, 0),
-                        colors.white,
-                    ),
-                    (
-                        "FONTNAME",
-                        (0, 0),
-                        (-1, 0),
-                        "Helvetica-Bold",
-                    ),
-                    (
-                        "GRID",
-                        (0, 0),
-                        (-1, -1),
-                        0.5,
-                        colors.grey,
-                    ),
-                    (
-                        "BACKGROUND",
-                        (0, 1),
-                        (-1, -1),
-                        colors.whitesmoke,
-                    ),
-                    (
-                        "VALIGN",
-                        (0, 0),
-                        (-1, -1),
-                        "MIDDLE",
-                    ),
-                    (
-                        "LEFTPADDING",
-                        (0, 0),
-                        (-1, -1),
-                        8,
-                    ),
-                    (
-                        "RIGHTPADDING",
-                        (0, 0),
-                        (-1, -1),
-                        8,
-                    ),
-                    (
-                        "TOPPADDING",
-                        (0, 0),
-                        (-1, -1),
-                        6,
-                    ),
-                    (
-                        "BOTTOMPADDING",
-                        (0, 0),
-                        (-1, -1),
-                        6,
-                    ),
-                ]
-            )
+        self._style_table(
+            balance_table,
+            "#7f6000",
         )
 
         story.append(balance_table)
@@ -629,9 +825,10 @@ class SolarReportGenerator:
         story.extend(
             [
                 Spacer(1, 25),
-                Paragraph(
+                self._section_header(
                     "Rentabilidad económica",
-                    styles["Heading2"],
+                    styles,
+                    "#7030a0",
                 ),
                 Spacer(1, 10),
             ]
@@ -691,72 +888,9 @@ class SolarReportGenerator:
             colWidths=[260, 180],
         )
 
-        economics_table.setStyle(
-            TableStyle(
-                [
-                    (
-                        "BACKGROUND",
-                        (0, 0),
-                        (-1, 0),
-                        colors.HexColor("#7030a0"),
-                    ),
-                    (
-                        "TEXTCOLOR",
-                        (0, 0),
-                        (-1, 0),
-                        colors.white,
-                    ),
-                    (
-                        "FONTNAME",
-                        (0, 0),
-                        (-1, 0),
-                        "Helvetica-Bold",
-                    ),
-                    (
-                        "GRID",
-                        (0, 0),
-                        (-1, -1),
-                        0.5,
-                        colors.grey,
-                    ),
-                    (
-                        "BACKGROUND",
-                        (0, 1),
-                        (-1, -1),
-                        colors.whitesmoke,
-                    ),
-                    (
-                        "VALIGN",
-                        (0, 0),
-                        (-1, -1),
-                        "MIDDLE",
-                    ),
-                    (
-                        "LEFTPADDING",
-                        (0, 0),
-                        (-1, -1),
-                        8,
-                    ),
-                    (
-                        "RIGHTPADDING",
-                        (0, 0),
-                        (-1, -1),
-                        8,
-                    ),
-                    (
-                        "TOPPADDING",
-                        (0, 0),
-                        (-1, -1),
-                        6,
-                    ),
-                    (
-                        "BOTTOMPADDING",
-                        (0, 0),
-                        (-1, -1),
-                        6,
-                    ),
-                ]
-            )
+        self._style_table(
+            economics_table,
+            "#7030a0",
         )
 
         story.append(economics_table)
@@ -778,17 +912,6 @@ class SolarReportGenerator:
         # ==================================================
         # Hipótesis económicas
         # ==================================================
-
-        story.extend(
-            [
-                Spacer(1, 25),
-                Paragraph(
-                    "Hipótesis económicas",
-                    styles["Heading2"],
-                ),
-                Spacer(1, 10),
-            ]
-        )
 
         economic_assumptions_data = [
             ["Hipótesis", "Valor"],
@@ -835,75 +958,25 @@ class SolarReportGenerator:
             colWidths=[260, 180],
         )
 
-        economic_assumptions_table.setStyle(
-            TableStyle(
+        self._style_table(
+            economic_assumptions_table,
+            "#7030a0",
+        )
+
+        story.append(
+            KeepTogether(
                 [
-                    (
-                        "BACKGROUND",
-                        (0, 0),
-                        (-1, 0),
-                        colors.HexColor("#7030a0"),
+                    Spacer(1, 25),
+                    self._section_header(
+                        "Hipótesis económicas",
+                        styles,
+                        "#7030a0",
                     ),
-                    (
-                        "TEXTCOLOR",
-                        (0, 0),
-                        (-1, 0),
-                        colors.white,
-                    ),
-                    (
-                        "FONTNAME",
-                        (0, 0),
-                        (-1, 0),
-                        "Helvetica-Bold",
-                    ),
-                    (
-                        "GRID",
-                        (0, 0),
-                        (-1, -1),
-                        0.5,
-                        colors.grey,
-                    ),
-                    (
-                        "BACKGROUND",
-                        (0, 1),
-                        (-1, -1),
-                        colors.whitesmoke,
-                    ),
-                    (
-                        "VALIGN",
-                        (0, 0),
-                        (-1, -1),
-                        "MIDDLE",
-                    ),
-                    (
-                        "LEFTPADDING",
-                        (0, 0),
-                        (-1, -1),
-                        8,
-                    ),
-                    (
-                        "RIGHTPADDING",
-                        (0, 0),
-                        (-1, -1),
-                        8,
-                    ),
-                    (
-                        "TOPPADDING",
-                        (0, 0),
-                        (-1, -1),
-                        6,
-                    ),
-                    (
-                        "BOTTOMPADDING",
-                        (0, 0),
-                        (-1, -1),
-                        6,
-                    ),
+                    Spacer(1, 10),
+                    economic_assumptions_table,
                 ]
             )
         )
-
-        story.append(economic_assumptions_table)
 
         # ==================================================
         # Escenarios económicos
@@ -912,9 +985,10 @@ class SolarReportGenerator:
         story.extend(
             [
                 Spacer(1, 25),
-                Paragraph(
+                self._section_header(
                     "Escenarios económicos",
-                    styles["Heading2"],
+                    styles,
+                    "#674ea7",
                 ),
                 Spacer(1, 10),
             ]
@@ -1062,6 +1136,10 @@ class SolarReportGenerator:
             )
         )
 
+                # ==================================================
+        # Conclusión
+        # ==================================================
+
         story.append(
             Spacer(
                 1,
@@ -1070,10 +1148,10 @@ class SolarReportGenerator:
         )
 
         story.append(
-            Paragraph(
+            self._section_header(
                 "Conclusión",
-                styles["Heading2"],
-            )
+                styles,
+            ),
         )
 
         story.append(
@@ -1090,8 +1168,66 @@ class SolarReportGenerator:
             )
         )
 
+        story.append(PageBreak())
+
+        # ==================================================
+        # Glosario y definiciones
+        # ==================================================
+
+        story.append(
+            self._section_header(
+                "Glosario y definiciones",
+                styles,
+            )
+        )
+
+        story.append(
+            Spacer(
+                1,
+                10,
+            )
+        )
+
+        glossary_data = [
+            ["Término", "Definición"],
+        ]
+
+        for term, definition in SolarReportText.glossary():
+
+            glossary_data.append(
+                [
+                    Paragraph(
+                        term,
+                        styles["BodyText"],
+                    ),
+                    Paragraph(
+                        definition,
+                        styles["BodyText"],
+                    ),
+                ]
+            )
+
+        glossary_table = Table(
+            glossary_data,
+            colWidths=[
+                55 * mm,
+                125 * mm,
+            ],
+            repeatRows=1,
+        )
+
+        self._style_table(
+            glossary_table,
+            "#1f4e78",
+        )
+
+        story.append(glossary_table)
+
         # ==================================================
         # Generación
         # ==================================================
 
-        document.build(story)
+        document.build(
+            story,
+            canvasmaker=NumberedCanvas,
+        )

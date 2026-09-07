@@ -87,6 +87,11 @@ class TestSolarReportData:
             # ==================================================
 
             "investment_eur": 12490.0,
+            "cost_without_pv_eur": 0.0,
+            "grid_import_cost_eur": 0.0,
+            "export_income_eur": 0.0,
+            "cost_with_pv_eur": 0.0,
+            "self_consumption_savings_eur": 2338.0,
             "yearly_savings_eur": 2338.0,
             "payback_years": 5.34,
             "net_present_value_eur": 22071.16,

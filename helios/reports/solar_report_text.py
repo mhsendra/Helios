@@ -248,3 +248,99 @@ class SolarReportText:
             f"retorno de {data.payback_years:.2f} años. "
             f"{investment_assessment}"
         )
+
+    @staticmethod
+    def glossary() -> list[tuple[str, str]]:
+        """Devuelve las definiciones de los principales términos del informe."""
+
+        return [
+            (
+                "kWp (kilovatio pico)",
+                "Unidad utilizada para expresar la potencia nominal de una "
+                "instalación fotovoltaica en condiciones estándar de ensayo.",
+            ),
+            (
+                "kWh (kilovatio hora)",
+                "Unidad de energía utilizada para medir tanto la producción "
+                "fotovoltaica como el consumo eléctrico.",
+            ),
+            (
+                "Producción anual",
+                "Cantidad estimada de energía que genera la instalación "
+                "fotovoltaica durante un año.",
+            ),
+            (
+                "Producción específica",
+                "Energía producida anualmente por cada kWp de potencia "
+                "instalada. Permite comparar el rendimiento de instalaciones "
+                "de distinto tamaño.",
+            ),
+            (
+                "Horas productivas",
+                "Número de horas durante las cuales la instalación "
+                "fotovoltaica genera energía.",
+            ),
+            (
+                "Factor de capacidad",
+                "Relación entre la energía realmente producida y la energía "
+                "que produciría la instalación si funcionara continuamente "
+                "a su potencia nominal durante todo el periodo.",
+            ),
+            (
+                "Autoconsumo",
+                "Energía fotovoltaica producida que se utiliza directamente "
+                "en la vivienda, sin necesidad de importarla de la red.",
+            ),
+            (
+                "Energía vertida a red",
+                "Excedente de energía fotovoltaica que no se consume "
+                "directamente en la vivienda y se envía a la red eléctrica.",
+            ),
+            (
+                "Energía importada de red",
+                "Energía que la vivienda necesita obtener de la red cuando "
+                "la producción fotovoltaica disponible no es suficiente "
+                "para cubrir el consumo.",
+            ),
+            (
+                "Tasa de autoconsumo",
+                "Porcentaje de la producción fotovoltaica que se consume "
+                "directamente en la vivienda.",
+            ),
+            (
+                "Tasa de autosuficiencia",
+                "Porcentaje del consumo eléctrico de la vivienda que queda "
+                "cubierto mediante la energía fotovoltaica.",
+            ),
+            (
+                "Ahorro anual",
+                "Reducción estimada del coste anual de la electricidad "
+                "gracias a la instalación fotovoltaica.",
+            ),
+            (
+                "Periodo de retorno (Payback)",
+                "Tiempo estimado necesario para recuperar la inversión "
+                "inicial mediante los ahorros generados por la instalación.",
+            ),
+            (
+                "VAN (Valor Actual Neto)",
+                "Indicador económico que representa el valor que genera "
+                "la inversión durante el horizonte analizado, teniendo "
+                "en cuenta el valor temporal del dinero.",
+            ),
+            (
+                "TIR (Tasa Interna de Retorno)",
+                "Indicador que expresa la rentabilidad anual estimada de "
+                "la inversión durante el periodo analizado.",
+            ),
+            (
+                "Degradación",
+                "Reducción gradual de la capacidad de producción de los "
+                "módulos fotovoltaicos a lo largo de su vida útil.",
+            ),
+            (
+                "Tasa de descuento",
+                "Porcentaje utilizado para convertir los flujos económicos "
+                "futuros a su valor equivalente en el momento actual.",
+            ),
+        ]

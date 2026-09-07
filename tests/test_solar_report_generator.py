@@ -10,6 +10,8 @@ from helios.reports.solar_report_generator import (
 )
 from helios.reports.solar_report_charts import SolarReportCharts
 
+from reportlab.platypus import KeepTogether
+
 
 class TestSolarReportGenerator:
 
@@ -171,7 +173,7 @@ class TestSolarReportGenerator:
                 self.args = args
                 self.kwargs = kwargs
 
-            def build(self, story):
+            def build(self, story, canvasmaker=None):
                 captured["story"] = story
 
         monkeypatch.setattr(
@@ -186,42 +188,69 @@ class TestSolarReportGenerator:
 
         texts = []
 
-        for item in story:
+        def collect(flowables):
 
-            if hasattr(item, "text"):
-                texts.append(item.text)
+            for item in flowables:
 
-            if hasattr(item, "_cellvalues"):
+                if hasattr(item, "text"):
+                    texts.append(item.text)
 
-                for row in item._cellvalues:
+                if hasattr(item, "_cellvalues"):
 
-                    for cell in row:
+                    for row in item._cellvalues:
 
-                        if isinstance(cell, str):
-                            texts.append(cell)
+                        for cell in row:
 
-                        elif hasattr(cell, "text"):
-                            texts.append(cell.text)
+                            if isinstance(cell, str):
+                                texts.append(cell)
+
+                            elif hasattr(cell, "text"):
+                                texts.append(cell.text)
+
+                if isinstance(item, KeepTogether):
+                    collect(item._content)
+
+        collect(story)
 
         return "\n".join(texts)
 
     @staticmethod
     def _get_tables(story):
 
-        return [
-            item
-            for item in story
-            if hasattr(item, "_cellvalues")
-        ]
+        tables = []
+
+        def collect(flowables):
+
+            for item in flowables:
+
+                if hasattr(item, "_cellvalues"):
+                    tables.append(item)
+
+                if isinstance(item, KeepTogether):
+                    collect(item._content)
+
+        collect(story)
+
+        return tables
 
     @staticmethod
     def _get_paragraphs(story):
 
-        return [
-            item
-            for item in story
-            if hasattr(item, "text")
-        ]
+        paragraphs = []
+
+        def collect(flowables):
+
+            for item in flowables:
+
+                if hasattr(item, "text"):
+                    paragraphs.append(item)
+
+                if isinstance(item, KeepTogether):
+                    collect(item._content)
+
+        collect(story)
+
+        return paragraphs
 
     @staticmethod
     def _table_rows(table):
@@ -337,7 +366,7 @@ class TestSolarReportGenerator:
 
         generator.generate(
             data,
-            tmp_path / "report.pdf",
+            tmp_path / "solar_report.pdf",
         )
 
         assert data.monthly_production.equals(
@@ -349,7 +378,7 @@ class TestSolarReportGenerator:
         assert data.productive_hours == 4380
         assert data.capacity_factor_percent == 17.62
 
-    def test_report_contains_seven_main_tables(
+    def test_report_contains_eight_tables_including_cover_kpis(
         self,
         monkeypatch,
         tmp_path,
@@ -368,7 +397,7 @@ class TestSolarReportGenerator:
             captured["story"]
         )
 
-        assert len(tables) == 7
+        assert len(tables) == 9
 
     def test_economic_assumptions_table_contains_exact_values(
         self,
@@ -389,7 +418,7 @@ class TestSolarReportGenerator:
             captured["story"]
         )
 
-        rows = self._table_rows(tables[5])
+        rows = self._table_rows(tables[6])
 
         assert rows == [
             ["Hipótesis", "Valor"],
@@ -452,13 +481,15 @@ class TestSolarReportGenerator:
         ]
 
         assert row_counts == [
-            4,
-            4,
-            6,
-            7,
-            11,
-            9,
-            4,
+            4,   # KPI de portada
+            6,   # Instalación
+            4,   # Producción
+            6,   # Estadísticas
+            7,   # Balance
+            11,  # Economía
+            9,   # Hipótesis económicas
+            4,   # Escenarios
+            18,  # Glosario y definiciones
         ]
 
     def test_report_tables_have_expected_headers(
@@ -480,9 +511,11 @@ class TestSolarReportGenerator:
             captured["story"]
         )
 
+        body_tables = tables[1:]
+
         headers = [
             table._cellvalues[0]
-            for table in tables
+            for table in body_tables
         ]
 
         assert headers == [
@@ -499,6 +532,7 @@ class TestSolarReportGenerator:
                 "VAN",
                 "TIR",
             ],
+            ["Término", "Definición"],
         ]
 
     def test_installation_table_contains_exact_values(
@@ -520,7 +554,7 @@ class TestSolarReportGenerator:
             captured["story"]
         )
 
-        rows = self._table_rows(tables[0])
+        rows = self._table_rows(tables[1])
 
         assert rows == [
             ["Concepto", "Valor"],
@@ -535,6 +569,14 @@ class TestSolarReportGenerator:
             [
                 "Potencia por panel",
                 "540 Wp",
+            ],
+            [
+                "Tecnología fotovoltaica",
+                "Silicio cristalino",
+            ],
+            [
+                "Tipo de montaje",
+                "Coplanar a cubierta",
             ],
         ]
 
@@ -557,7 +599,7 @@ class TestSolarReportGenerator:
             captured["story"]
         )
 
-        rows = self._table_rows(tables[1])
+        rows = self._table_rows(tables[2])
 
         assert rows == [
             ["Concepto", "Valor"],
@@ -587,14 +629,14 @@ class TestSolarReportGenerator:
 
         generator.generate(
             self._report_data(),
-            tmp_path / "report.pdf",
+            tmp_path / "solar_report.pdf",
         )
 
         tables = self._get_tables(
             captured["story"]
         )
 
-        rows = self._table_rows(tables[2])
+        rows = self._table_rows(tables[3])
 
         assert rows == [
             ["Métrica", "Valor"],
@@ -632,14 +674,14 @@ class TestSolarReportGenerator:
 
         generator.generate(
             self._report_data(),
-            tmp_path / "report.pdf",
+            tmp_path / "solar_report.pdf",
         )
 
         tables = self._get_tables(
             captured["story"]
         )
 
-        rows = self._table_rows(tables[3])
+        rows = self._table_rows(tables[4])
 
         assert rows == [
             ["Concepto", "Valor"],
@@ -681,14 +723,14 @@ class TestSolarReportGenerator:
 
         generator.generate(
             self._report_data(),
-            tmp_path / "report.pdf",
+            tmp_path / "solar_report.pdf",
         )
 
         tables = self._get_tables(
             captured["story"]
         )
 
-        rows = self._table_rows(tables[4])
+        rows = self._table_rows(tables[5])
 
         assert rows == [
             ["Concepto", "Valor"],
@@ -753,7 +795,7 @@ class TestSolarReportGenerator:
             captured["story"]
         )
 
-        rows = self._table_rows(tables[6])
+        rows = self._table_rows(tables[7])
 
         assert rows == [
             [
@@ -805,7 +847,8 @@ class TestSolarReportGenerator:
             captured["story"]
         )
 
-        assert "Informe solar" in text
+        assert "HELIOS" in text
+        assert "Informe de rendimiento solar" in text
         assert "Resumen de la instalación" in text
         assert "Producción solar" in text
         assert "Estadísticas solares" in text
@@ -837,13 +880,19 @@ class TestSolarReportGenerator:
         ]
 
         expected_sections = [
-            "Informe solar",
+            "HELIOS",
+            "Informe de rendimiento solar",
+            "Instalación fotovoltaica — 8.10 kWp",
+            "Resumen ejecutivo",
             "Resumen de la instalación",
             "Producción solar",
             "Estadísticas solares",
             "Consumo y balance energético",
             "Rentabilidad económica",
+            "Hipótesis económicas",
             "Escenarios económicos",
+            "Conclusión",
+            "Glosario y definiciones",
         ]
 
         positions = [
@@ -873,13 +922,15 @@ class TestSolarReportGenerator:
         )
 
         section_titles = {
-            "Informe solar",
+            "Resumen ejecutivo",
             "Resumen de la instalación",
             "Producción solar",
             "Estadísticas solares",
             "Consumo y balance energético",
             "Rentabilidad económica",
+            "Hipótesis económicas",
             "Escenarios económicos",
+            "Conclusión",
         }
 
         found = [
@@ -889,76 +940,23 @@ class TestSolarReportGenerator:
         ]
 
         assert found == [
-            "Informe solar",
+            "Resumen ejecutivo",
             "Resumen de la instalación",
             "Producción solar",
             "Estadísticas solares",
             "Consumo y balance energético",
             "Rentabilidad económica",
+            "Hipótesis económicas",
             "Escenarios económicos",
+            "Conclusión",
         ]
-
-    def test_report_contains_chart_data(
-        self,
-        monkeypatch,
-        tmp_path,
-    ):
-
-        captured = self._capture_story(monkeypatch)
-
-        yearly_called = {}
-        monthly_called = {}
-
-        def fake_yearly_chart(value):
-
-            yearly_called["value"] = value
-
-            return object()
-
-        def fake_monthly_chart(value):
-
-            monthly_called["value"] = value
-
-            return object()
-
-        monkeypatch.setattr(
-            SolarReportCharts,
-            "yearly_production",
-            fake_yearly_chart,
-        )
-
-        monkeypatch.setattr(
-            SolarReportCharts,
-            "monthly_production",
-            fake_monthly_chart,
-        )
-
-        output_path = (
-            tmp_path
-            / "solar_report.pdf"
-        )
-
-        generator = SolarReportGenerator()
-
-        generator.generate(
-            self._report_data(),
-            output_path,
-        )
-
-        assert yearly_called["value"] == 12500.0
-
-        pd.testing.assert_series_equal(
-            monthly_called["value"],
-            self._report_data().monthly_production,
-        )
-
-        assert "story" in captured
 
     def test_report_contains_energy_balance_chart_data(
         self,
         monkeypatch,
         tmp_path,
     ):
+
         captured = self._capture_story(monkeypatch)
 
         balance_called = {}
@@ -970,6 +968,7 @@ class TestSolarReportGenerator:
             grid_import_kwh,
             grid_export_kwh,
         ):
+
             balance_called["yearly_production_kwh"] = (
                 yearly_production_kwh
             )
@@ -1077,7 +1076,7 @@ class TestSolarReportGenerator:
 
         generator.generate(
             self._report_data(),
-            tmp_path / "report.pdf",
+            tmp_path / "solar_report.pdf",
         )
 
         text = self._story_text(
@@ -1151,7 +1150,7 @@ class TestSolarReportGenerator:
             captured["story"]
         )
 
-        rows = self._table_rows(tables[0])
+        rows = self._table_rows(tables[1])
 
         assert rows == [
             ["Concepto", "Valor"],
@@ -1184,12 +1183,12 @@ class TestSolarReportGenerator:
                 "14.0 %",
             ],
             [
-                "Tecnología FV",
-                "crystSi",
+                "Tecnología fotovoltaica",
+                "Silicio cristalino",
             ],
             [
                 "Tipo de montaje",
-                "building",
+                "Coplanar a cubierta",
             ],
         ]
 
@@ -1212,7 +1211,7 @@ class TestSolarReportGenerator:
             captured["story"]
         )
 
-        installation_table = tables[0]
+        installation_table = tables[1]
 
         assert len(
             installation_table._cellvalues
@@ -1235,7 +1234,7 @@ class TestSolarReportGenerator:
 
         installation_table = self._get_tables(
             captured["story"]
-        )[0]
+        )[1]
 
         rows = self._table_rows(
             installation_table
@@ -1276,8 +1275,8 @@ class TestSolarReportGenerator:
             "0°",
             "2023",
             "14.0 %",
-            "crystSi",
-            "building",
+            "Silicio cristalino",
+            "Coplanar a cubierta",
         ]
 
         for value in expected_values:
@@ -1308,7 +1307,9 @@ class TestSolarReportGenerator:
         ]
 
         expected_sections = [
-            "Informe solar",
+            "HELIOS",
+            "Informe de rendimiento solar",
+            "Instalación fotovoltaica — 8.10 kWp",
             "Resumen ejecutivo",
             "La instalación fotovoltaica analizada tiene una potencia instalada de 8.10 kWp y una producción solar estimada de 12,500 kWh anuales. Esta producción permite cubrir directamente 64.0 % del consumo eléctrico anual mediante energía solar. El ahorro económico estimado alcanza 2,338.00 € al año, con una inversión de 12,490.00 € y un periodo de retorno de 5.34 años.",
             "Resumen de la instalación",
@@ -1322,8 +1323,9 @@ class TestSolarReportGenerator:
             "Hipótesis económicas",
             "Escenarios económicos",
             "El análisis de escenarios muestra una variación de la rentabilidad en función de las hipótesis económicas. El escenario con mayor valor actual neto es «Optimista», con un VAN de 28,000.00 €, mientras que el escenario con menor valor actual neto es «Conservador», con 18,000.00 €. Esta comparación permite valorar la sensibilidad de la inversión ante diferentes condiciones económicas.",
-                    "Conclusión",
-        "La instalación fotovoltaica analizada presenta una producción anual estimada de 12,500 kWh y permite cubrir el 64.0 % del consumo eléctrico anual mediante generación solar. El ahorro anual estimado es de 2,338.00 €, con un periodo de retorno de 5.34 años. Desde el punto de vista económico, los resultados indican una inversión favorable bajo las hipótesis consideradas.",
+            "Conclusión",
+            "La instalación fotovoltaica analizada presenta una producción anual estimada de 12,500 kWh y permite cubrir el 64.0 % del consumo eléctrico anual mediante generación solar. El ahorro anual estimado es de 2,338.00 €, con un periodo de retorno de 5.34 años. Desde el punto de vista económico, los resultados indican una inversión favorable bajo las hipótesis consideradas.",
+            "Glosario y definiciones",
         ]
 
         assert paragraph_text == expected_sections
@@ -1347,19 +1349,21 @@ class TestSolarReportGenerator:
             captured["story"]
         )
 
-        assert len(tables) == 7
+        assert len(tables) == 9
 
         assert [
             len(table._cellvalues)
             for table in tables
         ] == [
-            10,
-            4,
-            6,
-            7,
-            11,
-            9,
-            4,
+            4,   # KPI de portada
+            10,  # Instalación manual
+            4,   # Producción
+            6,   # Estadísticas
+            7,   # Balance
+            11,  # Economía
+            9,   # Hipótesis económicas
+            4,   # Escenarios
+            18,  # Glosario y definiciones
         ]
 
     def test_invalid_calculation_mode_is_rejected(
