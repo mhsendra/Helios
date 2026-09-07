@@ -24,6 +24,18 @@ from reportlab.platypus import (
     TableStyle,
 )
 
+HELIOS_BLUE = "#1f4e78"
+HELIOS_GREEN = "#548235"
+HELIOS_GREEN_DARK = "#38761d"
+HELIOS_GOLD = "#7f6000"
+HELIOS_PURPLE = "#7030a0"
+HELIOS_PURPLE_LIGHT = "#674ea7"
+HELIOS_TEXT = "#333333"
+HELIOS_MUTED = "#666666"
+HELIOS_BORDER = "#d0d7de"
+HELIOS_BACKGROUND = "#f8f9fa"
+HELIOS_KPI_BACKGROUND = "#f4f6f8"
+
 class NumberedCanvas(canvas.Canvas):
     """Canvas de ReportLab que permite mostrar 'Página X de Y'."""
 
@@ -76,7 +88,7 @@ class NumberedCanvas(canvas.Canvas):
         )
 
         self.setFillColor(
-            colors.HexColor("#1f4e78")
+            colors.HexColor(HELIOS_BLUE)
         )
 
         self.drawString(
@@ -86,7 +98,7 @@ class NumberedCanvas(canvas.Canvas):
         )
 
         self.setStrokeColor(
-            colors.HexColor("#d0d7de")
+            colors.HexColor(HELIOS_BORDER)
         )
 
         self.setLineWidth(0.5)
@@ -105,7 +117,7 @@ class NumberedCanvas(canvas.Canvas):
         )
 
         self.setFillColor(
-            colors.HexColor("#666666")
+            colors.HexColor(HELIOS_MUTED)
         )
 
         self.drawString(
@@ -159,13 +171,13 @@ class SolarReportGenerator:
                         (0, 0),
                         (-1, -1),
                         0.5,
-                        colors.HexColor("#d0d7de"),
+                        colors.HexColor(HELIOS_BORDER),
                     ),
                     (
                         "BACKGROUND",
                         (0, header_rows),
                         (-1, -1),
-                        colors.HexColor("#f8f9fa"),
+                        colors.HexColor(HELIOS_BACKGROUND),
                     ),
                     (
                         "VALIGN",
@@ -205,7 +217,7 @@ class SolarReportGenerator:
     def _section_header(
         title: str,
         styles,
-        color: str = "#1f4e78",
+        color: str = HELIOS_BLUE,
     ) -> KeepTogether:
         """Crea un encabezado de sección con separador visual."""
 
@@ -254,7 +266,7 @@ class SolarReportGenerator:
                 fontSize=28,
                 leading=32,
                 alignment=TA_CENTER,
-                textColor=colors.HexColor("#1f4e78"),
+                textColor=colors.HexColor(HELIOS_BLUE),
             )
         )
 
@@ -266,7 +278,7 @@ class SolarReportGenerator:
                 fontSize=14,
                 leading=18,
                 alignment=TA_CENTER,
-                textColor=colors.HexColor("#666666"),
+                textColor=colors.HexColor(HELIOS_MUTED),
             )
         )
 
@@ -278,7 +290,7 @@ class SolarReportGenerator:
                 fontSize=8,
                 leading=10,
                 alignment=TA_CENTER,
-                textColor=colors.HexColor("#666666"),
+                textColor=colors.HexColor(HELIOS_MUTED),
             )
         )
 
@@ -290,7 +302,7 @@ class SolarReportGenerator:
                 fontSize=15,
                 leading=18,
                 alignment=TA_CENTER,
-                textColor=colors.HexColor("#1f4e78"),
+                textColor=colors.HexColor(HELIOS_BLUE),
             )
         )
 
@@ -303,7 +315,7 @@ class SolarReportGenerator:
                 leading=21,
                 spaceBefore=8,
                 spaceAfter=5,
-                textColor=colors.HexColor("#1f4e78"),
+                textColor=colors.HexColor(HELIOS_BLUE),
             )
         )
 
@@ -337,7 +349,7 @@ class SolarReportGenerator:
             HRFlowable(
                 width="55%",
                 thickness=1.2,
-                color=colors.HexColor("#1f4e78"),
+                color=colors.HexColor(HELIOS_BLUE),
                 hAlign="CENTER",
             ),
 
@@ -431,21 +443,21 @@ class SolarReportGenerator:
                         "BACKGROUND",
                         (0, 0),
                         (-1, -1),
-                        colors.HexColor("#f4f6f8"),
+                        colors.HexColor(HELIOS_KPI_BACKGROUND),
                     ),
                     (
                         "BOX",
                         (0, 0),
                         (-1, -1),
                         0.6,
-                        colors.HexColor("#d0d7de"),
+                        colors.HexColor(HELIOS_BORDER),
                     ),
                     (
                         "INNERGRID",
                         (0, 0),
                         (-1, -1),
                         0.4,
-                        colors.HexColor("#d0d7de"),
+                        colors.HexColor(HELIOS_BORDER),
                     ),
                     (
                         "VALIGN",
@@ -581,7 +593,7 @@ class SolarReportGenerator:
 
         self._style_table(
             installation_table,
-            "#1f4e78",
+            HELIOS_BLUE,
         )
 
         story.append(installation_table)
@@ -602,7 +614,7 @@ class SolarReportGenerator:
                 self._section_header(
                     "Producción solar",
                     styles,
-                    "#548235",
+                    HELIOS_GREEN,
                 ),
                 Spacer(1, 10),
             ]
@@ -632,7 +644,7 @@ class SolarReportGenerator:
 
         self._style_table(
             production_table,
-            "#548235",
+            HELIOS_GREEN,
         )
 
         story.append(production_table)
@@ -687,7 +699,7 @@ class SolarReportGenerator:
                 self._section_header(
                     "Estadísticas solares",
                     styles,
-                    "#38761d",
+                    HELIOS_GREEN_DARK,
                 ),
                 Spacer(1, 10),
             ]
@@ -724,7 +736,7 @@ class SolarReportGenerator:
 
         self._style_table(
             solar_statistics_table,
-            "#38761d",
+            HELIOS_GREEN_DARK,
         )
 
         story.append(solar_statistics_table)
@@ -741,7 +753,7 @@ class SolarReportGenerator:
                 self._section_header(
                     "Consumo y balance energético",
                     styles,
-                    "#7f6000",
+                    HELIOS_GOLD,
                 ),
                 Spacer(1, 10),
             ]
@@ -782,7 +794,7 @@ class SolarReportGenerator:
 
         self._style_table(
             balance_table,
-            "#7f6000",
+            HELIOS_GOLD,
         )
 
         story.append(balance_table)
@@ -828,7 +840,7 @@ class SolarReportGenerator:
                 self._section_header(
                     "Rentabilidad económica",
                     styles,
-                    "#7030a0",
+                    HELIOS_PURPLE,
                 ),
                 Spacer(1, 10),
             ]
@@ -890,7 +902,7 @@ class SolarReportGenerator:
 
         self._style_table(
             economics_table,
-            "#7030a0",
+            HELIOS_PURPLE,
         )
 
         story.append(economics_table)
@@ -960,7 +972,7 @@ class SolarReportGenerator:
 
         self._style_table(
             economic_assumptions_table,
-            "#7030a0",
+            HELIOS_PURPLE,
         )
 
         story.append(
@@ -970,7 +982,7 @@ class SolarReportGenerator:
                     self._section_header(
                         "Hipótesis económicas",
                         styles,
-                        "#7030a0",
+                        HELIOS_PURPLE,
                     ),
                     Spacer(1, 10),
                     economic_assumptions_table,
@@ -988,7 +1000,7 @@ class SolarReportGenerator:
                 self._section_header(
                     "Escenarios económicos",
                     styles,
-                    "#674ea7",
+                    HELIOS_PURPLE_LIGHT,
                 ),
                 Spacer(1, 10),
             ]
@@ -1034,7 +1046,7 @@ class SolarReportGenerator:
                         "BACKGROUND",
                         (0, 0),
                         (-1, 0),
-                        colors.HexColor("#674ea7"),
+                        colors.HexColor(HELIOS_PURPLE_LIGHT),
                     ),
                     (
                         "TEXTCOLOR",
@@ -1218,7 +1230,7 @@ class SolarReportGenerator:
 
         self._style_table(
             glossary_table,
-            "#1f4e78",
+            HELIOS_BLUE,
         )
 
         story.append(glossary_table)
