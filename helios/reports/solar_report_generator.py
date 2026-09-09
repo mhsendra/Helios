@@ -6,14 +6,16 @@ from helios.reports.solar_report_text import SolarReportText
 
 from reportlab.lib import colors
 from reportlab.pdfgen import canvas
-from reportlab.lib.enums import TA_CENTER
+from reportlab.lib.enums import TA_CENTER, TA_LEFT
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import (
     ParagraphStyle,
     getSampleStyleSheet,
 )
 from reportlab.lib.units import mm
+from reportlab.lib.utils import ImageReader
 from reportlab.platypus import (
+    Flowable,
     HRFlowable,
     KeepTogether,
     PageBreak,
@@ -23,6 +25,9 @@ from reportlab.platypus import (
     Table,
     TableStyle,
 )
+
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 
 HELIOS_BLUE = "#1f4e78"
 HELIOS_GREEN = "#548235"
@@ -35,6 +40,41 @@ HELIOS_MUTED = "#666666"
 HELIOS_BORDER = "#d0d7de"
 HELIOS_BACKGROUND = "#f8f9fa"
 HELIOS_KPI_BACKGROUND = "#f4f6f8"
+
+HELIOS_LOGO = Path(__file__).resolve().parents[2] / "assets" / "Logo_Helios.png"
+
+HELIOS_ASSETS = Path(__file__).resolve().parents[2] / "assets"
+
+HELIOS_LOGO = HELIOS_ASSETS / "Logo_Helios.png"
+HELIOS_FONTS = HELIOS_ASSETS / "fonts"
+
+pdfmetrics.registerFont(
+    TTFont(
+        "Montserrat",
+        str(HELIOS_FONTS / "Montserrat-Regular.ttf"),
+    )
+)
+
+pdfmetrics.registerFont(
+    TTFont(
+        "Montserrat-Bold",
+        str(HELIOS_FONTS / "Montserrat-Bold.ttf"),
+    )
+)
+
+pdfmetrics.registerFont(
+    TTFont(
+        "Lato",
+        str(HELIOS_FONTS / "Lato-Regular.ttf"),
+    )
+)
+
+pdfmetrics.registerFont(
+    TTFont(
+        "Lato-Bold",
+        str(HELIOS_FONTS / "Lato-Bold.ttf"),
+    )
+)
 
 class NumberedCanvas(canvas.Canvas):
     """Canvas de ReportLab que permite mostrar 'Página X de Y'."""
@@ -81,9 +121,25 @@ class NumberedCanvas(canvas.Canvas):
 
         self.saveState()
 
+        # ==================================================
         # Encabezado
+        # ==================================================
+
+        logo_width = 38 * mm
+        logo_height = logo_width * 345 / 1170
+
+        self.drawImage(
+            str(HELIOS_LOGO),
+            18 * mm,
+            height - 12 * mm - logo_height,
+            width=logo_width,
+            height=logo_height,
+            preserveAspectRatio=True,
+            mask="auto",
+        )
+
         self.setFont(
-            "Helvetica-Bold",
+            "Montserrat-Bold",
             8,
         )
 
@@ -91,10 +147,10 @@ class NumberedCanvas(canvas.Canvas):
             colors.HexColor(HELIOS_BLUE)
         )
 
-        self.drawString(
-            18 * mm,
-            height - 11 * mm,
-            "HELIOS — Solar Performance Report",
+        self.drawRightString(
+            width - 18 * mm,
+            height - 9 * mm,
+            "Solar Performance Report",
         )
 
         self.setStrokeColor(
@@ -105,14 +161,17 @@ class NumberedCanvas(canvas.Canvas):
 
         self.line(
             18 * mm,
-            height - 14 * mm,
+            height - 24 * mm,
             width - 18 * mm,
-            height - 14 * mm,
+            height - 24 * mm,
         )
 
+        # ==================================================
         # Pie
+        # ==================================================
+
         self.setFont(
-            "Helvetica",
+            "Lato",
             7.5,
         )
 
@@ -133,6 +192,215 @@ class NumberedCanvas(canvas.Canvas):
         )
 
         self.restoreState()
+
+class FlowableLogo(Flowable):
+    """Inserta el logo HELIOS centrado."""
+
+    def __init__(
+        self,
+        image_path: str,
+        image_width: float,
+        image_height: float,
+    ):
+        super().__init__()
+
+        self.image_path = image_path
+        self.image_width = image_width
+        self.image_height = image_height
+        self.available_width = 0
+
+    def wrap(self, availWidth, availHeight):
+        self.available_width = availWidth
+        return availWidth, self.image_height
+
+    def draw(self):
+        x = (
+            self.available_width - self.image_width
+        ) / 2
+
+        self.canv.drawImage(
+            self.image_path,
+            x,
+            0,
+            width=self.image_width,
+            height=self.image_height,
+            preserveAspectRatio=True,
+            mask="auto",
+        )
+
+class ExecutiveKpiGrid(Flowable):
+    """Dibuja una cuadrícula horizontal de cuatro KPI ejecutivos."""
+
+    def __init__(
+        self,
+        kpis: list[tuple[str, str, str]],
+        width: float,
+        height: float = 25 * mm,
+    ):
+        super().__init__()
+
+        self.kpis = kpis
+        self.width = width
+        self.height = height
+
+    def wrap(self, availWidth, availHeight):
+        return self.width, self.height
+
+    def draw(self):
+        canvas = self.canv
+
+        gap = 2 * mm
+        card_width = (self.width - (3 * gap)) / 4
+
+        for index, (label, value, accent_color) in enumerate(self.kpis):
+            x = index * (card_width + gap)
+            y = 0
+
+            canvas.setFillColor(
+                colors.HexColor(HELIOS_KPI_BACKGROUND)
+            )
+            canvas.setStrokeColor(
+                colors.HexColor(HELIOS_BORDER)
+            )
+            canvas.setLineWidth(0.8)
+
+            canvas.roundRect(
+                x,
+                y,
+                card_width,
+                self.height,
+                2 * mm,
+                stroke=1,
+                fill=1,
+            )
+
+            canvas.setFillColor(
+                colors.HexColor(accent_color)
+            )
+
+            canvas.roundRect(
+                x,
+                y,
+                3,
+                self.height,
+                1.5,
+                stroke=0,
+                fill=1,
+            )
+
+            canvas.setFillColor(
+                colors.HexColor(HELIOS_MUTED)
+            )
+            canvas.setFont("Helvetica", 8)
+
+            canvas.drawCentredString(
+                x + card_width / 2,
+                y + self.height - 9 * mm,
+                label,
+            )
+
+            canvas.setFillColor(
+                colors.HexColor(HELIOS_BLUE)
+            )
+            canvas.setFont("Helvetica-Bold", 13)
+
+            canvas.drawCentredString(
+                x + card_width / 2,
+                y + 7 * mm,
+                value,
+            )
+
+class ConclusionBlock(Flowable):
+    """Dibuja un bloque visual destacado para la conclusión del informe."""
+
+    def __init__(
+        self,
+        text: str,
+        width: float,
+    ):
+        super().__init__()
+
+        self.text = text
+        self.width = width
+
+        self.padding_horizontal = 9 * mm
+        self.padding_vertical = 6 * mm
+
+        self.text_width = (
+            self.width
+            - (2 * self.padding_horizontal)
+        )
+
+        text_style = ParagraphStyle(
+            "ConclusionBlockText",
+            parent=getSampleStyleSheet()["BodyText"],
+            fontName="Lato",
+            fontSize=9.5,
+            leading=14,
+            textColor=colors.HexColor(HELIOS_TEXT),
+            alignment=TA_LEFT,
+        )
+
+        self.paragraph = Paragraph(
+            self.text,
+            text_style,
+        )
+
+        _, paragraph_height = self.paragraph.wrap(
+            self.text_width,
+            1000 * mm,
+        )
+
+        self.height = (
+            paragraph_height
+            + (2 * self.padding_vertical)
+        )
+
+    def wrap(self, availWidth, availHeight):
+        return self.width, self.height
+
+    def draw(self):
+        canvas = self.canv
+
+        canvas.setFillColor(
+            colors.HexColor(HELIOS_BACKGROUND)
+        )
+        canvas.setStrokeColor(
+            colors.HexColor(HELIOS_BORDER)
+        )
+        canvas.setLineWidth(0.8)
+
+        canvas.roundRect(
+            0,
+            0,
+            self.width,
+            self.height,
+            2 * mm,
+            stroke=1,
+            fill=1,
+        )
+
+        canvas.setFillColor(
+            colors.HexColor(HELIOS_GREEN)
+        )
+
+        canvas.roundRect(
+            0,
+            0,
+            4,
+            self.height,
+            2,
+            stroke=0,
+            fill=1,
+        )
+
+        self.paragraph.drawOn(
+            canvas,
+            self.padding_horizontal,
+            self.height
+            - self.padding_vertical
+            - self.paragraph.height,
+        )
 
 class SolarReportGenerator:
     """Genera informes PDF a partir de datos solares previamente calculados."""
@@ -214,6 +482,92 @@ class SolarReportGenerator:
         )
 
     @staticmethod
+    def _kpi_card(
+        label: str,
+        value: str,
+        styles,
+        accent_color: str = HELIOS_BLUE,
+    ) -> Table:
+        """Crea una tarjeta visual reutilizable para un KPI."""
+
+        content = [
+            Paragraph(
+                label,
+                styles["HeliosKpiLabel"],
+            ),
+            Spacer(1, 2 * mm),
+            Paragraph(
+                value,
+                styles["HeliosKpiValue"],
+            ),
+        ]
+
+        card = Table(
+            [[content]],
+            colWidths=[42 * mm],
+            rowHeights=[25 * mm],
+        )
+
+        card.setStyle(
+            TableStyle(
+                [
+                    (
+                        "BACKGROUND",
+                        (0, 0),
+                        (-1, -1),
+                        colors.HexColor(HELIOS_KPI_BACKGROUND),
+                    ),
+                    (
+                        "BOX",
+                        (0, 0),
+                        (-1, -1),
+                        0.8,
+                        colors.HexColor(HELIOS_BORDER),
+                    ),
+                    (
+                        "LINEBEFORE",
+                        (0, 0),
+                        (0, -1),
+                        3,
+                        colors.HexColor(accent_color),
+                    ),
+                    (
+                        "VALIGN",
+                        (0, 0),
+                        (-1, -1),
+                        "MIDDLE",
+                    ),
+                    (
+                        "LEFTPADDING",
+                        (0, 0),
+                        (-1, -1),
+                        6,
+                    ),
+                    (
+                        "RIGHTPADDING",
+                        (0, 0),
+                        (-1, -1),
+                        6,
+                    ),
+                    (
+                        "TOPPADDING",
+                        (0, 0),
+                        (-1, -1),
+                        4,
+                    ),
+                    (
+                        "BOTTOMPADDING",
+                        (0, 0),
+                        (-1, -1),
+                        4,
+                    ),
+                ]
+            )
+        )
+
+        return card
+
+    @staticmethod
     def _section_header(
         title: str,
         styles,
@@ -262,7 +616,7 @@ class SolarReportGenerator:
             ParagraphStyle(
                 name="HeliosCoverTitle",
                 parent=styles["Title"],
-                fontName="Helvetica-Bold",
+                fontName="Montserrat-Bold",
                 fontSize=28,
                 leading=32,
                 alignment=TA_CENTER,
@@ -274,7 +628,7 @@ class SolarReportGenerator:
             ParagraphStyle(
                 name="HeliosCoverSubtitle",
                 parent=styles["Normal"],
-                fontName="Helvetica",
+                fontName="Lato",
                 fontSize=14,
                 leading=18,
                 alignment=TA_CENTER,
@@ -286,7 +640,7 @@ class SolarReportGenerator:
             ParagraphStyle(
                 name="HeliosKpiLabel",
                 parent=styles["Normal"],
-                fontName="Helvetica",
+                fontName="Lato",
                 fontSize=8,
                 leading=10,
                 alignment=TA_CENTER,
@@ -298,7 +652,7 @@ class SolarReportGenerator:
             ParagraphStyle(
                 name="HeliosKpiValue",
                 parent=styles["Normal"],
-                fontName="Helvetica-Bold",
+                fontName="Montserrat-Bold",
                 fontSize=15,
                 leading=18,
                 alignment=TA_CENTER,
@@ -310,7 +664,7 @@ class SolarReportGenerator:
             ParagraphStyle(
                 name="HeliosSectionTitle",
                 parent=styles["Heading2"],
-                fontName="Helvetica-Bold",
+                fontName="Montserrat-Bold",
                 fontSize=17,
                 leading=21,
                 spaceBefore=8,
@@ -324,20 +678,28 @@ class SolarReportGenerator:
             pagesize=A4,
             rightMargin=18 * mm,
             leftMargin=18 * mm,
-            topMargin=18 * mm,
+            topMargin=25 * mm,
             bottomMargin=18 * mm,
+        )
+
+        logo = ImageReader(str(HELIOS_LOGO))
+
+        cover_logo_width = 80 * mm
+        cover_logo_height = (
+            cover_logo_width * 345 / 1170
         )
 
         story = [
 
-            Spacer(1, 45 * mm),
+            Spacer(1, 38 * mm),
 
-            Paragraph(
-                "HELIOS",
-                styles["HeliosCoverTitle"],
+            FlowableLogo(
+                str(HELIOS_LOGO),
+                image_width=80 * mm,
+                image_height=80 * mm * 345 / 1170,
             ),
 
-            Spacer(1, 7 * mm),
+            Spacer(1, 10 * mm),
 
             Paragraph(
                 "Informe de rendimiento solar",
@@ -491,6 +853,35 @@ class SolarReportGenerator:
                     "Resumen ejecutivo",
                     styles,
                 ),
+
+                                ExecutiveKpiGrid(
+                    [
+                        (
+                            "Producción solar",
+                            f"{data.yearly_production_kwh:,.0f} kWh/año",
+                            HELIOS_GREEN,
+                        ),
+                        (
+                            "Autosuficiencia",
+                            f"{data.self_sufficiency_rate_percent:.1f} %",
+                            HELIOS_GREEN_DARK,
+                        ),
+                        (
+                            "Ahorro anual",
+                            f"{data.yearly_savings_eur:,.2f} €/año",
+                            HELIOS_GOLD,
+                        ),
+                        (
+                            "Retorno",
+                            f"{data.payback_years:.2f} años",
+                            HELIOS_BLUE,
+                        ),
+                    ],
+                    width=174 * mm,
+                    height=25 * mm,
+                ),
+
+                Spacer(1, 5 * mm),
 
                 Paragraph(
                     SolarReportText.executive_summary(data),
@@ -1016,7 +1407,21 @@ class SolarReportGenerator:
             ],
         ]
 
-        for result in data.scenario_results:
+        scenario_order = {
+            "Conservador": 0,
+            "Base": 1,
+            "Optimista": 2,
+        }
+
+        ordered_scenarios = sorted(
+            data.scenario_results,
+            key=lambda result: scenario_order.get(
+                result.name,
+                99,
+            ),
+        )
+
+        for result in ordered_scenarios:
 
             scenarios_data.append(
                 [
@@ -1174,9 +1579,9 @@ class SolarReportGenerator:
         )
 
         story.append(
-            Paragraph(
+            ConclusionBlock(
                 SolarReportText.conclusion(data),
-                styles["BodyText"],
+                width=174 * mm,
             )
         )
 

@@ -197,17 +197,42 @@ class SolarReportText:
             key=lambda result: result.npv,
         )
 
-        return (
-            f"El análisis de escenarios muestra una variación de "
-            f"la rentabilidad en función de las hipótesis económicas. "
-            f"El escenario con mayor valor actual neto es "
-            f"«{best.name}», con un VAN de "
-            f"{best.npv:,.2f} €, mientras que el escenario con menor "
-            f"valor actual neto es «{worst.name}», con "
-            f"{worst.npv:,.2f} €. "
-            f"Esta comparación permite valorar la sensibilidad de "
-            f"la inversión ante diferentes condiciones económicas."
+        base = next(
+            (
+                result
+                for result in data.scenario_results
+                if result.name.lower() == "base"
+            ),
+            None,
         )
+
+        text = (
+            f"El análisis de escenarios muestra cómo la rentabilidad "
+            f"de la instalación varía en función de las hipótesis "
+            f"económicas consideradas. "
+        )
+
+        if base is not None:
+            text += (
+                f"En el escenario «Base», el ahorro anual estimado es "
+                f"de {base.annual_savings:,.2f} €, con un periodo de "
+                f"retorno de {base.payback_years:.2f} años y un VAN de "
+                f"{base.npv:,.2f} €. "
+            )
+
+        text += (
+            f"En el escenario «{worst.name}», el VAN se sitúa en "
+            f"{worst.npv:,.2f} €, mientras que el escenario "
+            f"«{best.name}» alcanza {best.npv:,.2f} €. "
+            f"En conjunto, los resultados muestran que la inversión "
+            f"mantiene una rentabilidad positiva bajo las diferentes "
+            f"hipótesis analizadas, aunque su atractivo económico "
+            f"varía según la evolución de los precios de la energía, "
+            f"los costes de mantenimiento y el resto de supuestos "
+            f"considerados."
+        )
+
+        return text
 
     @staticmethod
     def conclusion(
@@ -226,27 +251,41 @@ class SolarReportText:
             < data.economic_horizon_years
         ):
             investment_assessment = (
-                "Desde el punto de vista económico, los resultados "
-                "indican una inversión favorable bajo las hipótesis "
-                "consideradas."
+                "Los resultados económicos muestran una "
+                "inversión favorable dentro del horizonte de "
+                "análisis considerado."
             )
         else:
             investment_assessment = (
-                "Desde el punto de vista económico, los resultados "
-                "requieren una valoración prudente bajo las hipótesis "
-                "consideradas."
+                "Los resultados económicos aconsejan una "
+                "valoración prudente de la inversión dentro "
+                "del horizonte de análisis considerado."
             )
 
         return (
-            f"La instalación fotovoltaica analizada presenta una "
-            f"producción anual estimada de "
-            f"{data.yearly_production_kwh:,.0f} kWh y permite cubrir "
+            f"La instalación fotovoltaica analizada, con una "
+            f"potencia instalada de {data.installed_power_kwp:.2f} kWp, "
+            f"alcanza una producción solar anual estimada de "
+            f"{data.yearly_production_kwh:,.0f} kWh. "
+            f"Esta generación permite cubrir mediante energía solar "
             f"el {data.self_sufficiency_rate_percent:.1f} % del "
-            f"consumo eléctrico anual mediante generación solar. "
-            f"El ahorro anual estimado es de "
-            f"{data.yearly_savings_eur:,.2f} €, con un periodo de "
-            f"retorno de {data.payback_years:.2f} años. "
+            f"consumo eléctrico anual, reduciendo la dependencia "
+            f"de la red eléctrica."
+            f"<br/><br/>"
+            f"Desde el punto de vista económico, la instalación "
+            f"genera un ahorro anual estimado de "
+            f"{data.yearly_savings_eur:,.2f} €, con una inversión "
+            f"neta de {data.investment_eur:,.2f} € y un periodo "
+            f"de retorno de {data.payback_years:.2f} años. "
             f"{investment_assessment}"
+            f"<br/><br/>"
+            f"En conjunto, los resultados indican que la instalación "
+            f"presenta una capacidad significativa para reducir el "
+            f"coste energético anual y mejorar el grado de "
+            f"autosuficiencia eléctrica del sistema. La valoración "
+            f"final debe entenderse dentro de las hipótesis de "
+            f"producción, consumo, tarifas, degradación y evolución "
+            f"de precios utilizadas en el análisis."
         )
 
     @staticmethod
