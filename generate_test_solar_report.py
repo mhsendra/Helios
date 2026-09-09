@@ -143,7 +143,7 @@ def main():
     generator = SolarReportGenerator()
 
     generator.generate(
-        report_data(),
+        data,
         output_path,
     )
 

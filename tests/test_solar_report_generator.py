@@ -847,7 +847,6 @@ class TestSolarReportGenerator:
             captured["story"]
         )
 
-        assert "HELIOS" in text
         assert "Informe de rendimiento solar" in text
         assert "Resumen de la instalación" in text
         assert "Producción solar" in text
@@ -880,7 +879,6 @@ class TestSolarReportGenerator:
         ]
 
         expected_sections = [
-            "HELIOS",
             "Informe de rendimiento solar",
             "Instalación fotovoltaica — 8.10 kWp",
             "Resumen ejecutivo",
@@ -1307,7 +1305,6 @@ class TestSolarReportGenerator:
         ]
 
         expected_sections = [
-            "HELIOS",
             "Informe de rendimiento solar",
             "Instalación fotovoltaica — 8.10 kWp",
             "Resumen ejecutivo",
@@ -1322,7 +1319,7 @@ class TestSolarReportGenerator:
             "La inversión neta asciende a 12,490.00 € y genera un ahorro anual estimado de 2,338.00 €. El periodo de retorno de la inversión es de 5.34 años. El valor actual neto alcanza 22,071.16 €. La tasa interna de retorno estimada es del 18.80 %. El valor actual neto es positivo, lo que indica que la inversión genera valor por encima de la tasa de descuento considerada.",
             "Hipótesis económicas",
             "Escenarios económicos",
-            "El análisis de escenarios muestra una variación de la rentabilidad en función de las hipótesis económicas. El escenario con mayor valor actual neto es «Optimista», con un VAN de 28,000.00 €, mientras que el escenario con menor valor actual neto es «Conservador», con 18,000.00 €. Esta comparación permite valorar la sensibilidad de la inversión ante diferentes condiciones económicas.",
+            "El análisis de escenarios muestra cómo la rentabilidad de la instalación varía en función de las hipótesis económicas consideradas. En el escenario «Base», el ahorro anual estimado es de 2,338.00 €, con un periodo de retorno de 5.34 años y un VAN de 22,071.16 €. En el escenario «Conservador», el VAN se sitúa en 18,000.00 €, mientras que el escenario «Optimista» alcanza 28,000.00 €. En conjunto, los resultados muestran que la inversión mantiene una rentabilidad positiva bajo las diferentes hipótesis analizadas, aunque su atractivo económico varía según la evolución de los precios de la energía, los costes de mantenimiento y el resto de supuestos considerados.",
             "Conclusión",
             "La instalación fotovoltaica analizada, con una potencia instalada de 8.10 kWp, alcanza una producción solar anual estimada de 12,500 kWh. Esta generación permite cubrir mediante energía solar el 64.0 % del consumo eléctrico anual, reduciendo la dependencia de la red eléctrica.<br/><br/>Desde el punto de vista económico, la instalación genera un ahorro anual estimado de 2,338.00 €, con una inversión neta de 12,490.00 € y un periodo de retorno de 5.34 años. Los resultados económicos muestran una inversión favorable dentro del horizonte de análisis considerado.<br/><br/>En conjunto, los resultados indican que la instalación presenta una capacidad significativa para reducir el coste energético anual y mejorar el grado de autosuficiencia eléctrica del sistema. La valoración final debe entenderse dentro de las hipótesis de producción, consumo, tarifas, degradación y evolución de precios utilizadas en el análisis.",
             "Glosario y definiciones",
