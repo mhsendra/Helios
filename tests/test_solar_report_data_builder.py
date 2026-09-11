@@ -139,6 +139,9 @@ class TestSolarReportDataBuilder:
             solar=solar,
             solar_configuration=solar_configuration,
             economics=economics,
+            analyzer = SimpleNamespace(
+                economics_engine=economics,
+            )
         )
 
     def test_from_project_returns_solar_report_data(self):

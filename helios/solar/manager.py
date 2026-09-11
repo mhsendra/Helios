@@ -50,20 +50,19 @@ class SolarManager:
         installed_power_kwp: float = 1.0,
     ) -> pd.DataFrame:
 
+        # ✔ Si la GUI no pasa la potencia instalada, usar la de la configuración
+        if installed_power_kwp is None:
+            installed_power_kwp = configuration.installed_power_kwp
+
         self.installed_power_kwp = installed_power_kwp
 
-        self.set_configuration(
-            configuration
-        )
+        self.set_configuration(configuration)
 
-        response = self.client.fetch(
-            configuration
-        )
+        response = self.client.fetch(configuration)
 
-        self.hourly_production = self.parser.parse(
-            response
-        )
+        self.hourly_production = self.parser.parse(response)
 
+        # Producción específica por kWp (PVGIS siempre devuelve por kWp)
         self.specific_production_kwh_per_kwp = (
             self.hourly_production["production_kwh"].sum()
         )
@@ -73,9 +72,9 @@ class SolarManager:
                 "Installed power must be greater than zero."
             )
 
-        self.hourly_production["production_kwh"] *= (
-            installed_power_kwp
-        )
+        # ✔ Escalar la producción por la potencia instalada real
+        self.hourly_production["production_kwh"] *= installed_power_kwp
+
 
     def calculate_daily_production(self):
     

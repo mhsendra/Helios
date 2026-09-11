@@ -22,16 +22,14 @@ class SolarEngine:
         configuration: SolarConfiguration,
         installed_power_kwp: float = 1.0,
     ):
-
         if installed_power_kwp == 1.0:
-            self.manager.calculate_hourly_production(
-                configuration
-            )
+            self.manager.calculate_hourly_production(configuration)
         else:
             self.manager.calculate_hourly_production(
                 configuration,
                 installed_power_kwp,
             )
+
 
     def calculate_daily_production(self):
 

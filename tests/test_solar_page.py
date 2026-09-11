@@ -646,13 +646,75 @@ class TestSolarPage:
         self.page.calculate_production()
 
         self.project.solar.calculate.assert_called_once_with(
-            configuration
+            configuration,
+            installed_power_kwp=1.0,
         )
 
         self.page.refresh_production_results.assert_called_once_with()
 
         self.page.set_results_available.assert_called_once_with(
             True
+        )
+
+    def test_calculate_production_uses_manual_installed_power(
+        self,
+    ):
+
+        configuration = SolarConfiguration(
+            latitude=41.6,
+            longitude=2.1,
+            tilt=30,
+            azimuth=0,
+            reference_year=2023,
+            losses=14.0,
+            pv_technology="crystSi",
+            mounting_place="free",
+        )
+
+        self.project.solar_configuration = configuration
+
+        self.page.installed_power_spinbox.setValue(
+            8.10
+        )
+
+        self.project.solar.calculate = MagicMock()
+
+        self.page.refresh_production_results = MagicMock()
+        self.page.set_results_available = MagicMock()
+
+        self.page.calculate_production()
+
+        self.project.solar.calculate.assert_called_once_with(
+            configuration,
+            installed_power_kwp=8.10,
+        )
+
+    def test_get_installed_power_kwp(self):
+
+        self.page.installed_power_spinbox.setValue(
+            8.10
+        )
+
+        assert (
+            self.page.get_installed_power_kwp()
+            == 8.10
+        )
+
+    def test_installed_power_widget_has_expected_range(self):
+
+        assert (
+            self.page.installed_power_spinbox.minimum()
+            == 0.01
+        )
+
+        assert (
+            self.page.installed_power_spinbox.maximum()
+            == 1000.0
+        )
+
+        assert (
+            self.page.installed_power_spinbox.value()
+            == 1.00
         )
 
     def test_calculate_production_handles_error(self):
@@ -872,7 +934,8 @@ class TestSolarPage:
         page.calculate_production()
 
         self.project.solar.calculate.assert_called_once_with(
-            configuration
+            configuration,
+            installed_power_kwp=1.0,
         )
 
         page.refresh_production_results.assert_called_once_with()

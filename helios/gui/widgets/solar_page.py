@@ -83,6 +83,7 @@ class SolarPage(QWidget):
     def configure_widgets(self):
 
         self.configure_pv_technology()
+        self.configure_installed_power()
         self.configure_system_losses()
         self.configure_tilt()
         self.configure_azimuth()
@@ -130,6 +131,13 @@ class SolarPage(QWidget):
         layout.addRow(
             "Tecnología FV",
             self.pv_technology_combobox,
+        )
+
+        self.installed_power_spinbox = QDoubleSpinBox()
+
+        layout.addRow(
+            "Potencia instalada",
+            self.installed_power_spinbox,
         )
 
         layout.addRow(
@@ -209,6 +217,29 @@ class SolarPage(QWidget):
             "CdTe",
         )
 
+    def configure_installed_power(self):
+
+        self.installed_power_spinbox.setRange(
+            0.01,
+            1000.0,
+        )
+
+        self.installed_power_spinbox.setDecimals(
+            2
+        )
+
+        self.installed_power_spinbox.setSingleStep(
+            0.01
+        )
+
+        self.installed_power_spinbox.setSuffix(
+            " kWp"
+        )
+
+        self.installed_power_spinbox.setValue(
+            1.00
+        )
+
     def configure_latitude(self):
 
         self.latitude_spinbox.setRange(
@@ -284,6 +315,12 @@ class SolarPage(QWidget):
             mounting_place=(
                 self.mounting_place_combobox.currentData()
             ),
+        )
+
+    def get_installed_power_kwp(self) -> float:
+
+        return float(
+            self.installed_power_spinbox.value()
         )
 
     # ==========================================================
@@ -515,8 +552,13 @@ class SolarPage(QWidget):
 
         try:
 
+            installed_power_kwp = (
+                self.get_installed_power_kwp()
+            )
+
             self.project.solar.calculate(
-                configuration
+                configuration,
+                installed_power_kwp=installed_power_kwp,
             )
 
             self.refresh_production_results()

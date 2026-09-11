@@ -1773,6 +1773,41 @@ class TestSolarConfigPage:
             == "Optimización completada"
         )
 
+    def test_start_optimization_calculates_solar_with_optimized_power(self):
+
+        solar_configuration = self.create_solar_configuration()
+
+        page, project = self.create_page(
+            solar_configuration=solar_configuration
+        )
+
+        project.analyzer.valid_dataset.return_value = pd.DataFrame(
+            {"AE_kWh": [1000.0, 2000.0]}
+        )
+
+        page.pvgis_service.get_specific_production = MagicMock(
+            return_value=1500.0
+        )
+
+        result = self.create_result()
+        result.installed_power_kwp = 5.0
+
+        coordinator = MagicMock()
+        coordinator.recommend.return_value = result
+
+        with patch(
+            "helios.gui.widgets.solar_config_page.InstallationCoordinator",
+            return_value=coordinator,
+        ):
+            page.start_optimization()
+
+        assert page.status_label.text() == "Optimización completada"
+
+        project.solar.calculate.assert_called_once_with(
+            solar_configuration,
+            installed_power_kwp=5.0,
+        )
+
     # ==================================================
     # RoofLayoutWidget
     # ==================================================

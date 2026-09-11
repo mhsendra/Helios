@@ -2299,7 +2299,7 @@ class SolarConfigPage(QWidget):
             )
 
             # ------------------------------------------
-            # Guardar
+            # Guardar resultado del dimensionamiento
             # ------------------------------------------
 
             self.project.solar.installation_configuration = (
@@ -2309,7 +2309,33 @@ class SolarConfigPage(QWidget):
             self.project.solar.sizing_result = result
 
             # ------------------------------------------
-            # Mostrar
+            # SIMULACIÓN SOLAR REAL
+            #
+            # Aquí dejamos de trabajar con la potencia
+            # normalizada de PVGIS (1 kWp) y ejecutamos
+            # la simulación con la potencia recomendada.
+            # ------------------------------------------
+
+            self.project.solar.calculate(
+                self.project.solar_configuration,
+                installed_power_kwp=(
+                    result.installed_power_kwp
+                ),
+            )
+
+            # ------------------------------------------
+            # Notificar a la ventana principal
+            # que existe una simulación solar válida
+            # ------------------------------------------
+
+            if self.main_window is not None:
+
+                self.main_window.set_solar_calculated(
+                    True
+                )
+
+            # ------------------------------------------
+            # Mostrar resultado
             # ------------------------------------------
 
             self.show_optimization_result(
