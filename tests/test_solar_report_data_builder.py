@@ -230,7 +230,7 @@ class TestSolarReportDataBuilder:
         assert result.yearly_savings_eur == 2338.0
         assert result.payback_years == 5.34
         assert result.net_present_value_eur == 22071.16
-        assert result.internal_rate_of_return_percent == 0.188
+        assert result.internal_rate_of_return_percent == 18.8
 
     def test_from_project_maps_economic_configuration(self):
         project = self.create_project()

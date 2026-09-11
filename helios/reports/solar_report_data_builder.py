@@ -212,8 +212,8 @@ class SolarReportDataBuilder:
         )
 
         if internal_rate_of_return is not None:
-            internal_rate_of_return = float(
-                internal_rate_of_return
+            internal_rate_of_return = (
+                float(internal_rate_of_return) * 100
             )
 
         # ---------------------------------------------------------
