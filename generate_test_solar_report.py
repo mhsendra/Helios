@@ -147,6 +147,8 @@ def main():
         output_path,
     )
 
+    print("PDF GENERADO:", output_path)
+
     print()
     print(f"Informe generado correctamente: {output_path}")
 

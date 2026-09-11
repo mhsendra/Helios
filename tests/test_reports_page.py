@@ -385,3 +385,33 @@ class TestReportsPage:
             self.page.report_output.toPlainText()
             == ""
         )
+
+    def test_solar_pdf_button_exists(self):
+
+        assert (
+            self.page.generate_solar_pdf_button
+            is not None
+        )
+
+    def test_solar_pdf_button_is_disabled_initially(self):
+
+        assert not (
+            self.page.generate_solar_pdf_button.isEnabled()
+        )
+
+    def test_set_solar_report_available_enables_button(self):
+
+        self.page.set_solar_report_available(True)
+
+        assert (
+            self.page.generate_solar_pdf_button.isEnabled()
+        )
+
+    def test_set_solar_report_available_disables_button(self):
+
+        self.page.set_solar_report_available(True)
+        self.page.set_solar_report_available(False)
+
+        assert not (
+            self.page.generate_solar_pdf_button.isEnabled()
+        )

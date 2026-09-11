@@ -9,8 +9,17 @@ from PySide6.QtWidgets import (
     QGridLayout,
     QGroupBox,
     QTextEdit,
+    QFileDialog,
+    QMessageBox,
 )
 
+from helios.reports.solar_report_data_builder import (
+    SolarReportDataBuilder,
+)
+
+from helios.reports.solar_report_generator import (
+    SolarReportGenerator,
+)
 
 class ReportsPage(QWidget):
 
@@ -305,6 +314,32 @@ class ReportsPage(QWidget):
         )
 
         # ==================================================
+        # Informe solar PDF
+        # ==================================================
+
+        solar_report_group = QGroupBox(
+            "Informe solar"
+        )
+
+        solar_report_layout = QVBoxLayout()
+
+        self.generate_solar_pdf_button = QPushButton(
+            "Generar informe solar PDF"
+        )
+
+        self.generate_solar_pdf_button.setEnabled(
+            False
+        )
+
+        solar_report_layout.addWidget(
+            self.generate_solar_pdf_button
+        )
+
+        solar_report_group.setLayout(
+            solar_report_layout
+        )
+
+        # ==================================================
         # Distribución de grupos
         # ==================================================
 
@@ -344,6 +379,14 @@ class ReportsPage(QWidget):
             economics_group,
             2,
             1
+        )
+
+        groups_layout.addWidget(
+            solar_report_group,
+            3,
+            0,
+            1,
+            2
         )
 
         groups_layout.setColumnStretch(0, 1)
@@ -448,6 +491,12 @@ class ReportsPage(QWidget):
         self.economic_scenarios_button.clicked.connect(
             self.show_economic_scenarios_report
         )
+
+        self.generate_solar_pdf_button.clicked.connect(
+            self.generate_solar_pdf_report
+        )
+
+        print(">>> BOTÓN PDF CONECTADO")
 
     # ==================================================
     # Captura de informes
@@ -602,4 +651,94 @@ class ReportsPage(QWidget):
 
         self._show_report(
             self.project.economics.economic_scenarios_report
+        )
+
+    # ==================================================
+    # Informe solar PDF
+    # ==================================================
+
+    def set_solar_report_available(
+        self,
+        available: bool,
+    ):
+        print(
+            ">>> SOLAR REPORT AVAILABLE:",
+            available,
+        )
+
+        self.generate_solar_pdf_button.setEnabled(
+            available
+        )
+
+    def generate_solar_pdf_report(self):
+
+        print(">>> GENERATE SOLAR PDF: ENTRANDO")
+
+        output_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Guardar informe solar",
+            "Informe_solar.pdf",
+            "PDF (*.pdf)",
+        )
+
+        if not output_path:
+            return
+
+        try:
+            data = SolarReportDataBuilder.from_project(
+                self.project
+            )
+
+            print(">>> SOLAR REPORT DATA:")
+            print("installed_power_kwp =", data.installed_power_kwp)
+            print("panel_count =", data.panel_count)
+            print("panel_power_wp =", data.panel_power_wp)
+            print("yearly_production_kwh =", data.yearly_production_kwh)
+            print("specific_production_kwh_kwp =", data.specific_production_kwh_kwp)
+            print("productive_hours =", data.productive_hours)
+            print("daily_average_kwh =", data.daily_average_kwh)
+            print("monthly_average_kwh =", data.monthly_average_kwh)
+            print("maximum_power_kw =", data.maximum_power_kw)
+            print("capacity_factor_percent =", data.capacity_factor_percent)
+            print("yearly_consumption_kwh =", data.yearly_consumption_kwh)
+            print("self_consumption_kwh =", data.self_consumption_kwh)
+            print("grid_export_kwh =", data.grid_export_kwh)
+            print("grid_import_kwh =", data.grid_import_kwh)
+            print("yearly_savings_eur =", data.yearly_savings_eur)
+            print("payback_years =", data.payback_years)
+            print("net_present_value_eur =", data.net_present_value_eur)
+            print("internal_rate_of_return_percent =", data.internal_rate_of_return_percent)
+            print("latitude =", data.latitude)
+            print("longitude =", data.longitude)
+            print("tilt =", data.tilt)
+            print("azimuth =", data.azimuth)
+            print("reference_year =", data.reference_year)
+            print("losses =", data.losses)
+
+            generator = SolarReportGenerator()
+
+            generator.generate(
+                data,
+                output_path,
+            )
+
+        except Exception as error:
+            QMessageBox.critical(
+                self,
+                "Error",
+                (
+                    "No se ha podido generar el informe solar.\n\n"
+                    f"{error}"
+                ),
+            )
+
+            return
+
+        QMessageBox.information(
+            self,
+            "Informe generado",
+            (
+                "El informe solar se ha generado "
+                "correctamente."
+            ),
         )

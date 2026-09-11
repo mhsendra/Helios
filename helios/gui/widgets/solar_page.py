@@ -525,6 +525,11 @@ class SolarPage(QWidget):
                 True
             )
 
+            print(
+                ">>> SOLAR CALCULATED: main_window =",
+                self.main_window,
+            )
+
             if self.main_window is not None:
 
                 self.main_window.set_solar_calculated(
@@ -1356,6 +1361,8 @@ class SolarPage(QWidget):
         available: bool,
     ):
 
+        self.results_available = available
+
         balance_index = self.tabs.indexOf(
             self.balance_tab
         )
@@ -1408,20 +1415,21 @@ class SolarPage(QWidget):
         self.update_statistics()
 
     def reset_results(self):
+
         """
         Resetea los resultados solares de la página.
 
         No modifica la configuración solar persistente.
         """
 
-        solar = self.project.solar
+        print("PAGE MANAGER:", self.project.solar.analyzer.solar_engine.manager)
 
-        solar.annual_production = None
-        solar.specific_production = None
-        solar.coverage = None
-        solar.monthly_production = None
-        solar.energy_balance = None
-        solar.statistics = None
+        self.project.solar.reset()
+
+        print(
+            "AFTER RESET:",
+            self.project.solar.analyzer.solar_engine.manager.hourly_production,
+        )
 
         self.update_production_status(
             source="PVGIS",

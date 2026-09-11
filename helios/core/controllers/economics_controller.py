@@ -51,9 +51,74 @@ class EconomicsController:
         self.calculate_cost_without_pv()
         self.calculate_export_income()
         self.calculate_cost_with_pv()
+        economics = self.analyzer.economics_engine
+        balance = self.analyzer.solar.energy_balance
+
+        print(
+            ">>> BALANCE CONSUMPTION:",
+            balance["consumption_kwh"].sum()
+        )
+
+        print(
+            ">>> BALANCE PRODUCTION:",
+            balance["production_kwh"].sum()
+        )
+
+        print(
+            ">>> BALANCE SELF CONSUMPTION:",
+            balance["self_consumption_kwh"].sum()
+        )
+
+        print(
+            ">>> BALANCE GRID IMPORT:",
+            balance["grid_import_kwh"].sum()
+        )
+
+        print(
+            ">>> BALANCE GRID EXPORT:",
+            balance["grid_export_kwh"].sum()
+        )
+
+        print(
+            ">>> COST WITHOUT PV:",
+            economics.cost_without_pv
+        )
+
+        print(
+            ">>> GRID IMPORT COST:",
+            economics.grid_import_cost
+        )
+
+        print(
+            ">>> EXPORT INCOME:",
+            economics.export_income
+        )
+
+        print(
+            ">>> SELF-CONSUMPTION SAVINGS:",
+            economics.self_consumption_savings
+        )
+
+        print(
+            ">>> ANNUAL SAVINGS:",
+            economics.annual_savings
+        )
         self.calculate_annual_savings()
         self.calculate_net_investment()
         self.calculate_cash_flow()
+        print(">>> NET INVESTMENT:", self.analyzer.economics_engine.net_investment)
+        print(
+            ">>> SELF-CONSUMPTION SAVINGS:",
+            self.analyzer.economics_engine.self_consumption_savings,
+        )
+        print(
+            ">>> EXPORT INCOME:",
+            self.analyzer.economics_engine.export_income,
+        )
+        print(
+            ">>> CASH FLOW:",
+            self.analyzer.economics_engine.cash_flow
+        )
         self.calculate_economic_indicators()
         
     def reports(self):

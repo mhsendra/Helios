@@ -616,6 +616,32 @@ class EconomicsEngine:
             .tolist()
         )
 
+        self.payback_years = float("inf")
+
+        for year in range(1, len(self.cumulative_cash_flow)):
+
+            previous = (
+                self.cumulative_cash_flow[year - 1]
+            )
+
+            current = (
+                self.cumulative_cash_flow[year]
+            )
+
+            if current >= 0:
+
+                fraction = (
+                    -previous
+                    / (current - previous)
+                )
+
+                self.payback_years = (
+                    year - 1
+                    + fraction
+                )
+
+                break
+
         return self.cash_flow
     
     def calculate_degradation_factor(

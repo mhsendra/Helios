@@ -304,6 +304,10 @@ class MainWindow(QMainWindow):
             0,
             enabled_color if calculated else disabled_color,
         )
+
+        self.reports_page.set_solar_report_available(
+            calculated
+        )
         
     # ==================================================
     # Señales

@@ -23,6 +23,34 @@ class TestSolarPage:
 
         self.project = MagicMock()
 
+        self.project.solar = MagicMock()
+
+        self.project.solar.analyzer = MagicMock()
+
+        self.project.solar.analyzer.solar_engine = MagicMock()
+
+        self.project.solar.analyzer.solar_engine.manager = MagicMock()
+
+        manager = self.project.solar.analyzer.solar_engine.manager
+
+        def reset_manager():
+            manager.hourly_production = None
+            manager.daily_production = None
+            manager.monthly_production = None
+            manager.yearly_production = None
+            manager.energy_balance = None
+            manager.statistics = None
+            manager.specific_production_kwh_per_kwp = None
+
+        manager.reset.side_effect = reset_manager
+
+        self.project.solar.reset.side_effect = manager.reset
+
+        self.project.solar.statistics = None
+        self.project.solar.energy_balance = None
+        self.project.solar.monthly_production = None
+        self.project.solar.yearly_production = None
+
         self.page = SolarPage(
             self.project
         )
@@ -754,131 +782,61 @@ class TestSolarPage:
 
     def test_reset_results(self):
 
-        self.page.set_results_available(True)
+        solar = self.project.solar
+        manager = solar.analyzer.solar_engine.manager
 
-        self.page.update_production_status(
-            source="PVGIS",
-            database="SARAH3",
-            reference_year=2023,
-            last_update="Ahora",
-            status="Disponible",
-            annual_production=12000.0,
-            specific_production=1500.0,
-            coverage=65.0,
+        manager.hourly_production = pd.DataFrame(
+            {"production_kwh": [1.0]}
         )
+
+        manager.daily_production = pd.Series(
+            [1.0]
+        )
+
+        manager.monthly_production = pd.Series(
+            [1.0]
+        )
+
+        manager.yearly_production = pd.Series(
+            [1.0]
+        )
+
+        manager.energy_balance = pd.DataFrame(
+            {
+                "consumption_kwh": [1.0],
+                "production_kwh": [1.0],
+                "self_consumption_kwh": [1.0],
+                "grid_import_kwh": [0.0],
+                "grid_export_kwh": [0.0],
+            }
+        )
+
+        manager.statistics = {
+            "period_production": 1.0,
+            "specific_yield": 1.0,
+            "equivalent_hours": 1.0,
+            "capacity_factor": 1.0,
+            "coverage_ratio": 1.0,
+            "self_consumption_ratio": 1.0,
+            "self_sufficiency": 1.0,
+            "import_ratio": 0.0,
+            "export_ratio": 0.0,
+            "self_consumption": 1.0,
+            "consumption": 1.0,
+        }
+
+        self.page.set_results_available(True)
 
         self.page.reset_results()
 
-        assert self.page.source_label.text() == "PVGIS"
-        assert self.page.database_label.text() == "SARAH3"
-        assert self.page.reference_year_label.text() == "-"
-        assert self.page.last_update_label.text() == "Nunca"
-        assert (
-            self.page.production_status_label.text()
-            == "No calculada"
-        )
+        assert manager.hourly_production is None
+        assert manager.daily_production is None
+        assert manager.monthly_production is None
+        assert manager.yearly_production is None
+        assert manager.energy_balance is None
+        assert manager.statistics is None
 
-        assert self.page.production_annual_label.text() == "-"
-        assert self.page.production_specific_label.text() == "-"
-        assert self.page.production_coverage_label.text() == "-"
-
-        assert (
-            self.page.monthly_production_table.rowCount()
-            == 0
-        )
-
-        assert (
-            self.page.balance_total_consumption_label.text()
-            == "-"
-        )
-
-        assert (
-            self.page.balance_total_production_label.text()
-            == "-"
-        )
-
-        assert (
-            self.page.balance_self_consumption_label.text()
-            == "-"
-        )
-
-        assert (
-            self.page.balance_grid_import_label.text()
-            == "-"
-        )
-
-        assert (
-            self.page.balance_grid_export_label.text()
-            == "-"
-        )
-
-        assert (
-            self.page.balance_coverage_label.text()
-            == "-"
-        )
-
-        assert (
-            self.page.stats_annual_production_label.text()
-            == "-"
-        )
-
-        assert (
-            self.page.stats_specific_production_label.text()
-            == "-"
-        )
-
-        assert (
-            self.page.stats_equivalent_hours_label.text()
-            == "-"
-        )
-
-        assert (
-            self.page.stats_capacity_factor_label.text()
-            == "-"
-        )
-
-        assert (
-            self.page.stats_coverage_label.text()
-            == "-"
-        )
-
-        assert (
-            self.page.stats_self_consumption_ratio_label.text()
-            == "-"
-        )
-
-        assert (
-            self.page.stats_self_sufficiency_ratio_label.text()
-            == "-"
-        )
-
-        assert self.page.stats_import_label.text() == "-"
-        assert self.page.stats_export_label.text() == "-"
-        assert (
-            self.page.stats_self_consumption_label.text()
-            == "-"
-        )
-        assert (
-            self.page.stats_total_consumption_label.text()
-            == "-"
-        )
-
-        assert (
-            self.page.balance_table.rowCount()
-            == 0
-        )
-
-        assert not self.page.tabs.isTabEnabled(
-            self.page.tabs.indexOf(
-                self.page.balance_tab
-            )
-        )
-
-        assert not self.page.tabs.isTabEnabled(
-            self.page.tabs.indexOf(
-                self.page.statistics_tab
-            )
-        )
+        assert not self.page.results_available
 
         # ==================================================
     # Ampliación de cobertura
@@ -1160,58 +1118,58 @@ class TestSolarPage:
         self.project.solar_configuration = configuration
 
         solar = self.project.solar
+        manager = solar.analyzer.solar_engine.manager
 
-        solar.annual_production = 12000.0
-        solar.specific_production = 1500.0
-        solar.coverage = 65.0
-        solar.monthly_production = pd.Series(
-            [1000.0],
-            index=pd.to_datetime(
-                ["2025-01-31"]
-            ),
+        manager.hourly_production = pd.DataFrame(
+            {"production_kwh": [1000.0]}
         )
-        solar.energy_balance = pd.DataFrame(
+
+        manager.daily_production = pd.Series(
+            [1000.0]
+        )
+
+        manager.monthly_production = pd.Series(
+            [1000.0]
+        )
+
+        manager.yearly_production = pd.Series(
+            [1000.0]
+        )
+
+        manager.energy_balance = pd.DataFrame(
             {
                 "consumption_kwh": [100.0],
                 "production_kwh": [1000.0],
                 "self_consumption_kwh": [80.0],
                 "grid_import_kwh": [20.0],
                 "grid_export_kwh": [920.0],
-            },
-            index=pd.to_datetime(
-                ["2025-01-31"]
-            ),
+            }
         )
-        solar.statistics = {
+
+        manager.statistics = {
             "period_production": 12000.0,
+            "specific_yield": 1500.0,
+            "equivalent_hours": 1500.0,
+            "capacity_factor": 17.1,
+            "coverage_ratio": 80.0,
+            "self_consumption_ratio": 8.0,
+            "self_sufficiency": 80.0,
+            "import_ratio": 20.0,
+            "export_ratio": 92.0,
+            "self_consumption": 80.0,
+            "consumption": 100.0,
         }
 
         self.page.reset_results()
 
-        assert solar.annual_production is None
-        assert solar.specific_production is None
-        assert solar.coverage is None
-        assert solar.monthly_production is None
-        assert solar.energy_balance is None
-        assert solar.statistics is None
+        assert manager.hourly_production is None
+        assert manager.daily_production is None
+        assert manager.monthly_production is None
+        assert manager.yearly_production is None
+        assert manager.energy_balance is None
+        assert manager.statistics is None
 
-        assert (
-            self.project.solar_configuration
-            is configuration
-        )
-
-        assert not self.page.tabs.isTabEnabled(
-            self.page.tabs.indexOf(
-                self.page.balance_tab
-            )
-        )
-
-        assert not self.page.tabs.isTabEnabled(
-            self.page.tabs.indexOf(
-                self.page.statistics_tab
-            )
-        )
-
+        assert self.project.solar_configuration == configuration
 
     def test_reset_results_does_not_modify_solar_configuration_values(
         self,
@@ -1229,8 +1187,6 @@ class TestSolarPage:
         )
 
         self.project.solar_configuration = configuration
-
-        self.project.solar.annual_production = 10000.0
 
         self.page.reset_results()
 

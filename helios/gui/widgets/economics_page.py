@@ -201,24 +201,52 @@ class EconomicsPage(QWidget):
 
     def update_profitability(self):
 
-        economics = self.project.analyzer.economics_engine
-
-        self.payback_label.setText(
-            f"{economics.payback_years:.2f} años"
+        economics = (
+            self.project
+            .analyzer
+            .economics_engine
         )
 
-        self.npv_label.setText(
-            f"{economics.npv:,.2f} €"
-        )
+        if economics.payback_years is not None:
 
-        self.irr_label.setText(
-            f"{economics.irr * 100:.2f} %"
-        )
+            self.payback_label.setText(
+                f"{economics.payback_years:.2f} años"
+            )
+
+        else:
+
+            self.payback_label.setText(
+                "No recuperable en 25 años"
+            )
+
+        if economics.npv is not None:
+
+            self.npv_label.setText(
+                f"{economics.npv:,.2f} €"
+            )
+
+        else:
+
+            self.npv_label.setText(
+                "N/D"
+            )
+
+        if economics.irr is not None:
+
+            self.irr_label.setText(
+                f"{economics.irr * 100:.2f} %"
+            )
+
+        else:
+
+            self.irr_label.setText(
+                "N/D"
+            )
 
         self.discount_rate_label.setText(
             f"{self.project.economics.configuration.discount_rate * 100:.2f} %"
         )
-
+        
     def update_cash_flow(self):
 
         cash_flow = (

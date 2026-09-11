@@ -929,7 +929,10 @@ class SolarReportGenerator:
                 ],
             ]
 
-        elif data.calculation_mode == "manual":
+        elif data.calculation_mode in (
+            "manual",
+            "project",
+        ):
 
             installation_data = [
                 ["Concepto", "Valor"],

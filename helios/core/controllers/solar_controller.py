@@ -632,11 +632,8 @@ class SolarController:
     # ==================================================
 
     def reset(self):
+        self.analyzer.solar_engine.reset()
 
         self.sizing_result = None
-
         self.installation_configuration = None
-
         self.installation_specific_production = None
-
-        self.analyzer.solar_engine.reset()
