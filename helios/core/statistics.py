@@ -5,6 +5,7 @@ Statistics Engine
 
 import pandas as pd
 
+from helios.core.consumption_scenario import ConsumptionScenario
 
 class ConsumptionStatistics:
 
@@ -14,8 +15,9 @@ class ConsumptionStatistics:
         self.daily_consumption: pd.Series | None = None
         self.monthly_consumption: pd.Series | None = None
         self.yearly_consumption: pd.Series | None = None
-        self.representative_year_consumption: pd.Series | None = None
-        self.representative_annual_consumption: float | None = None
+        self.representative_year_consumption = None
+        self.representative_annual_consumption = None
+        self.representative_consumption_scenario = None
         self.hourly_profile: pd.Series | None = None
         self.weekday_profile: pd.Series | None = None
         self.monthly_profile: pd.Series | None = None
@@ -129,6 +131,12 @@ class ConsumptionStatistics:
 
         self.representative_year_consumption = representative
         self.representative_annual_consumption = float(representative.sum())
+
+        self.representative_consumption_scenario = ConsumptionScenario(
+            hourly_consumption=representative,
+            reference_year=reference_year,
+        )
+
         return self.representative_year_consumption
 
     def calculate_hourly_profile(self, df):

@@ -148,6 +148,18 @@ class ConsumptionAnalyzer:
             reference_year=reference_year
         )
 
+    def calculate_representative_consumption_scenario(
+        self,
+        reference_year: int = 2025,
+    ):
+        """Calcula y devuelve el escenario anual representativo de consumo."""
+
+        self.statistics.calculate_representative_year_consumption(
+            reference_year=reference_year
+        )
+
+        return self.statistics.representative_consumption_scenario
+
     def statistics_report(self):
         """Delegación al reporte de estadísticas."""
         self.statistics.statistics_report()

@@ -141,6 +141,32 @@ class TestConsumptionAnalyzer:
 
         assert analyzer.dataset is dataset
 
+    def test_calculate_representative_consumption_scenario_delegates(
+        self,
+        monkeypatch
+    ):
+        analyzer = ConsumptionAnalyzer({})
+
+        scenario = object()
+        calls = []
+
+        def fake_calculate(reference_year=2025):
+            calls.append(reference_year)
+            analyzer.statistics_engine.representative_consumption_scenario = scenario
+
+        monkeypatch.setattr(
+            analyzer.statistics,
+            "calculate_representative_year_consumption",
+            fake_calculate
+        )
+
+        result = analyzer.calculate_representative_consumption_scenario(
+            reference_year=2030
+        )
+
+        assert calls == [2030]
+        assert result is scenario
+
     # ==================================================
     # DATETIME
     # ==================================================

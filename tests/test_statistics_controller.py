@@ -601,3 +601,11 @@ def test_representative_annual_consumption_property():
     )
 
     assert controller.representative_annual_consumption == 12345.67
+
+def test_representative_consumption_scenario_property():
+    controller, analyzer = create_controller()
+
+    scenario = object()
+    analyzer.statistics_engine.representative_consumption_scenario = scenario
+
+    assert controller.representative_consumption_scenario is scenario

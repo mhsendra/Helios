@@ -40,6 +40,10 @@ class StatisticsController:
     def representative_annual_consumption(self):
         return self.analyzer.statistics_engine.representative_annual_consumption
 
+    @property
+    def representative_consumption_scenario(self):
+        return self.analyzer.statistics_engine.representative_consumption_scenario
+
     # ==================================================
     # Cálculos de estadísticas
     # ==================================================
