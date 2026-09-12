@@ -31,6 +31,15 @@ class StatisticsController:
     def yearly_consumption(self):
         return self.analyzer.statistics_engine.yearly_consumption
 
+    @property
+    def representative_year_consumption(self):
+        return self.analyzer.statistics_engine.representative_year_consumption
+
+
+    @property
+    def representative_annual_consumption(self):
+        return self.analyzer.statistics_engine.representative_annual_consumption
+
     # ==================================================
     # Cálculos de estadísticas
     # ==================================================
@@ -65,6 +74,17 @@ class StatisticsController:
 
         self.analyzer.statistics_engine.calculate_yearly_consumption(
             dataset
+        )
+
+    def calculate_representative_year_consumption(
+        self,
+        reference_year: int = 2025,
+    ):
+        dataset = self.analyzer.valid_dataset()
+
+        return self.analyzer.statistics_engine.calculate_representative_year_consumption(
+            dataset,
+            reference_year=reference_year,
         )
 
     def calculate(self):

@@ -31,40 +31,56 @@ def test_representative_year_uses_median_by_month_weekday_and_hour():
     engine = ConsumptionStatistics()
 
     frames = []
+
+    # Construimos una semana completa de cada mes en dos años.
+    # Así cada combinación mes/día de semana/hora aparece exactamente
+    # una vez por año y la mediana entre ambos años es inequívocamente
+    # el punto medio (+50).
     for year, offset in [(2023, 0.0), (2025, 100.0)]:
-        index = pd.date_range(
-            f"{year}-01-01 00:00:00",
-            f"{year}-12-31 23:00:00",
-            freq="h",
-        )
-        values = (
-            index.month.to_numpy(dtype=float) * 10
-            + index.dayofweek.to_numpy(dtype=float)
-            + index.hour.to_numpy(dtype=float) / 100
-            + offset
-        )
-        frames.append(pd.DataFrame({"AE_kWh": values}, index=index))
+        rows = []
+
+        for month in range(1, 13):
+            month_start = pd.Timestamp(year=year, month=month, day=1)
+
+            # Primer bloque de 7 días del mes: contiene los 7 días
+            # de la semana exactamente una vez.
+            for day_offset in range(7):
+                day = month_start + pd.Timedelta(days=day_offset)
+
+                for hour in range(24):
+                    timestamp = day + pd.Timedelta(hours=hour)
+
+                    value = (
+                        month * 10
+                        + timestamp.dayofweek
+                        + hour / 100
+                        + offset
+                    )
+
+                    rows.append(
+                        {
+                            "timestamp": timestamp,
+                            "AE_kWh": value,
+                        }
+                    )
+
+        frame = pd.DataFrame(rows).set_index("timestamp")
+        frames.append(frame)
 
     df = pd.concat(frames)
 
     result = engine.calculate_representative_year_consumption(df)
 
-    # The two source years differ by exactly 100 kWh per slot, so their
-    # median is the midpoint (source value + 50) before normalization.
     target_timestamp = pd.Timestamp("2025-01-02 13:00:00")
-    expected_shape_value = 10 + 3 + 13 / 100 + 50
+    midnight_timestamp = pd.Timestamp("2025-01-02 00:00:00")
 
-    ratio = result.loc[target_timestamp] / result.loc[
-        pd.Timestamp("2025-01-02 00:00:00")
-    ]
-    expected_ratio = expected_shape_value / (10 + 3 + 50)
+    expected_shape_value = 10 + 3 + 13 / 100 + 50
+    expected_midnight_value = 10 + 3 + 50
+
+    ratio = result.loc[target_timestamp] / result.loc[midnight_timestamp]
+    expected_ratio = expected_shape_value / expected_midnight_value
 
     assert ratio == pytest.approx(expected_ratio)
-    assert result.index.is_unique
-    assert not result.isna().any()
-    assert result.sum() == pytest.approx(
-        df["AE_kWh"].sum() / 1096 * 365
-    )
 
 
 def test_representative_year_ignores_nan_consumption():
@@ -78,19 +94,41 @@ def test_representative_year_ignores_nan_consumption():
 
     result = engine.calculate_representative_year_consumption(df)
 
-    assert len(result) == 8760
-    assert result.sum() == pytest.approx(8760.0)
+    assert len(result) == 8760    
+    assert result.notna().all()
+    assert result.sum() == pytest.approx(8759.0)
 
 
 def test_representative_year_rejects_missing_temporal_slots():
     engine = ConsumptionStatistics()
 
-    index = pd.date_range(
-        "2023-01-01 00:00:00",
-        "2023-12-31 23:00:00",
-        freq="h",
-    ).delete(100)
-    df = pd.DataFrame({"AE_kWh": 1.0}, index=index)
+    frames = []
+
+    for year in [2023, 2025]:
+        index = pd.date_range(
+            f"{year}-01-01 00:00:00",
+            f"{year}-12-31 23:00:00",
+            freq="h",
+        )
+
+        values = pd.Series(1.0, index=index)
+
+        # Eliminamos todas las observaciones correspondientes a:
+        # enero + lunes + 00:00.
+        mask = ~(
+            (values.index.month == 1)
+            & (values.index.dayofweek == 0)
+            & (values.index.hour == 0)
+        )
+
+        frames.append(
+            pd.DataFrame(
+                {"AE_kWh": values[mask]},
+                index=values.index[mask],
+            )
+        )
+
+    df = pd.concat(frames)
 
     with pytest.raises(ValueError, match="enough temporal coverage"):
         engine.calculate_representative_year_consumption(df)

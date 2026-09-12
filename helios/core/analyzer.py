@@ -139,6 +139,15 @@ class ConsumptionAnalyzer:
         """Calcula las estadísticas de consumo."""
         self.statistics.calculate()
 
+    def calculate_representative_year_consumption(
+        self,
+        reference_year: int = 2025,
+    ):
+        """Calcula el año sintético representativo de consumo."""
+        return self.statistics.calculate_representative_year_consumption(
+            reference_year=reference_year
+        )
+
     def statistics_report(self):
         """Delegación al reporte de estadísticas."""
         self.statistics.statistics_report()

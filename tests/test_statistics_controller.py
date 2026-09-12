@@ -557,3 +557,47 @@ def test_reports_does_not_call_valid_dataset():
     controller.reports()
 
     analyzer.valid_dataset.assert_not_called()
+
+def test_calculate_representative_year_consumption():
+    controller, analyzer = create_controller()
+
+    controller.calculate_representative_year_consumption()
+
+    analyzer.valid_dataset.assert_called_once_with()
+    analyzer.statistics_engine.calculate_representative_year_consumption.assert_called_once_with(
+        "valid_dataset",
+        reference_year=2025,
+    )
+
+
+def test_calculate_representative_year_consumption_accepts_reference_year():
+    controller, analyzer = create_controller()
+
+    controller.calculate_representative_year_consumption(
+        reference_year=2030
+    )
+
+    analyzer.statistics_engine.calculate_representative_year_consumption.assert_called_once_with(
+        "valid_dataset",
+        reference_year=2030,
+    )
+
+
+def test_representative_year_consumption_property():
+    controller, analyzer = create_controller()
+
+    analyzer.statistics_engine.representative_year_consumption = (
+        "representative_year"
+    )
+
+    assert controller.representative_year_consumption == "representative_year"
+
+
+def test_representative_annual_consumption_property():
+    controller, analyzer = create_controller()
+
+    analyzer.statistics_engine.representative_annual_consumption = (
+        12345.67
+    )
+
+    assert controller.representative_annual_consumption == 12345.67
