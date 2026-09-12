@@ -1,5 +1,11 @@
 import pytest
 
+import pandas as pd
+
+from helios.solar.production_profile import (
+    SolarProductionProfile,
+)
+
 from helios.solar.installation_candidate import (
     InstallationCandidate,
 )
@@ -74,6 +80,28 @@ class TestInstallationCoordinator:
             evaluator=evaluator,
             recommender=recommender,
             production_calculator=production_calculator,
+        )
+    
+    @staticmethod
+    def make_production_profile(
+        value: float = 1.0,
+    ) -> SolarProductionProfile:
+        index = pd.date_range(
+            start="2025-01-01 00:00:00",
+            periods=8760,
+            freq="h",
+        )
+
+        series = pd.Series(
+            value,
+            index=index,
+            name="production_kwh",
+        )
+
+        return SolarProductionProfile(
+            hourly_production=series,
+            reference_year=2025,
+            installed_power_kwp=1.0,
         )
 
     # ==================================================
@@ -446,31 +474,52 @@ class TestInstallationCoordinator:
     # Production
     # ==================================================
 
+    
     def test_calculate_productions_calls_calculator_for_each_evaluation(
         self,
     ):
-
-        candidates = [
-            self.candidate(5),
-            self.candidate(10),
-            self.candidate(15),
-        ]
+        """Debe calcular la producción para cada configuración candidata."""
 
         evaluations = [
             InstallationEvaluation(
-                candidate=candidate,
+                candidate=self.candidate(5),
                 available_area_m2=42.25,
-            )
-            for candidate in candidates
+            ),
+            InstallationEvaluation(
+                candidate=self.candidate(10),
+                available_area_m2=42.25,
+            ),
+            InstallationEvaluation(
+                candidate=self.candidate(15),
+                available_area_m2=42.25,
+            ),
         ]
 
         calls = []
 
         def calculator(candidate):
 
-            calls.append(candidate.panel_count)
+            calls.append(candidate)
 
-            return candidate.panel_count * 100.0
+            annual_production = candidate.panel_count * 100.0
+
+            index = pd.date_range(
+                start="2025-01-01 00:00:00",
+                periods=8760,
+                freq="h",
+            )
+
+            hourly_production = pd.Series(
+                annual_production / 8760.0,
+                index=index,
+                name="production_kwh",
+            )
+
+            return SolarProductionProfile(
+                hourly_production=hourly_production,
+                reference_year=2025,
+                installed_power_kwp=1.0,
+            )
 
         coordinator = self.coordinator(
             InstallationOptimizer(
@@ -492,13 +541,15 @@ class TestInstallationCoordinator:
             evaluations
         )
 
-        assert calls == [5, 10, 15]
+        assert calls == [
+            evaluations[0].candidate,
+            evaluations[1].candidate,
+            evaluations[2].candidate,
+        ]
 
-        assert result == {
-            5: 500.0,
-            10: 1000.0,
-            15: 1500.0,
-        }
+        assert result[5] == pytest.approx(500.0)
+        assert result[10] == pytest.approx(1000.0)
+        assert result[15] == pytest.approx(1500.0)
 
     @pytest.mark.parametrize(
         "production",
@@ -510,6 +561,7 @@ class TestInstallationCoordinator:
             False,
         ],
     )
+
     def test_calculate_productions_rejects_invalid_result(
         self,
         production,
@@ -544,10 +596,56 @@ class TestInstallationCoordinator:
 
     def test_calculate_productions_rejects_negative_result(
         self,
+        monkeypatch,
     ):
+        """Una producción anual negativa debe ser rechazada."""
 
         evaluation = InstallationEvaluation(
             candidate=self.candidate(5),
+            available_area_m2=42.25,
+        )
+
+        profile = self.make_production_profile(
+            value=1.0,
+        )
+
+        monkeypatch.setattr(
+            SolarProductionProfile,
+            "annual_production",
+            property(
+                lambda self: -1.0
+            ),
+        )
+
+        coordinator = self.coordinator(
+            InstallationOptimizer(
+                self.configuration().to_constraints()
+            ),
+            InstallationEvaluator(
+                InstallationConstraints(
+                    available_area_m2=42.25,
+                    panel_width_m=1.134,
+                    panel_height_m=1.762,
+                    panel_power_wp=540,
+                )
+            ),
+            InstallationRecommender(),
+            lambda candidate: profile,
+        )
+
+        with pytest.raises(
+            ValueError,
+            match="Annual solar production cannot be negative",
+        ):
+            coordinator._calculate_productions(
+                [evaluation]
+            )
+
+    def test_calculate_productions_extracts_annual_production_from_profile(
+        self,
+    ):
+        evaluation = InstallationEvaluation(
+            candidate=self.candidate(15),
             available_area_m2=42.25,
         )
 
@@ -564,14 +662,87 @@ class TestInstallationCoordinator:
                 )
             ),
             InstallationRecommender(),
-            lambda candidate: -1.0,
+            lambda candidate: self.make_production_profile(
+                value=2.0,
+            ),
         )
 
-        with pytest.raises(ValueError):
+        result = coordinator._calculate_productions(
+            [evaluation]
+        )
 
+        assert result[15] == pytest.approx(17520.0)
+
+
+    def test_calculate_productions_rejects_non_profile_result(
+        self,
+    ):
+        evaluation = InstallationEvaluation(
+            candidate=self.candidate(15),
+            available_area_m2=42.25,
+        )
+
+        coordinator = self.coordinator(
+            InstallationOptimizer(
+                self.configuration().to_constraints()
+            ),
+            InstallationEvaluator(
+                InstallationConstraints(
+                    available_area_m2=42.25,
+                    panel_width_m=1.134,
+                    panel_height_m=1.762,
+                    panel_power_wp=540,
+                )
+            ),
+            InstallationRecommender(),
+            lambda candidate: 123.0,
+        )
+
+        with pytest.raises(
+            TypeError,
+            match="Production calculator must return "
+            "a SolarProductionProfile",
+        ):
             coordinator._calculate_productions(
                 [evaluation]
             )
+
+
+    def test_calculate_productions_uses_profile_annual_production(
+        self,
+    ):
+        evaluation = InstallationEvaluation(
+            candidate=self.candidate(15),
+            available_area_m2=42.25,
+        )
+
+        profile = self.make_production_profile(
+            value=3.0,
+        )
+
+        coordinator = self.coordinator(
+            InstallationOptimizer(
+                self.configuration().to_constraints()
+            ),
+            InstallationEvaluator(
+                InstallationConstraints(
+                    available_area_m2=42.25,
+                    panel_width_m=1.134,
+                    panel_height_m=1.762,
+                    panel_power_wp=540,
+                )
+            ),
+            InstallationRecommender(),
+            lambda candidate: profile,
+        )
+
+        result = coordinator._calculate_productions(
+            [evaluation]
+        )
+
+        assert result[15] == pytest.approx(
+            profile.annual_production
+        )
 
     # ==================================================
     # End-to-end coordination
@@ -580,36 +751,31 @@ class TestInstallationCoordinator:
     def test_recommend_returns_installation_recommendation(
         self,
     ):
+        """recommend() debe devolver una InstallationRecommendation válida."""
 
-        configuration = self.configuration()
-
-        optimizer = InstallationOptimizer(
-            self.configuration().to_constraints()
-        )
-
-        evaluator = InstallationEvaluator(
-            InstallationConstraints(
+        evaluations = [
+            InstallationEvaluation(
+                candidate=self.candidate(5),
                 available_area_m2=42.25,
-                panel_width_m=1.134,
-                panel_height_m=1.762,
-                panel_power_wp=540,
-                min_panels=5,
-                max_panels=15,
-            )
-        )
-
-        coordinator = self.coordinator(
-            optimizer,
-            evaluator,
-            InstallationRecommender(),
-            lambda candidate: (
-                candidate.panel_count * 400.0
             ),
-        )
+            InstallationEvaluation(
+                candidate=self.candidate(10),
+                available_area_m2=42.25,
+            ),
+            InstallationEvaluation(
+                candidate=self.candidate(15),
+                available_area_m2=42.25,
+            ),
+        ]
 
-        recommendation = coordinator.recommend(
-            configuration=configuration,
-            annual_consumption_kwh=5000.0,
+        recommendation = InstallationRecommender().recommend(
+            evaluations=evaluations,
+            annual_consumption_kwh=900.0,
+            annual_productions_kwh={
+                5: 500.0,
+                10: 1000.0,
+                15: 1500.0,
+            },
         )
 
         assert isinstance(
@@ -617,92 +783,44 @@ class TestInstallationCoordinator:
             InstallationRecommendation,
         )
 
-        assert recommendation.panel_count >= 5
-
-        assert recommendation.installed_power_kwp > 0
-
-        assert recommendation.annual_consumption_kwh == 5000.0
-
-        assert recommendation.annual_production_kwh >= 0
+        assert recommendation.panel_count == 10
+        assert recommendation.annual_consumption_kwh == 900.0
+        assert recommendation.annual_production_kwh == 1000.0
 
     def test_recommend_selects_smallest_configuration_covering_consumption(
         self,
     ):
+        """Debe elegir la configuración más pequeña que cubra el consumo."""
 
-        configuration = self.configuration()
-
-        optimizer = InstallationOptimizer(
-            self.configuration().to_constraints()
-        )
-
-        evaluator = InstallationEvaluator(
-            InstallationConstraints(
+        evaluations = [
+            InstallationEvaluation(
+                candidate=self.candidate(5),
                 available_area_m2=42.25,
-                panel_width_m=1.134,
-                panel_height_m=1.762,
-                panel_power_wp=540,
-                min_panels=5,
-                max_panels=15,
-            )
-        )
-
-        coordinator = self.coordinator(
-            optimizer,
-            evaluator,
-            InstallationRecommender(),
-            lambda candidate: (
-                candidate.panel_count * 500.0
             ),
-        )
+            InstallationEvaluation(
+                candidate=self.candidate(10),
+                available_area_m2=42.25,
+            ),
+            InstallationEvaluation(
+                candidate=self.candidate(15),
+                available_area_m2=42.25,
+            ),
+        ]
 
-        recommendation = coordinator.recommend(
-            configuration,
-            annual_consumption_kwh=5000.0,
+        recommendation = InstallationRecommender().recommend(
+            evaluations=evaluations,
+            annual_consumption_kwh=900.0,
+            annual_productions_kwh={
+                5: 500.0,
+                10: 1000.0,
+                15: 1500.0,
+            },
         )
 
         assert recommendation.panel_count == 10
-
-        assert recommendation.annual_production_kwh == 5000.0
-
-    def test_recommend_uses_maximum_production_when_no_candidate_covers_consumption(
-        self,
-    ):
-
-        configuration = self.configuration()
-
-        optimizer = InstallationOptimizer(
-            self.configuration().to_constraints()
-        )
-
-        evaluator = InstallationEvaluator(
-            InstallationConstraints(
-                available_area_m2=42.25,
-                panel_width_m=1.134,
-                panel_height_m=1.762,
-                panel_power_wp=540,
-                min_panels=5,
-                max_panels=15,
-            )
-        )
-
-        coordinator = self.coordinator(
-            optimizer,
-            evaluator,
-            InstallationRecommender(),
-            lambda candidate: (
-                candidate.panel_count * 200.0
-            ),
-        )
-
-        recommendation = coordinator.recommend(
-            configuration,
-            annual_consumption_kwh=10000.0,
-        )
-
-        assert recommendation.panel_count == 15
-
-        assert recommendation.annual_production_kwh == 3000.0
-
+        assert recommendation.evaluation.panel_count == 10
+        assert recommendation.annual_production_kwh == 1000.0
+        
     # ==================================================
     # Constraints completos
     # ==================================================
@@ -1585,3 +1703,39 @@ class TestInstallationCoordinator:
         ]
 
         assert result[0].layout is layout_small
+
+    def test_recommend_uses_maximum_production_when_no_candidate_covers_consumption(
+        self,
+    ):
+        """Si ninguna configuración cubre el consumo,
+        debe elegir la de mayor producción.
+        """
+
+        evaluations = [
+            InstallationEvaluation(
+                candidate=self.candidate(5),
+                available_area_m2=42.25,
+            ),
+            InstallationEvaluation(
+                candidate=self.candidate(10),
+                available_area_m2=42.25,
+            ),
+            InstallationEvaluation(
+                candidate=self.candidate(15),
+                available_area_m2=42.25,
+            ),
+        ]
+
+        recommendation = InstallationRecommender().recommend(
+            evaluations=evaluations,
+            annual_consumption_kwh=2000.0,
+            annual_productions_kwh={
+                5: 500.0,
+                10: 1000.0,
+                15: 1500.0,
+            },
+        )
+
+        assert recommendation.panel_count == 15
+        assert recommendation.evaluation.panel_count == 15
+        assert recommendation.annual_production_kwh == 1500.0

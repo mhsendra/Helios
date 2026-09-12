@@ -26,6 +26,9 @@ from helios.solar.installation_recommendation import (
     InstallationRecommender,
 )
 
+from helios.solar.production_profile import (
+    SolarProductionProfile,
+)
 
 class InstallationCoordinator:
     """
@@ -55,7 +58,7 @@ class InstallationCoordinator:
         recommender: InstallationRecommender,
         production_calculator: Callable[
             [InstallationCandidate],
-            float,
+            SolarProductionProfile,
         ],
     ):
 
@@ -295,7 +298,7 @@ class InstallationCoordinator:
     ) -> dict[int, float]:
         """
         Calcula la producción anual de cada instalación
-        candidata.
+        candidata a partir de su perfil horario.
 
         El cálculo real de producción se delega al servicio
         proporcionado mediante production_calculator.
@@ -305,32 +308,29 @@ class InstallationCoordinator:
 
         for evaluation in evaluations:
 
-            production = (
-                self.production_calculator(
-                    evaluation.candidate
-                )
+            profile = self.production_calculator(
+                evaluation.candidate
             )
 
-            if (
-                isinstance(production, bool)
-                or not isinstance(
-                    production,
-                    (int, float),
-                )
+            if not isinstance(
+                profile,
+                SolarProductionProfile,
             ):
                 raise TypeError(
                     "Production calculator must return "
-                    "a numeric value."
+                    "a SolarProductionProfile."
                 )
 
-            if production < 0:
+            annual_production = profile.annual_production
+
+            if annual_production < 0:
                 raise ValueError(
-                    "Annual production cannot be negative."
+                    "Annual solar production cannot be negative."
                 )
 
             productions[
                 evaluation.panel_count
-            ] = float(production)
+            ] = annual_production
 
         return productions
 
