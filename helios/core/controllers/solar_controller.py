@@ -20,8 +20,10 @@ from helios.solar.installation_recommendation import (
     InstallationRecommender,
 )
 
-from helios.solar.solar_installation_sizing import (
-    SolarSizingResult,
+from helios.solar.solar_installation_sizing import SolarSizingResult
+
+from helios.core.consumption_scenario import (
+    ConsumptionScenario,
 )
 
 
@@ -445,12 +447,17 @@ class SolarController:
     def recommend_installation(
         self,
         configuration: InstallationConfiguration,
+        consumption_scenario: ConsumptionScenario,
     ) -> SolarSizingResult:
         """
         Ejecuta el dimensionamiento de la instalación.
 
         InstallationConfiguration contiene las restricciones
         físicas de la instalación.
+
+        ConsumptionScenario contiene el escenario horario anual
+        de consumo utilizado como referencia para el
+        dimensionamiento automático.
 
         SolarConfiguration y InstallationConfiguration son
         conceptos independientes.
@@ -463,6 +470,15 @@ class SolarController:
             raise TypeError(
                 "configuration must be an "
                 "InstallationConfiguration."
+            )
+
+        if not isinstance(
+            consumption_scenario,
+            ConsumptionScenario,
+        ):
+            raise TypeError(
+                "consumption_scenario must be a "
+                "ConsumptionScenario."
             )
 
         specific_production = (
@@ -481,16 +497,8 @@ class SolarController:
                 "greater than zero."
             )
 
-        dataset = self.analyzer.valid_dataset()
-
-        if dataset is None or dataset.empty:
-            raise ValueError(
-                "A valid consumption dataset is required "
-                "to recommend an installation."
-            )
-
-        annual_consumption = float(
-            dataset["AE_kWh"].sum()
+        annual_consumption = (
+            consumption_scenario.annual_consumption
         )
 
         if annual_consumption <= 0:
