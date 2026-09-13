@@ -47,10 +47,6 @@ class SolarController:
         # dimensionamiento.
         self.installation_configuration = None
 
-        # Producción específica utilizada para evaluar
-        # el dimensionamiento.
-        self.installation_specific_production = None
-
     # ==================================================
     # Propiedades de producción
     # ==================================================
@@ -565,11 +561,6 @@ class SolarController:
                 "Installation recommendation is not available."
             )
 
-        if self.installation_specific_production is None:
-            raise RuntimeError(
-                "Specific solar production is not available."
-            )
-
         return (
             self.analyzer.solar_engine
             .installation_simulation_report(
@@ -577,9 +568,6 @@ class SolarController:
                     self.installation_configuration
                 ),
                 recommendation=self.sizing_result,
-                specific_production=(
-                    self.installation_specific_production
-                ),
             )
         )
 
@@ -600,4 +588,3 @@ class SolarController:
 
         self.sizing_result = None
         self.installation_configuration = None
-        self.installation_specific_production = None

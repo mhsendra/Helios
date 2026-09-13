@@ -351,6 +351,7 @@ class TestSolarManager:
         solar_configuration = MagicMock()
 
         recommendation.installed_power_kwp = 5.4
+        recommendation.annual_production_kwh = 1111.111111
 
         self.manager.configuration = solar_configuration
 

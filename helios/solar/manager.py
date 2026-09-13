@@ -231,10 +231,7 @@ class SolarManager:
                     "Installed power must be greater than zero."
                 )
 
-            specific_production = (
-                self.yearly_production.sum()
-                / recommendation.installed_power_kwp
-            )
+            specific_production = recommendation.annual_production_kwh/recommendation.installed_power_kwp
 
         return self.reporter.installation_simulation(
             configuration=configuration,

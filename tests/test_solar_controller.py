@@ -885,7 +885,6 @@ class TestSolarController:
 
         configuration = object()
         recommendation = object()
-        specific_production = 1500.0
 
         self.controller.installation_configuration = (
             configuration
@@ -895,37 +894,12 @@ class TestSolarController:
             recommendation
         )
 
-        self.controller.installation_specific_production = (
-            specific_production
-        )
-
         self.controller.installation_simulation_report()
 
         self.analyzer.solar_engine.installation_simulation_report.assert_called_once_with(
             configuration=configuration,
             recommendation=recommendation,
-            specific_production=specific_production,
         )
-
-    def test_installation_simulation_report_requires_specific_production(
-        self,
-    ):
-
-        self.controller.installation_specific_production = None
-
-        self.controller.installation_configuration = (
-            self._installation_configuration()
-        )
-
-        self.controller.sizing_result = (
-            MagicMock()
-        )
-
-        with pytest.raises(
-            RuntimeError,
-            match="Specific solar production is not available",
-        ):
-            self.controller.installation_simulation_report()
 
     # ==================================================
     # Dimensionamiento automático
@@ -1475,21 +1449,12 @@ class TestSolarController:
             MagicMock()
         )
 
-        self.controller.installation_specific_production = (
-            1500.0
-        )
-
         self.controller.reset()
 
         assert self.controller.sizing_result is None
 
         assert (
             self.controller.installation_configuration
-            is None
-        )
-
-        assert (
-            self.controller.installation_specific_production
             is None
         )
 
