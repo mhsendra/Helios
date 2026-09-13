@@ -1028,59 +1028,224 @@ class TestSolarController:
             )
 
 
-    def test_recommend_installation_requires_calculated_production(
+    def test_recommend_installation_requires_solar_configuration(
         self,
     ):
         configuration = self._installation_configuration()
         consumption_scenario = self._consumption_scenario()
 
+        self.analyzer.solar_engine.configuration = None
         self.analyzer.solar_engine.statistics = None
 
         with pytest.raises(
             ValueError,
-            match="Solar production must be calculated",
+            match="solar configuration is required",
         ):
             self.controller.recommend_installation(
                 configuration,
                 consumption_scenario,
             )
 
-
-    def test_recommend_installation_requires_positive_specific_production(
+    def test_recommend_installation_uses_pvgis_production_profile_service(
         self,
+        monkeypatch,
     ):
         configuration = self._installation_configuration()
         consumption_scenario = self._consumption_scenario()
 
-        self.analyzer.solar_engine.statistics = {
-            "specific_production": 0.0,
-        }
+        solar_configuration = self._solar_configuration()
 
-        with pytest.raises(
-            ValueError,
-            match="Specific solar production must be greater than zero",
-        ):
-            self.controller.recommend_installation(
-                configuration,
-                consumption_scenario,
-            )
-
-    def test_recommend_installation_uses_consumption_scenario(
-        self,
-    ):
-        configuration = self._installation_configuration()
-        consumption_scenario = self._consumption_scenario()
-
-        self.analyzer.solar_engine.statistics = {
-            "specific_production": 1500.0,
-        }
+        self.analyzer.solar_engine.configuration = (
+            solar_configuration
+        )
 
         production_profile = self._solar_production_profile()
 
-        self.controller._calculate_installation_production = (
-            MagicMock(
-                return_value=production_profile,
-            )
+        service = MagicMock()
+        service.get_production_profile.return_value = (
+            production_profile
+        )
+
+        import helios.core.controllers.solar_controller as solar_controller_module
+
+        service_class = MagicMock(
+            return_value=service,
+        )
+
+        monkeypatch.setattr(
+            solar_controller_module,
+            "PVGISProductionProfileService",
+            service_class,
+        )
+
+        calculator = MagicMock()
+        calculator.calculate.return_value = (
+            production_profile
+        )
+
+        calculator_class = MagicMock(
+            return_value=calculator,
+        )
+
+        monkeypatch.setattr(
+            solar_controller_module,
+            "SolarProductionCalculator",
+            calculator_class,
+        )
+
+        result = self.controller.recommend_installation(
+            configuration,
+            consumption_scenario,
+        )
+
+        service_class.assert_called_once_with()
+
+        service.get_production_profile.assert_called_once_with(
+            solar_configuration
+        )
+
+        assert result is not None
+
+
+    def test_recommend_installation_uses_solar_production_calculator(
+        self,
+        monkeypatch,
+    ):
+        configuration = self._installation_configuration()
+        consumption_scenario = self._consumption_scenario()
+
+        solar_configuration = self._solar_configuration()
+
+        self.analyzer.solar_engine.configuration = (
+            solar_configuration
+        )
+
+        production_profile = self._solar_production_profile()
+
+        service = MagicMock()
+        service.get_production_profile.return_value = (
+            production_profile
+        )
+
+        monkeypatch.setattr(
+            "helios.core.controllers.solar_controller."
+            "PVGISProductionProfileService",
+            MagicMock(return_value=service),
+        )
+
+        calculator = MagicMock()
+        calculator.calculate.return_value = (
+            production_profile
+        )
+
+        calculator_class = MagicMock(
+            return_value=calculator,
+        )
+
+        monkeypatch.setattr(
+            "helios.core.controllers.solar_controller."
+            "SolarProductionCalculator",
+            calculator_class,
+        )
+
+        result = self.controller.recommend_installation(
+            configuration,
+            consumption_scenario,
+        )
+
+        calculator_class.assert_called_once_with(
+            production_profile
+        )
+
+        assert calculator.calculate.call_count > 0
+        assert result is not None
+
+
+    def test_recommend_installation_does_not_require_manual_production(
+        self,
+        monkeypatch,
+    ):
+        configuration = self._installation_configuration()
+        consumption_scenario = self._consumption_scenario()
+
+        solar_configuration = self._solar_configuration()
+
+        self.analyzer.solar_engine.configuration = (
+            solar_configuration
+        )
+
+        # La ruta automática NO debe depender de una simulación
+        # solar manual previa.
+        self.analyzer.solar_engine.statistics = None
+
+        production_profile = self._solar_production_profile()
+
+        service = MagicMock()
+        service.get_production_profile.return_value = (
+            production_profile
+        )
+
+        monkeypatch.setattr(
+            "helios.core.controllers.solar_controller."
+            "PVGISProductionProfileService",
+            MagicMock(return_value=service),
+        )
+
+        calculator = MagicMock()
+        calculator.calculate.return_value = (
+            production_profile
+        )
+
+        monkeypatch.setattr(
+            "helios.core.controllers.solar_controller."
+            "SolarProductionCalculator",
+            MagicMock(return_value=calculator),
+        )
+
+        result = self.controller.recommend_installation(
+            configuration,
+            consumption_scenario,
+        )
+
+        assert result is not None
+        assert self.controller.sizing_result is result
+
+
+    def test_recommend_installation_uses_consumption_scenario(
+        self,
+        monkeypatch,
+    ):
+        configuration = self._installation_configuration()
+        consumption_scenario = self._consumption_scenario()
+
+        solar_configuration = self._solar_configuration()
+
+        self.analyzer.solar_engine.configuration = (
+            solar_configuration
+        )
+
+        production_profile = self._solar_production_profile()
+
+        service = MagicMock()
+        service.get_production_profile.return_value = (
+            production_profile
+        )
+
+        monkeypatch.setattr(
+            "helios.core.controllers.solar_controller."
+            "PVGISProductionProfileService",
+            MagicMock(return_value=service),
+        )
+
+        calculator = MagicMock()
+        calculator.calculate.return_value = (
+            production_profile
+        )
+
+        monkeypatch.setattr(
+            "helios.core.controllers.solar_controller."
+            "SolarProductionCalculator",
+            MagicMock(return_value=calculator),
         )
 
         self.analyzer.valid_dataset.reset_mock()
@@ -1092,44 +1257,95 @@ class TestSolarController:
 
         self.analyzer.valid_dataset.assert_not_called()
 
-        assert (
-            self.controller.sizing_result is not None
-        )
+        assert self.controller.sizing_result is not None
 
-    def test_recommend_installation_requires_positive_consumption(
+
+    def test_recommend_installation_returns_result(
         self,
+        monkeypatch,
     ):
         configuration = self._installation_configuration()
+        consumption_scenario = self._consumption_scenario()
 
-        index = pd.date_range(
-            "2025-01-01 00:00:00",
-            periods=8760,
-            freq="h",
+        self.analyzer.solar_engine.configuration = (
+            self._solar_configuration()
         )
 
-        consumption = pd.Series(
-            0.0,
-            index=index,
-            name="AE_kWh",
+        production_profile = self._solar_production_profile()
+
+        service = MagicMock()
+        service.get_production_profile.return_value = (
+            production_profile
         )
 
-        consumption_scenario = ConsumptionScenario(
-            hourly_consumption=consumption,
-            reference_year=2025,
+        monkeypatch.setattr(
+            "helios.core.controllers.solar_controller."
+            "PVGISProductionProfileService",
+            MagicMock(return_value=service),
         )
 
-        self.analyzer.solar_engine.statistics = {
-            "specific_production": 1500.0,
-        }
+        calculator = MagicMock()
+        calculator.calculate.return_value = (
+            production_profile
+        )
 
-        with pytest.raises(
-            ValueError,
-            match="Annual consumption must be greater than zero",
-        ):
-            self.controller.recommend_installation(
-                configuration,
-                consumption_scenario,
-            )
+        monkeypatch.setattr(
+            "helios.core.controllers.solar_controller."
+            "SolarProductionCalculator",
+            MagicMock(return_value=calculator),
+        )
+
+        result = self.controller.recommend_installation(
+            configuration,
+            consumption_scenario,
+        )
+
+        assert result is not None
+        assert self.controller.sizing_result is result
+
+
+    def test_recommend_installation_selects_smallest_covering_configuration(
+        self,
+        monkeypatch,
+    ):
+        configuration = self._installation_configuration()
+        consumption_scenario = self._consumption_scenario()
+
+        self.analyzer.solar_engine.configuration = (
+            self._solar_configuration()
+        )
+
+        production_profile = self._solar_production_profile()
+
+        service = MagicMock()
+        service.get_production_profile.return_value = (
+            production_profile
+        )
+
+        monkeypatch.setattr(
+            "helios.core.controllers.solar_controller."
+            "PVGISProductionProfileService",
+            MagicMock(return_value=service),
+        )
+
+        calculator = MagicMock()
+        calculator.calculate.return_value = (
+            production_profile
+        )
+
+        monkeypatch.setattr(
+            "helios.core.controllers.solar_controller."
+            "SolarProductionCalculator",
+            MagicMock(return_value=calculator),
+        )
+
+        result = self.controller.recommend_installation(
+            configuration,
+            consumption_scenario,
+        )
+
+        assert result is not None
+        assert result.installed_power_kwp > 0
 
     def test_recommend_installation_rejects_negative_consumption(
         self,
@@ -1162,20 +1378,37 @@ class TestSolarController:
 
     def test_recommend_installation_returns_result(
         self,
+        monkeypatch
     ):
         configuration = self._installation_configuration()
         consumption_scenario = self._consumption_scenario()
 
-        self.analyzer.solar_engine.statistics = {
-            "specific_production": 1500.0,
-        }
+        self.analyzer.solar_engine.configuration = (
+            self._solar_configuration()
+        )
 
         production_profile = self._solar_production_profile()
 
-        self.controller._calculate_installation_production = (
-            MagicMock(
-                return_value=production_profile,
-            )
+        service = MagicMock()
+        service.get_production_profile.return_value = (
+            production_profile
+        )
+
+        monkeypatch.setattr(
+            "helios.core.controllers.solar_controller."
+            "PVGISProductionProfileService",
+            MagicMock(return_value=service),
+        )
+
+        calculator = MagicMock()
+        calculator.calculate.return_value = (
+            production_profile
+        )
+
+        monkeypatch.setattr(
+            "helios.core.controllers.solar_controller."
+            "SolarProductionCalculator",
+            MagicMock(return_value=calculator),
         )
 
         result = self.controller.recommend_installation(
@@ -1189,20 +1422,37 @@ class TestSolarController:
 
     def test_recommend_installation_selects_smallest_covering_configuration(
         self,
+        monkeypatch
     ):
         configuration = self._installation_configuration()
         consumption_scenario = self._consumption_scenario()
 
-        self.analyzer.solar_engine.statistics = {
-            "specific_production": 1500.0,
-        }
+        self.analyzer.solar_engine.configuration = (
+            self._solar_configuration()
+        )
 
         production_profile = self._solar_production_profile()
 
-        self.controller._calculate_installation_production = (
-            MagicMock(
-                return_value=production_profile,
-            )
+        service = MagicMock()
+        service.get_production_profile.return_value = (
+            production_profile
+        )
+
+        monkeypatch.setattr(
+            "helios.core.controllers.solar_controller."
+            "PVGISProductionProfileService",
+            MagicMock(return_value=service),
+        )
+
+        calculator = MagicMock()
+        calculator.calculate.return_value = (
+            production_profile
+        )
+
+        monkeypatch.setattr(
+            "helios.core.controllers.solar_controller."
+            "SolarProductionCalculator",
+            MagicMock(return_value=calculator),
         )
 
         result = self.controller.recommend_installation(

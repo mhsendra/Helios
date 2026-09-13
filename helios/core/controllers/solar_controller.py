@@ -26,6 +26,13 @@ from helios.core.consumption_scenario import (
     ConsumptionScenario,
 )
 
+from helios.solar.production_calculator import (
+    SolarProductionCalculator,
+)
+
+from helios.solar.pvgis_production_profile import (
+    PVGISProductionProfileService,
+)
 
 class SolarController:
 
@@ -446,30 +453,15 @@ class SolarController:
 
     def recommend_installation(
         self,
-        configuration: InstallationConfiguration,
-        consumption_scenario: ConsumptionScenario,
-    ) -> SolarSizingResult:
-        """
-        Ejecuta el dimensionamiento de la instalación.
-
-        InstallationConfiguration contiene las restricciones
-        físicas de la instalación.
-
-        ConsumptionScenario contiene el escenario horario anual
-        de consumo utilizado como referencia para el
-        dimensionamiento automático.
-
-        SolarConfiguration y InstallationConfiguration son
-        conceptos independientes.
-        """
-
+        configuration,
+        consumption_scenario,
+    ):
         if not isinstance(
             configuration,
             InstallationConfiguration,
         ):
             raise TypeError(
-                "configuration must be an "
-                "InstallationConfiguration."
+                "configuration must be an InstallationConfiguration."
             )
 
         if not isinstance(
@@ -477,67 +469,62 @@ class SolarController:
             ConsumptionScenario,
         ):
             raise TypeError(
-                "consumption_scenario must be a "
-                "ConsumptionScenario."
+                "consumption_scenario must be a ConsumptionScenario."
             )
 
-        specific_production = (
-            self.specific_production
-        )
+        # --------------------------------------------------
+        # La ruta automática necesita una configuración
+        # solar, pero NO necesita una simulación manual previa.
+        # --------------------------------------------------
 
-        if specific_production is None:
+        solar_configuration = self.configuration
+
+        if solar_configuration is None:
             raise ValueError(
-                "Solar production must be calculated "
+                "A solar configuration is required "
                 "before recommending an installation."
             )
 
-        if specific_production <= 0:
-            raise ValueError(
-                "Specific solar production must be "
-                "greater than zero."
-            )
+        # --------------------------------------------------
+        # Obtener el perfil solar base de 1 kWp mediante PVGIS.
+        # --------------------------------------------------
 
-        annual_consumption = (
-            consumption_scenario.annual_consumption
+        production_service = PVGISProductionProfileService()
+
+        base_profile = production_service.get_production_profile(
+            solar_configuration
         )
 
-        if annual_consumption <= 0:
-            raise ValueError(
-                "Annual consumption must be "
-                "greater than zero."
-            )
+        # --------------------------------------------------
+        # Escalar el perfil base para cada candidato.
+        # El InstallationCoordinator espera una función que
+        # devuelva SolarProductionProfile.
+        # --------------------------------------------------
 
-        constraints = (
-            configuration.to_constraints()
+        production_calculator = SolarProductionCalculator(
+            base_profile
         )
+
+        # --------------------------------------------------
+        # Dimensionamiento automático.
+        # --------------------------------------------------
+
+        constraints = configuration.to_constraints()
 
         coordinator = InstallationCoordinator(
-            optimizer=InstallationOptimizer(
-                constraints
-            ),
-            evaluator=InstallationEvaluator(
-                constraints
-            ),
+            optimizer=InstallationOptimizer(constraints),
+            evaluator=InstallationEvaluator(constraints),
             recommender=InstallationRecommender(),
-            production_calculator=(
-                self._calculate_installation_production
-            ),
+            production_calculator=production_calculator.calculate,
         )
 
         result = coordinator.recommend(
             configuration=configuration,
-            annual_consumption_kwh=annual_consumption,
+            annual_consumption_kwh=consumption_scenario.annual_consumption,
         )
 
         self.sizing_result = result
-
-        self.installation_configuration = (
-            configuration
-        )
-
-        self.installation_specific_production = (
-            specific_production
-        )
+        self.installation_configuration = configuration
 
         return result
 
