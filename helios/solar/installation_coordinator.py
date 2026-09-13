@@ -145,51 +145,6 @@ class InstallationCoordinator:
         )
 
     # ==================================================
-    # Constraints
-    # ==================================================
-
-    def _build_constraints(
-        self,
-        configuration: InstallationConfiguration,
-    ) -> InstallationConstraints:
-
-        return InstallationConstraints(
-            available_area_m2=(
-                configuration.available_area_m2
-            ),
-            panel_width_m=(
-                configuration.panel_width_m
-            ),
-            panel_height_m=(
-                configuration.panel_height_m
-            ),
-            panel_power_wp=(
-                configuration.panel_power_wp
-            ),
-            min_panels=(
-                configuration.min_panels
-            ),
-            max_panels=(
-                configuration.max_panels
-            ),
-            maintenance_passage_required=(
-                configuration.maintenance_passage_required
-            ),
-            maintenance_passage_width_m=(
-                configuration.maintenance_passage_width_m
-            ),
-            maintenance_passage_orientation=(
-                configuration.maintenance_passage_orientation
-            ),
-            roof_width_m=(
-                configuration.roof_width_m
-            ),
-            roof_height_m=(
-                configuration.roof_height_m
-            ),
-        )
-
-    # ==================================================
     # Evaluation
     # ==================================================
 
