@@ -3768,7 +3768,7 @@ class TestCalculateScenario:
             rel=1e-9,
         )
 
-        assert result.payback_years == float("inf")
+        assert result.payback_years == None
 
         assert np.isfinite(result.irr)
 
@@ -3848,6 +3848,24 @@ class TestCalculateScenario:
         )
 
         assert result is not None
+
+    def test_calculate_scenario_payback_not_reached_returns_none(self):
+
+        self.engine.net_investment = 10000.0
+        self.engine.self_consumption_savings = 100.0
+        self.engine.export_income = 0.0
+        self.engine.cost_without_pv = 3000.0
+
+        result = self.engine.calculate_scenario(
+            scenario=self._scenario(),
+            configuration=self._configuration(),
+            dataset=pd.DataFrame(),
+            energy_balance=self._energy_balance(),
+            tariff_data=self._tariff_data(),
+            years=2,
+        )
+
+        assert result.payback_years is None
 
 
 # ==========================================================

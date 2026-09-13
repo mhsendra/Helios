@@ -361,7 +361,7 @@ class EconomicsEngine:
         # Payback
         # --------------------------------------------------
 
-        payback_years = float("inf")
+        payback_years = None
 
         for year in range(1, len(cumulative)):
 
