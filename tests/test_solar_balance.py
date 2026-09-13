@@ -6,6 +6,26 @@ from helios.solar.balance import SolarBalanceEngine
 from helios.core.consumption_scenario import ConsumptionScenario
 from helios.solar.production_profile import SolarProductionProfile
 
+from helios.core.statistics import ConsumptionStatistics
+from helios.solar.installation_configuration import (
+    InstallationConfiguration,
+)
+from helios.solar.installation_coordinator import (
+    InstallationCoordinator,
+)
+from helios.solar.installation_evaluation import (
+    InstallationEvaluator,
+)
+from helios.solar.installation_optimizer import (
+    InstallationOptimizer,
+)
+from helios.solar.installation_recommendation import (
+    InstallationRecommender,
+)
+from helios.solar.production_calculator import (
+    SolarProductionCalculator,
+)
+
 class TestSolarBalanceEngine:
 
     def test_calculate_with_self_consumption(self):
@@ -482,3 +502,140 @@ class TestSolarBalanceEngine:
             index[14],
             "grid_export_kwh",
         ] == pytest.approx(3.0)
+
+    def test_calculate_integrates_representative_consumption_with_recommended_installation(
+        self,
+    ):
+        """Integra consumo representativo, recomendación y producción solar."""
+
+        index = pd.date_range(
+            start="2025-01-01 00:00:00",
+            periods=8760,
+            freq="h",
+        )
+
+        consumption_data = pd.DataFrame(
+            {
+                "AE_kWh": 5.0,
+            },
+            index=index,
+        )
+
+        statistics = ConsumptionStatistics()
+
+        statistics.calculate_representative_year_consumption(
+            consumption_data,
+            reference_year=2025,
+        )
+
+        scenario = (
+            statistics.representative_consumption_scenario
+        )
+
+        assert isinstance(
+            scenario,
+            ConsumptionScenario,
+        )
+
+        base_profile = SolarProductionProfile(
+            hourly_production=pd.Series(
+                1.0,
+                index=index,
+            ),
+            reference_year=2025,
+            installed_power_kwp=1.0,
+        )
+
+        calculator = SolarProductionCalculator(
+            base_profile=base_profile,
+        )
+
+        installation_configuration = (
+            InstallationConfiguration(
+                available_area_m2=42.25,
+                panel_width_m=1.134,
+                panel_height_m=1.762,
+                panel_power_wp=540,
+                min_panels=5,
+                max_panels=15,
+                maintenance_passage_required=False,
+                maintenance_passage_width_m=0.45,
+                maintenance_passage_orientation="auto",
+            )
+        )
+
+        constraints = (
+            installation_configuration.to_constraints()
+        )
+
+        coordinator = InstallationCoordinator(
+            optimizer=InstallationOptimizer(
+                constraints
+            ),
+            evaluator=InstallationEvaluator(
+                constraints
+            ),
+            recommender=InstallationRecommender(),
+            production_calculator=calculator.calculate,
+        )
+
+        recommendation = coordinator.recommend(
+            configuration=installation_configuration,
+            annual_consumption_kwh=(
+                scenario.annual_consumption
+            ),
+        )
+
+        assert recommendation.panel_count == 10
+        assert recommendation.installed_power_kwp == pytest.approx(
+            5.4
+        )
+
+        production_profile = calculator.calculate(
+            recommendation.evaluation.candidate
+        )
+
+        assert isinstance(
+            production_profile,
+            SolarProductionProfile,
+        )
+
+        assert production_profile.installed_power_kwp == pytest.approx(
+            5.4
+        )
+
+        hourly_production = pd.DataFrame(
+            {
+                "production_kwh":
+                    production_profile.hourly_production,
+            },
+            index=production_profile.hourly_production.index,
+        )
+
+        result = SolarBalanceEngine.calculate(
+            scenario.hourly_consumption,
+            hourly_production,
+        )
+
+        assert len(result) == 8760
+
+        assert result["consumption_kwh"].sum() == pytest.approx(
+            scenario.annual_consumption
+        )
+
+        assert result["production_kwh"].sum() == pytest.approx(
+            production_profile.annual_production
+        )
+
+        assert result["self_consumption_kwh"].sum() == pytest.approx(
+            scenario.annual_consumption
+        )
+
+        assert result["grid_import_kwh"].sum() == pytest.approx(
+            0.0
+        )
+
+        assert result["grid_export_kwh"].sum() == pytest.approx(
+            production_profile.annual_production
+            - scenario.annual_consumption
+        )
