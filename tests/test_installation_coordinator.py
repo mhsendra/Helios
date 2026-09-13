@@ -1,7 +1,25 @@
+import pandas as pd
 import pytest
 
-import pandas as pd
+from helios.core.consumption_scenario import (
+    ConsumptionScenario,
+)
+from helios.core.statistics import (
+    ConsumptionStatistics,
+)
 
+from helios.solar.configuration import (
+    SolarConfiguration,
+)
+from helios.solar.PVGIS_production import (
+    PVGISProductionService,
+)
+from helios.solar.pvgis_production_profile import (
+    PVGISProductionProfileService,
+)
+from helios.solar.production_calculator import (
+    SolarProductionCalculator,
+)
 from helios.solar.production_profile import (
     SolarProductionProfile,
 )
@@ -9,42 +27,26 @@ from helios.solar.production_profile import (
 from helios.solar.installation_candidate import (
     InstallationCandidate,
 )
-
 from helios.solar.installation_configuration import (
     InstallationConfiguration,
 )
-
 from helios.solar.installation_constraints import (
     InstallationConstraints,
 )
-
 from helios.solar.installation_evaluation import (
     InstallationEvaluation,
     InstallationEvaluator,
 )
-
 from helios.solar.installation_optimizer import (
     InstallationOptimizer,
 )
-
 from helios.solar.installation_recommendation import (
     InstallationRecommendation,
     InstallationRecommender,
 )
-
 from helios.solar.installation_coordinator import (
     InstallationCoordinator,
 )
-
-from helios.solar.PVGIS_production import PVGISProductionService
-from helios.solar.pvgis_production_profile import (
-    PVGISProductionProfileService,
-)
-from helios.solar.configuration import SolarConfiguration
-from helios.solar.production_calculator import (
-    SolarProductionCalculator,
-)
-
 
 class TestInstallationCoordinator:
 
@@ -1833,6 +1835,153 @@ class TestInstallationCoordinator:
             recommendation,
             InstallationRecommendation,
         )
+
+        assert recommendation.panel_count == 10
+
+        assert recommendation.installed_power_kwp == pytest.approx(
+            5.4
+        )
+
+        assert recommendation.annual_production_kwh == pytest.approx(
+            8760.0 * 5.4
+        )
+
+    def test_installation_coordinator_uses_representative_consumption_scenario(
+        self,
+    ):
+        """El escenario representativo de consumo alimenta la recomendación automática."""
+
+        # ---------------------------------------------------------------
+        # 1. Construimos un histórico sencillo de consumo
+        # ---------------------------------------------------------------
+
+        index = pd.date_range(
+            start="2023-01-01 00:00:00",
+            periods=8760,
+            freq="h",
+        )
+
+        consumption_data = pd.DataFrame(
+            {
+                "AE_kWh": 5.0,
+            },
+            index=index,
+        )
+
+        statistics = ConsumptionStatistics()
+
+        statistics.calculate_representative_year_consumption(
+            consumption_data,
+            reference_year=2025,
+        )
+
+        scenario = (
+            statistics.representative_consumption_scenario
+        )
+
+        assert isinstance(
+            scenario,
+            ConsumptionScenario,
+        )
+
+        assert scenario.reference_year == 2025
+
+        assert scenario.annual_consumption == pytest.approx(
+            8760.0 * 5.0
+        )
+
+        # ---------------------------------------------------------------
+        # 2. Perfil solar base de 1 kWp
+        #
+        # Cada hora produce 1 kWh.
+        # Por tanto:
+        #
+        #   1 kWp  -> 8760 kWh/año
+        #   5.4 kWp -> 47304 kWh/año
+        #
+        # ---------------------------------------------------------------
+
+        base_profile = self.make_production_profile(
+            value=1.0,
+        )
+
+        calculator = SolarProductionCalculator(
+            base_profile=base_profile,
+        )
+
+        # ---------------------------------------------------------------
+        # 3. Configuración física de la instalación
+        # ---------------------------------------------------------------
+
+        installation_configuration = (
+            InstallationConfiguration(
+                available_area_m2=42.25,
+                panel_width_m=1.134,
+                panel_height_m=1.762,
+                panel_power_wp=540,
+                min_panels=5,
+                max_panels=15,
+                maintenance_passage_required=False,
+                maintenance_passage_width_m=0.45,
+                maintenance_passage_orientation="auto",
+            )
+        )
+
+        optimizer = InstallationOptimizer(
+            installation_configuration.to_constraints()
+        )
+
+        evaluator = InstallationEvaluator(
+            installation_configuration.to_constraints()
+        )
+
+        recommender = InstallationRecommender()
+
+        coordinator = InstallationCoordinator(
+            optimizer=optimizer,
+            evaluator=evaluator,
+            recommender=recommender,
+            production_calculator=calculator.calculate,
+        )
+
+        # ---------------------------------------------------------------
+        # 4. El consumo del escenario entra directamente en el
+        #    proceso automático de recomendación
+        # ---------------------------------------------------------------
+
+        recommendation = coordinator.recommend(
+            installation_configuration,
+            annual_consumption_kwh=scenario.annual_consumption,
+        )
+
+        # ---------------------------------------------------------------
+        # 5. Verificamos la integración completa
+        # ---------------------------------------------------------------
+
+        assert isinstance(
+            recommendation,
+            InstallationRecommendation,
+        )
+
+        assert (
+            recommendation.annual_consumption_kwh
+            == pytest.approx(
+                scenario.annual_consumption
+            )
+        )
+
+        assert (
+            recommendation.annual_production_kwh
+            >= recommendation.annual_consumption_kwh
+        )
+
+        # 9 paneles = 4.86 kWp
+        # 4.86 * 8760 = 42573.6 kWh
+        # No cubre los 43800 kWh del escenario.
+
+        # 10 paneles = 5.40 kWp
+        # 5.40 * 8760 = 47304 kWh
+        # Es la primera configuración que cubre el consumo.
 
         assert recommendation.panel_count == 10
 
