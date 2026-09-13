@@ -19,9 +19,9 @@ class EconomicScenarioResult:
 
     name: str
     annual_savings: float
-    payback_years: float
+    payback_years: float | None
     npv: float
-    irr: float
+    irr: float | None
 
 def default_economic_scenarios():
     return [

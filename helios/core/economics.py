@@ -239,6 +239,11 @@ class EconomicsEngine:
             else configuration.discount_rate
         )
 
+        if discount_rate < 0:
+            raise ValueError(
+                "Discount rate cannot be negative."
+            )
+
         # --------------------------------------------------
         # Cash flow
         # --------------------------------------------------
@@ -365,10 +370,10 @@ class EconomicsEngine:
 
         for year in range(1, len(cumulative)):
 
-            if cumulative[year] >= 0:
+            previous = cumulative[year - 1]
+            current = cumulative[year]
 
-                previous = cumulative[year - 1]
-                current = cumulative[year]
+            if previous < 0 and current >= 0:
 
                 fraction = (
                     -previous
@@ -378,6 +383,14 @@ class EconomicsEngine:
                 payback_years = (
                     year - 1
                     + fraction
+                )
+
+                break
+
+            if previous == 0 and current > 0:
+
+                payback_years = (
+                    year - 1
                 )
 
                 break
@@ -405,14 +418,6 @@ class EconomicsEngine:
             cash_flow
         )
 
-        if irr is None:
-
-            raise RuntimeError(
-                f"IRR could not be calculated "
-                f"for scenario "
-                f"'{scenario.name}'."
-            )
-
         return EconomicScenarioResult(
             name=scenario.name,
             annual_savings=(
@@ -420,7 +425,11 @@ class EconomicsEngine:
             ),
             payback_years=payback_years,
             npv=float(npv),
-            irr=float(irr),
+            irr=(
+                float(irr)
+                if irr is not None
+                else None
+            ),
         )
 
     def calculate_scenarios(
@@ -463,7 +472,7 @@ class EconomicsEngine:
 
         return self.net_investment
     
-    def calculate_payback(self) -> float:
+    def calculate_payback(self) -> float | None:
 
         if self.cash_flow is None:
             raise RuntimeError(
@@ -482,6 +491,7 @@ class EconomicsEngine:
                 .iloc[i]["cumulative_cash_flow"]
             )
 
+            # Recuperación de una inversión inicialmente negativa
             if (
                 previous_cumulative < 0
                 and current_cumulative >= 0
@@ -505,6 +515,19 @@ class EconomicsEngine:
 
                 return self.payback_years
 
+            # Inversión neta igual a cero
+            if (
+                previous_cumulative == 0
+                and current_cumulative > 0
+            ):
+
+                self.payback_years = (
+                    self.cash_flow.iloc[i - 1]["year"]
+                )
+
+                return self.payback_years
+
+        # No se ha recuperado la inversión
         self.payback_years = None
 
         return self.payback_years
@@ -628,7 +651,7 @@ class EconomicsEngine:
                 self.cumulative_cash_flow[year]
             )
 
-            if current >= 0:
+            if previous < 0 and current >= 0:
 
                 fraction = (
                     -previous
@@ -638,6 +661,14 @@ class EconomicsEngine:
                 self.payback_years = (
                     year - 1
                     + fraction
+                )
+
+                break
+
+            if previous == 0 and current > 0:
+
+                self.payback_years = (
+                    year - 1
                 )
 
                 break

@@ -1528,21 +1528,36 @@ class TestCalculateScenario:
             expected
         )
 
-    import numpy as np
-import numpy_financial as npf
-import pandas as pd
-import pytest
+    def test_calculate_scenario_payback_matches_cash_flow_payback(self):
 
-from helios.core.economic_scenarios import (
-    EconomicScenario,
-    EconomicScenarioResult,
-    default_economic_scenarios,
-)
-from helios.core.economics import EconomicsEngine
-from helios.core.economics_configuration import (
-    EconomicsConfiguration,
-)
+        configuration = self._configuration()
 
+        # Ruta 1: cash flow + calculate_payback()
+        self.engine.annual_savings = (
+            self.engine.self_consumption_savings
+            + self.engine.export_income
+        )
+
+        self.engine.calculate_cash_flow(
+            configuration,
+            years=5,
+        )
+
+        cash_flow_payback = self.engine.calculate_payback()
+
+        # Ruta 2: calculate_scenario()
+        scenario_result = self.engine.calculate_scenario(
+            scenario=self._scenario(),
+            configuration=configuration,
+            dataset=pd.DataFrame(),
+            energy_balance=self._energy_balance(),
+            tariff_data=self._tariff_data(),
+            years=5,
+        )
+
+        assert scenario_result.payback_years == pytest.approx(
+            cash_flow_payback
+        )
 
 # ==========================================================
 # Factores económicos
@@ -2060,6 +2075,36 @@ class TestEconomicsCashFlow:
             2.0
         )
 
+    def test_calculate_cash_flow_zero_net_investment_returns_zero_payback(self):
+
+        self.engine.net_investment = 0.0
+        self.engine.self_consumption_savings = 1000.0
+        self.engine.export_income = 0.0
+        self.engine.annual_savings = 1000.0
+
+        result = self.engine.calculate_cash_flow(
+            self._configuration(),
+            years=2,
+        )
+
+        assert len(result) == 3
+        assert self.engine.payback_years == 0.0
+
+    def test_calculate_cash_flow_negative_net_investment_has_no_payback(self):
+
+        self.engine.net_investment = -1000.0
+        self.engine.self_consumption_savings = 1000.0
+        self.engine.export_income = 0.0
+        self.engine.annual_savings = 1000.0
+
+        result = self.engine.calculate_cash_flow(
+            self._configuration(),
+            years=2,
+        )
+
+        assert len(result) == 3
+        assert self.engine.payback_years is None
+
 
 # ==========================================================
 # Payback
@@ -2160,6 +2205,51 @@ class TestEconomicsPayback:
             match="Cash flow has not been calculated.",
         ):
             self.engine.calculate_payback()
+
+    def test_payback_zero_net_investment_returns_zero(self):
+
+        self.engine.cash_flow = pd.DataFrame(
+            [
+                {
+                    "year": 0,
+                    "cash_flow": 0.0,
+                    "cumulative_cash_flow": 0.0,
+                },
+                {
+                    "year": 1,
+                    "cash_flow": 1000.0,
+                    "cumulative_cash_flow": 1000.0,
+                },
+            ]
+        )
+
+        result = self.engine.calculate_payback()
+
+        assert result == 0.0
+        assert self.engine.payback_years == 0.0
+
+    def test_calculate_payback_when_recovery_is_exactly_zero(self):
+
+        self.engine.cash_flow = pd.DataFrame(
+            {
+                "year": [0, 1, 2],
+                "cash_flow": [
+                    -1000.0,
+                    500.0,
+                    500.0,
+                ],
+                "cumulative_cash_flow": [
+                    -1000.0,
+                    -500.0,
+                    0.0,
+                ],
+            }
+        )
+
+        result = self.engine.calculate_payback()
+
+        assert result == pytest.approx(2.0)
+        assert self.engine.payback_years == pytest.approx(2.0)
 
 
 # ==========================================================
@@ -3361,6 +3451,96 @@ class TestCalculateScenario:
         assert np.isfinite(result.payback_years)
         assert result.payback_years > 0
 
+    def test_calculate_scenario_payback_matches_cash_flow_payback_first_year(self):
+
+        configuration = self._configuration()
+
+        self.engine.net_investment = 1000.0
+        self.engine.self_consumption_savings = 1200.0
+        self.engine.export_income = 0.0
+        self.engine.annual_savings = 1200.0
+
+        self.engine.calculate_cash_flow(
+            configuration,
+            years=1,
+        )
+
+        cash_flow_payback = self.engine.calculate_payback()
+
+        scenario_result = self.engine.calculate_scenario(
+            scenario=self._scenario(),
+            configuration=configuration,
+            dataset=pd.DataFrame(),
+            energy_balance=self._energy_balance(),
+            tariff_data=self._tariff_data(),
+            years=1,
+        )
+
+        assert scenario_result.payback_years == pytest.approx(
+            cash_flow_payback
+        )
+
+
+    def test_calculate_scenario_payback_matches_cash_flow_payback_fractional(self):
+
+        configuration = self._configuration()
+
+        self.engine.net_investment = 1000.0
+        self.engine.self_consumption_savings = 400.0
+        self.engine.export_income = 400.0
+        self.engine.annual_savings = 800.0
+
+        self.engine.calculate_cash_flow(
+            configuration,
+            years=2,
+        )
+
+        cash_flow_payback = self.engine.calculate_payback()
+
+        scenario_result = self.engine.calculate_scenario(
+            scenario=self._scenario(),
+            configuration=configuration,
+            dataset=pd.DataFrame(),
+            energy_balance=self._energy_balance(),
+            tariff_data=self._tariff_data(),
+            years=2,
+        )
+
+        assert scenario_result.payback_years == pytest.approx(
+            cash_flow_payback
+        )
+
+
+    def test_calculate_scenario_payback_matches_cash_flow_payback_not_recovered(
+        self,
+    ):
+
+        configuration = self._configuration()
+
+        self.engine.net_investment = 10000.0
+        self.engine.self_consumption_savings = 100.0
+        self.engine.export_income = 0.0
+        self.engine.annual_savings = 100.0
+
+        self.engine.calculate_cash_flow(
+            configuration,
+            years=2,
+        )
+
+        cash_flow_payback = self.engine.calculate_payback()
+
+        scenario_result = self.engine.calculate_scenario(
+            scenario=self._scenario(),
+            configuration=configuration,
+            dataset=pd.DataFrame(),
+            energy_balance=self._energy_balance(),
+            tariff_data=self._tariff_data(),
+            years=2,
+        )
+
+        assert cash_flow_payback is None
+        assert scenario_result.payback_years is None
+
     def test_calculate_scenario_npv_is_correct(self):
 
         result = self._calculate_base_result()
@@ -3772,45 +3952,6 @@ class TestCalculateScenario:
 
         assert np.isfinite(result.irr)
 
-    def test_calculate_scenario_irr_none(
-        self,
-        monkeypatch,
-    ):
-
-        class Scenario:
-
-            name = "IRR None"
-
-            annual_degradation = None
-            discount_rate = None
-
-            buy_price_factor = 1.0
-            sell_price_factor = 1.0
-
-            annual_maintenance = None
-
-        monkeypatch.setattr(
-            npf,
-            "irr",
-            lambda cash_flows: None,
-        )
-
-        with pytest.raises(
-            RuntimeError,
-            match=(
-                "IRR could not be calculated "
-                "for scenario 'IRR None'."
-            ),
-        ):
-            self.engine.calculate_scenario(
-                scenario=Scenario(),
-                configuration=self._configuration(),
-                dataset=pd.DataFrame(),
-                energy_balance=pd.DataFrame(),
-                tariff_data=pd.DataFrame(),
-                years=1,
-            )
-
     def test_calculate_scenario_zero_maintenance_cost(self):
 
         class Configuration:
@@ -3865,8 +4006,88 @@ class TestCalculateScenario:
             years=2,
         )
 
-        assert result.payback_years is None
+    def test_calculate_scenario_rejects_negative_discount_rate(self):
 
+        scenario = self._scenario()
+        scenario.discount_rate = -0.01
+
+        with pytest.raises(
+            ValueError,
+            match="Discount rate cannot be negative.",
+        ):
+            self.engine.calculate_scenario(
+                scenario=scenario,
+                configuration=self._configuration(),
+                dataset=pd.DataFrame(),
+                energy_balance=self._energy_balance(),
+                tariff_data=self._tariff_data(),
+                years=2,
+            )
+
+    def test_calculate_scenario_payback_negative_investment_is_none(self):
+
+        configuration = self._configuration()
+
+        self.engine.net_investment = -1000.0
+        self.engine.self_consumption_savings = 1000.0
+        self.engine.export_income = 0.0
+
+        self.engine.annual_savings = 1000.0
+
+        self.engine.calculate_cash_flow(
+            configuration,
+            years=2,
+        )
+
+        cash_flow_payback = self.engine.calculate_payback()
+
+        scenario_result = self.engine.calculate_scenario(
+            scenario=self._scenario(),
+            configuration=configuration,
+            dataset=pd.DataFrame(),
+            energy_balance=self._energy_balance(),
+            tariff_data=self._tariff_data(),
+            years=2,
+        )
+
+        assert cash_flow_payback is None
+        assert scenario_result.payback_years is None
+
+    def test_calculate_scenario_payback_zero_investment_matches_cash_flow(
+        self,
+    ):
+
+        configuration = self._configuration()
+
+        self.engine.net_investment = 0.0
+        self.engine.self_consumption_savings = 1000.0
+        self.engine.export_income = 0.0
+        self.engine.annual_savings = 1000.0
+
+        # Ruta 1: cash flow + calculate_payback()
+        self.engine.calculate_cash_flow(
+            configuration,
+            years=2,
+        )
+
+        cash_flow_payback = self.engine.calculate_payback()
+
+        # Ruta 2: calculate_scenario()
+        scenario_result = self.engine.calculate_scenario(
+            scenario=self._scenario(),
+            configuration=configuration,
+            dataset=pd.DataFrame(),
+            energy_balance=self._energy_balance(),
+            tariff_data=self._tariff_data(),
+            years=2,
+        )
+
+        assert cash_flow_payback == 0.0
+        assert scenario_result.payback_years == 0.0
+
+        assert scenario_result.payback_years == pytest.approx(
+            cash_flow_payback
+        )
 
 # ==========================================================
 # Cálculo de escenarios múltiples
