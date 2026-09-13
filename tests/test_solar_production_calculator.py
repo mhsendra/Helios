@@ -13,6 +13,14 @@ from helios.solar.production_calculator import (
     SolarProductionCalculator,
 )
 
+from helios.solar.PVGIS_production import PVGISProductionService
+from helios.solar.pvgis_production_profile import (
+    PVGISProductionProfileService,
+)
+from helios.solar.installation_candidate import InstallationCandidate
+from helios.solar.production_calculator import SolarProductionCalculator
+from helios.solar.configuration import SolarConfiguration
+
 
 class TestSolarProductionCalculator:
 
@@ -252,3 +260,72 @@ class TestSolarProductionCalculator:
             calculator.calculate(
                 candidate
             )
+
+    def test_pvgis_profile_can_be_used_by_production_calculator(self):
+        
+        class FakePVGISClient:
+
+            def fetch(self, configuration):
+                index = pd.date_range(
+                    start="2025-01-01 00:00:00",
+                    periods=8760,
+                    freq="h",
+                )
+
+                hourly = [
+                    {
+                        "time": timestamp.strftime("%Y%m%d:%H%M"),
+                        "P": 1000.0,
+                        "G(i)": 100.0,
+                        "T2m": 20.0,
+                        "WS10m": 2.0,
+                        "Int": 0,
+                    }
+                    for timestamp in index
+                ]
+
+                return {
+                    "outputs": {
+                        "hourly": hourly,
+                    }
+                }
+
+        configuration = SolarConfiguration(
+            latitude=41.62,
+            longitude=2.09,
+            tilt=30,
+            azimuth=0,
+            losses=14.0,
+            pv_technology="crystSi",
+            mounting_place="building",
+            reference_year=2025,
+        )
+
+        profile_service = PVGISProductionProfileService(
+            production_service=PVGISProductionService(
+                client=FakePVGISClient()
+            )
+        )
+
+        profile = profile_service.get_production_profile(
+            configuration
+        )
+
+        candidate = InstallationCandidate(
+            panel_count=15,
+            panel_power_wp=540,
+            panel_area_m2=2.25666,
+        )
+
+        calculator = SolarProductionCalculator(
+            base_profile=profile
+        )
+
+        result = calculator.calculate(candidate)
+
+        assert len(result.hourly_production) == 8760
+        assert result.installed_power_kwp == pytest.approx(8.1)
+
+        assert result.annual_production == pytest.approx(
+            8760.0 * 8.1
+        )
