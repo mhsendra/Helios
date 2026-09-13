@@ -628,27 +628,6 @@ class TestSolarManager:
                 installed_power_kwp=0.0,
             )
             
-    def test_installation_simulation_report_requires_yearly_production(
-        self,
-    ):
-
-        configuration = object()
-        recommendation = MagicMock()
-
-        recommendation.installed_power_kwp = 5.0
-
-        self.manager.yearly_production = None
-
-        with pytest.raises(
-            RuntimeError,
-            match="Yearly production has not been calculated.",
-        ):
-            self.manager.installation_simulation_report(
-                configuration=configuration,
-                recommendation=recommendation,
-            )
-
-
     def test_installation_simulation_report_rejects_non_positive_installed_power(
         self,
     ):

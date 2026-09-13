@@ -221,11 +221,6 @@ class SolarManager:
 
         if specific_production is None:
 
-            if self.yearly_production is None:
-                raise RuntimeError(
-                    "Yearly production has not been calculated."
-                )
-
             if recommendation.installed_power_kwp <= 0:
                 raise ValueError(
                     "Installed power must be greater than zero."
