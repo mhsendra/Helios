@@ -1857,3 +1857,74 @@ class TestInstallationCoordinator:
         assert recommendation.annual_production_kwh == pytest.approx(
             8760.0 * 5.4
         )
+
+    def test_recommend_uses_injected_optimizer(
+        self,
+    ):
+        optimizer = InstallationOptimizer(
+            self.configuration().to_constraints()
+        )
+
+        evaluator = InstallationEvaluator(
+            self.configuration().to_constraints()
+        )
+
+        coordinator = self.coordinator(
+            optimizer,
+            evaluator,
+            InstallationRecommender(),
+            lambda candidate: self.make_production_profile(
+                value=1.0,
+            ),
+        )
+
+        coordinator.recommend(
+            self.configuration(),
+            5000.0,
+        )
+
+        assert coordinator.optimizer is optimizer
+
+
+    def test_recommend_rejects_optimizer_with_mismatched_constraints(
+        self,
+    ):
+        configuration = self.configuration()
+
+        optimizer_constraints = InstallationConstraints(
+            available_area_m2=42.25,
+            panel_width_m=1.134,
+            panel_height_m=1.762,
+            panel_power_wp=540,
+            min_panels=5,
+            max_panels=14,
+        )
+
+        optimizer = InstallationOptimizer(
+            optimizer_constraints
+        )
+
+        evaluator = InstallationEvaluator(
+            configuration.to_constraints()
+        )
+
+        coordinator = self.coordinator(
+            optimizer,
+            evaluator,
+            InstallationRecommender(),
+            lambda candidate: self.make_production_profile(
+                value=1.0,
+            ),
+        )
+
+        with pytest.raises(
+            ValueError,
+            match=(
+                "Optimizer constraints do not match "
+                "installation configuration"
+            ),
+        ):
+            coordinator.recommend(
+                configuration,
+                5000.0,
+            )

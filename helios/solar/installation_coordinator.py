@@ -120,17 +120,14 @@ class InstallationCoordinator:
 
         constraints = configuration.to_constraints()
 
-        self._validate_constraints(
-            constraints
-        )
+        self._validate_constraints(constraints)
 
-        self.optimizer = InstallationOptimizer(
-            constraints
-        )
+        if self.optimizer.constraints != constraints:
+            raise ValueError(
+                "Optimizer constraints do not match installation configuration."
+            )
 
-        evaluations = (
-            self._generate_evaluations()
-        )
+        evaluations = self._generate_evaluations()
 
         annual_productions_kwh = (
             self._calculate_productions(
