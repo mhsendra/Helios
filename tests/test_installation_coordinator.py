@@ -36,6 +36,15 @@ from helios.solar.installation_coordinator import (
     InstallationCoordinator,
 )
 
+from helios.solar.PVGIS_production import PVGISProductionService
+from helios.solar.pvgis_production_profile import (
+    PVGISProductionProfileService,
+)
+from helios.solar.configuration import SolarConfiguration
+from helios.solar.production_calculator import (
+    SolarProductionCalculator,
+)
+
 
 class TestInstallationCoordinator:
 
@@ -1739,3 +1748,98 @@ class TestInstallationCoordinator:
         assert recommendation.panel_count == 15
         assert recommendation.evaluation.panel_count == 15
         assert recommendation.annual_production_kwh == 1500.0
+
+    def test_recommend_uses_solar_production_calculator_with_pvgis_profile(
+        self,
+    ):
+        
+        class FakePVGISClient:
+
+            def fetch(self, configuration):
+                index = pd.date_range(
+                    start="2025-01-01 00:00:00",
+                    periods=8760,
+                    freq="h",
+                )
+
+                hourly = [
+                    {
+                        "time": timestamp.strftime("%Y%m%d:%H%M"),
+                        "P": 1000.0,
+                        "G(i)": 100.0,
+                        "T2m": 20.0,
+                        "WS10m": 2.0,
+                        "Int": 0,
+                    }
+                    for timestamp in index
+                ]
+
+                return {
+                    "outputs": {
+                        "hourly": hourly,
+                    }
+                }
+
+        solar_configuration = SolarConfiguration(
+            latitude=41.62,
+            longitude=2.09,
+            tilt=30,
+            azimuth=0,
+            losses=14.0,
+            pv_technology="crystSi",
+            mounting_place="building",
+            reference_year=2025,
+        )
+
+        profile_service = PVGISProductionProfileService(
+            production_service=PVGISProductionService(
+                client=FakePVGISClient()
+            )
+        )
+
+        base_profile = (
+            profile_service.get_production_profile(
+                solar_configuration
+            )
+        )
+
+        calculator = SolarProductionCalculator(
+            base_profile=base_profile
+        )
+
+        configuration = self.configuration()
+
+        optimizer = InstallationOptimizer(
+            configuration.to_constraints()
+        )
+
+        evaluator = InstallationEvaluator(
+            configuration.to_constraints()
+        )
+
+        coordinator = self.coordinator(
+            optimizer,
+            evaluator,
+            InstallationRecommender(),
+            calculator.calculate,
+        )
+
+        recommendation = coordinator.recommend(
+            configuration,
+            annual_consumption_kwh=45000.0,
+        )
+
+        assert isinstance(
+            recommendation,
+            InstallationRecommendation,
+        )
+
+        assert recommendation.panel_count == 10
+
+        assert recommendation.installed_power_kwp == pytest.approx(
+            5.4
+        )
+
+        assert recommendation.annual_production_kwh == pytest.approx(
+            8760.0 * 5.4
+        )
