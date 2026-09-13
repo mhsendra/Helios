@@ -528,37 +528,6 @@ class SolarController:
 
         return result
 
-    def _calculate_installation_production(
-        self,
-        candidate,
-    ) -> float:
-        """
-        Calcula la producción anual de una instalación
-        candidata utilizando la producción específica
-        previamente calculada.
-        """
-
-        specific_production = (
-            self.specific_production
-        )
-
-        if specific_production is None:
-            raise ValueError(
-                "Solar production must be calculated "
-                "before recommending an installation."
-            )
-
-        if specific_production <= 0:
-            raise ValueError(
-                "Specific solar production must be "
-                "greater than zero."
-            )
-
-        return float(
-            candidate.installed_power_kwp
-            * specific_production
-        )
-
     # ==================================================
     # Informes
     # ==================================================

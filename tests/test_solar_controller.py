@@ -1464,69 +1464,6 @@ class TestSolarController:
         assert result.installed_power_kwp > 0
         
     # ==================================================
-    # Producción de candidatos
-    # ==================================================
-
-    def test_calculate_installation_production(
-        self,
-    ):
-
-        self._configure_solar_reference()
-
-        candidate = MagicMock()
-
-        candidate.installed_power_kwp = 4.86
-
-        production = (
-            self.controller
-            ._calculate_installation_production(
-                candidate
-            )
-        )
-
-        assert production == pytest.approx(
-            5_400.0
-        )
-
-    def test_calculate_installation_production_requires_solar_production(
-        self,
-    ):
-
-        self.analyzer.solar_engine.statistics = None
-
-        candidate = MagicMock()
-
-        candidate.installed_power_kwp = 4.86
-
-        with pytest.raises(
-            ValueError,
-            match="Solar production must be calculated",
-        ):
-            self.controller._calculate_installation_production(
-                candidate
-            )
-
-    def test_calculate_installation_production_rejects_zero_specific_production(
-        self,
-    ):
-
-        self.analyzer.solar_engine.statistics = {
-            "specific_production": 0.0,
-        }
-
-        candidate = MagicMock()
-
-        candidate.installed_power_kwp = 4.86
-
-        with pytest.raises(
-            ValueError,
-            match="Specific solar production must be greater than zero",
-        ):
-            self.controller._calculate_installation_production(
-                candidate
-            )
-
-    # ==================================================
     # Reset
     # ==================================================
 
