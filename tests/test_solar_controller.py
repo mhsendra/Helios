@@ -21,6 +21,7 @@ from helios.solar.installation_constraints import (
 
 from helios.core.consumption_scenario import ConsumptionScenario
 from helios.solar.solar_installation_sizing import SolarSizingResult
+from helios.solar.production_profile import SolarProductionProfile
 
 
 class TestSolarController:
@@ -72,6 +73,26 @@ class TestSolarController:
         self.analyzer.solar_engine.statistics = {
             "specific_production": 1111.111111,
         }
+
+    def _solar_production_profile(self):
+
+        index = pd.date_range(
+            "2023-01-01 00:00:00",
+            periods=8760,
+            freq="h",
+        )
+
+        production = pd.Series(
+            1.0,
+            index=index,
+            name="production_kwh",
+        )
+
+        return SolarProductionProfile(
+            hourly_production=production,
+            reference_year=2023,
+            installed_power_kwp=1.0,
+        )
 
     # ==================================================
     # Propiedades
@@ -1053,7 +1074,15 @@ class TestSolarController:
         self.analyzer.solar_engine.statistics = {
             "specific_production": 1500.0,
         }
-        
+
+        production_profile = self._solar_production_profile()
+
+        self.controller._calculate_installation_production = (
+            MagicMock(
+                return_value=production_profile,
+            )
+        )
+
         self.analyzer.valid_dataset.reset_mock()
 
         self.controller.recommend_installation(
@@ -1066,7 +1095,6 @@ class TestSolarController:
         assert (
             self.controller.sizing_result is not None
         )
-
 
     def test_recommend_installation_requires_positive_consumption(
         self,
@@ -1142,6 +1170,14 @@ class TestSolarController:
             "specific_production": 1500.0,
         }
 
+        production_profile = self._solar_production_profile()
+
+        self.controller._calculate_installation_production = (
+            MagicMock(
+                return_value=production_profile,
+            )
+        )
+
         result = self.controller.recommend_installation(
             configuration,
             consumption_scenario,
@@ -1149,6 +1185,7 @@ class TestSolarController:
 
         assert result is not None
         assert self.controller.sizing_result is result
+
 
     def test_recommend_installation_selects_smallest_covering_configuration(
         self,
@@ -1159,6 +1196,14 @@ class TestSolarController:
         self.analyzer.solar_engine.statistics = {
             "specific_production": 1500.0,
         }
+
+        production_profile = self._solar_production_profile()
+
+        self.controller._calculate_installation_production = (
+            MagicMock(
+                return_value=production_profile,
+            )
+        )
 
         result = self.controller.recommend_installation(
             configuration,
