@@ -616,7 +616,7 @@ class EconomicsEngine:
             .tolist()
         )
 
-        self.payback_years = float("inf")
+        self.payback_years = None
 
         for year in range(1, len(self.cumulative_cash_flow)):
 
