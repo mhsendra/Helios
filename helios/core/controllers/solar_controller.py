@@ -17,10 +17,9 @@ from helios.solar.installation_optimizer import (
 )
 
 from helios.solar.installation_recommendation import (
+    InstallationRecommendation,
     InstallationRecommender,
 )
-
-from helios.solar.solar_installation_sizing import SolarSizingResult
 
 from helios.core.consumption_scenario import (
     ConsumptionScenario,
@@ -41,7 +40,7 @@ class SolarController:
         self.analyzer = analyzer
 
         # Resultado del último dimensionamiento.
-        self.sizing_result: SolarSizingResult | None = None
+        self.sizing_result: InstallationRecommendation | None = None
 
         # Configuración física utilizada para el último
         # dimensionamiento.
