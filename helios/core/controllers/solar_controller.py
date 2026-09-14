@@ -517,6 +517,7 @@ class SolarController:
         result = coordinator.recommend(
             configuration=configuration,
             annual_consumption_kwh=consumption_scenario.annual_consumption,
+            consumption_scenario=consumption_scenario,
         )
 
         self.sizing_result = result

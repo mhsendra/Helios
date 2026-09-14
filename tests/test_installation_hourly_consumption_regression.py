@@ -6,9 +6,13 @@ from helios.solar.installation_constraints import InstallationConstraints
 from helios.solar.installation_configuration import InstallationConfiguration
 from helios.solar.installation_evaluation import InstallationEvaluator
 from helios.solar.installation_optimizer import InstallationOptimizer
-from helios.solar.installation_recommendation import InstallationRecommender
+from helios.solar.installation_candidate import InstallationCandidate
+from helios.solar.installation_evaluation import InstallationEvaluation
+from helios.solar.installation_recommendation import (
+    InstallationRecommendation,
+    InstallationRecommender,
+)
 from helios.solar.production_profile import SolarProductionProfile
-
 
 class CapturingRecommender(InstallationRecommender):
     """Captures the hourly inputs that sizing must evaluate."""
@@ -138,3 +142,205 @@ def test_same_annual_consumption_does_not_hide_hourly_difference():
     assert not aligned.hourly_consumption.equals(
         shifted.hourly_consumption
     )
+
+def test_hourly_coincidence_changes_self_consumption():
+    """
+    La misma producción anual puede generar distinto autoconsumo según
+    su coincidencia horaria con el consumo sintético.
+    """
+    scenario = _scenario(pv_aligned=True)
+
+    aligned_profile = _production_profile()
+
+    shifted_index = aligned_profile.hourly_production.index
+    shifted_production = pd.Series(
+        0.0,
+        index=shifted_index,
+    )
+    shifted_production.iloc[0::24] = 1.0
+
+    shifted_profile = SolarProductionProfile(
+        hourly_production=shifted_production,
+        reference_year=2025,
+        installed_power_kwp=1.0,
+    )
+
+    aligned_recommendation = InstallationRecommendation(
+        evaluation=None,
+        annual_consumption_kwh=scenario.annual_consumption,
+        annual_production_kwh=aligned_profile.hourly_production.sum(),
+        consumption_scenario=scenario,
+        production_profile=aligned_profile,
+    )
+
+    shifted_recommendation = InstallationRecommendation(
+        evaluation=None,
+        annual_consumption_kwh=scenario.annual_consumption,
+        annual_production_kwh=shifted_profile.hourly_production.sum(),
+        consumption_scenario=scenario,
+        production_profile=shifted_profile,
+    )
+
+    assert (
+        aligned_recommendation.annual_production_kwh
+        == shifted_recommendation.annual_production_kwh
+    )
+
+    assert (
+        aligned_recommendation.self_consumption_kwh
+        > shifted_recommendation.self_consumption_kwh
+    )
+
+def test_recommendation_can_distinguish_hourly_coincidence():
+    """
+    Dos instalaciones con la misma producción anual pueden tener distinto
+    autoconsumo según la distribución horaria de su producción.
+    """
+    scenario = _scenario(pv_aligned=True)
+
+    aligned_profile = _production_profile()
+
+    shifted_production = pd.Series(
+        0.0,
+        index=aligned_profile.hourly_production.index,
+    )
+    shifted_production.iloc[0::24] = 1.0
+
+    shifted_profile = SolarProductionProfile(
+        hourly_production=shifted_production,
+        reference_year=2025,
+        installed_power_kwp=1.0,
+    )
+
+    assert (
+        aligned_profile.hourly_production.sum()
+        == shifted_profile.hourly_production.sum()
+    )
+
+    aligned_candidate = InstallationCandidate(
+        panel_count=5,
+        panel_power_wp=540,
+        panel_area_m2=1.134 * 1.762,
+    )
+
+    shifted_candidate = InstallationCandidate(
+        panel_count=6,
+        panel_power_wp=450,
+        panel_area_m2=1.134 * 1.762,
+    )
+
+    aligned_evaluation = InstallationEvaluation(
+        candidate=aligned_candidate,
+        available_area_m2=100.0,
+    )
+
+    shifted_evaluation = InstallationEvaluation(
+        candidate=shifted_candidate,
+        available_area_m2=100.0,
+    )
+
+    recommender = InstallationRecommender()
+
+    aligned_recommendation = recommender.recommend(
+        evaluations=[aligned_evaluation],
+        annual_consumption_kwh=scenario.annual_consumption,
+        annual_productions_kwh={
+            5: aligned_profile.hourly_production.sum(),
+        },
+        consumption_scenario=scenario,
+        production_profiles={
+            5: aligned_profile,
+        },
+    )
+
+    shifted_recommendation = recommender.recommend(
+        evaluations=[shifted_evaluation],
+        annual_consumption_kwh=scenario.annual_consumption,
+        annual_productions_kwh={
+            6: shifted_profile.hourly_production.sum(),
+        },
+        consumption_scenario=scenario,
+        production_profiles={
+            6: shifted_profile,
+        },
+    )
+
+    assert (
+        aligned_recommendation.self_consumption_kwh
+        > shifted_recommendation.self_consumption_kwh
+    )
+
+def test_recommendation_prefers_hourly_coincidence_over_annual_production():
+    """
+    El dimensionamiento debe considerar la coincidencia horaria:
+    una instalación que produce menos anualmente puede ser preferible
+    si su producción coincide con el consumo.
+    """
+    scenario = _scenario(pv_aligned=True)
+
+    aligned_production = pd.Series(
+        0.0,
+        index=scenario.hourly_consumption.index,
+    )
+    aligned_production.iloc[12::24] = 0.8
+
+    shifted_production = pd.Series(
+        0.0,
+        index=scenario.hourly_consumption.index,
+    )
+    shifted_production.iloc[0::24] = 1.1
+
+    aligned_profile = SolarProductionProfile(
+        hourly_production=aligned_production,
+        reference_year=2025,
+        installed_power_kwp=1.0,
+    )
+
+    shifted_profile = SolarProductionProfile(
+        hourly_production=shifted_production,
+        reference_year=2025,
+        installed_power_kwp=1.0,
+    )
+
+    aligned_candidate = InstallationCandidate(
+        panel_count=5,
+        panel_power_wp=540,
+        panel_area_m2=1.134 * 1.762,
+    )
+
+    shifted_candidate = InstallationCandidate(
+        panel_count=6,
+        panel_power_wp=540,
+        panel_area_m2=1.134 * 1.762,
+    )
+
+    aligned_evaluation = InstallationEvaluation(
+        candidate=aligned_candidate,
+        available_area_m2=100.0,
+    )
+
+    shifted_evaluation = InstallationEvaluation(
+        candidate=shifted_candidate,
+        available_area_m2=100.0,
+    )
+
+    recommender = InstallationRecommender()
+
+    recommendation = recommender.recommend(
+        evaluations=[
+            aligned_evaluation,
+            shifted_evaluation,
+        ],
+        annual_consumption_kwh=scenario.annual_consumption,
+        annual_productions_kwh={
+            5: aligned_profile.hourly_production.sum(),
+            6: shifted_profile.hourly_production.sum(),
+        },
+        consumption_scenario=scenario,
+        production_profiles={
+            5: aligned_profile,
+            6: shifted_profile,
+        },
+    )
+
+    assert recommendation.panel_count == 5

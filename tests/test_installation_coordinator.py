@@ -491,9 +491,9 @@ class TestInstallationCoordinator:
             evaluations[2].candidate,
         ]
 
-        assert result[5] == pytest.approx(500.0)
-        assert result[10] == pytest.approx(1000.0)
-        assert result[15] == pytest.approx(1500.0)
+        assert result[5].annual_production == pytest.approx(500.0)
+        assert result[10].annual_production == pytest.approx(1000.0)
+        assert result[15].annual_production == pytest.approx(1500.0)
 
     @pytest.mark.parametrize(
         "production",
@@ -615,7 +615,7 @@ class TestInstallationCoordinator:
             [evaluation]
         )
 
-        assert result[15] == pytest.approx(17520.0)
+        assert result[15].annual_production == pytest.approx(17520.0)
 
 
     def test_calculate_productions_rejects_non_profile_result(
@@ -684,7 +684,7 @@ class TestInstallationCoordinator:
             [evaluation]
         )
 
-        assert result[15] == pytest.approx(
+        assert result[15].annual_production == pytest.approx(
             profile.annual_production
         )
 

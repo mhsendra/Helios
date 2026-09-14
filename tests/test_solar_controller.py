@@ -1298,6 +1298,7 @@ class TestSolarController:
             annual_consumption_kwh=(
                 consumption_scenario.annual_consumption
             ),
+            consumption_scenario=consumption_scenario,
         )
 
         assert self.controller.sizing_result is recommendation

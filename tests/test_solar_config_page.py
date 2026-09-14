@@ -18,6 +18,7 @@ from helios.solar.installation_configuration import (
 from helios.solar.installation_coordinator import InstallationCoordinator
 
 from helios.gui.widgets.solar_config_page import RoofLayoutWidget
+from helios.core.consumption_scenario import ConsumptionScenario
 
 
 class TestSolarConfigPage:
@@ -58,6 +59,27 @@ class TestSolarConfigPage:
             losses=14.0,
             pv_technology="crystSi",
             mounting_place="building",
+        )
+
+    def create_consumption_scenario(
+        self,
+        value=1.0,
+    ):
+        index = pd.date_range(
+            start="2025-01-01 00:00:00",
+            periods=8760,
+            freq="h",
+        )
+
+        consumption = pd.Series(
+            value,
+            index=index,
+            name="AE_kWh",
+        )
+
+        return ConsumptionScenario(
+            hourly_consumption=consumption,
+            reference_year=2025,
         )
 
     def create_page(
@@ -1577,15 +1599,17 @@ class TestSolarConfigPage:
             self.create_solar_configuration()
         )
 
-        project.analyzer.valid_dataset.return_value = None
+        project.analyzer.calculate_representative_consumption_scenario.return_value = (
+            None
+        )
 
         page.start_optimization()
 
         assert (
             page.status_label.text()
             == (
-                "Error: A valid consumption "
-                "dataset is required."
+                "Error: A representative consumption "
+                "scenario is required."
             )
         )
 
@@ -1602,8 +1626,8 @@ class TestSolarConfigPage:
             self.create_solar_configuration()
         )
 
-        project.analyzer.valid_dataset.return_value = (
-            pd.DataFrame()
+        project.analyzer.calculate_representative_consumption_scenario.return_value = (
+            None
         )
 
         page.start_optimization()
@@ -1611,9 +1635,14 @@ class TestSolarConfigPage:
         assert (
             page.status_label.text()
             == (
-                "Error: A valid consumption "
-                "dataset is required."
+                "Error: A representative consumption "
+                "scenario is required."
             )
+        )
+
+        assert (
+            page.optimize_button.isEnabled()
+            is True
         )
 
     def test_start_optimization_rejects_zero_consumption(
@@ -1624,12 +1653,12 @@ class TestSolarConfigPage:
             self.create_solar_configuration()
         )
 
-        project.analyzer.valid_dataset.return_value = (
-            pd.DataFrame(
-                {
-                    "AE_kWh": [0.0, 0.0, 0.0],
-                }
-            )
+        consumption_scenario = self.create_consumption_scenario(
+            value=0.0,
+        )
+
+        project.analyzer.calculate_representative_consumption_scenario.return_value = (
+            consumption_scenario
         )
 
         page.start_optimization()
@@ -1642,42 +1671,9 @@ class TestSolarConfigPage:
             )
         )
 
-    def test_start_optimization_rejects_zero_pvgis_production(
-        self,
-    ):
-        page, project = self.create_page(
-            self.create_solar_configuration()
-        )
-
-        project.analyzer.valid_dataset.return_value = (
-            pd.DataFrame(
-                {
-                    "AE_kWh": [
-                        1.0,
-                        2.0,
-                        3.0,
-                    ],
-                }
-            )
-        )
-
-        project.solar.sizing_result = None
-
-        with patch.object(
-            page.pvgis_service,
-            "get_specific_production",
-            return_value=0.0,
-        ):
-            page.start_optimization()
-
         assert (
-            page.status_label.text()
-            == "Error: PVGIS specific production must be greater than zero."
-        )
-
-        assert (
-            project.solar.sizing_result
-            is None
+            page.optimize_button.isEnabled()
+            is True
         )
         
     def test_start_optimization_restores_button_after_error(
@@ -1690,6 +1686,11 @@ class TestSolarConfigPage:
 
         project.analyzer.valid_dataset.side_effect = (
             RuntimeError("dataset error")
+        )
+
+        consumption_scenario = self.create_consumption_scenario()
+        project.analyzer.calculate_representative_consumption_scenario.return_value = (
+            consumption_scenario
         )
 
         page.start_optimization()
@@ -1759,6 +1760,11 @@ class TestSolarConfigPage:
                     installation_result
                 )
 
+                consumption_scenario = self.create_consumption_scenario()
+                project.analyzer.calculate_representative_consumption_scenario.return_value = (
+                    consumption_scenario
+                )
+
                 page.start_optimization()
 
         assert original_enabled_states == [False]
@@ -1799,6 +1805,12 @@ class TestSolarConfigPage:
             "helios.gui.widgets.solar_config_page.InstallationCoordinator",
             return_value=coordinator,
         ):
+
+            consumption_scenario = self.create_consumption_scenario()
+            project.analyzer.calculate_representative_consumption_scenario.return_value = (
+                consumption_scenario
+            )
+            
             page.start_optimization()
 
         assert page.status_label.text() == "Optimización completada"

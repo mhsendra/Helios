@@ -2201,24 +2201,33 @@ class SolarConfigPage(QWidget):
             )
 
             # ------------------------------------------
-            # Dataset
+            # Escenario sintético de consumo
             # ------------------------------------------
 
-            dataset = (
-                self.project
-                .analyzer
-                .valid_dataset()
+            consumption_scenario = (
+                self.project.analyzer
+                .calculate_representative_consumption_scenario(
+                    reference_year=2025
+                )
             )
 
-            if dataset is None or dataset.empty:
+            if consumption_scenario is None:
 
                 raise ValueError(
-                    "A valid consumption dataset is required."
+                    "A representative consumption scenario "
+                    "is required."
                 )
 
-            annual_consumption_kwh = float(
-                dataset["AE_kWh"].sum()
+            annual_consumption_kwh = (
+                consumption_scenario.annual_consumption
             )
+
+            if annual_consumption_kwh <= 0:
+
+                raise ValueError(
+                    "Annual consumption must be "
+                    "greater than zero."
+                )
 
             if annual_consumption_kwh <= 0:
 
@@ -2296,6 +2305,8 @@ class SolarConfigPage(QWidget):
                 annual_consumption_kwh=(
                     annual_consumption_kwh
                 ),
+
+                consumption_scenario=consumption_scenario,
             )
 
             # ------------------------------------------

@@ -30,6 +30,8 @@ from helios.solar.production_profile import (
     SolarProductionProfile,
 )
 
+from helios.core.consumption_scenario import ConsumptionScenario
+
 class InstallationCoordinator:
     """
     Orquesta el proceso completo de dimensionamiento de
@@ -104,6 +106,7 @@ class InstallationCoordinator:
         self,
         configuration: InstallationConfiguration,
         annual_consumption_kwh: float,
+        consumption_scenario: ConsumptionScenario | None = None,
     ) -> InstallationRecommendation:
         """
         Ejecuta el proceso completo de dimensionamiento
@@ -118,6 +121,14 @@ class InstallationCoordinator:
             annual_consumption_kwh
         )
 
+        if consumption_scenario is not None and not isinstance(
+            consumption_scenario,
+            ConsumptionScenario,
+        ):
+            raise TypeError(
+                "consumption_scenario must be a ConsumptionScenario."
+            )
+
         constraints = configuration.to_constraints()
 
         self._validate_constraints(constraints)
@@ -129,16 +140,21 @@ class InstallationCoordinator:
 
         evaluations = self._generate_evaluations()
 
-        annual_productions_kwh = (
-            self._calculate_productions(
-                evaluations
-            )
+        production_profiles = self._calculate_productions(
+            evaluations
         )
+
+        annual_productions_kwh = {
+            panel_count: profile.annual_production
+            for panel_count, profile in production_profiles.items()
+        }
 
         return self.recommender.recommend(
             evaluations=evaluations,
             annual_consumption_kwh=annual_consumption_kwh,
             annual_productions_kwh=annual_productions_kwh,
+            consumption_scenario=consumption_scenario,
+            production_profiles=production_profiles,
         )
 
     # ==================================================
@@ -247,7 +263,7 @@ class InstallationCoordinator:
     def _calculate_productions(
         self,
         evaluations: list[InstallationEvaluation],
-    ) -> dict[int, float]:
+    ) -> dict[int, SolarProductionProfile]:
         """
         Calcula la producción anual de cada instalación
         candidata a partir de su perfil horario.
@@ -282,7 +298,7 @@ class InstallationCoordinator:
 
             productions[
                 evaluation.panel_count
-            ] = annual_production
+            ] = profile
 
         return productions
 

@@ -1,9 +1,13 @@
+import pandas as pd
+
 from dataclasses import dataclass
 
 from helios.solar.installation_evaluation import (
     InstallationEvaluation
 )
 
+from helios.core.consumption_scenario import ConsumptionScenario
+from helios.solar.production_profile import SolarProductionProfile
 
 @dataclass(frozen=True)
 class InstallationRecommendation:
@@ -11,6 +15,8 @@ class InstallationRecommendation:
     evaluation: InstallationEvaluation
     annual_consumption_kwh: float
     annual_production_kwh: float
+    consumption_scenario: ConsumptionScenario | None = None
+    production_profile: SolarProductionProfile | None = None
 
     @property
     def panel_count(self) -> int:
@@ -109,6 +115,34 @@ class InstallationRecommendation:
     @property
     def self_consumption_kwh(self) -> float:
 
+        if (
+            self.consumption_scenario is not None
+            and self.production_profile is not None
+        ):
+            consumption = self.consumption_scenario.hourly_consumption
+
+            production = self.production_profile.hourly_production
+
+            production_lookup = production.copy()
+            production_lookup.index = (
+                production_lookup.index.strftime("%m-%d-%H")
+            )
+
+            profile_key = consumption.index.strftime("%m-%d-%H")
+
+            aligned_production = (
+                pd.Series(profile_key, index=consumption.index)
+                .map(production_lookup)
+                .fillna(0.0)
+            )
+
+            return float(
+                pd.concat(
+                    [consumption, aligned_production],
+                    axis=1,
+                ).min(axis=1).sum()
+            )
+
         return min(
             self.annual_consumption_kwh,
             self.annual_production_kwh,
@@ -166,6 +200,9 @@ class InstallationRecommender:
         evaluations: list[InstallationEvaluation],
         annual_consumption_kwh: float,
         annual_productions_kwh: dict[int, float],
+        *,
+        consumption_scenario: ConsumptionScenario | None = None,
+        production_profiles: dict[int, SolarProductionProfile] | None = None,
     ) -> InstallationRecommendation:
 
         if not evaluations:
@@ -224,6 +261,22 @@ class InstallationRecommender:
                 "annual_productions_kwh must be a dictionary."
             )
 
+        if consumption_scenario is not None and not isinstance(
+            consumption_scenario,
+            ConsumptionScenario,
+        ):
+            raise TypeError(
+                "consumption_scenario must be a ConsumptionScenario."
+            )
+
+        if production_profiles is not None and not isinstance(
+            production_profiles,
+            dict,
+        ):
+            raise TypeError(
+                "production_profiles must be a dictionary."
+            )
+
         for evaluation in evaluations:
 
             if evaluation.panel_count not in (
@@ -259,48 +312,100 @@ class InstallationRecommender:
                 )
 
         # --------------------------------------------------
-        # Candidates covering annual consumption
+        # Hourly scenario-based recommendation
         # --------------------------------------------------
 
-        covering = [
-            evaluation
-            for evaluation in evaluations
-            if annual_productions_kwh[
-                evaluation.panel_count
-            ] >= annual_consumption_kwh
-        ]
+        if (
+            consumption_scenario is not None
+            and production_profiles is not None
+        ):
+            consumption = consumption_scenario.hourly_consumption
 
-        if covering:
+            def hourly_self_consumption(evaluation):
+                panel_count = evaluation.panel_count
+                profile = production_profiles[panel_count]
 
-            # Among configurations that cover consumption,
-            # choose the smallest one.
+                production = profile.hourly_production.copy()
+
+                production.index = production.index.strftime(
+                    "%m-%d-%H"
+                )
+
+                consumption_keys = consumption.index.strftime(
+                    "%m-%d-%H"
+                )
+
+                aligned_production = (
+                    pd.Series(
+                        consumption_keys,
+                        index=consumption.index,
+                    )
+                    .map(production)
+                    .fillna(0.0)
+                )
+
+                return float(
+                    pd.concat(
+                        [
+                            consumption,
+                            aligned_production,
+                        ],
+                        axis=1,
+                    )
+                    .min(axis=1)
+                    .sum()
+                )
+
+            # Prefer the configuration that maximizes the
+            # energy consumed directly from the PV production.
             #
-            # If two configurations have the same number
-            # of panels, prefer the one occupying less area.
-            best = min(
-                covering,
+            # If self-consumption is equal, prefer:
+            #   1. fewer panels
+            #   2. smaller occupied area
+            best = max(
+                evaluations,
                 key=lambda evaluation: (
-                    evaluation.panel_count,
-                    evaluation.occupied_area_m2,
+                    hourly_self_consumption(evaluation),
+                    -evaluation.panel_count,
+                    -evaluation.occupied_area_m2,
                 )
             )
 
         else:
 
-            # No configuration covers consumption.
-            # Choose the one producing the most energy.
-            #
-            # In case of equal production, prefer the
-            # smaller occupied area.
-            best = max(
-                evaluations,
-                key=lambda evaluation: (
-                    annual_productions_kwh[
-                        evaluation.panel_count
-                    ],
-                    -evaluation.occupied_area_m2,
+            # --------------------------------------------------
+            # Legacy annual recommendation
+            # --------------------------------------------------
+
+            covering = [
+                evaluation
+                for evaluation in evaluations
+                if annual_productions_kwh[
+                    evaluation.panel_count
+                ] >= annual_consumption_kwh
+            ]
+
+            if covering:
+
+                best = min(
+                    covering,
+                    key=lambda evaluation: (
+                        evaluation.panel_count,
+                        evaluation.occupied_area_m2,
+                    )
                 )
-            )
+
+            else:
+
+                best = max(
+                    evaluations,
+                    key=lambda evaluation: (
+                        annual_productions_kwh[
+                            evaluation.panel_count
+                        ],
+                        -evaluation.occupied_area_m2,
+                    )
+                )
 
         return InstallationRecommendation(
             evaluation=best,
@@ -308,4 +413,10 @@ class InstallationRecommender:
             annual_production_kwh=annual_productions_kwh[
                 best.panel_count
             ],
+            consumption_scenario=consumption_scenario,
+            production_profile=(
+                production_profiles[best.panel_count]
+                if production_profiles is not None
+                else None
+            ),
         )
