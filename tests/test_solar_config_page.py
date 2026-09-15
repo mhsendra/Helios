@@ -560,230 +560,6 @@ class TestSolarConfigPage:
         )
 
     # ==========================================================
-    # PVGIS
-    # ==========================================================
-
-    def test_get_pvgis_configuration_copies_solar_configuration(
-        self,
-    ):
-
-        configuration = (
-            self.create_solar_configuration()
-        )
-
-        page, project = self.create_page(
-            configuration,
-        )
-
-        result = (
-            page.get_pvgis_configuration()
-        )
-
-        assert isinstance(
-            result,
-            SolarConfiguration,
-        )
-
-        assert (
-            result.latitude
-            == configuration.latitude
-        )
-
-        assert (
-            result.longitude
-            == configuration.longitude
-        )
-
-        assert (
-            result.tilt
-            == configuration.tilt
-        )
-
-        assert (
-            result.azimuth
-            == configuration.azimuth
-        )
-
-        assert (
-            result.reference_year
-            == configuration.reference_year
-        )
-
-        assert (
-            result.losses
-            == configuration.losses
-        )
-
-        assert (
-            result.pv_technology
-            == configuration.pv_technology
-        )
-
-        assert (
-            result.mounting_place
-            == configuration.mounting_place
-        )
-
-    def test_get_pvgis_configuration_does_not_use_installed_power(
-        self,
-    ):
-        configuration = (
-            self.create_solar_configuration()
-        )
-
-        configuration.installed_power_kwp = 15.0
-
-        page, _ = self.create_page(
-            configuration,
-        )
-
-        result = (
-            page.get_pvgis_configuration()
-        )
-
-        assert result.latitude == configuration.latitude
-        assert result.longitude == configuration.longitude
-        assert result.tilt == configuration.tilt
-        assert result.azimuth == configuration.azimuth
-        assert result.reference_year == configuration.reference_year
-        assert result.losses == configuration.losses
-        assert result.pv_technology == configuration.pv_technology
-        assert result.mounting_place == configuration.mounting_place
-
-        # SolarConfiguration ya no contiene la potencia instalada.
-        assert not hasattr(
-            result,
-            "installed_power_kwp",
-        )
-
-
-    def test_get_pvgis_configuration_without_solar_configuration_raises(
-        self,
-    ):
-
-        page, _ = self.create_page(
-            solar_configuration=None,
-        )
-
-        with pytest.raises(
-            ValueError,
-            match=(
-                "La configuración solar "
-                "no está disponible."
-            ),
-        ):
-
-            page.get_pvgis_configuration()
-
-    # ==========================================================
-    # PRODUCCIÓN
-    # ==========================================================
-
-    def test_calculate_installation_production(
-        self,
-    ):
-
-        page, _ = self.create_page(
-            self.create_solar_configuration()
-        )
-
-        candidate = MagicMock()
-
-        candidate.installed_power_kwp = (
-            8.1
-        )
-
-        result = (
-            page._calculate_installation_production(
-                candidate,
-                1500.0,
-            )
-        )
-
-        assert (
-            result
-            == pytest.approx(
-                8.1 * 1500.0
-            )
-        )
-
-    def test_calculate_installation_production_returns_float(
-        self,
-    ):
-
-        page, _ = self.create_page(
-            self.create_solar_configuration()
-        )
-
-        candidate = MagicMock()
-
-        candidate.installed_power_kwp = 10
-
-        result = (
-            page._calculate_installation_production(
-                candidate,
-                1000,
-            )
-        )
-
-        assert isinstance(
-            result,
-            float,
-        )
-
-        assert result == 10000.0
-
-    def test_calculate_installation_production_rejects_zero_specific_production(
-        self,
-    ):
-
-        page, _ = self.create_page(
-            self.create_solar_configuration()
-        )
-
-        candidate = MagicMock()
-
-        candidate.installed_power_kwp = 10.0
-
-        with pytest.raises(
-            ValueError,
-            match=(
-                "PVGIS specific production "
-                "must be greater than zero."
-            ),
-        ):
-
-            page._calculate_installation_production(
-                candidate,
-                0.0,
-            )
-
-    def test_calculate_installation_production_rejects_negative_specific_production(
-        self,
-    ):
-
-        page, _ = self.create_page(
-            self.create_solar_configuration()
-        )
-
-        candidate = MagicMock()
-
-        candidate.installed_power_kwp = 10.0
-
-        with pytest.raises(
-            ValueError,
-            match=(
-                "PVGIS specific production "
-                "must be greater than zero."
-            ),
-        ):
-
-            page._calculate_installation_production(
-                candidate,
-                -1.0,
-            )
-
-    # ==========================================================
     # RESULTADO
     # ==========================================================
 
@@ -1680,9 +1456,13 @@ class TestSolarConfigPage:
         self,
     ):
 
+        solar_configuration = self.create_solar_configuration()
+
         page, project = self.create_page(
-            self.create_solar_configuration()
+            solar_configuration
         )
+
+        configuration = page.get_installation_configuration()
 
         project.analyzer.valid_dataset.side_effect = (
             RuntimeError("dataset error")
@@ -1707,77 +1487,50 @@ class TestSolarConfigPage:
             self.create_solar_configuration()
         )
 
-        project.analyzer.valid_dataset.return_value = (
-            pd.DataFrame(
-                {
-                    "AE_kWh": [
-                        1.0,
-                    ],
-                }
-            )
+        project.analyzer.calculate_representative_consumption_scenario.return_value = (
+            self.create_consumption_scenario()
         )
 
         original_enabled_states = []
-
-        def fake_get_specific_production(
-            configuration,
-        ):
-            original_enabled_states.append(
-                page.optimize_button.isEnabled()
-            )
-
-            return 1000.0
 
         installation_result = MagicMock()
 
         installation_result.panel_count = 10
         installation_result.installed_power_kwp = 5.0
         installation_result.annual_production_kwh = 5000.0
-        installation_result.annual_consumption_kwh = 1.0
+        installation_result.annual_consumption_kwh = 8760.0
         installation_result.occupied_area_m2 = 20.0
         installation_result.remaining_area_m2 = 10.0
         installation_result.area_utilization_percent = 66.7
         installation_result.self_sufficiency_percent = 100.0
         installation_result.production_coverage_percent = 100.0
-        installation_result.energy_surplus_kwh = 4999.0
+        installation_result.energy_surplus_kwh = 5000.0
         installation_result.energy_deficit_kwh = 0.0
         installation_result.layout = None
 
-        with patch.object(
-            page.pvgis_service,
-            "get_specific_production",
-            side_effect=fake_get_specific_production,
+        def fake_recommend_installation(
+            configuration,
+            consumption_scenario,
         ):
-            with patch(
-                "helios.gui.widgets.solar_config_page.InstallationCoordinator"
-            ) as coordinator_class:
+            original_enabled_states.append(
+                page.optimize_button.isEnabled()
+            )
+            return installation_result
 
-                coordinator = (
-                    coordinator_class.return_value
-                )
+        page.show_optimization_result = MagicMock()
 
-                coordinator.recommend.return_value = (
-                    installation_result
-                )
+        project.solar.calculate = MagicMock()
 
-                consumption_scenario = self.create_consumption_scenario()
-                project.analyzer.calculate_representative_consumption_scenario.return_value = (
-                    consumption_scenario
-                )
+        with patch.object(
+            project.solar,
+            "recommend_installation",
+            side_effect=fake_recommend_installation,
+        ):
+            page.start_optimization()
 
-                page.start_optimization()
-
+        assert page.status_label.text() == "Optimización completada"
         assert original_enabled_states == [False]
-
-        assert (
-            page.optimize_button.isEnabled()
-            is True
-        )
-
-        assert (
-            page.status_label.text()
-            == "Optimización completada"
-        )
+        assert page.optimize_button.isEnabled() is True
 
     def test_start_optimization_calculates_solar_with_optimized_power(self):
 
@@ -1791,19 +1544,13 @@ class TestSolarConfigPage:
             {"AE_kWh": [1000.0, 2000.0]}
         )
 
-        page.pvgis_service.get_specific_production = MagicMock(
-            return_value=1500.0
-        )
-
         result = self.create_result()
         result.installed_power_kwp = 5.0
 
-        coordinator = MagicMock()
-        coordinator.recommend.return_value = result
-
-        with patch(
-            "helios.gui.widgets.solar_config_page.InstallationCoordinator",
-            return_value=coordinator,
+        with patch.object(
+            project.solar,
+            "recommend_installation",
+            return_value=result,
         ):
 
             consumption_scenario = self.create_consumption_scenario()

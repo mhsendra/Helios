@@ -29,30 +29,6 @@ from helios.solar.installation_configuration import (
     InstallationConfiguration,
 )
 
-from helios.solar.installation_optimizer import (
-    InstallationOptimizer,
-)
-
-from helios.solar.installation_evaluation import (
-    InstallationEvaluator,
-)
-
-from helios.solar.installation_recommendation import (
-    InstallationRecommender,
-)
-
-from helios.solar.installation_coordinator import (
-    InstallationCoordinator,
-)
-
-from helios.solar.PVGIS_production import (
-    PVGISProductionService,
-)
-
-from helios.solar.configuration import (
-    SolarConfiguration,
-)
-
 class RoofLayoutWidget(QWidget):
     """
     Representación gráfica a escala de una instalación FV.
@@ -784,12 +760,6 @@ class SolarConfigPage(QWidget):
         - muestra todos los resultados numéricos;
         - representa gráficamente el layout recomendado.
 
-    La lógica de optimización permanece delegada en:
-
-        InstallationCoordinator
-        InstallationOptimizer
-        InstallationEvaluator
-        InstallationRecommender
     """
 
     def __init__(
@@ -802,8 +772,6 @@ class SolarConfigPage(QWidget):
 
         self.project = project
         self.main_window = main_window
-
-        self.pvgis_service = PVGISProductionService()
 
         self.setup_ui()
         self.configure_widgets()
@@ -1779,76 +1747,6 @@ class SolarConfigPage(QWidget):
                 else None
             ),
         )
-    # ==================================================
-    # PVGIS
-    # ==================================================
-
-    def get_pvgis_configuration(
-        self,
-    ) -> SolarConfiguration:
-        """
-        Devuelve una configuración solar específica para
-        la consulta de producción a PVGIS.
-
-        PVGIS utiliza una potencia de referencia de 1 kWp,
-        pero dicha potencia no forma parte de SolarConfiguration.
-        La potencia instalada real se determina posteriormente
-        durante el dimensionado de la instalación.
-        """
-
-        configuration = self.project.solar_configuration
-
-        if configuration is None:
-            raise ValueError(
-                "La configuración solar no está disponible."
-            )
-
-        return SolarConfiguration(
-            latitude=configuration.latitude,
-            longitude=configuration.longitude,
-            tilt=configuration.tilt,
-            azimuth=configuration.azimuth,
-            reference_year=configuration.reference_year,
-            losses=configuration.losses,
-            pv_technology=configuration.pv_technology,
-            mounting_place=configuration.mounting_place,
-        )
-
-    # ==================================================
-    # PRODUCCIÓN
-    # ==================================================
-
-    def _calculate_installation_production(
-        self,
-        candidate,
-        specific_production: float,
-    ) -> float:
-        """
-        Calcula la producción anual estimada a partir de:
-
-            potencia instalada (kWp)
-            × producción específica (kWh/kWp/año)
-        """
-
-        if specific_production <= 0:
-
-            raise ValueError(
-                "PVGIS specific production must be "
-                "greater than zero."
-            )
-
-        production = (
-            candidate.installed_power_kwp
-            * specific_production
-        )
-
-        if production < 0:
-
-            raise ValueError(
-                "Annual production cannot be negative."
-            )
-
-        return float(production)
 
     # ==================================================
     # RESULTADO
@@ -2229,84 +2127,15 @@ class SolarConfigPage(QWidget):
                     "greater than zero."
                 )
 
-            if annual_consumption_kwh <= 0:
-
-                raise ValueError(
-                    "Annual consumption must be "
-                    "greater than zero."
-                )
-
             # ------------------------------------------
             # PVGIS
             # ------------------------------------------
 
-            pvgis_configuration = (
-                self.get_pvgis_configuration()
-            )
-
-            specific_production = (
-                self.pvgis_service.get_specific_production(
-                    pvgis_configuration
+            result = (
+                self.project.solar.recommend_installation(
+                    configuration=configuration,
+                    consumption_scenario=consumption_scenario,
                 )
-            )
-
-            if specific_production <= 0:
-
-                raise ValueError(
-                    "PVGIS specific production must "
-                    "be greater than zero."
-                )
-
-            self.project.solar.installation_specific_production = (
-                specific_production
-            )
-
-            # ------------------------------------------
-            # Restricciones
-            # ------------------------------------------
-
-            constraints = (
-                configuration.to_constraints()
-            )
-
-            # ------------------------------------------
-            # Coordinador
-            # ------------------------------------------
-
-            coordinator = InstallationCoordinator(
-
-                optimizer=InstallationOptimizer(
-                    constraints
-                ),
-
-                evaluator=InstallationEvaluator(
-                    constraints
-                ),
-
-                recommender=InstallationRecommender(),
-
-                production_calculator=(
-                    lambda candidate:
-                        self._calculate_installation_production(
-                            candidate,
-                            specific_production,
-                        )
-                ),
-            )
-
-            # ------------------------------------------
-            # Recomendación
-            # ------------------------------------------
-
-            result = coordinator.recommend(
-
-                configuration=configuration,
-
-                annual_consumption_kwh=(
-                    annual_consumption_kwh
-                ),
-
-                consumption_scenario=consumption_scenario,
             )
 
             # ------------------------------------------

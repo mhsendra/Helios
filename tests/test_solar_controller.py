@@ -20,7 +20,9 @@ from helios.solar.installation_constraints import (
 )
 
 from helios.core.consumption_scenario import ConsumptionScenario
-from helios.solar.solar_installation_sizing import SolarSizingResult
+from helios.solar.installation_recommendation import (
+    InstallationRecommendation,
+)
 from helios.solar.production_profile import SolarProductionProfile
 
 
@@ -1271,7 +1273,13 @@ class TestSolarController:
             calculator_class,
         )
 
-        recommendation = MagicMock()
+        recommendation = InstallationRecommendation(
+            evaluation=MagicMock(),
+            annual_consumption_kwh=consumption_scenario.annual_consumption,
+            annual_production_kwh=8760.0,
+            consumption_scenario=consumption_scenario,
+            production_profile=production_profile,
+        )
 
         coordinator = MagicMock()
         coordinator.recommend.return_value = recommendation
@@ -1292,6 +1300,10 @@ class TestSolarController:
         )
 
         assert result is recommendation
+        assert isinstance(
+            result,
+            InstallationRecommendation,
+        )
 
         coordinator.recommend.assert_called_once_with(
             configuration=configuration,
