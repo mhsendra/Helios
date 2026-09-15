@@ -10,10 +10,10 @@ class SolarReportDataFactory:
 
     Soporta dos modos:
 
-    - automatic: existe un SolarSizingResult procedente
-      del dimensionamiento físico.
+    - automatic: existe una InstallationRecommendation
+    procedente del dimensionamiento físico.
     - manual: existe una SolarConfiguration y una potencia
-      de simulación, pero no existe SolarSizingResult.
+    de simulación, pero no existe InstallationRecommendation.
     """
 
     @staticmethod

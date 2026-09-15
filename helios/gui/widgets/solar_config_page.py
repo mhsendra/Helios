@@ -2139,16 +2139,6 @@ class SolarConfigPage(QWidget):
             )
 
             # ------------------------------------------
-            # Guardar resultado del dimensionamiento
-            # ------------------------------------------
-
-            self.project.solar.installation_configuration = (
-                configuration
-            )
-
-            self.project.solar.sizing_result = result
-
-            # ------------------------------------------
             # SIMULACIÓN SOLAR REAL
             #
             # Aquí dejamos de trabajar con la potencia
