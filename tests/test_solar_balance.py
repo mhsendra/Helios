@@ -29,11 +29,21 @@ from helios.solar.production_profile import (
 
 
 def make_index(year: int = 2025) -> pd.DatetimeIndex:
-    return pd.date_range(
+    index = pd.date_range(
         start=f"{year}-01-01 00:00:00",
-        periods=8760,
+        end=f"{year}-12-31 23:00:00",
         freq="h",
     )
+
+    if pd.Timestamp(f"{year}-12-31").is_leap_year:
+        index = index[
+            ~(
+                (index.month == 2)
+                & (index.day == 29)
+            )
+        ]
+
+    return index
 
 
 def make_scenario(
@@ -155,7 +165,6 @@ class TestSolarBalanceEngine:
         assert result.loc[
             timestamp,
             "self_consumption_kwh",
-            timestamp, "self_consumption_kwh"
         ] == pytest.approx(0.0)
 
         assert result.loc[
