@@ -99,6 +99,14 @@ class ConsumptionStatistics:
             freq="h",
         )
 
+        if pd.Timestamp(f"{reference_year}-12-31").is_leap_year:
+            target_index = target_index[
+                ~(
+                    (target_index.month == 2)
+                    & (target_index.day == 29)
+                )
+            ]
+
         target = pd.DataFrame(index=target_index)
         target["month"] = target.index.month
         target["weekday"] = target.index.dayofweek

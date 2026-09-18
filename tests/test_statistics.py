@@ -1153,3 +1153,38 @@ def test_calculate_seasonal_profile_uses_current_monthly_profile():
     assert second_result["Invierno"] == pytest.approx(
         80.0
     )
+
+def test_representative_year_bissextile_reference_year_excludes_february_29():
+    index = pd.date_range(
+        "2024-01-01 00:00:00",
+        "2024-12-31 23:00:00",
+        freq="h",
+    )
+
+    df = pd.DataFrame(
+        {"AE_kWh": 1.0},
+        index=index,
+    )
+
+    statistics = ConsumptionStatistics()
+
+    result = statistics.calculate_representative_year_consumption(
+        df,
+        reference_year=2024,
+    )
+
+    assert len(result) == 8760
+    assert result.index[0] == pd.Timestamp(
+        "2024-01-01 00:00:00"
+    )
+    assert result.index[-1] == pd.Timestamp(
+        "2024-12-31 23:00:00"
+    )
+
+    assert not (
+        (result.index.month == 2)
+        & (result.index.day == 29)
+    ).any()
+
+    assert pd.Timestamp("2024-02-28 23:00:00") in result.index
+    assert pd.Timestamp("2024-03-01 00:00:00") in result.index

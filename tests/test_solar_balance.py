@@ -1,12 +1,10 @@
+import numpy as np
 import pandas as pd
 import pytest
-import numpy as np
 
-from helios.solar.balance import SolarBalanceEngine
 from helios.core.consumption_scenario import ConsumptionScenario
-from helios.solar.production_profile import SolarProductionProfile
-
 from helios.core.statistics import ConsumptionStatistics
+from helios.solar.balance import SolarBalanceEngine
 from helios.solar.installation_configuration import (
     InstallationConfiguration,
 )
@@ -25,198 +23,209 @@ from helios.solar.installation_recommendation import (
 from helios.solar.production_calculator import (
     SolarProductionCalculator,
 )
+from helios.solar.production_profile import (
+    SolarProductionProfile,
+)
+
+
+def make_index(year: int = 2025) -> pd.DatetimeIndex:
+    index = pd.date_range(
+        start=f"{year}-01-01 00:00:00",
+        end=f"{year}-12-31 23:00:00",
+        freq="h",
+    )
+
+    if pd.Timestamp(f"{year}-12-31").is_leap_year:
+        index = index[
+            ~(
+                (index.month == 2)
+                & (index.day == 29)
+            )
+        ]
+
+    return index
+
+
+def make_scenario(
+    values: float | pd.Series,
+    year: int = 2025,
+) -> ConsumptionScenario:
+    index = make_index(year)
+
+    if isinstance(values, pd.Series):
+        hourly_consumption = values.copy()
+        hourly_consumption.index = index
+    else:
+        hourly_consumption = pd.Series(
+            values,
+            index=index,
+            dtype=float,
+        )
+
+    return ConsumptionScenario(
+        hourly_consumption=hourly_consumption,
+        reference_year=year,
+    )
+
+
+def make_profile(
+    values: float | pd.Series,
+    year: int = 2025,
+) -> SolarProductionProfile:
+    index = make_index(year)
+
+    if isinstance(values, pd.Series):
+        hourly_production = values.copy()
+        hourly_production.index = index
+    else:
+        hourly_production = pd.Series(
+            values,
+            index=index,
+            dtype=float,
+        )
+
+    return SolarProductionProfile(
+        hourly_production=hourly_production,
+        reference_year=year,
+        installed_power_kwp=1.0,
+    )
+
 
 class TestSolarBalanceEngine:
 
     def test_calculate_with_self_consumption(self):
-
-        consumption = pd.Series(
-            [5.0],
-            index=pd.to_datetime(
-                ["2025-01-15 12:00"]
-            )
-        )
-
-        hourly_production = pd.DataFrame(
-            {
-                "production_kwh": [3.0]
-            },
-            index=pd.to_datetime(
-                ["2025-01-15 12:00"]
-            )
-        )
+        scenario = make_scenario(5.0)
+        production = make_profile(3.0)
 
         result = SolarBalanceEngine.calculate(
-            consumption,
-            hourly_production
+            scenario,
+            production,
         )
 
+        timestamp = pd.Timestamp("2025-01-15 12:00")
+
         assert result.loc[
-            pd.Timestamp("2025-01-15 12:00"),
-            "consumption_kwh"
+            timestamp, "consumption_kwh"
         ] == pytest.approx(5.0)
 
         assert result.loc[
-            pd.Timestamp("2025-01-15 12:00"),
-            "production_kwh"
+            timestamp, "production_kwh"
         ] == pytest.approx(3.0)
 
         assert result.loc[
-            pd.Timestamp("2025-01-15 12:00"),
-            "self_consumption_kwh"
+            timestamp, "self_consumption_kwh"
         ] == pytest.approx(3.0)
 
         assert result.loc[
-            pd.Timestamp("2025-01-15 12:00"),
-            "grid_import_kwh"
+            timestamp, "grid_import_kwh"
         ] == pytest.approx(2.0)
 
         assert result.loc[
-            pd.Timestamp("2025-01-15 12:00"),
-            "grid_export_kwh"
+            timestamp, "grid_export_kwh"
         ] == pytest.approx(0.0)
 
     def test_calculate_with_surplus_production(self):
-
-        consumption = pd.Series(
-            [3.0],
-            index=pd.to_datetime(
-                ["2025-01-15 12:00"]
-            )
-        )
-
-        hourly_production = pd.DataFrame(
-            {
-                "production_kwh": [5.0]
-            },
-            index=pd.to_datetime(
-                ["2025-01-15 12:00"]
-            )
-        )
+        scenario = make_scenario(3.0)
+        production = make_profile(5.0)
 
         result = SolarBalanceEngine.calculate(
-            consumption,
-            hourly_production
+            scenario,
+            production,
         )
 
+        timestamp = pd.Timestamp("2025-01-15 12:00")
+
         assert result.loc[
-            pd.Timestamp("2025-01-15 12:00"),
-            "self_consumption_kwh"
+            timestamp, "self_consumption_kwh"
         ] == pytest.approx(3.0)
 
         assert result.loc[
-            pd.Timestamp("2025-01-15 12:00"),
-            "grid_import_kwh"
+            timestamp, "grid_import_kwh"
         ] == pytest.approx(0.0)
 
         assert result.loc[
-            pd.Timestamp("2025-01-15 12:00"),
-            "grid_export_kwh"
+            timestamp, "grid_export_kwh"
         ] == pytest.approx(2.0)
 
     def test_calculate_without_production(self):
+        scenario = make_scenario(4.0)
+        production = make_profile(0.0)
 
-        consumption = pd.Series(
-            [4.0],
-            index=pd.to_datetime(
-                ["2025-01-15 12:00"]
-            )
+        result = SolarBalanceEngine.calculate(
+            scenario,
+            production,
         )
 
-        hourly_production = pd.DataFrame(
-            {
-                "production_kwh": [0.0]
-            },
-            index=pd.to_datetime(
-                ["2025-01-15 12:00"]
-            )
+        timestamp = pd.Timestamp("2025-01-15 12:00")
+
+        assert result.loc[
+            timestamp, "self_consumption_kwh"
+        ] == pytest.approx(0.0)
+
+        assert result.loc[
+            timestamp, "grid_import_kwh"
+        ] == pytest.approx(4.0)
+
+        assert result.loc[
+            timestamp, "grid_export_kwh"
+        ] == pytest.approx(0.0)
+
+    def test_calculate_aligns_synthetic_years_by_month_day_and_hour(self):
+        consumption = make_scenario(
+            4.0,
+            year=2025,
+        )
+
+        production = make_profile(
+            3.0,
+            year=2024,
         )
 
         result = SolarBalanceEngine.calculate(
             consumption,
-            hourly_production
+            production,
         )
 
-        assert result.loc[
-            pd.Timestamp("2025-01-15 12:00"),
-            "self_consumption_kwh"
-        ] == pytest.approx(0.0)
+        timestamp = pd.Timestamp("2025-01-15 12:00")
 
         assert result.loc[
-            pd.Timestamp("2025-01-15 12:00"),
-            "grid_import_kwh"
-        ] == pytest.approx(4.0)
+            timestamp, "production_kwh"
+        ] == pytest.approx(3.0)
 
         assert result.loc[
-            pd.Timestamp("2025-01-15 12:00"),
-            "grid_export_kwh"
-        ] == pytest.approx(0.0)
-
-    def test_calculate_without_matching_production(self):
-
-        consumption = pd.Series(
-            [4.0],
-            index=pd.to_datetime(
-                ["2025-01-15 12:00"]
-            )
-        )
-
-        hourly_production = pd.DataFrame(
-            {
-                "production_kwh": [3.0]
-            },
-            index=pd.to_datetime(
-                ["2025-01-16 12:00"]
-            )
-        )
-
-        result = SolarBalanceEngine.calculate(
-            consumption,
-            hourly_production
-        )
+            timestamp, "self_consumption_kwh"
+        ] == pytest.approx(3.0)
 
         assert result.loc[
-            pd.Timestamp("2025-01-15 12:00"),
-            "production_kwh"
-        ] == pytest.approx(0.0)
+            timestamp, "grid_import_kwh"
+        ] == pytest.approx(1.0)
 
         assert result.loc[
-            pd.Timestamp("2025-01-15 12:00"),
-            "grid_import_kwh"
-        ] == pytest.approx(4.0)
-
-        assert result.loc[
-            pd.Timestamp("2025-01-15 12:00"),
-            "grid_export_kwh"
+            timestamp, "grid_export_kwh"
         ] == pytest.approx(0.0)
 
     def test_energy_balance_invariants(self):
-
         consumption = pd.Series(
-            [5.0, 3.0],
-            index=pd.to_datetime(
-                [
-                    "2025-01-15 12:00",
-                    "2025-01-15 13:00",
-                ]
-            ),
+            2.0,
+            index=make_index(),
+            dtype=float,
         )
 
-        hourly_production = pd.DataFrame(
-            {
-                "production_kwh": [3.0, 5.0],
-            },
-            index=pd.to_datetime(
-                [
-                    "2025-01-15 12:00",
-                    "2025-01-15 13:00",
-                ]
-            ),
+        production = pd.Series(
+            0.0,
+            index=make_index(),
+            dtype=float,
         )
+
+        production.iloc[12] = 1.0
+        production.iloc[13] = 3.0
+
+        scenario = make_scenario(consumption)
+        profile = make_profile(production)
 
         result = SolarBalanceEngine.calculate(
-            consumption,
-            hourly_production,
+            scenario,
+            profile,
         )
 
         assert np.allclose(
@@ -232,248 +241,238 @@ class TestSolarBalanceEngine:
         )
 
     def test_calculate_with_zero_consumption(self):
-
-        consumption = pd.Series(
-            [0.0],
-            index=pd.to_datetime(
-                ["2025-01-15 12:00"]
-            ),
-        )
-
-        hourly_production = pd.DataFrame(
-            {
-                "production_kwh": [5.0]
-            },
-            index=pd.to_datetime(
-                ["2025-01-15 12:00"]
-            ),
-        )
+        scenario = make_scenario(0.0)
+        production = make_profile(5.0)
 
         result = SolarBalanceEngine.calculate(
-            consumption,
-            hourly_production,
+            scenario,
+            production,
         )
 
+        timestamp = pd.Timestamp("2025-01-15 12:00")
+
         assert result.loc[
-            pd.Timestamp("2025-01-15 12:00"),
-            "self_consumption_kwh",
+            timestamp, "self_consumption_kwh"
         ] == pytest.approx(0.0)
 
         assert result.loc[
-            pd.Timestamp("2025-01-15 12:00"),
-            "grid_import_kwh",
+            timestamp, "grid_import_kwh"
         ] == pytest.approx(0.0)
 
         assert result.loc[
-            pd.Timestamp("2025-01-15 12:00"),
-            "grid_export_kwh",
+            timestamp, "grid_export_kwh"
         ] == pytest.approx(5.0)
 
     def test_calculate_multiple_hours(self):
-
         consumption = pd.Series(
-            [5.0, 2.0, 6.0],
-            index=pd.to_datetime(
-                [
-                    "2025-01-15 12:00",
-                    "2025-01-15 13:00",
-                    "2025-01-15 14:00",
-                ]
-            ),
+            0.0,
+            index=make_index(),
+            dtype=float,
         )
 
-        hourly_production = pd.DataFrame(
-            {
-                "production_kwh": [3.0, 4.0, 1.0],
-            },
-            index=pd.to_datetime(
-                [
-                    "2025-01-15 12:00",
-                    "2025-01-15 13:00",
-                    "2025-01-15 14:00",
-                ]
-            ),
+        production = pd.Series(
+            0.0,
+            index=make_index(),
+            dtype=float,
         )
+
+        consumption.iloc[12:15] = [5.0, 2.0, 6.0]
+        production.iloc[12:15] = [3.0, 4.0, 1.0]
+
+        scenario = make_scenario(consumption)
+        profile = make_profile(production)
 
         result = SolarBalanceEngine.calculate(
-            consumption,
-            hourly_production,
+            scenario,
+            profile,
         )
 
-        assert result["production_kwh"].tolist() == pytest.approx(
+        timestamps = make_index()[12:15]
+
+        assert result.loc[
+            timestamps, "production_kwh"
+        ].tolist() == pytest.approx(
             [3.0, 4.0, 1.0]
         )
 
-        assert result["self_consumption_kwh"].tolist() == pytest.approx(
+        assert result.loc[
+            timestamps, "self_consumption_kwh"
+        ].tolist() == pytest.approx(
             [3.0, 2.0, 1.0]
         )
 
-        assert result["grid_import_kwh"].tolist() == pytest.approx(
+        assert result.loc[
+            timestamps, "grid_import_kwh"
+        ].tolist() == pytest.approx(
             [2.0, 0.0, 5.0]
         )
 
-        assert result["grid_export_kwh"].tolist() == pytest.approx(
+        assert result.loc[
+            timestamps, "grid_export_kwh"
+        ].tolist() == pytest.approx(
             [0.0, 2.0, 0.0]
         )
 
-    def test_calculate_accepts_representative_consumption_scenario_data(self):
-        """El balance puede trabajar con el perfil horario del escenario representativo."""
-
-        index = pd.date_range(
-            start="2025-01-01 00:00:00",
-            periods=8760,
-            freq="h",
-        )
-
-        scenario = ConsumptionScenario(
-            hourly_consumption=pd.Series(
-                5.0,
-                index=index,
-            ),
-            reference_year=2025,
-        )
-
-        production_profile = SolarProductionProfile(
-            hourly_production=pd.Series(
-                1.0,
-                index=index,
-            ),
-            reference_year=2025,
-            installed_power_kwp=1.0,
-        )
-
-        hourly_production = pd.DataFrame(
-            {
-                "production_kwh": production_profile.hourly_production,
-            },
-            index=production_profile.hourly_production.index,
-        )
+    def test_calculate_returns_exactly_the_consumption_index(self):
+        scenario = make_scenario(5.0)
+        production = make_profile(1.0)
 
         result = SolarBalanceEngine.calculate(
-            scenario.hourly_consumption,
-            hourly_production,
+            scenario,
+            production,
+        )
+
+        assert len(result) == 8760
+        assert result.index.equals(
+            scenario.hourly_consumption.index
+        )
+
+    def test_calculate_does_not_mutate_input_indexes(self):
+        scenario = make_scenario(
+            5.0,
+            year=2025,
+        )
+
+        production = make_profile(
+            1.0,
+            year=2024,
+        )
+
+        consumption_index_before = (
+            scenario.hourly_consumption.index.copy()
+        )
+
+        production_index_before = (
+            production.hourly_production.index.copy()
+        )
+
+        SolarBalanceEngine.calculate(
+            scenario,
+            production,
+        )
+
+        assert scenario.hourly_consumption.index.equals(
+            consumption_index_before
+        )
+
+        assert production.hourly_production.index.equals(
+            production_index_before
+        )
+
+    def test_calculate_rejects_invalid_consumption_input(self):
+        production = make_profile(1.0)
+
+        with pytest.raises(TypeError):
+            SolarBalanceEngine.calculate(
+                pd.Series(
+                    1.0,
+                    index=make_index(),
+                ),
+                production,
+            )
+
+    def test_calculate_rejects_invalid_production_input(self):
+        scenario = make_scenario(1.0)
+
+        with pytest.raises(TypeError):
+            SolarBalanceEngine.calculate(
+                scenario,
+                pd.DataFrame(
+                    {
+                        "production_kwh": 1.0,
+                    },
+                    index=make_index(),
+                ),
+            )
+
+    def test_calculate_accepts_representative_consumption_scenario_data(self):
+        scenario = make_scenario(5.0)
+        production = make_profile(1.0)
+
+        result = SolarBalanceEngine.calculate(
+            scenario,
+            production,
         )
 
         assert len(result) == 8760
 
-        assert result["consumption_kwh"].sum() == pytest.approx(
+        assert result[
+            "consumption_kwh"
+        ].sum() == pytest.approx(
             8760.0 * 5.0
         )
 
-        assert result["production_kwh"].sum() == pytest.approx(
+        assert result[
+            "production_kwh"
+        ].sum() == pytest.approx(
             8760.0
         )
 
-        assert result["self_consumption_kwh"].sum() == pytest.approx(
+        assert result[
+            "self_consumption_kwh"
+        ].sum() == pytest.approx(
             8760.0
         )
 
-        assert result["grid_import_kwh"].sum() == pytest.approx(
+        assert result[
+            "grid_import_kwh"
+        ].sum() == pytest.approx(
             8760.0 * 4.0
         )
 
-        assert result["grid_export_kwh"].sum() == pytest.approx(
-            0.0
-        )
-
+        assert result[
+            "grid_export_kwh"
+        ].sum() == pytest.approx(0.0)
 
     def test_calculate_preserves_hourly_solar_surplus(self):
-        """La producción solar sobrante se exporta y no se pierde."""
-
-        index = pd.date_range(
-            start="2025-01-01 00:00:00",
-            periods=8760,
-            freq="h",
-        )
-
-        scenario = ConsumptionScenario(
-            hourly_consumption=pd.Series(
-                2.0,
-                index=index,
-            ),
-            reference_year=2025,
-        )
-
-        production_profile = SolarProductionProfile(
-            hourly_production=pd.Series(
-                5.0,
-                index=index,
-            ),
-            reference_year=2025,
-            installed_power_kwp=1.0,
-        )
-
-        hourly_production = pd.DataFrame(
-            {
-                "production_kwh": production_profile.hourly_production,
-            },
-            index=production_profile.hourly_production.index,
-        )
+        scenario = make_scenario(2.0)
+        production = make_profile(5.0)
 
         result = SolarBalanceEngine.calculate(
-            scenario.hourly_consumption,
-            hourly_production,
+            scenario,
+            production,
         )
 
-        assert result["self_consumption_kwh"].sum() == pytest.approx(
+        assert result[
+            "self_consumption_kwh"
+        ].sum() == pytest.approx(
             8760.0 * 2.0
         )
 
-        assert result["grid_import_kwh"].sum() == pytest.approx(
-            0.0
-        )
+        assert result[
+            "grid_import_kwh"
+        ].sum() == pytest.approx(0.0)
 
-        assert result["grid_export_kwh"].sum() == pytest.approx(
+        assert result[
+            "grid_export_kwh"
+        ].sum() == pytest.approx(
             8760.0 * 3.0
         )
 
-
-    def test_calculate_preserves_hourly_energy_balance_with_variable_profiles(self):
-        """El balance conserva producción y consumo con perfiles horarios variables."""
-
-        index = pd.date_range(
-            start="2025-01-01 00:00:00",
-            periods=8760,
-            freq="h",
-        )
-
-        consumption_values = pd.Series(
+    def test_calculate_preserves_hourly_energy_balance_with_variable_profiles(
+        self,
+    ):
+        consumption = pd.Series(
             2.0,
-            index=index,
+            index=make_index(),
+            dtype=float,
         )
 
-        production_values = pd.Series(
+        production = pd.Series(
             0.0,
-            index=index,
+            index=make_index(),
+            dtype=float,
         )
 
-        # Horas de baja producción
-        production_values.iloc[12:14] = 1.0
+        production.iloc[12:14] = 1.0
+        production.iloc[14:16] = 5.0
 
-        # Horas de producción superior al consumo
-        production_values.iloc[14:16] = 5.0
-
-        scenario = ConsumptionScenario(
-            hourly_consumption=consumption_values,
-            reference_year=2025,
-        )
-
-        production_profile = SolarProductionProfile(
-            hourly_production=production_values,
-            reference_year=2025,
-            installed_power_kwp=1.0,
-        )
-
-        hourly_production = pd.DataFrame(
-            {
-                "production_kwh": production_profile.hourly_production,
-            },
-            index=production_profile.hourly_production.index,
-        )
+        scenario = make_scenario(consumption)
+        profile = make_profile(production)
 
         result = SolarBalanceEngine.calculate(
-            scenario.hourly_consumption,
-            hourly_production,
+            scenario,
+            profile,
         )
 
         assert np.allclose(
@@ -487,6 +486,8 @@ class TestSolarBalanceEngine:
             result["self_consumption_kwh"]
             + result["grid_export_kwh"],
         )
+
+        index = make_index()
 
         assert result.loc[
             index[12],
@@ -506,13 +507,7 @@ class TestSolarBalanceEngine:
     def test_calculate_integrates_representative_consumption_with_recommended_installation(
         self,
     ):
-        """Integra consumo representativo, recomendación y producción solar."""
-
-        index = pd.date_range(
-            start="2025-01-01 00:00:00",
-            periods=8760,
-            freq="h",
-        )
+        index = make_index()
 
         consumption_data = pd.DataFrame(
             {
@@ -537,31 +532,22 @@ class TestSolarBalanceEngine:
             ConsumptionScenario,
         )
 
-        base_profile = SolarProductionProfile(
-            hourly_production=pd.Series(
-                1.0,
-                index=index,
-            ),
-            reference_year=2025,
-            installed_power_kwp=1.0,
-        )
+        base_profile = make_profile(1.0)
 
         calculator = SolarProductionCalculator(
             base_profile=base_profile,
         )
 
-        installation_configuration = (
-            InstallationConfiguration(
-                available_area_m2=42.25,
-                panel_width_m=1.134,
-                panel_height_m=1.762,
-                panel_power_wp=540,
-                min_panels=5,
-                max_panels=15,
-                maintenance_passage_required=False,
-                maintenance_passage_width_m=0.45,
-                maintenance_passage_orientation="auto",
-            )
+        installation_configuration = InstallationConfiguration(
+            available_area_m2=42.25,
+            panel_width_m=1.134,
+            panel_height_m=1.762,
+            panel_power_wp=540,
+            min_panels=5,
+            max_panels=15,
+            maintenance_passage_required=False,
+            maintenance_passage_width_m=0.45,
+            maintenance_passage_orientation="auto",
         )
 
         constraints = (
@@ -581,12 +567,11 @@ class TestSolarBalanceEngine:
 
         recommendation = coordinator.recommend(
             configuration=installation_configuration,
-            annual_consumption_kwh=(
-                scenario.annual_consumption
-            ),
+            annual_consumption_kwh=scenario.annual_consumption,
         )
 
         assert recommendation.panel_count == 10
+
         assert recommendation.installed_power_kwp == pytest.approx(
             5.4
         )
@@ -604,38 +589,38 @@ class TestSolarBalanceEngine:
             5.4
         )
 
-        hourly_production = pd.DataFrame(
-            {
-                "production_kwh":
-                    production_profile.hourly_production,
-            },
-            index=production_profile.hourly_production.index,
-        )
-
         result = SolarBalanceEngine.calculate(
-            scenario.hourly_consumption,
-            hourly_production,
+            scenario,
+            production_profile,
         )
 
         assert len(result) == 8760
 
-        assert result["consumption_kwh"].sum() == pytest.approx(
+        assert result[
+            "consumption_kwh"
+        ].sum() == pytest.approx(
             scenario.annual_consumption
         )
 
-        assert result["production_kwh"].sum() == pytest.approx(
+        assert result[
+            "production_kwh"
+        ].sum() == pytest.approx(
             production_profile.annual_production
         )
 
-        assert result["self_consumption_kwh"].sum() == pytest.approx(
+        assert result[
+            "self_consumption_kwh"
+        ].sum() == pytest.approx(
             scenario.annual_consumption
         )
 
-        assert result["grid_import_kwh"].sum() == pytest.approx(
-            0.0
-        )
+        assert result[
+            "grid_import_kwh"
+        ].sum() == pytest.approx(0.0)
 
-        assert result["grid_export_kwh"].sum() == pytest.approx(
+        assert result[
+            "grid_export_kwh"
+        ].sum() == pytest.approx(
             production_profile.annual_production
             - scenario.annual_consumption
         )

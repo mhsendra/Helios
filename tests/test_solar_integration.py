@@ -4,6 +4,7 @@ import pytest
 from helios.core.controllers.solar_controller import SolarController
 from helios.core.solar import SolarEngine
 from helios.solar.configuration import SolarConfiguration
+from helios.core.consumption_scenario import ConsumptionScenario
 
 
 class TestSolarIntegration:
@@ -37,40 +38,60 @@ class TestSolarIntegration:
         # Mock PVGIS response
         # ==========================================
 
+        hourly_index = pd.date_range(
+            "2025-01-01 00:00:00",
+            periods=8760,
+            freq="h",
+        )
+
+        hourly_data = [
+            {
+                "time": timestamp.strftime("%Y%m%d:%H%M"),
+                "P": 0,
+                "G(i)": 0,
+                "T2m": 15,
+                "WS10m": 2,
+                "Int": 0,
+            }
+            for timestamp in hourly_index
+        ]
+
+        hourly_data[
+            hourly_index.get_loc(pd.Timestamp("2025-01-01 01:00"))
+        ]["P"] = 2000
+
+        hourly_data[
+            hourly_index.get_loc(pd.Timestamp("2025-01-01 02:00"))
+        ]["P"] = 3000
+
+        hourly_data[
+            hourly_index.get_loc(pd.Timestamp("2025-01-02 01:00"))
+        ]["P"] = 1000
+
         manager.client.fetch = lambda configuration: {
             "outputs": {
-                "hourly": [
-                    {
-                        "time": "20250101:0100",
-                        "P": 2000,
-                        "G(i)": 500,
-                        "T2m": 15,
-                        "WS10m": 2,
-                        "Int": 0,
-                    },
-                    {
-                        "time": "20250101:0200",
-                        "P": 3000,
-                        "G(i)": 700,
-                        "T2m": 16,
-                        "WS10m": 2,
-                        "Int": 0,
-                    },
-                    {
-                        "time": "20250102:0100",
-                        "P": 1000,
-                        "G(i)": 300,
-                        "T2m": 14,
-                        "WS10m": 1,
-                        "Int": 0,
-                    },
-                ]
+                "hourly": hourly_data,
             }
         }
 
         # ==========================================
         # Mock Analyzer
         # ==========================================
+
+        consumption_index = pd.date_range(
+            "2025-01-01 00:00:00",
+            periods=8760,
+            freq="h",
+        )
+
+        consumption_scenario = ConsumptionScenario(
+            hourly_consumption=pd.Series(
+                1.0,
+                index=consumption_index,
+                name="AE_kWh",
+            ),
+            reference_year=2025,
+        )
 
         analyzer = type(
             "Analyzer",
@@ -92,7 +113,9 @@ class TestSolarIntegration:
                             "2025-01-02 01:00",
                         ]
                     )
-                )
+                ),
+                "calculate_representative_consumption_scenario":
+                    lambda self: consumption_scenario,
             }
         )()
 
@@ -141,7 +164,7 @@ class TestSolarIntegration:
 
         assert controller.energy_balance[
             "consumption_kwh"
-        ].sum() == pytest.approx(6.0)
+        ].sum() == pytest.approx(8760.0)
 
         assert controller.energy_balance[
             "production_kwh"
@@ -149,15 +172,15 @@ class TestSolarIntegration:
 
         assert controller.energy_balance[
             "self_consumption_kwh"
-        ].sum() == pytest.approx(4.0)
+        ].sum() == pytest.approx(3.0)
 
         assert controller.energy_balance[
             "grid_import_kwh"
-        ].sum() == pytest.approx(2.0)
+        ].sum() == pytest.approx(8757.0)
 
         assert controller.energy_balance[
             "grid_export_kwh"
-        ].sum() == pytest.approx(2.0)
+        ].sum() == pytest.approx(3.0)
 
         # ------------------------------------------
         # Statistics
@@ -169,16 +192,16 @@ class TestSolarIntegration:
 
         assert controller.statistics[
             "consumption"
-        ] == pytest.approx(6.0)
+        ] == pytest.approx(8760.0)
 
         assert controller.statistics[
             "self_consumption"
-        ] == pytest.approx(4.0)
+        ] == pytest.approx(3.0)
 
         assert controller.statistics[
             "grid_import"
-        ] == pytest.approx(2.0)
+        ] == pytest.approx(8757.0)
 
         assert controller.statistics[
             "grid_export"
-        ] == pytest.approx(2.0)
+        ] == pytest.approx(3.0)

@@ -1,39 +1,61 @@
 import pandas as pd
 
+from helios.core.consumption_scenario import ConsumptionScenario
+from helios.solar.production_profile import SolarProductionProfile
+
 
 class SolarBalanceEngine:
-
     @staticmethod
     def calculate(
-        consumption: pd.Series,
-        hourly_production: pd.DataFrame
+        consumption_scenario: ConsumptionScenario,
+        production_profile: SolarProductionProfile,
     ) -> pd.DataFrame:
+        if not isinstance(
+            consumption_scenario,
+            ConsumptionScenario,
+        ):
+            raise TypeError(
+                "consumption_scenario must be a ConsumptionScenario."
+            )
 
-        production = hourly_production["production_kwh"]
+        if not isinstance(
+            production_profile,
+            SolarProductionProfile,
+        ):
+            raise TypeError(
+                "production_profile must be a SolarProductionProfile."
+            )
+
+        consumption = consumption_scenario.hourly_consumption
+
+        production = production_profile.hourly_production
 
         production_lookup = production.copy()
         production_lookup.index = (
             production_lookup.index.strftime("%m-%d-%H")
         )
 
-        balance = pd.DataFrame(index=consumption.index)
+        profile_key = consumption.index.strftime("%m-%d-%H")
 
-        balance["consumption_kwh"] = consumption.values
-
-        profile_key = balance.index.strftime("%m-%d-%H")
-
-        balance["production_kwh"] = (
-            pd.Series(profile_key, index=balance.index)
+        aligned_production = (
+            pd.Series(
+                profile_key,
+                index=consumption.index,
+            )
             .map(production_lookup)
             .fillna(0.0)
         )
 
+        balance = pd.DataFrame(
+            index=consumption.index,
+        )
+
+        balance["consumption_kwh"] = consumption.values
+        balance["production_kwh"] = aligned_production.values
+
         balance["self_consumption_kwh"] = (
             balance[
-                [
-                    "consumption_kwh",
-                    "production_kwh"
-                ]
+                ["consumption_kwh", "production_kwh"]
             ].min(axis=1)
         )
 

@@ -124,3 +124,62 @@ def test_consumption_scenario_exposes_annual_consumption_from_hourly_profile():
     )
 
     assert scenario.annual_consumption == pytest.approx(series.sum())
+
+def test_consumption_scenario_accepts_bissextile_reference_year_without_february_29():
+    index = pd.date_range(
+        "2024-01-01 00:00:00",
+        "2024-12-31 23:00:00",
+        freq="h",
+    )
+
+    index = index[
+        ~(
+            (index.month == 2)
+            & (index.day == 29)
+        )
+    ]
+
+    series = pd.Series(1.0, index=index)
+
+    scenario = ConsumptionScenario(
+        hourly_consumption=series,
+        reference_year=2024,
+    )
+
+    assert len(scenario.hourly_consumption) == 8760
+    assert scenario.hourly_consumption.index[0] == pd.Timestamp(
+        "2024-01-01 00:00:00"
+    )
+    assert scenario.hourly_consumption.index[-1] == pd.Timestamp(
+        "2024-12-31 23:00:00"
+    )
+
+
+def test_consumption_scenario_bissextile_reference_year_excludes_february_29():
+    index = pd.date_range(
+        "2024-01-01 00:00:00",
+        "2024-12-31 23:00:00",
+        freq="h",
+    )
+
+    index = index[
+        ~(
+            (index.month == 2)
+            & (index.day == 29)
+        )
+    ]
+
+    series = pd.Series(1.0, index=index)
+
+    scenario = ConsumptionScenario(
+        hourly_consumption=series,
+        reference_year=2024,
+    )
+
+    assert len(scenario.hourly_consumption) == 8760
+    assert not (
+        (scenario.hourly_consumption.index.month == 2)
+        & (scenario.hourly_consumption.index.day == 29)
+    ).any()
+    assert pd.Timestamp("2024-02-28 23:00:00") in scenario.hourly_consumption.index
+    assert pd.Timestamp("2024-03-01 00:00:00") in scenario.hourly_consumption.index

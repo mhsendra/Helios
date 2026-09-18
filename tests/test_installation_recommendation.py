@@ -1,5 +1,15 @@
 import pytest
 
+import pandas as pd
+
+from helios.core.consumption_scenario import (
+    ConsumptionScenario,
+)
+
+from helios.solar.production_profile import (
+    SolarProductionProfile,
+)
+
 from helios.solar.installation_candidate import (
     InstallationCandidate
 )
@@ -1579,3 +1589,71 @@ class TestInstallationRecommendation:
         )
 
         assert recommendation.walkway_position == "vertical"
+
+    def test_recommendation_aligns_bissextile_reference_years_by_month_day_hour(
+        self,
+    ):
+        consumption_index = pd.date_range(
+            "2024-01-01 00:00:00",
+            "2024-12-31 23:00:00",
+            freq="h",
+        )
+
+        consumption_index = consumption_index[
+            ~(
+                (consumption_index.month == 2)
+                & (consumption_index.day == 29)
+            )
+        ]
+
+        consumption = pd.Series(
+            0.0,
+            index=consumption_index,
+        )
+
+        consumption.iloc[12::24] = 1.0
+
+        scenario = ConsumptionScenario(
+            hourly_consumption=consumption,
+            reference_year=2024,
+        )
+
+        solar_index = pd.date_range(
+            "2023-01-01 00:00:00",
+            periods=8760,
+            freq="h",
+        )
+
+        production = pd.Series(
+            0.0,
+            index=solar_index,
+        )
+
+        production.iloc[12::24] = 1.0
+
+        profile = SolarProductionProfile(
+            hourly_production=production,
+            reference_year=2023,
+            installed_power_kwp=1.0,
+        )
+
+        evaluation = self._evaluation(
+            panel_count=10,
+            panel_power_wp=540,
+        )
+
+        recommendation = InstallationRecommender().recommend(
+            evaluations=[evaluation],
+            annual_consumption_kwh=365.0,
+            annual_productions_kwh={
+                10: 365.0,
+            },
+            consumption_scenario=scenario,
+            production_profiles={
+                10: profile,
+            },
+        )
+
+        assert recommendation.self_consumption_kwh == pytest.approx(
+            365.0
+        )

@@ -33,6 +33,14 @@ from helios.solar.pvgis_production_profile import (
     PVGISProductionProfileService,
 )
 
+from helios.solar.production_profile import (
+    SolarProductionProfile,
+)
+
+from helios.solar.balance import (
+    SolarBalanceEngine,
+)
+
 class SolarController:
 
     def __init__(self, analyzer):
@@ -390,8 +398,46 @@ class SolarController:
                 "to calculate the energy balance."
             )
 
-        self.analyzer.solar_engine.calculate_energy_balance(
-            dataset["AE_kWh"]
+        consumption_scenario = (
+            self.analyzer
+            .calculate_representative_consumption_scenario()
+        )
+
+        if consumption_scenario is None:
+            raise ValueError(
+                "A representative consumption scenario is required "
+                "to calculate the energy balance."
+            )
+
+        solar_engine = self.analyzer.solar_engine
+
+        hourly_production = solar_engine.hourly_production
+
+        if hourly_production is None:
+            raise RuntimeError(
+                "Hourly solar production has not been calculated."
+            )
+
+        production_profile = SolarProductionProfile(
+            hourly_production=(
+                hourly_production["production_kwh"]
+            ),
+            reference_year=(
+                solar_engine
+                .configuration
+                .reference_year
+            ),
+            installed_power_kwp=(
+                solar_engine
+                .installed_power_kwp
+            ),
+        )
+
+        solar_engine.set_energy_balance(
+            SolarBalanceEngine.calculate(
+                consumption_scenario,
+                production_profile,
+            )
         )
 
     def calculate_statistics(self):

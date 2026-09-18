@@ -256,3 +256,64 @@ def test_scale_profile_rejects_negative_power():
             profile,
             installed_power_kwp=-2.0,
         )
+
+def test_solar_production_profile_accepts_bissextile_reference_year_without_february_29():
+    index = pd.date_range(
+        "2024-01-01 00:00:00",
+        "2024-12-31 23:00:00",
+        freq="h",
+    )
+
+    index = index[
+        ~(
+            (index.month == 2)
+            & (index.day == 29)
+        )
+    ]
+
+    series = pd.Series(1.0, index=index)
+
+    profile = SolarProductionProfile(
+        hourly_production=series,
+        reference_year=2024,
+        installed_power_kwp=1.0,
+    )
+
+    assert len(profile.hourly_production) == 8760
+    assert profile.hourly_production.index[0] == pd.Timestamp(
+        "2024-01-01 00:00:00"
+    )
+    assert profile.hourly_production.index[-1] == pd.Timestamp(
+        "2024-12-31 23:00:00"
+    )
+
+
+def test_solar_production_profile_bissextile_reference_year_excludes_february_29():
+    index = pd.date_range(
+        "2024-01-01 00:00:00",
+        "2024-12-31 23:00:00",
+        freq="h",
+    )
+
+    index = index[
+        ~(
+            (index.month == 2)
+            & (index.day == 29)
+        )
+    ]
+
+    series = pd.Series(1.0, index=index)
+
+    profile = SolarProductionProfile(
+        hourly_production=series,
+        reference_year=2024,
+        installed_power_kwp=1.0,
+    )
+
+    assert len(profile.hourly_production) == 8760
+    assert not (
+        (profile.hourly_production.index.month == 2)
+        & (profile.hourly_production.index.day == 29)
+    ).any()
+    assert pd.Timestamp("2024-02-28 23:00:00") in profile.hourly_production.index
+    assert pd.Timestamp("2024-03-01 00:00:00") in profile.hourly_production.index

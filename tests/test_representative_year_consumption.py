@@ -151,3 +151,89 @@ def test_representative_year_rejects_invalid_input():
         engine.calculate_representative_year_consumption(
             pd.DataFrame({"AE_kWh": [1.0]})
         )
+
+def test_calculate_representative_year_consumption_returns_8760_hours_for_normal_year():
+    engine = ConsumptionStatistics()
+    index = pd.date_range(
+        start="2023-01-01 00:00:00",
+        end="2023-12-31 23:00:00",
+        freq="h",
+    )
+
+    df = pd.DataFrame(
+        {"AE_kWh": 1.0},
+        index=index,
+    )
+
+    result = engine.calculate_representative_year_consumption(
+        df,
+        reference_year=2025,
+    )
+
+    assert len(result) == 8760
+    assert result.index[0] == pd.Timestamp(
+        "2025-01-01 00:00:00"
+    )
+    assert result.index[-1] == pd.Timestamp(
+        "2025-12-31 23:00:00"
+    )
+
+def test_calculate_representative_year_consumption_excludes_february_29():
+    engine = ConsumptionStatistics()
+    index = pd.date_range(
+        start="2024-01-01 00:00:00",
+        end="2024-12-31 23:00:00",
+        freq="h",
+    )
+
+    df = pd.DataFrame(
+        {"AE_kWh": 1.0},
+        index=index,
+    )
+
+    result = engine.calculate_representative_year_consumption(
+        df,
+        reference_year=2024,
+    )
+
+    assert len(result) == 8760
+
+    assert not (
+        (result.index.month == 2)
+        & (result.index.day == 29)
+    ).any()
+
+    assert result.index[0] == pd.Timestamp(
+        "2024-01-01 00:00:00"
+    )
+    assert result.index[-1] == pd.Timestamp(
+        "2024-12-31 23:00:00"
+    )
+
+def test_calculate_representative_year_consumption_creates_valid_scenario_for_bissextile_year():
+    engine = ConsumptionStatistics()
+    index = pd.date_range(
+        start="2024-01-01 00:00:00",
+        end="2024-12-31 23:00:00",
+        freq="h",
+    )
+
+    df = pd.DataFrame(
+        {"AE_kWh": 1.0},
+        index=index,
+    )
+
+    result = engine.calculate_representative_year_consumption(
+        df,
+        reference_year=2024,
+    )
+
+    scenario = engine.representative_consumption_scenario
+
+    assert scenario is not None
+    assert len(result) == 8760
+    assert len(scenario.hourly_consumption) == 8760
+    assert scenario.reference_year == 2024
+    assert scenario.hourly_consumption.index.equals(
+        result.index
+    )

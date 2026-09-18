@@ -1,5 +1,7 @@
 import pandas as pd
 
+import pytest
+
 from helios.core.consumption_scenario import ConsumptionScenario
 from helios.solar.installation_coordinator import InstallationCoordinator
 from helios.solar.installation_constraints import InstallationConstraints
@@ -191,6 +193,62 @@ def test_hourly_coincidence_changes_self_consumption():
         > shifted_recommendation.self_consumption_kwh
     )
 
+def test_recommendation_aligns_different_reference_years_by_month_day_hour():
+    """
+    El consumo representativo y el perfil solar pueden pertenecer a años
+    de referencia distintos, pero deben alinearse por mes, día y hora.
+    """
+    consumption_index = pd.date_range(
+        start="2025-01-01 00:00:00",
+        periods=8760,
+        freq="h",
+    )
+
+    solar_index = pd.date_range(
+        start="2023-01-01 00:00:00",
+        periods=8760,
+        freq="h",
+    )
+
+    consumption = pd.Series(
+        0.0,
+        index=consumption_index,
+    )
+
+    # 12:00 de cada día del año 2025
+    consumption.iloc[12::24] = 1.0
+
+    scenario = ConsumptionScenario(
+        hourly_consumption=consumption,
+        reference_year=2025,
+    )
+
+    production = pd.Series(
+        0.0,
+        index=solar_index,
+    )
+
+    # 12:00 de cada día del año 2023
+    production.iloc[12::24] = 1.0
+
+    profile = SolarProductionProfile(
+        hourly_production=production,
+        reference_year=2023,
+        installed_power_kwp=1.0,
+    )
+
+    recommendation = InstallationRecommendation(
+        evaluation=None,
+        annual_consumption_kwh=scenario.annual_consumption,
+        annual_production_kwh=profile.hourly_production.sum(),
+        consumption_scenario=scenario,
+        production_profile=profile,
+    )
+
+    assert recommendation.self_consumption_kwh == pytest.approx(
+        365.0
+    )
+
 def test_recommendation_can_distinguish_hourly_coincidence():
     """
     Dos instalaciones con la misma producción anual pueden tener distinto
@@ -344,3 +402,43 @@ def test_recommendation_prefers_hourly_coincidence_over_annual_production():
     )
 
     assert recommendation.panel_count == 5
+
+def test_consumption_scenario_bissextile_reference_year_uses_8760_hour_contract():
+    """
+    El contrato de ConsumptionScenario es siempre de 8760 horas,
+    eliminando el 29 de febrero cuando reference_year es bisiesto.
+    """
+    
+    expected_index = pd.date_range(
+        start="2024-01-01 00:00:00",
+        end="2024-12-31 23:00:00",
+        freq="h",
+    )
+
+    expected_index = expected_index[
+        ~(
+            (expected_index.month == 2)
+            & (expected_index.day == 29)
+        )
+    ]
+
+    consumption = pd.Series(
+        1.0,
+        index=expected_index,
+    )
+
+    scenario = ConsumptionScenario(
+        hourly_consumption=consumption,
+        reference_year=2024,
+    )
+
+    assert len(scenario.hourly_consumption) == 8760
+    assert scenario.hourly_consumption.index.equals(
+        expected_index
+    )
+    assert scenario.hourly_consumption.index[0] == pd.Timestamp(
+        "2024-01-01 00:00:00"
+    )
+    assert scenario.hourly_consumption.index[-1] == pd.Timestamp(
+        "2024-12-31 23:00:00"
+    )

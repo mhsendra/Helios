@@ -86,6 +86,13 @@ class SolarEngine:
 
         return self.manager.energy_balance
 
+    def set_energy_balance(self, energy_balance):
+        self.manager.energy_balance = energy_balance
+
+    @property
+    def installed_power_kwp(self):
+        return self.manager.installed_power_kwp
+
     # ==================================================
     # Informes
     # ==================================================

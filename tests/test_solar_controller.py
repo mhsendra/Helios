@@ -488,40 +488,128 @@ class TestSolarController:
 
         self.analyzer.solar_engine.calculate_yearly_production.assert_called_once_with()
 
-    def test_calculate_energy_balance_uses_valid_dataset(
+    def test_calculate_energy_balance_uses_consumption_scenario_and_production_profile(
         self,
+        monkeypatch,
     ):
+        index = pd.date_range(
+            "2025-01-01 00:00:00",
+            periods=8760,
+            freq="h",
+        )
 
         consumption = pd.Series(
-            [1.0, 2.0, 3.0],
+            1.0,
+            index=index,
             name="AE_kWh",
         )
 
-        dataset = pd.DataFrame(
+        consumption_scenario = ConsumptionScenario(
+            hourly_consumption=consumption,
+            reference_year=2025,
+        )
+
+        production_index = pd.date_range(
+            "2023-01-01 00:00:00",
+            periods=8760,
+            freq="h",
+        )
+
+        production = pd.Series(
+            2.0,
+            index=production_index,
+            name="production_kwh",
+        )
+
+        hourly_production = pd.DataFrame(
             {
-                "AE_kWh": consumption,
+                "production_kwh": production,
             }
         )
 
-        self.analyzer.valid_dataset.return_value = dataset
+        configuration = self._solar_configuration()
+
+        self.analyzer.valid_dataset.return_value = (
+            pd.DataFrame(
+                {
+                    "AE_kWh": [1.0],
+                }
+            )
+        )
+
+        self.analyzer.calculate_representative_consumption_scenario.return_value = (
+            consumption_scenario
+        )
+
+        self.analyzer.solar_engine.configuration = configuration
+        self.analyzer.solar_engine.hourly_production = hourly_production
+        self.analyzer.solar_engine.installed_power_kwp = 1.0
+
+        captured = {}
+
+        def calculate(
+            consumption_scenario_arg,
+            production_profile_arg,
+        ):
+            captured["consumption_scenario"] = (
+                consumption_scenario_arg
+            )
+            captured["production_profile"] = (
+                production_profile_arg
+            )
+
+            return pd.DataFrame(
+                {
+                    "consumption_kwh": [1.0],
+                    "production_kwh": [2.0],
+                    "self_consumption_kwh": [1.0],
+                    "grid_import_kwh": [0.0],
+                    "grid_export_kwh": [1.0],
+                }
+            )
+
+        monkeypatch.setattr(
+            "helios.core.controllers.solar_controller."
+            "SolarBalanceEngine.calculate",
+            staticmethod(calculate),
+        )
 
         self.controller.calculate_energy_balance()
 
-        self.analyzer.valid_dataset.assert_called_once_with()
+        assert (
+            captured["consumption_scenario"]
+            is consumption_scenario
+        )
 
-        self.analyzer.solar_engine.calculate_energy_balance.assert_called_once()
+        production_profile = (
+            captured["production_profile"]
+        )
 
-        actual_consumption = (
-            self.analyzer
-            .solar_engine
-            .calculate_energy_balance
-            .call_args
-            .args[0]
+        assert isinstance(
+            production_profile,
+            SolarProductionProfile,
+        )
+
+        assert (
+            production_profile.reference_year
+            == 2023
+        )
+
+        assert (
+            production_profile.installed_power_kwp
+            == pytest.approx(1.0)
         )
 
         pd.testing.assert_series_equal(
-            actual_consumption,
-            consumption,
+            production_profile.hourly_production,
+            production,
+        )
+
+        assert (
+            self.analyzer
+            .solar_engine
+            .energy_balance
+            is not None
         )
 
     def test_calculate_statistics_delegates_to_engine(
@@ -542,13 +630,13 @@ class TestSolarController:
 
         installed_power_kwp = 8.10
 
-        dataset = pd.DataFrame(
+        self.analyzer.valid_dataset.return_value = pd.DataFrame(
             {
                 "AE_kWh": [1.0, 2.0, 3.0],
             }
         )
 
-        self.analyzer.valid_dataset.return_value = dataset
+        self.controller.calculate_energy_balance = MagicMock()
 
         engine = self.analyzer.solar_engine
 
@@ -558,9 +646,7 @@ class TestSolarController:
         )
 
         expected_calls = [
-            call.set_configuration(
-                configuration
-            ),
+            call.set_configuration(configuration),
             call.calculate_hourly_production(
                 configuration,
                 installed_power_kwp,
@@ -572,25 +658,9 @@ class TestSolarController:
 
         assert engine.method_calls[:5] == expected_calls
 
-        energy_balance_call = (
-            engine.calculate_energy_balance.call_args
-        )
+        self.controller.calculate_energy_balance.assert_called_once_with()
 
-        assert energy_balance_call is not None
-
-        actual_consumption = (
-            energy_balance_call.args[0]
-        )
-
-        pd.testing.assert_series_equal(
-            actual_consumption,
-            dataset["AE_kWh"],
-        )
-
-        assert (
-            engine.calculate_statistics.call_count
-            == 1
-        )
+        assert engine.calculate_statistics.call_count == 1
 
     def test_calculate_uses_explicit_configuration(self):
 
@@ -607,6 +677,8 @@ class TestSolarController:
         self.analyzer.valid_dataset.return_value = dataset
 
         engine = self.analyzer.solar_engine
+
+        self.controller.calculate_energy_balance = MagicMock()
 
         self.controller.calculate(
             configuration,
@@ -639,6 +711,8 @@ class TestSolarController:
         )
 
         self.analyzer.valid_dataset.return_value = dataset
+
+        self.controller.calculate_energy_balance = MagicMock()
 
         self.controller.calculate(
             installed_power_kwp=installed_power_kwp
@@ -682,6 +756,8 @@ class TestSolarController:
 
         self.analyzer.valid_dataset.return_value = dataset
 
+        self.controller.calculate_energy_balance = MagicMock()
+
         self.controller.calculate()
 
         self.analyzer.solar_engine.calculate_hourly_production.assert_called_once_with(
@@ -704,6 +780,8 @@ class TestSolarController:
         )
 
         self.analyzer.valid_dataset.return_value = dataset
+
+        self.controller.calculate_energy_balance = MagicMock()
 
         self.controller.calculate()
 
@@ -768,6 +846,8 @@ class TestSolarController:
             )
         )
 
+        self.controller.calculate_energy_balance = MagicMock()
+
         self.controller.calculate()
 
         self.analyzer.solar_engine.calculate_hourly_production.assert_called_once_with(
@@ -803,6 +883,8 @@ class TestSolarController:
                 }
             )
         )
+
+        self.controller.calculate_energy_balance = MagicMock()
 
         self.controller.calculate()
 
@@ -1570,3 +1652,111 @@ class TestSolarController:
             match="Installation recommendation is not available",
         ):
             self.controller.installation_simulation_report()
+
+    def test_calculate_energy_balance_uses_representative_consumption_scenario(
+        self,
+        monkeypatch,
+    ):
+        index = pd.date_range(
+            "2025-01-01 00:00:00",
+            periods=8760,
+            freq="h",
+        )
+
+        scenario = ConsumptionScenario(
+            hourly_consumption=pd.Series(
+                3.0,
+                index=index,
+                name="AE_kWh",
+            ),
+            reference_year=2025,
+        )
+
+        self.analyzer.valid_dataset.return_value = (
+            pd.DataFrame(
+                {
+                    "AE_kWh": [999.0],
+                }
+            )
+        )
+
+        self.analyzer.calculate_representative_consumption_scenario.return_value = (
+            scenario
+        )
+
+        self.analyzer.solar_engine.configuration = (
+            self._solar_configuration()
+        )
+
+        production = pd.Series(
+            1.0,
+            index=pd.date_range(
+                "2023-01-01 00:00:00",
+                periods=8760,
+                freq="h",
+            ),
+            name="production_kwh",
+        )
+
+        self.analyzer.solar_engine.hourly_production = (
+            pd.DataFrame(
+                {
+                    "production_kwh": production,
+                }
+            )
+        )
+
+        self.analyzer.solar_engine.installed_power_kwp = 1.0
+
+        balance_calculator = MagicMock(
+            return_value=pd.DataFrame(
+                {
+                    "consumption_kwh": [3.0],
+                    "production_kwh": [1.0],
+                    "self_consumption_kwh": [1.0],
+                    "grid_import_kwh": [2.0],
+                    "grid_export_kwh": [0.0],
+                }
+            )
+        )
+
+        monkeypatch.setattr(
+            "helios.core.controllers.solar_controller."
+            "SolarBalanceEngine.calculate",
+            staticmethod(balance_calculator),
+        )
+
+        self.controller.calculate_energy_balance()
+
+        balance_calculator.assert_called_once()
+
+        actual_scenario = (
+            balance_calculator.call_args.args[0]
+        )
+
+        assert actual_scenario is scenario
+
+        self.analyzer.calculate_representative_consumption_scenario.assert_called_once_with()
+
+    def test_calculate_energy_balance_requires_hourly_production(
+        self,
+    ):
+        self.analyzer.valid_dataset.return_value = (
+            pd.DataFrame(
+                {
+                    "AE_kWh": [1.0],
+                }
+            )
+        )
+
+        self.analyzer.calculate_representative_consumption_scenario.return_value = (
+            self._consumption_scenario()
+        )
+
+        self.analyzer.solar_engine.hourly_production = None
+
+        with pytest.raises(
+            RuntimeError,
+            match="Hourly solar production has not been calculated",
+        ):
+            self.controller.calculate_energy_balance()
