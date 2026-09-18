@@ -34,14 +34,22 @@ class TestPVGISProductionProfile:
         )
 
     @staticmethod
-    def response(value=1000.0):
+    def response(value=1000.0, year=2025):
         hourly = []
 
         index = pd.date_range(
-            start="2025-01-01 00:00:00",
-            periods=8760,
+            start=f"{year}-01-01 00:00:00",
+            end=f"{year}-12-31 23:00:00",
             freq="h",
         )
+
+        if pd.Timestamp(f"{year}-12-31").is_leap_year:
+            index = index[
+                ~(
+                    (index.month == 2)
+                    & (index.day == 29)
+                )
+            ]
 
         for timestamp in index:
             hourly.append(
@@ -259,3 +267,40 @@ class TestPVGISProductionProfile:
             service.get_production_profile(
                 self.configuration()
             )
+
+    def test_leap_year_profile_removes_february_29(self):
+
+        response = self.response(year=2024)
+
+        production_service = PVGISProductionService(
+            client=FakePVGISClient(response)
+        )
+
+        service = PVGISProductionProfileService(
+            production_service=production_service
+        )
+
+        configuration = SolarConfiguration(
+            latitude=41.62,
+            longitude=2.09,
+            tilt=30,
+            azimuth=0,
+            losses=14.0,
+            pv_technology="crystSi",
+            mounting_place="building",
+            reference_year=2024,
+        )
+
+        result = service.get_production_profile(configuration)
+
+        assert len(result.hourly_production) == 8760
+        assert result.hourly_production.index[0] == pd.Timestamp(
+            "2024-01-01 00:00:00"
+        )
+        assert result.hourly_production.index[-1] == pd.Timestamp(
+            "2024-12-31 23:00:00"
+        )
+        assert not (
+            (result.hourly_production.index.month == 2)
+            & (result.hourly_production.index.day == 29)
+        ).any()

@@ -81,9 +81,19 @@ class PVGISProductionProfileService:
 
         expected_index = pd.date_range(
             start=f"{reference_year}-01-01 00:00:00",
-            periods=8760,
+            end=f"{reference_year}-12-31 23:00:00",
             freq="h",
         )
+
+        if pd.Timestamp(
+            f"{reference_year}-12-31"
+        ).is_leap_year:
+            expected_index = expected_index[
+                ~(
+                    (expected_index.month == 2)
+                    & (expected_index.day == 29)
+                )
+            ]
 
         hourly_production.index = expected_index
 
