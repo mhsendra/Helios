@@ -29,21 +29,11 @@ from helios.solar.production_profile import (
 
 
 def make_index(year: int = 2025) -> pd.DatetimeIndex:
-    index = pd.date_range(
+    return pd.date_range(
         start=f"{year}-01-01 00:00:00",
-        end=f"{year}-12-31 23:00:00",
+        periods=8760,
         freq="h",
     )
-
-    if pd.Timestamp(f"{year}-12-31").is_leap_year:
-        index = index[
-            ~(
-                (index.month == 2)
-                & (index.day == 29)
-            )
-        ]
-
-    return index
 
 
 def make_scenario(
@@ -127,6 +117,8 @@ class TestSolarBalanceEngine:
     def test_calculate_with_surplus_production(self):
         scenario = make_scenario(3.0)
         production = make_profile(5.0)
+        scenario = make_scenario(3.0)
+        production = make_profile(5.0)
 
         result = SolarBalanceEngine.calculate(
             scenario,
@@ -150,6 +142,8 @@ class TestSolarBalanceEngine:
     def test_calculate_without_production(self):
         scenario = make_scenario(4.0)
         production = make_profile(0.0)
+        scenario = make_scenario(4.0)
+        production = make_profile(0.0)
 
         result = SolarBalanceEngine.calculate(
             scenario,
@@ -159,6 +153,8 @@ class TestSolarBalanceEngine:
         timestamp = pd.Timestamp("2025-01-15 12:00")
 
         assert result.loc[
+            timestamp,
+            "self_consumption_kwh",
             timestamp, "self_consumption_kwh"
         ] == pytest.approx(0.0)
 
@@ -328,20 +324,12 @@ class TestSolarBalanceEngine:
         )
 
     def test_calculate_does_not_mutate_input_indexes(self):
-        scenario = make_scenario(
-            5.0,
-            year=2025,
-        )
-
-        production = make_profile(
-            1.0,
-            year=2024,
-        )
+        scenario = make_scenario(5.0, year=2025)
+        production = make_profile(1.0, year=2024)
 
         consumption_index_before = (
             scenario.hourly_consumption.index.copy()
         )
-
         production_index_before = (
             production.hourly_production.index.copy()
         )
@@ -354,7 +342,6 @@ class TestSolarBalanceEngine:
         assert scenario.hourly_consumption.index.equals(
             consumption_index_before
         )
-
         assert production.hourly_production.index.equals(
             production_index_before
         )
@@ -364,10 +351,7 @@ class TestSolarBalanceEngine:
 
         with pytest.raises(TypeError):
             SolarBalanceEngine.calculate(
-                pd.Series(
-                    1.0,
-                    index=make_index(),
-                ),
+                pd.Series(1.0, index=make_index()),
                 production,
             )
 
@@ -386,6 +370,7 @@ class TestSolarBalanceEngine:
             )
 
     def test_calculate_accepts_representative_consumption_scenario_data(self):
+        """El balance trabaja directamente con los objetos de dominio."""
         scenario = make_scenario(5.0)
         production = make_profile(1.0)
 
@@ -420,11 +405,12 @@ class TestSolarBalanceEngine:
             8760.0 * 4.0
         )
 
-        assert result[
-            "grid_export_kwh"
-        ].sum() == pytest.approx(0.0)
+        assert result["grid_export_kwh"].sum() == pytest.approx(
+            0.0
+        )
 
     def test_calculate_preserves_hourly_solar_surplus(self):
+        """La producción solar sobrante se exporta y no se pierde."""
         scenario = make_scenario(2.0)
         production = make_profile(5.0)
 
@@ -452,12 +438,12 @@ class TestSolarBalanceEngine:
     def test_calculate_preserves_hourly_energy_balance_with_variable_profiles(
         self,
     ):
+        """El balance conserva producción y consumo con perfiles variables."""
         consumption = pd.Series(
             2.0,
             index=make_index(),
             dtype=float,
         )
-
         production = pd.Series(
             0.0,
             index=make_index(),
@@ -507,6 +493,7 @@ class TestSolarBalanceEngine:
     def test_calculate_integrates_representative_consumption_with_recommended_installation(
         self,
     ):
+        """Integra consumo representativo, recomendación y producción solar."""
         index = make_index()
 
         consumption_data = pd.DataFrame(
