@@ -231,9 +231,6 @@ class EconomicsEngine:
         self,
         scenario,
         configuration,
-        dataset,
-        energy_balance,
-        tariff_data,
         years: int = 25,
     ):
 
@@ -470,22 +467,15 @@ class EconomicsEngine:
         self,
         scenarios,
         configuration,
-        dataset,
-        energy_balance,
-        tariff_data,
         years: int = 25,
     ) -> list[EconomicScenarioResult]:
 
         self.scenario_results = []
 
         for scenario in scenarios:
-
             result = self.calculate_scenario(
                 scenario,
                 configuration,
-                dataset,
-                energy_balance,
-                tariff_data,
                 years,
             )
 

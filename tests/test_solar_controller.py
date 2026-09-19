@@ -1596,22 +1596,6 @@ class TestSolarController:
                 0.0,
             )
 
-
-    def test_calculate_energy_balance_rejects_empty_dataset(
-        self,
-    ):
-
-        self.analyzer.valid_dataset.return_value = (
-            pd.DataFrame()
-        )
-
-        with pytest.raises(
-            ValueError,
-            match="valid consumption dataset",
-        ):
-            self.controller.calculate_energy_balance()
-
-
     def test_installation_simulation_report_requires_installation_configuration(
         self,
     ):

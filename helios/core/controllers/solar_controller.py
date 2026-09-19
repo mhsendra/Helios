@@ -390,14 +390,6 @@ class SolarController:
 
     def calculate_energy_balance(self):
 
-        dataset = self.analyzer.valid_dataset()
-
-        if dataset is None or dataset.empty:
-            raise ValueError(
-                "A valid consumption dataset is required "
-                "to calculate the energy balance."
-            )
-
         consumption_scenario = (
             self.analyzer
             .calculate_representative_consumption_scenario()

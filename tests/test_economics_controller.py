@@ -519,9 +519,6 @@ class TestEconomicsController:
         engine.calculate_scenario.assert_called_once_with(
             scenario,
             self.configuration,
-            self.analyzer.dataset,
-            self.analyzer.solar.energy_balance,
-            self.analyzer.dataset,
         )
 
     # ==========================================================
@@ -555,9 +552,6 @@ class TestEconomicsController:
         engine.calculate_scenarios.assert_called_once_with(
             scenarios,
             self.configuration,
-            self.analyzer.dataset,
-            self.analyzer.solar.energy_balance,
-            self.analyzer.dataset,
             25,
         )
 
@@ -587,9 +581,6 @@ class TestEconomicsController:
         engine.calculate_scenarios.assert_called_once_with(
             scenarios,
             self.configuration,
-            self.analyzer.dataset,
-            self.analyzer.solar.energy_balance,
-            self.analyzer.dataset,
             10,
         )
 

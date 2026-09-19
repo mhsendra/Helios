@@ -9,9 +9,6 @@ from helios.core.economic_scenarios import (
     default_economic_scenarios,
 )
 from helios.core.economics import EconomicsEngine
-from helios.core.economics_configuration import (
-    EconomicsConfiguration,
-)
 from helios.core.consumption_scenario import ConsumptionScenario
 
 
@@ -1476,32 +1473,10 @@ class TestCalculateScenario:
 
         return Scenario()
 
-    def _energy_balance(self):
-
-        return pd.DataFrame(
-            {
-                "grid_import_kwh": [100.0],
-                "grid_export_kwh": [50.0],
-            }
-        )
-
-    def _tariff_data(self):
-
-        return pd.DataFrame(
-            {
-                "buy_price_eur_kwh": [0.20],
-                "sell_price_eur_kwh": [0.05],
-            }
-        )
-
     def _calculate_base_result(self, years=5):
-
         return self.engine.calculate_scenario(
             scenario=self._scenario(),
             configuration=self._configuration(),
-            dataset=pd.DataFrame(),
-            energy_balance=self._energy_balance(),
-            tariff_data=self._tariff_data(),
             years=years,
         )
 
@@ -1550,9 +1525,6 @@ class TestCalculateScenario:
         scenario_result = self.engine.calculate_scenario(
             scenario=self._scenario(),
             configuration=configuration,
-            dataset=pd.DataFrame(),
-            energy_balance=self._energy_balance(),
-            tariff_data=self._tariff_data(),
             years=5,
         )
 
@@ -3138,32 +3110,11 @@ class TestCalculateScenario:
 
         return Scenario()
 
-    def _energy_balance(self):
-
-        return pd.DataFrame(
-            {
-                "grid_import_kwh": [100.0],
-                "grid_export_kwh": [50.0],
-            }
-        )
-
-    def _tariff_data(self):
-
-        return pd.DataFrame(
-            {
-                "buy_price_eur_kwh": [0.20],
-                "sell_price_eur_kwh": [0.05],
-            }
-        )
-
     def _calculate_base_result(self, years=5):
 
         return self.engine.calculate_scenario(
             scenario=self._scenario(),
             configuration=self._configuration(),
-            dataset=pd.DataFrame(),
-            energy_balance=self._energy_balance(),
-            tariff_data=self._tariff_data(),
             years=years,
         )
 
@@ -3208,9 +3159,6 @@ class TestCalculateScenario:
         result = self.engine.calculate_scenario(
             scenario=Scenario(),
             configuration=self._configuration(),
-            dataset=pd.DataFrame(),
-            energy_balance=self._energy_balance(),
-            tariff_data=self._tariff_data(),
             years=5,
         )
 
@@ -3244,9 +3192,6 @@ class TestCalculateScenario:
         result = self.engine.calculate_scenario(
             scenario=Scenario(),
             configuration=self._configuration(),
-            dataset=pd.DataFrame(),
-            energy_balance=self._energy_balance(),
-            tariff_data=self._tariff_data(),
             years=5,
         )
 
@@ -3280,9 +3225,6 @@ class TestCalculateScenario:
         result = self.engine.calculate_scenario(
             scenario=Scenario(),
             configuration=self._configuration(),
-            dataset=pd.DataFrame(),
-            energy_balance=self._energy_balance(),
-            tariff_data=self._tariff_data(),
             years=5,
         )
 
@@ -3308,9 +3250,6 @@ class TestCalculateScenario:
         result = self.engine.calculate_scenario(
             scenario=scenario,
             configuration=configuration,
-            dataset=pd.DataFrame(),
-            energy_balance=self._energy_balance(),
-            tariff_data=self._tariff_data(),
             years=25,
         )
 
@@ -3337,9 +3276,6 @@ class TestCalculateScenario:
         result = self.engine.calculate_scenario(
             scenario=scenario,
             configuration=configuration,
-            dataset=pd.DataFrame(),
-            energy_balance=self._energy_balance(),
-            tariff_data=self._tariff_data(),
             years=25,
         )
 
@@ -3370,9 +3306,6 @@ class TestCalculateScenario:
         result = self.engine.calculate_scenario(
             scenario=scenario,
             configuration=configuration,
-            dataset=pd.DataFrame(),
-            energy_balance=self._energy_balance(),
-            tariff_data=self._tariff_data(),
             years=25,
         )
 
@@ -3402,9 +3335,6 @@ class TestCalculateScenario:
         result = self.engine.calculate_scenario(
             scenario=scenario,
             configuration=configuration,
-            dataset=pd.DataFrame(),
-            energy_balance=self._energy_balance(),
-            tariff_data=self._tariff_data(),
             years=25,
         )
 
@@ -3439,9 +3369,6 @@ class TestCalculateScenario:
         result = self.engine.calculate_scenario(
             scenario=scenario,
             configuration=configuration,
-            dataset=pd.DataFrame(),
-            energy_balance=self._energy_balance(),
-            tariff_data=self._tariff_data(),
             years=25,
         )
 
@@ -3498,9 +3425,6 @@ class TestCalculateScenario:
         scenario_result = self.engine.calculate_scenario(
             scenario=self._scenario(),
             configuration=configuration,
-            dataset=pd.DataFrame(),
-            energy_balance=self._energy_balance(),
-            tariff_data=self._tariff_data(),
             years=1,
         )
 
@@ -3528,9 +3452,6 @@ class TestCalculateScenario:
         scenario_result = self.engine.calculate_scenario(
             scenario=self._scenario(),
             configuration=configuration,
-            dataset=pd.DataFrame(),
-            energy_balance=self._energy_balance(),
-            tariff_data=self._tariff_data(),
             years=2,
         )
 

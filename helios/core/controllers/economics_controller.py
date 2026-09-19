@@ -149,9 +149,6 @@ class EconomicsController:
             .calculate_scenario(
                 scenario,
                 self.configuration,
-                self.analyzer.dataset,
-                self.analyzer.solar.energy_balance,
-                self.analyzer.dataset,
             )
         )
 
@@ -165,9 +162,6 @@ class EconomicsController:
             .calculate_scenarios(
                 scenarios,
                 self.configuration,
-                self.analyzer.dataset,
-                self.analyzer.solar.energy_balance,
-                self.analyzer.dataset,
                 years,
             )
         )
