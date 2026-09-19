@@ -105,13 +105,13 @@ class MainWindow(QMainWindow):
 
         self.pages.addWidget(self.home_page)
 
-        self.load_page = LoadDataPage(self.project, self)
-
-        self.pages.addWidget(self.load_page)
-
         self.solar_config_page = SolarConfigPage(self.project, self)
 
         self.pages.addWidget(self.solar_config_page)
+
+        self.load_page = LoadDataPage(self.project, self)
+
+        self.pages.addWidget(self.load_page)
 
         self.validation_page = ValidationPage(self.project)
 
@@ -167,14 +167,14 @@ class MainWindow(QMainWindow):
 
         self.results_item = QTreeWidgetItem(["Resultados"])
 
-        self.load_item = QTreeWidgetItem(
-            self.project_item,
-            ["Cargar datos"]
-        )
-
         self.configuration_item = QTreeWidgetItem(
             self.project_item,
             ["Configuración solar"]
+        )
+
+        self.load_item = QTreeWidgetItem(
+            self.project_item,
+            ["Cargar datos"]
         )
 
         self.validation_item = QTreeWidgetItem(
@@ -261,7 +261,6 @@ class MainWindow(QMainWindow):
         disabled_color = QColor("#808080")
 
         items = [
-            self.configuration_item,
             self.validation_item,
             self.statistics_item,
             self.profiles_item,

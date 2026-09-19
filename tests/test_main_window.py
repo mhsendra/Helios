@@ -100,6 +100,13 @@ class TestMainWindow:
         for page in pages:
             assert page.project is self.window.project
 
+    def test_project_flow_places_solar_configuration_before_data_loading(self):
+
+        assert (
+            self.window.pages.indexOf(self.window.solar_config_page)
+            < self.window.pages.indexOf(self.window.load_page)
+        )
+
     def test_all_pages_are_added_to_stack(self):
 
         assert self.window.pages.count() == 13
@@ -161,8 +168,8 @@ class TestMainWindow:
         ]
 
         assert children == [
-            "Cargar datos",
             "Configuración solar",
+            "Cargar datos",
         ]
 
     def test_navigation_has_expected_analysis_items(self):
@@ -247,6 +254,7 @@ class TestMainWindow:
     def test_project_navigation_items_remain_enabled_initially(self):
 
         assert not self.window.home_item.isDisabled()
+        assert not self.window.configuration_item.isDisabled()
         assert not self.window.load_item.isDisabled()
 
         # ==================================================
@@ -258,7 +266,6 @@ class TestMainWindow:
         self.window.set_project_loaded(True)
 
         for item in [
-            self.window.configuration_item,
             self.window.validation_item,
             self.window.statistics_item,
             self.window.profiles_item,
@@ -341,7 +348,7 @@ class TestMainWindow:
             is current_page
         )
 
-    def test_change_page_does_not_change_to_solar_configuration_page_when_project_is_not_loaded(
+    def test_change_page_changes_to_solar_configuration_page_before_project_is_loaded(
         self,
     ):
 
@@ -351,9 +358,9 @@ class TestMainWindow:
 
         assert (
             self.window.pages.currentWidget()
-            is self.window.home_page
+            is self.window.solar_config_page
         )
-        
+
     def test_change_page_changes_to_economics_page_after_solar_calculation(
         self,
     ):
@@ -371,14 +378,12 @@ class TestMainWindow:
             is self.window.economics_page
         )
 
-    def test_solar_configuration_page_is_disabled_when_project_is_not_loaded(
+    def test_solar_configuration_page_is_enabled_when_project_is_not_loaded(
         self,
     ):
 
-        assert (
-            self.window.configuration_item.isDisabled()
-        )
-    
+        assert not self.window.configuration_item.isDisabled()
+
     # ==================================================
     # Actualización de páginas
     # ==================================================

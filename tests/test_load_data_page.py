@@ -2,13 +2,9 @@ from unittest.mock import MagicMock, patch
 
 import pandas as pd
 
-import pytest
-
 from PySide6.QtWidgets import QApplication
 
 from helios.gui.widgets.load_data_page import LoadDataPage
-
-from helios.solar.configuration import SolarConfiguration
 
 
 class TestLoadDataPage:
@@ -172,16 +168,7 @@ class TestLoadDataPage:
             r"C:\datos\consumo.xlsx"
         )
 
-        configuration = SolarConfiguration(
-            latitude=41.6167,
-            longitude=2.0833,
-            tilt=30,
-            azimuth=0,
-            reference_year=2023,
-            losses=14.0,
-            pv_technology="crystSi",
-            mounting_place="building",
-        )
+        configuration = MagicMock()
 
         self.project.solar_configuration = configuration
 
@@ -273,137 +260,89 @@ class TestLoadDataPage:
         self.project.quality = {
             "coverage": 99.43,
             "rating": "EXCELENTE",
+            "valid_hours": 3,
+            "missing_hours": 0,
+            "duplicates": 0,
         }
 
         self.page.update_project_info()
 
-        text = self.page.info_label.text()
+        assert self.page.info_cards["filename"].text() == "consumo.xlsx"
+        assert self.page.info_cards["records"].text() == "3"
+        assert self.page.info_cards["period"].text() == "01/01/2025 → 03/01/2025"
+        assert self.page.info_cards["coverage"].text() == "99.43 %"
+        assert self.page.info_cards["quality"].text() == "EXCELENTE"
 
-        assert "consumo.xlsx" in text
-        assert "3" in text
-        assert "01/01/2025" in text
-        assert "03/01/2025" in text
-        assert "99.43%" in text
-        assert "EXCELENTE" in text
 
     # ==================================================
-    # Configuración solar
+    # Resumen en tarjetas
     # ==================================================
 
-    def test_get_solar_configuration(self):
+    def test_info_cards_are_created_in_compact_layout(self):
 
-        self.page.latitude_spinbox.setValue(41.6167)
-        self.page.longitude_spinbox.setValue(2.0833)
+        assert set(self.page.info_cards) == {
+            "filename",
+            "records",
+            "period",
+            "coverage",
+            "valid",
+            "missing",
+            "duplicates",
+            "quality",
+        }
 
-        self.page.tilt_spinbox.setValue(30)
-        self.page.azimuth_spinbox.setValue(0)
+        assert self.page.info_cards_layout.columnCount() == 4
 
-        self.page.system_losses_spinbox.setValue(14.0)
+    def test_update_project_info_populates_info_cards(self):
 
-        self.page.pv_technology_combobox.setCurrentIndex(
-            self.page.pv_technology_combobox.findData(
-                "crystSi"
-            )
+        self.page.path_edit.setText(
+            r"C:\datos\consumo.xlsx"
         )
 
-        self.page.mounting_place_combobox.setCurrentIndex(
-            self.page.mounting_place_combobox.findData(
-                "building"
-            )
+        self.project.dataset = pd.DataFrame(
+            {"AE_kWh": [1.0, 2.0, 3.0]},
+            index=pd.to_datetime(
+                [
+                    "2025-01-01",
+                    "2025-01-02",
+                    "2025-01-03",
+                ]
+            ),
         )
 
-        configuration = (
-            self.page.get_solar_configuration()
-        )
+        self.project.quality = {
+            "coverage": 99.43,
+            "rating": "EXCELENTE",
+            "valid_hours": 3,
+            "missing_hours": 0,
+            "duplicates": 0,
+        }
 
-        assert configuration.latitude == pytest.approx(
-            41.6167
-        )
+        self.page.update_project_info()
 
-        assert configuration.longitude == pytest.approx(
-            2.0833
-        )
-
-        assert configuration.tilt == 30
-
-        assert configuration.azimuth == 0
-
-        assert configuration.reference_year == 2023
-
-        assert configuration.losses == pytest.approx(
-            14.0
-        )
-
-        assert configuration.pv_technology == "crystSi"
-
-        assert configuration.mounting_place == "building"
-
-
-    def test_save_solar_configuration_delegates_to_project(self):
-
-        configuration = MagicMock()
-
-        self.page.get_solar_configuration = MagicMock(
-            return_value=configuration
-        )
-
-        self.page.save_solar_configuration()
-
-        self.project.set_solar_configuration.assert_called_once_with(
-            configuration
-        )
-
-
-    def test_save_solar_configuration_does_not_calculate(self):
-
-        configuration = MagicMock()
-
-        self.page.get_solar_configuration = MagicMock(
-            return_value=configuration
-        )
-
-        self.page.save_solar_configuration()
-
-        self.project.solar.calculate.assert_not_called()
-
-    def test_save_solar_configuration(
-        self,
-    ):
-
-        configuration = SolarConfiguration(
-            latitude=41.6167,
-            longitude=2.0833,
-            tilt=30,
-            azimuth=0,
-            reference_year=2023,
-            losses=14.0,
-            pv_technology="crystSi",
-            mounting_place="building",
-        )
-
-        self.page.get_solar_configuration = (
-            MagicMock(
-                return_value=configuration
-            )
-        )
-
-        self.page.project.set_solar_configuration = (
-            MagicMock()
-        )
-
-        self.page.main_window.solar_config_page.update_data = (
-            MagicMock()
-        )
-
-        self.page.save_solar_configuration()
-
-        self.page.project.set_solar_configuration.assert_called_once_with(
-            configuration
-        )
-
-        self.page.main_window.solar_config_page.update_data.assert_called_once_with()
+        assert self.page.info_cards["filename"].text() == "consumo.xlsx"
+        assert self.page.info_cards["records"].text() == "3"
+        assert self.page.info_cards["period"].text() == "01/01/2025 → 03/01/2025"
+        assert self.page.info_cards["coverage"].text() == "99.43 %"
+        assert self.page.info_cards["valid"].text() == "3"
+        assert self.page.info_cards["missing"].text() == "0"
+        assert self.page.info_cards["duplicates"].text() == "0"
+        assert self.page.info_cards["quality"].text() == "EXCELENTE"
 
         assert (
-            self.page.solar_configuration_status.text()
-            == "Configuración solar guardada."
+            self.page.info_label.text()
+            == "✓ Datos cargados y analizados correctamente."
+        )
+
+    def test_update_project_info_clears_cards_without_dataset(self):
+
+        self.page.project.dataset = None
+
+        self.page.info_cards["filename"].setText("archivo.xlsx")
+
+        self.page.update_project_info()
+
+        assert all(
+            label.text() == "-"
+            for label in self.page.info_cards.values()
         )
