@@ -6,6 +6,8 @@ import pandas as pd
 
 from helios.solar.manager import SolarManager
 from helios.solar.configuration import SolarConfiguration
+from helios.core.consumption_scenario import ConsumptionScenario
+from helios.solar.production_profile import SolarProductionProfile
 
 
 class TestSolarManager:
@@ -172,23 +174,60 @@ class TestSolarManager:
 
     def test_calculate_energy_balance(self):
 
-        consumption = MagicMock()
-        hourly_production = MagicMock()
+        consumption_scenario = ConsumptionScenario(
+            hourly_consumption=pd.Series(
+                1.0,
+                index=pd.date_range(
+                    "2025-01-01 00:00:00",
+                    periods=8760,
+                    freq="h",
+                ),
+            ),
+            reference_year=2025,
+        )
+
+        hourly_production = pd.DataFrame(
+            {
+                "production_kwh": pd.Series(
+                    0.0,
+                    index=pd.date_range(
+                        "2025-01-01 00:00:00",
+                        periods=8760,
+                        freq="h",
+                    ),
+                )
+            }
+        )
+
         energy_balance = MagicMock()
 
         self.manager.hourly_production = hourly_production
+        self.manager.configuration = MagicMock()
+        self.manager.configuration.reference_year = 2025
+        self.manager.installed_power_kwp = 1.0
 
         self.manager.balance_engine.calculate.return_value = (
             energy_balance
         )
 
         self.manager.calculate_energy_balance(
-            consumption
+            consumption_scenario
         )
 
-        self.manager.balance_engine.calculate.assert_called_once_with(
-            consumption,
-            hourly_production
+        production_profile = (
+            self.manager.balance_engine.calculate.call_args.args[1]
+        )
+
+        assert isinstance(
+            production_profile,
+            SolarProductionProfile,
+        )
+
+        self.manager.balance_engine.calculate.assert_called_once()
+
+        assert (
+            self.manager.balance_engine.calculate.call_args.args[0]
+            is consumption_scenario
         )
 
         assert self.manager.energy_balance is energy_balance
@@ -226,7 +265,6 @@ class TestSolarManager:
         self.manager.statistics_engine.calculate.assert_called_once_with(
             hourly_production,
             energy_balance,
-            configuration,
             1.0,
         )
 

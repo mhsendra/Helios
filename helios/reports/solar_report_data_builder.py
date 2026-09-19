@@ -91,8 +91,8 @@ class SolarReportDataBuilder:
             statistics.get("monthly_average", 0.0)
         )
 
-        maximum_power = float(
-            statistics.get("maximum_power", 0.0)
+        maximum_hourly_production = float(
+            statistics.get("maximum_hourly_production", 0.0)
         )
 
         capacity_factor = float(
@@ -318,35 +318,6 @@ class SolarReportDataBuilder:
                 solar_configuration.mounting_place
             )
 
-        print(">>> REPORT DATA DEBUG")
-        print("installed_power_kwp:", installed_power_kwp)
-        print("panel_count:", panel_count)
-        print("panel_power_wp:", panel_power_wp)
-        print("yearly_production_kwh:", yearly_production_kwh)
-        print("specific_production:", specific_production)
-        print("productive_hours:", productive_hours)
-        print("daily_average:", daily_average)
-        print("monthly_average:", monthly_average)
-        print("maximum_power:", maximum_power)
-        print("capacity_factor:", capacity_factor)
-        print("yearly_consumption_kwh:", yearly_consumption_kwh)
-        print("self_consumption_kwh:", self_consumption_kwh)
-        print("grid_export_kwh:", grid_export_kwh)
-        print("grid_import_kwh:", grid_import_kwh)
-        print("self_consumption_rate_percent:", self_consumption_rate_percent)
-        print("self_sufficiency_rate_percent:", self_sufficiency_rate_percent)
-        print("cost_without_pv_eur:", cost_without_pv_eur)
-        print("grid_import_cost_eur:", grid_import_cost_eur)
-        print("export_income_eur:", export_income_eur)
-        print("cost_with_pv_eur:", cost_with_pv_eur)
-        print("self_consumption_savings_eur:", self_consumption_savings_eur)
-        print("investment_eur:", investment_eur)
-        print("yearly_savings_eur:", yearly_savings_eur)
-        print("payback_years:", payback_years)
-        print("net_present_value_eur:", net_present_value_eur)
-        print("internal_rate_of_return:", internal_rate_of_return)
-        print("scenario_results:", scenario_results)
-
         # ---------------------------------------------------------
         # Resultado final
         # ---------------------------------------------------------
@@ -368,7 +339,7 @@ class SolarReportDataBuilder:
             productive_hours=productive_hours,
             daily_average_kwh=daily_average,
             monthly_average_kwh=monthly_average,
-            maximum_power_kw=maximum_power,
+            maximum_hourly_production_kwh=maximum_hourly_production,
             capacity_factor_percent=capacity_factor,
 
             yearly_consumption_kwh=yearly_consumption_kwh,

@@ -68,7 +68,7 @@ class TestSolarReportData:
             "productive_hours": 4380,
             "daily_average_kwh": 34.25,
             "monthly_average_kwh": 1041.67,
-            "maximum_power_kw": 8.05,
+            "maximum_hourly_production_kwh": 8.05,
             "capacity_factor_percent": 17.62,
 
             # ==================================================

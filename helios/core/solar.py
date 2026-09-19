@@ -1,6 +1,6 @@
 from helios.solar.configuration import SolarConfiguration
 from helios.solar.manager import SolarManager
-
+from helios.core.consumption_scenario import ConsumptionScenario
 
 class SolarEngine:
 
@@ -41,11 +41,11 @@ class SolarEngine:
 
     def calculate_energy_balance(
         self,
-        consumption,
+        consumption_scenario: ConsumptionScenario,
     ):
 
         self.manager.calculate_energy_balance(
-            consumption
+            consumption_scenario
         )
 
     def calculate_statistics(self):

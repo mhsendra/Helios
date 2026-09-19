@@ -33,7 +33,7 @@ class SolarReportData:
     productive_hours: int
     daily_average_kwh: float
     monthly_average_kwh: float
-    maximum_power_kw: float
+    maximum_hourly_production_kwh: float
     capacity_factor_percent: float
 
     # ==================================================

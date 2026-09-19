@@ -226,8 +226,8 @@ class SolarReportDataFactory:
                 statistics["monthly_average"]
             ),
 
-            maximum_power_kw=(
-                statistics["maximum_power"]
+            maximum_hourly_production_kwh=(
+                statistics["maximum_hourly_production"]
             ),
 
             capacity_factor_percent=(
@@ -255,7 +255,7 @@ class SolarReportDataFactory:
             ),
 
             self_consumption_rate_percent=(
-                solar_controller.coverage
+                statistics["self_consumption_ratio"]
             ),
 
             self_sufficiency_rate_percent=(

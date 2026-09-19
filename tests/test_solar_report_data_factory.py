@@ -109,10 +109,11 @@ class TestSolarReportDataFactory:
             "productive_hours": 4380,
             "daily_average": 34.25,
             "monthly_average": 1041.67,
-            "maximum_power": 7.85,
+            "maximum_hourly_production": 7.85,
             "capacity_factor": 17.62,
             "consumption": 19541.72,
             "self_sufficiency": 64.0,
+            "self_consumption_ratio": 68.0,
         }
 
         return solar
@@ -169,10 +170,11 @@ class TestSolarReportDataFactory:
             "productive_hours": 4380,
             "daily_average": 34.25,
             "monthly_average": 1041.67,
-            "maximum_power": 7.85,
+            "maximum_hourly_production": 7.85,
             "capacity_factor": 17.62,
             "consumption": 19541.72,
             "self_sufficiency": 64.0,
+            "self_consumption_ratio": 68.0,
         }
 
         return solar
@@ -355,7 +357,7 @@ class TestSolarReportDataFactory:
         assert result.productive_hours == 4380
         assert result.daily_average_kwh == 34.25
         assert result.monthly_average_kwh == 1041.67
-        assert result.maximum_power_kw == 7.85
+        assert result.maximum_hourly_production_kwh == 7.85
         assert result.capacity_factor_percent == 17.62
 
     def test_create_contains_energy_balance_values(
@@ -373,7 +375,7 @@ class TestSolarReportDataFactory:
         assert result.grid_import_kwh == 11041.72
         assert (
             result.self_consumption_rate_percent
-            == 43.5
+            == 68.0
         )
         assert (
             result.self_sufficiency_rate_percent

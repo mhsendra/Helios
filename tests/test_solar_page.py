@@ -40,7 +40,6 @@ class TestSolarPage:
             manager.yearly_production = None
             manager.energy_balance = None
             manager.statistics = None
-            manager.specific_production_kwh_per_kwp = None
 
         manager.reset.side_effect = reset_manager
 

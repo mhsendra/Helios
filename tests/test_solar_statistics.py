@@ -76,7 +76,6 @@ class TestSolarStatisticsEngine:
         result = SolarStatisticsEngine.calculate(
             hourly_production,
             energy_balance,
-            self.configuration,
             1.0,
         )
 
@@ -89,6 +88,10 @@ class TestSolarStatisticsEngine:
         assert result["productive_hours"] == 3
 
         assert result["zero_production_hours"] == 1
+
+        assert result["annual_production"] == pytest.approx(
+            6.0
+        )
 
         assert result["period_production"] == pytest.approx(
             6.0
@@ -122,11 +125,11 @@ class TestSolarStatisticsEngine:
         # Production
         # ------------------------------------------
 
-        assert result["maximum_power"] == pytest.approx(
+        assert result["maximum_hourly_production"] == pytest.approx(
             3.0
         )
 
-        assert result["minimum_power"] == pytest.approx(
+        assert result["minimum_hourly_production"] == pytest.approx(
             1.0
         )
 
@@ -238,7 +241,6 @@ class TestSolarStatisticsEngine:
         result = SolarStatisticsEngine.calculate(
             hourly_production,
             energy_balance,
-            self.configuration,
             1.0,
         )
 
@@ -246,7 +248,7 @@ class TestSolarStatisticsEngine:
 
         assert result["zero_production_hours"] == 2
 
-        assert result["minimum_power"] == 0.0
+        assert result["minimum_hourly_production"] == 0.0
 
         assert result["self_consumption_ratio"] == 0.0
 
@@ -304,13 +306,16 @@ class TestSolarStatisticsEngine:
         result = SolarStatisticsEngine.calculate(
             hourly_production,
             energy_balance,
-            self.configuration,
             1.0,
         )
 
         assert result["hours"] == 1
 
         assert result["consumption"] == pytest.approx(
+            3.0
+        )
+
+        assert result["annual_production"] == pytest.approx(
             3.0
         )
 
@@ -372,7 +377,6 @@ class TestSolarStatisticsEngine:
         result = SolarStatisticsEngine.calculate(
             hourly_production,
             energy_balance,
-            self.configuration,
             1.0,
         )
 
@@ -445,7 +449,6 @@ class TestSolarStatisticsEngine:
         result = SolarStatisticsEngine.calculate(
             hourly_production,
             energy_balance,
-            self.configuration,
             1.0,
         )
 
@@ -458,3 +461,127 @@ class TestSolarStatisticsEngine:
             result["self_consumption"]
             + result["grid_export"]
         )
+
+    def test_calculate_rejects_zero_installed_power(self):
+
+        index = pd.to_datetime(
+            [
+                "2025-01-01 10:00",
+                "2025-01-01 11:00",
+                "2025-01-01 12:00",
+            ]
+        )
+
+        hourly_production = pd.DataFrame(
+            {
+                "production_kwh": [
+                    2.0,
+                    5.0,
+                    0.0,
+                ]
+            },
+            index=index,
+        )
+
+        energy_balance = pd.DataFrame(
+            {
+                "consumption_kwh": [
+                    4.0,
+                    3.0,
+                    2.0,
+                ],
+                "production_kwh": [
+                    2.0,
+                    5.0,
+                    0.0,
+                ],
+                "self_consumption_kwh": [
+                    2.0,
+                    3.0,
+                    0.0,
+                ],
+                "grid_import_kwh": [
+                    2.0,
+                    0.0,
+                    2.0,
+                ],
+                "grid_export_kwh": [
+                    0.0,
+                    2.0,
+                    0.0,
+                ],
+            },
+            index=index,
+        )
+
+        with pytest.raises(
+            ValueError,
+            match="Installed power must be greater than zero",
+        ):
+            SolarStatisticsEngine.calculate(
+                hourly_production,
+                energy_balance,
+                0.0,
+            )
+
+    def test_calculate_rejects_negative_installed_power(self):
+
+        index = pd.to_datetime(
+            [
+                "2025-01-01 10:00",
+                "2025-01-01 11:00",
+                "2025-01-01 12:00",
+            ]
+        )
+
+        hourly_production = pd.DataFrame(
+            {
+                "production_kwh": [
+                    2.0,
+                    5.0,
+                    0.0,
+                ]
+            },
+            index=index,
+        )
+
+        energy_balance = pd.DataFrame(
+            {
+                "consumption_kwh": [
+                    4.0,
+                    3.0,
+                    2.0,
+                ],
+                "production_kwh": [
+                    2.0,
+                    5.0,
+                    0.0,
+                ],
+                "self_consumption_kwh": [
+                    2.0,
+                    3.0,
+                    0.0,
+                ],
+                "grid_import_kwh": [
+                    2.0,
+                    0.0,
+                    2.0,
+                ],
+                "grid_export_kwh": [
+                    0.0,
+                    2.0,
+                    0.0,
+                ],
+            },
+            index=index,
+        )
+
+        with pytest.raises(
+            ValueError,
+            match="Installed power must be greater than zero",
+        ):
+            SolarStatisticsEngine.calculate(
+                hourly_production,
+                energy_balance,
+                -1.0,
+            )

@@ -65,7 +65,7 @@ class TestSolarReportGenerator:
             productive_hours=4380,
             daily_average_kwh=34.25,
             monthly_average_kwh=1041.67,
-            maximum_power_kw=7.85,
+            maximum_hourly_production_kwh=7.85,
             capacity_factor_percent=17.62,
 
             # ==================================================
@@ -654,7 +654,7 @@ class TestSolarReportGenerator:
             ],
             [
                 "Máxima producción horaria",
-                "7.85 kW",
+                "7.85 kWh",
             ],
             [
                 "Factor de capacidad",

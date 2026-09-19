@@ -689,32 +689,6 @@ class ReportsPage(QWidget):
                 self.project
             )
 
-            print(">>> SOLAR REPORT DATA:")
-            print("installed_power_kwp =", data.installed_power_kwp)
-            print("panel_count =", data.panel_count)
-            print("panel_power_wp =", data.panel_power_wp)
-            print("yearly_production_kwh =", data.yearly_production_kwh)
-            print("specific_production_kwh_kwp =", data.specific_production_kwh_kwp)
-            print("productive_hours =", data.productive_hours)
-            print("daily_average_kwh =", data.daily_average_kwh)
-            print("monthly_average_kwh =", data.monthly_average_kwh)
-            print("maximum_power_kw =", data.maximum_power_kw)
-            print("capacity_factor_percent =", data.capacity_factor_percent)
-            print("yearly_consumption_kwh =", data.yearly_consumption_kwh)
-            print("self_consumption_kwh =", data.self_consumption_kwh)
-            print("grid_export_kwh =", data.grid_export_kwh)
-            print("grid_import_kwh =", data.grid_import_kwh)
-            print("yearly_savings_eur =", data.yearly_savings_eur)
-            print("payback_years =", data.payback_years)
-            print("net_present_value_eur =", data.net_present_value_eur)
-            print("internal_rate_of_return_percent =", data.internal_rate_of_return_percent)
-            print("latitude =", data.latitude)
-            print("longitude =", data.longitude)
-            print("tilt =", data.tilt)
-            print("azimuth =", data.azimuth)
-            print("reference_year =", data.reference_year)
-            print("losses =", data.losses)
-
             generator = SolarReportGenerator()
 
             generator.generate(

@@ -81,14 +81,14 @@ class SolarReports:
 
         ReportPrinter.value(
             "Potencia máxima",
-            statistics["maximum_power"],
+            statistics["maximum_hourly_production"],
             "kW",
             decimals=2
         )
 
         ReportPrinter.value(
             "Potencia mínima (>0)",
-            statistics["minimum_power"],
+            statistics["minimum_hourly_production"],
             "kW",
             decimals=2
         )

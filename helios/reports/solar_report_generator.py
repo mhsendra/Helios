@@ -1115,7 +1115,7 @@ class SolarReportGenerator:
             ],
             [
                 "Máxima producción horaria",
-                f"{data.maximum_power_kw:,.2f} kW",
+                f"{data.maximum_hourly_production_kwh:,.2f} kWh",
             ],
             [
                 "Factor de capacidad",

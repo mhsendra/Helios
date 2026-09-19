@@ -155,7 +155,7 @@ class InstallationRecommendation:
             return 0.0
 
         return min(
-            self.annual_production_kwh
+            self.self_consumption_kwh
             / self.annual_consumption_kwh
             * 100,
             100.0,

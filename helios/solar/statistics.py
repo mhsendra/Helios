@@ -1,17 +1,16 @@
 import pandas as pd
 
-from helios.solar.configuration import SolarConfiguration
-
-
 class SolarStatisticsEngine:
 
     @staticmethod
     def calculate(
         hourly_production: pd.DataFrame,
         energy_balance: pd.DataFrame,
-        configuration: SolarConfiguration,
-        installed_power_kwp: float = 1.0,
+        installed_power_kwp: float,
     ) -> dict:
+
+        if installed_power_kwp <= 0:
+            raise ValueError("Installed power must be greater than zero.")
 
         # ==========================================
         # Balance energético del periodo analizado
@@ -22,12 +21,20 @@ class SolarStatisticsEngine:
         )
 
         # ==========================================
+        # Producción anual
+        # ==========================================
+
+        annual_production = (
+            hourly_production["production_kwh"]
+            .sum()
+        )
+
+        # ==========================================
         # Producción anual específica
         # ==========================================
 
         specific_production = (
-            hourly_production["production_kwh"]
-            .sum()
+            annual_production
             / installed_power_kwp
         )
 
@@ -98,13 +105,13 @@ class SolarStatisticsEngine:
             / 8760
         ) * 100
 
-        maximum_power = (
+        maximum_hourly_production = (
             production.max()
         )
 
         if productive_hours > 0:
 
-            minimum_power = (
+            minimum_hourly_production = (
                 production[
                     production > 0
                 ].min()
@@ -112,7 +119,7 @@ class SolarStatisticsEngine:
 
         else:
 
-            minimum_power = 0.0
+            minimum_hourly_production = 0.0
 
         # ==========================================
         # Balance energético
@@ -185,6 +192,8 @@ class SolarStatisticsEngine:
 
             "zero_production_hours": zero_production_hours,
 
+            "annual_production": annual_production,
+
             "period_production": period_production,
 
             "specific_production": specific_production,
@@ -195,9 +204,9 @@ class SolarStatisticsEngine:
 
             "hourly_average": hourly_average,
 
-            "maximum_power": maximum_power,
+            "maximum_hourly_production": maximum_hourly_production,
 
-            "minimum_power": minimum_power,
+            "minimum_hourly_production": minimum_hourly_production,
 
             "equivalent_hours": equivalent_hours,
 

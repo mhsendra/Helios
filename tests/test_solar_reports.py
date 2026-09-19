@@ -56,8 +56,8 @@ class TestSolarReports:
             "annual_production": 5000.0,
             "period_production": 4800.0,
             "daily_average": 13.15,
-            "maximum_power": 5.2,
-            "minimum_power": 0.1,
+            "maximum_hourly_production": 5.2,
+            "minimum_hourly_production": 0.1,
             "equivalent_hours": 960.0,
             "capacity_factor": 11.0,
         }

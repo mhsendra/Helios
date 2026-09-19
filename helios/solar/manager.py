@@ -8,6 +8,8 @@ from helios.solar.parser import PVGISParser
 from helios.solar.production import SolarProductionEngine
 from helios.solar.pvgis import PVGISClient
 from helios.solar.statistics import SolarStatisticsEngine
+from helios.core.consumption_scenario import ConsumptionScenario
+from helios.solar.production_profile import SolarProductionProfile
 
 
 class SolarManager:
@@ -42,8 +44,6 @@ class SolarManager:
 
         self.statistics = None
 
-        self.specific_production_kwh_per_kwp = None
-
     def calculate_hourly_production(
         self,
         configuration: SolarConfiguration,
@@ -61,11 +61,6 @@ class SolarManager:
         response = self.client.fetch(configuration)
 
         self.hourly_production = self.parser.parse(response)
-
-        # Producción específica por kWp (PVGIS siempre devuelve por kWp)
-        self.specific_production_kwh_per_kwp = (
-            self.hourly_production["production_kwh"].sum()
-        )
 
         if installed_power_kwp <= 0:
             raise ValueError(
@@ -116,19 +111,37 @@ class SolarManager:
     
     def calculate_energy_balance(
         self,
-        consumption: pd.Series
+        consumption_scenario: ConsumptionScenario,
     ):
-
         if self.hourly_production is None:
-
             raise RuntimeError(
                 "Hourly production has not been calculated."
             )
 
+        if not isinstance(
+            consumption_scenario,
+            ConsumptionScenario,
+        ):
+            raise TypeError(
+                "consumption_scenario must be a ConsumptionScenario."
+            )
+
+        production_profile = SolarProductionProfile(
+            hourly_production=(
+                self.hourly_production["production_kwh"]
+            ),
+            reference_year=(
+                self.configuration.reference_year
+            ),
+            installed_power_kwp=(
+                self.installed_power_kwp
+            ),
+        )
+
         self.energy_balance = (
             self.balance_engine.calculate(
-                consumption,
-                self.hourly_production
+                consumption_scenario,
+                production_profile,
             )
         )
 
@@ -150,7 +163,6 @@ class SolarManager:
             self.statistics_engine.calculate(
                 self.hourly_production,
                 self.energy_balance,
-                self.configuration,
                 self.installed_power_kwp,
             )
         )
@@ -243,7 +255,6 @@ class SolarManager:
         self.yearly_production = None
         self.energy_balance = None
         self.statistics = None
-        self.specific_production_kwh_per_kwp = None
 
     def set_configuration(
         self,

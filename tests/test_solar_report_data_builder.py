@@ -52,7 +52,7 @@ class TestSolarReportDataBuilder:
             "specific_production": 1543.21,
             "daily_average": 34.25,
             "monthly_average": 1041.67,
-            "maximum_power": 8.1,
+            "maximum_hourly_production": 8.1,
             "capacity_factor": 17.6,
         }
 
@@ -195,7 +195,7 @@ class TestSolarReportDataBuilder:
         assert result.productive_hours == 4380
         assert result.daily_average_kwh == 34.25
         assert result.monthly_average_kwh == 1041.67
-        assert result.maximum_power_kw == 8.1
+        assert result.maximum_hourly_production_kwh == 8.1
         assert result.capacity_factor_percent == 17.6
 
         assert result.monthly_production.equals(
