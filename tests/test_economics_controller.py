@@ -1,3 +1,7 @@
+import pandas as pd
+
+from helios.core.consumption_scenario import ConsumptionScenario
+
 from unittest.mock import MagicMock, call
 
 import pytest
@@ -50,8 +54,148 @@ class TestEconomicsController:
 
         assert result == 1234.56
 
+        self.analyzer.calculate_representative_consumption_scenario.assert_called_once_with()
+
+        self.analyzer.tariff_engine.build_tariff_data.assert_called_once_with(
+            self.analyzer.calculate_representative_consumption_scenario.return_value
+            .hourly_consumption.index
+        )
+
         engine.calculate_cost_without_pv.assert_called_once_with(
+            self.analyzer.calculate_representative_consumption_scenario.return_value,
+            self.analyzer.tariff_engine.build_tariff_data.return_value,
+        )
+
+    # ==========================================================
+    # Datos económicos sintéticos
+    # ==========================================================
+
+    def test_economic_data_uses_representative_consumption_scenario(
+        self,
+    ):
+
+        index = pd.date_range(
+            "2025-01-01",
+            periods=8760,
+            freq="h",
+        )
+
+        consumption = pd.Series(
+            1.0,
+            index=index,
+            name="AE_kWh",
+        )
+
+        scenario = ConsumptionScenario(
+            hourly_consumption=consumption,
+            reference_year=2025,
+        )
+
+        self.analyzer.calculate_representative_consumption_scenario.return_value = (
+            scenario
+        )
+
+        tariff_data = pd.DataFrame(
+            {
+                "Periodo": ["Valle"] * 8760,
+                "buy_price_eur_kwh": [0.12] * 8760,
+                "sell_price_eur_kwh": [0.06] * 8760,
+            },
+            index=index,
+        )
+
+        self.analyzer.tariff_engine.build_tariff_data.return_value = (
+            tariff_data
+        )
+
+        result = self.controller._get_economic_data()
+
+        assert result[0] is scenario
+        assert result[1] is tariff_data
+
+        self.analyzer.calculate_representative_consumption_scenario.assert_called_once_with()
+
+        self.analyzer.tariff_engine.build_tariff_data.assert_called_once_with(
+            index
+        )
+
+
+    def test_economic_data_does_not_use_historical_dataset(
+        self,
+    ):
+
+        index = pd.date_range(
+            "2025-01-01",
+            periods=8760,
+            freq="h",
+        )
+
+        scenario = ConsumptionScenario(
+            hourly_consumption=pd.Series(
+                1.0,
+                index=index,
+                name="AE_kWh",
+            ),
+            reference_year=2025,
+        )
+
+        self.analyzer.calculate_representative_consumption_scenario.return_value = (
+            scenario
+        )
+
+        self.analyzer.tariff_engine.build_tariff_data.return_value = (
+            pd.DataFrame(
+                {
+                    "Periodo": ["Valle"] * 8760,
+                    "buy_price_eur_kwh": [0.12] * 8760,
+                    "sell_price_eur_kwh": [0.06] * 8760,
+                },
+                index=index,
+            )
+        )
+
+        self.controller._get_economic_data()
+
+        assert (
             self.analyzer.dataset
+            not in (
+                self.analyzer.calculate_representative_consumption_scenario.call_args.args
+                if self.analyzer.calculate_representative_consumption_scenario.call_args
+                else ()
+            )
+        )
+
+    def test_economic_data_builds_tariff_from_scenario_index(
+        self,
+    ):
+
+        index = pd.date_range(
+            "2025-01-01",
+            periods=8760,
+            freq="h",
+        )
+
+        scenario = ConsumptionScenario(
+            hourly_consumption=pd.Series(
+                1.0,
+                index=index,
+                name="AE_kWh",
+            ),
+            reference_year=2025,
+        )
+
+        self.analyzer.calculate_representative_consumption_scenario.return_value = (
+            scenario
+        )
+
+        self.analyzer.tariff_engine.build_tariff_data.return_value = (
+            pd.DataFrame(index=index)
+        )
+
+        self.controller._get_economic_data()
+
+        self.analyzer.tariff_engine.build_tariff_data.assert_called_once_with(
+            scenario.hourly_consumption.index
         )
 
     # ==========================================================
@@ -59,9 +203,38 @@ class TestEconomicsController:
     # ==========================================================
 
     def test_calculate_export_income(self):
+        index = pd.date_range(
+            "2025-01-01",
+            periods=8760,
+            freq="h",
+        )
+
+        scenario = ConsumptionScenario(
+            hourly_consumption=pd.Series(
+                1.0,
+                index=index,
+                name="AE_kWh",
+            ),
+            reference_year=2025,
+        )
+
+        tariff_data = pd.DataFrame(
+            {
+                "Periodo": ["Valle"] * 8760,
+                "buy_price_eur_kwh": [0.12] * 8760,
+                "sell_price_eur_kwh": [0.06] * 8760,
+            },
+            index=index,
+        )
+
+        self.analyzer.calculate_representative_consumption_scenario.return_value = (
+            scenario
+        )
+        self.analyzer.tariff_engine.build_tariff_data.return_value = (
+            tariff_data
+        )
 
         engine = self.analyzer.economics_engine
-
         engine.calculate_export_income.return_value = 250.0
 
         result = self.controller.calculate_export_income()
@@ -70,7 +243,7 @@ class TestEconomicsController:
 
         engine.calculate_export_income.assert_called_once_with(
             self.analyzer.solar.energy_balance,
-            self.analyzer.dataset,
+            tariff_data,
         )
 
     # ==========================================================
@@ -78,9 +251,38 @@ class TestEconomicsController:
     # ==========================================================
 
     def test_calculate_cost_with_pv(self):
+        index = pd.date_range(
+            "2025-01-01",
+            periods=8760,
+            freq="h",
+        )
+
+        scenario = ConsumptionScenario(
+            hourly_consumption=pd.Series(
+                1.0,
+                index=index,
+                name="AE_kWh",
+            ),
+            reference_year=2025,
+        )
+
+        tariff_data = pd.DataFrame(
+            {
+                "Periodo": ["Valle"] * 8760,
+                "buy_price_eur_kwh": [0.12] * 8760,
+                "sell_price_eur_kwh": [0.06] * 8760,
+            },
+            index=index,
+        )
+
+        self.analyzer.calculate_representative_consumption_scenario.return_value = (
+            scenario
+        )
+        self.analyzer.tariff_engine.build_tariff_data.return_value = (
+            tariff_data
+        )
 
         engine = self.analyzer.economics_engine
-
         engine.calculate_cost_with_pv.return_value = 500.0
 
         result = self.controller.calculate_cost_with_pv()
@@ -89,7 +291,7 @@ class TestEconomicsController:
 
         engine.calculate_cost_with_pv.assert_called_once_with(
             self.analyzer.solar.energy_balance,
-            self.analyzer.dataset,
+            tariff_data,
         )
 
     # ==========================================================
@@ -390,6 +592,50 @@ class TestEconomicsController:
             self.analyzer.dataset,
             10,
         )
+
+    def test_calculate_reuses_same_economic_data_for_all_calculations(
+        self,
+        monkeypatch,
+    ):
+        index = pd.date_range(
+            "2025-01-01",
+            periods=8760,
+            freq="h",
+        )
+
+        scenario = ConsumptionScenario(
+            hourly_consumption=pd.Series(
+                1.0,
+                index=index,
+                name="AE_kWh",
+            ),
+            reference_year=2025,
+        )
+
+        tariff_data = pd.DataFrame(
+            {
+                "Periodo": ["Valle"] * 8760,
+                "buy_price_eur_kwh": [0.12] * 8760,
+                "sell_price_eur_kwh": [0.06] * 8760,
+            },
+            index=index,
+        )
+
+        get_economic_data = MagicMock(
+            return_value=(scenario, tariff_data)
+        )
+
+        monkeypatch.setattr(
+            self.controller,
+            "_get_economic_data",
+            get_economic_data,
+        )
+
+        engine = self.analyzer.economics_engine
+
+        self.controller.calculate()
+
+        assert get_economic_data.call_count == 1
 
     # ==========================================================
     # Informe anual

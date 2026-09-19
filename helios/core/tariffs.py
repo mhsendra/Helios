@@ -205,3 +205,39 @@ class TariffEngine:
                 self.classify_period
             )
         )
+
+    def build_tariff_data(
+        self,
+        index: pd.DatetimeIndex,
+    ) -> pd.DataFrame:
+        """
+        Build an hourly tariff profile for the supplied datetime index.
+
+        The resulting profile contains tariff periods, purchase prices,
+        and export compensation prices without requiring consumption data.
+        """
+
+        tariff_data = pd.DataFrame(index=index.copy())
+
+        tariff_data["Periodo"] = (
+            tariff_data.index.map(
+                self.classify_period
+            )
+        )
+
+        period_prices = {
+            "Punta": self.prices.buy_p1,
+            "Llano": self.prices.buy_p2,
+            "Valle": self.prices.buy_p3,
+        }
+
+        tariff_data["buy_price_eur_kwh"] = (
+            tariff_data["Periodo"]
+            .map(period_prices)
+        )
+
+        tariff_data["sell_price_eur_kwh"] = (
+            self.prices.sell_price
+        )
+
+        return tariff_data

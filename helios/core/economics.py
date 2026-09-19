@@ -2,6 +2,7 @@ import pandas as pd
 import numpy_financial as npf
 from dataclasses import dataclass
 from helios.core.economic_scenarios import EconomicScenarioResult
+from helios.core.consumption_scenario import ConsumptionScenario
 
 class EconomicsEngine:
 
@@ -31,16 +32,49 @@ class EconomicsEngine:
 
     def calculate_cost_without_pv(
         self,
-        dataset,
+        consumption_scenario: ConsumptionScenario,
+        tariff_data: pd.DataFrame,
     ) -> float:
         """
-        Calculate the annual electricity cost
-        without photovoltaic generation.
+        Calculate the annual electricity cost without photovoltaic
+        generation using the representative consumption scenario.
+
+        The consumption and tariff data must refer to the same
+        8760-hour reference year.
         """
 
+        if not isinstance(
+            consumption_scenario,
+            ConsumptionScenario,
+        ):
+            raise TypeError(
+                "consumption_scenario must be a ConsumptionScenario."
+            )
+
+        if "buy_price_eur_kwh" not in tariff_data.columns:
+            raise ValueError(
+                "tariff_data must contain 'buy_price_eur_kwh'."
+            )
+
+        consumption = (
+            consumption_scenario.hourly_consumption
+        )
+
+        buy_prices = (
+            tariff_data["buy_price_eur_kwh"]
+        )
+
+        if not consumption.index.equals(
+            buy_prices.index
+        ):
+            raise ValueError(
+                "Consumption scenario and tariff data "
+                "must have the same hourly index."
+            )
+
         self.cost_without_pv = (
-            dataset["AE_kWh"]
-            * dataset["buy_price_eur_kwh"]
+            consumption
+            * buy_prices
         ).sum()
 
         return self.cost_without_pv

@@ -10,32 +10,69 @@ class EconomicsController:
 
         self.reports_engine = EconomicsReports()
 
+        self._economic_data = None
+
+    def _get_economic_data(self):
+        consumption_scenario = (
+            self.analyzer
+            .calculate_representative_consumption_scenario()
+        )
+
+        if consumption_scenario is None:
+            raise ValueError(
+                "A representative consumption scenario is required "
+                "for economic calculations."
+            )
+
+        tariff_data = (
+            self.analyzer
+            .tariff_engine
+            .build_tariff_data(
+                consumption_scenario.hourly_consumption.index
+            )
+        )
+
+        return consumption_scenario, tariff_data
+
     def calculate_cost_without_pv(self):
+        if self._economic_data is None:
+            self._economic_data = self._get_economic_data()
+
+        consumption_scenario, tariff_data = self._economic_data
 
         return (
             self.analyzer.economics_engine
             .calculate_cost_without_pv(
-                self.analyzer.dataset
+                consumption_scenario,
+                tariff_data,
             )
         )
 
     def calculate_export_income(self):
+        if self._economic_data is None:
+            self._economic_data = self._get_economic_data()
+
+        _, tariff_data = self._economic_data
 
         return (
             self.analyzer.economics_engine
             .calculate_export_income(
                 self.analyzer.solar.energy_balance,
-                self.analyzer.dataset,
+                tariff_data,
             )
         )
 
     def calculate_cost_with_pv(self):
+        if self._economic_data is None:
+            self._economic_data = self._get_economic_data()
+
+        _, tariff_data = self._economic_data
 
         return (
             self.analyzer.economics_engine
             .calculate_cost_with_pv(
                 self.analyzer.solar.energy_balance,
-                self.analyzer.dataset,
+                tariff_data,
             )
         )
 
@@ -47,6 +84,7 @@ class EconomicsController:
         )
 
     def calculate(self):
+        self._economic_data = self._get_economic_data()
 
         self.calculate_cost_without_pv()
         self.calculate_export_income()
@@ -55,6 +93,8 @@ class EconomicsController:
         self.calculate_net_investment()
         self.calculate_cash_flow()
         self.calculate_economic_indicators()
+
+        self._economic_data = None
         
     def reports(self):
 

@@ -379,3 +379,126 @@ def test_assign_tariff_periods():
         "Llano",
         "Valle",
     ]
+
+# ==========================================================
+# Perfil tarifario sintético
+# ==========================================================
+
+def test_build_tariff_data_returns_complete_hourly_profile():
+
+    engine = create_engine()
+
+    index = pd.date_range(
+        "2025-01-01 00:00",
+        periods=8760,
+        freq="h",
+    )
+
+    result = engine.build_tariff_data(index)
+
+    assert isinstance(
+        result,
+        pd.DataFrame,
+    )
+
+    assert len(result) == 8760
+
+    assert result.index.equals(index)
+
+    assert list(result.columns) == [
+        "Periodo",
+        "buy_price_eur_kwh",
+        "sell_price_eur_kwh",
+    ]
+
+
+def test_build_tariff_data_uses_tariff_period_rules():
+
+    engine = create_engine()
+
+    index = pd.to_datetime(
+        [
+            "2025-01-02 07:00",  # Valle
+            "2025-01-02 09:00",  # Llano
+            "2025-01-02 12:00",  # Punta
+            "2025-01-02 16:00",  # Llano
+            "2025-01-02 20:00",  # Punta
+            "2025-01-02 23:00",  # Llano
+            "2025-01-04 12:00",  # Sábado → Valle
+        ]
+    )
+
+    result = engine.build_tariff_data(index)
+
+    assert list(
+        result["Periodo"]
+    ) == [
+        "Valle",
+        "Llano",
+        "Punta",
+        "Llano",
+        "Punta",
+        "Llano",
+        "Valle",
+    ]
+
+    assert list(
+        result["buy_price_eur_kwh"]
+    ) == [
+        0.12,
+        0.18,
+        0.25,
+        0.18,
+        0.25,
+        0.18,
+        0.12,
+    ]
+
+    assert list(
+        result["sell_price_eur_kwh"]
+    ) == [
+        0.06,
+        0.06,
+        0.06,
+        0.06,
+        0.06,
+        0.06,
+        0.06,
+    ]
+
+
+def test_build_tariff_data_does_not_require_consumption_data():
+
+    engine = create_engine()
+
+    index = pd.date_range(
+        "2025-01-01",
+        periods=8760,
+        freq="h",
+    )
+
+    result = engine.build_tariff_data(index)
+
+    assert "Periodo" in result.columns
+    assert "buy_price_eur_kwh" in result.columns
+    assert "sell_price_eur_kwh" in result.columns
+
+    assert result["buy_price_eur_kwh"].notna().all()
+    assert result["sell_price_eur_kwh"].notna().all()
+
+
+def test_build_tariff_data_does_not_modify_input_index():
+
+    engine = create_engine()
+
+    index = pd.date_range(
+        "2025-01-01",
+        periods=8760,
+        freq="h",
+    )
+
+    original_index = index.copy()
+
+    engine.build_tariff_data(index)
+
+    assert index.equals(original_index)
