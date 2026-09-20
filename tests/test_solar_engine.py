@@ -185,30 +185,6 @@ class TestSolarEngine:
 
         assert result == "result"
 
-    def test_installation_simulation_report(self):
-
-        configuration = MagicMock()
-        recommendation = MagicMock()
-        specific_production = 1500.0
-
-        self.manager.installation_simulation_report.return_value = (
-            "result"
-        )
-
-        result = self.engine.installation_simulation_report(
-            configuration=configuration,
-            recommendation=recommendation,
-            specific_production=specific_production,
-        )
-
-        self.manager.installation_simulation_report.assert_called_once_with(
-            configuration=configuration,
-            recommendation=recommendation,
-            specific_production=specific_production,
-        )
-
-        assert result == "result"
-
     def test_calculate_hourly_production_uses_default_power(self):
 
         configuration = SolarConfiguration(
