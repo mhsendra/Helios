@@ -351,13 +351,13 @@ class TestMainWindow:
             is self.window.solar_config_page
         )
         
-    def test_change_page_changes_to_economics_page_after_solar_calculation(
+    def test_change_page_does_not_change_to_economics_page_after_solar_optimization(
         self,
     ):
 
         self.window.set_project_loaded(True)
 
-        self.window.set_solar_calculated(True)
+        self.window.set_solar_optimized(True)
 
         self.window.change_page(
             self.window.economics_item
@@ -365,7 +365,7 @@ class TestMainWindow:
 
         assert (
             self.window.pages.currentWidget()
-            is self.window.economics_page
+            is self.window.home_page
         )
 
     def test_solar_configuration_page_is_enabled_when_project_is_not_loaded(
@@ -400,22 +400,24 @@ class TestMainWindow:
 
         assert self.window.economics_item.isDisabled()
 
-    def test_economics_is_enabled_after_solar_calculation(self):
+    def test_economics_remains_disabled_after_solar_optimization(self):
 
         self.window.set_project_loaded(True)
 
-        self.window.set_solar_calculated(True)
+        self.window.set_solar_optimized(True)
 
-        assert not self.window.economics_item.isDisabled()
+        assert self.window.economics_item.isDisabled()
 
-    def test_economics_is_disabled_when_solar_results_are_reset(self):
+
+    def test_economics_remains_disabled_when_solar_optimization_is_reset(self):
 
         self.window.set_project_loaded(True)
 
-        self.window.set_solar_calculated(True)
-        assert not self.window.economics_item.isDisabled()
+        self.window.set_solar_optimized(True)
 
-        self.window.set_solar_calculated(False)
+        assert self.window.economics_item.isDisabled()
+
+        self.window.set_solar_optimized(False)
 
         assert self.window.economics_item.isDisabled()
 
@@ -453,27 +455,6 @@ class TestMainWindow:
             is self.window.solar_config_page
         )
 
-    def test_set_solar_calculated_true_is_ignored_when_project_is_not_loaded(
-        self,
-    ):
-
-        self.window.set_solar_calculated(True)
-
-        assert self.window.solar_calculated is False
-
-        assert self.window.economics_item.isDisabled()
-
-
-    def test_set_solar_calculated_false_remains_false_when_project_is_not_loaded(
-        self,
-    ):
-
-        self.window.set_solar_calculated(False)
-
-        assert self.window.solar_calculated is False
-
-        assert self.window.economics_item.isDisabled()
-
     def test_change_page_ignores_item_without_mapped_page(
         self,
     ):
@@ -503,7 +484,7 @@ class TestMainWindow:
     def test_solar_report_is_enabled_after_solar_calculation(self):
 
         self.window.set_project_loaded(True)
-        self.window.set_solar_calculated(True)
+        self.window.set_solar_optimized(True)
 
         assert (
             self.window.reports_page
@@ -515,7 +496,7 @@ class TestMainWindow:
     def test_solar_report_is_disabled_when_solar_results_are_reset(self):
 
         self.window.set_project_loaded(True)
-        self.window.set_solar_calculated(True)
+        self.window.set_solar_optimized(True)
 
         assert (
             self.window.reports_page
@@ -523,7 +504,7 @@ class TestMainWindow:
             .isEnabled()
         )
 
-        self.window.set_solar_calculated(False)
+        self.window.set_solar_optimized(False)
 
         assert not (
             self.window.reports_page
@@ -533,15 +514,15 @@ class TestMainWindow:
 
     def test_solar_page_reset_invalidates_main_window_solar_state(self):
         self.window.set_project_loaded(True)
-        self.window.set_solar_calculated(True)
+        self.window.set_solar_optimized(True)
 
-        assert self.window.solar_calculated is True
-        assert not self.window.economics_item.isDisabled()
+        assert self.window.solar_optimized is True
+        assert self.window.economics_item.isDisabled()
         assert self.window.reports_page.generate_solar_pdf_button.isEnabled()
 
         self.window.solar_page.reset_results()
 
-        assert self.window.solar_calculated is False
+        assert self.window.solar_optimized is False
         assert self.window.economics_item.isDisabled()
         assert not self.window.reports_page.generate_solar_pdf_button.isEnabled()
 

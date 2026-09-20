@@ -569,9 +569,7 @@ class SolarPage(QWidget):
 
             if self.main_window is not None:
 
-                self.main_window.set_solar_calculated(
-                    True
-                )
+                self.main_window.set_solar_production_calculated(True)
 
         except Exception as error:
 
@@ -1481,4 +1479,68 @@ class SolarPage(QWidget):
         self.set_results_available(False)
 
         if self.main_window is not None:
-            self.main_window.set_solar_calculated(False)
+            self.main_window.set_solar_optimized(False)
+
+    def load_saved_configuration(self):
+        """
+        Carga en los controles la configuración solar guardada
+        y, si existe, la potencia recomendada por la optimización.
+        """
+
+        configuration = self.project.solar_configuration
+
+        if configuration is None:
+            return
+
+        self.latitude_spinbox.setValue(
+            configuration.latitude
+        )
+
+        self.longitude_spinbox.setValue(
+            configuration.longitude
+        )
+
+        self.tilt_spinbox.setValue(
+            configuration.tilt
+        )
+
+        self.azimuth_spinbox.setValue(
+            configuration.azimuth
+        )
+
+        self.system_losses_spinbox.setValue(
+            configuration.losses
+        )
+
+        technology_index = (
+            self.pv_technology_combobox.findData(
+                configuration.pv_technology
+            )
+        )
+
+        if technology_index >= 0:
+            self.pv_technology_combobox.setCurrentIndex(
+                technology_index
+            )
+
+        mounting_index = (
+            self.mounting_place_combobox.findData(
+                configuration.mounting_place
+            )
+        )
+
+        if mounting_index >= 0:
+            self.mounting_place_combobox.setCurrentIndex(
+                mounting_index
+            )
+
+        sizing_result = getattr(
+            self.project.solar,
+            "sizing_result",
+            None,
+        )
+
+        if sizing_result is not None:
+            self.installed_power_spinbox.setValue(
+                sizing_result.installed_power_kwp
+            )

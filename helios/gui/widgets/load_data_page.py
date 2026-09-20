@@ -93,14 +93,6 @@ class LoadDataPage(QWidget):
 
             self.project.load_data(path)
 
-            print(
-                "DEBUG load_data:",
-                id(self.project),
-                id(self.project.analyzer),
-                self.project.dataset is None,
-                None if self.project.dataset is None else self.project.dataset.shape,
-            )
-
             self.project.analyze_data()
 
             # Un nuevo dataset invalida los resultados solares

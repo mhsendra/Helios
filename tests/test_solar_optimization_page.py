@@ -113,11 +113,6 @@ class TestSolarOptimizationPage:
         )
 
         assert (
-            page.simulation_report_button.isEnabled()
-            is False
-        )
-
-        assert (
             page.optimize_button.isEnabled()
             is True
         )
@@ -497,28 +492,6 @@ class TestSolarOptimizationPage:
             == expected
         )
 
-    def test_show_optimization_result_enables_report(
-        self,
-    ):
-
-        page, _ = self.create_page(
-            self.create_solar_configuration()
-        )
-
-        assert (
-            page.simulation_report_button.isEnabled()
-            is False
-        )
-
-        page.show_optimization_result(
-            self.create_result()
-        )
-
-        assert (
-            page.simulation_report_button.isEnabled()
-            is True
-        )
-
     # ==========================================================
     # LAYOUT
     # ==========================================================
@@ -782,11 +755,6 @@ class TestSolarOptimizationPage:
         page.reset()
 
         assert (
-            page.simulation_report_button.isEnabled()
-            is False
-        )
-
-        assert (
             page.optimize_button.isEnabled()
             is True
         )
@@ -794,69 +762,6 @@ class TestSolarOptimizationPage:
         assert (
             page.status_label.text()
             == "Pendiente de datos"
-        )
-
-    # ==========================================================
-    # INFORME DE SIMULACIÓN
-    # ==========================================================
-
-    def test_generate_simulation_report_without_result(
-        self,
-    ):
-
-        page, project = self.create_page(
-            self.create_solar_configuration()
-        )
-
-        project.solar.sizing_result = None
-
-        page.generate_simulation_report()
-
-        assert (
-            page.status_label.text()
-            == "No hay una simulación disponible."
-        )
-
-        project.solar.installation_simulation_report.assert_not_called()
-
-    def test_generate_simulation_report_calls_project(
-        self,
-    ):
-
-        page, project = self.create_page(
-            self.create_solar_configuration()
-        )
-
-        project.solar.sizing_result = MagicMock()
-
-        page.generate_simulation_report()
-
-        project.solar.installation_simulation_report.assert_called_once_with()
-
-        assert (
-            page.status_label.text()
-            == "Informe de simulación generado."
-        )
-
-    def test_generate_simulation_report_handles_error(
-        self,
-    ):
-
-        page, project = self.create_page(
-            self.create_solar_configuration()
-        )
-
-        project.solar.sizing_result = MagicMock()
-
-        project.solar.installation_simulation_report.side_effect = (
-            RuntimeError("test error")
-        )
-
-        page.generate_simulation_report()
-
-        assert (
-            page.status_label.text()
-            == "Error al generar el informe: test error"
         )
 
     # ==========================================================
@@ -987,8 +892,8 @@ class TestSolarOptimizationPage:
 
         page.start_optimization()
 
-        main_window.set_solar_calculated.assert_called_once_with(
-            True
+        main_window.set_solar_optimized.assert_called_once_with(
+           True
         )
 
     def test_start_optimization_restores_button_after_error(

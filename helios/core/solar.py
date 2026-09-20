@@ -109,19 +109,6 @@ class SolarEngine:
 
         return self.manager.energy_balance_report()
 
-    def installation_simulation_report(
-        self,
-        configuration,
-        recommendation,
-        specific_production=None,
-    ):
-
-        return self.manager.installation_simulation_report(
-            configuration=configuration,
-            recommendation=recommendation,
-            specific_production=specific_production,
-        )
-
     # ==================================================
     # Configuración
     # ==================================================

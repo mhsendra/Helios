@@ -943,7 +943,7 @@ class TestSolarPage:
             True
         )
 
-        main_window.set_solar_calculated.assert_called_once_with(
+        main_window.set_solar_production_calculated.assert_called_once_with(
             True
         )
 
@@ -1389,6 +1389,6 @@ class TestSolarPage:
 
         self.page.reset_results()
 
-        self.page.main_window.set_solar_calculated.assert_called_once_with(
+        self.page.main_window.set_solar_optimized.assert_called_once_with(
             False
         )

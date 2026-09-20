@@ -43,7 +43,9 @@ class MainWindow(QMainWindow):
 
         self.project_loaded = False
 
-        self.solar_calculated = False
+        self.solar_production_calculated = False
+
+        self.solar_optimized = False
 
         self.configure_window()
 
@@ -308,36 +310,25 @@ class MainWindow(QMainWindow):
 
         # Cargar un nuevo dataset invalida
         # cualquier cálculo solar anterior.
-        self.set_solar_calculated(False)
+        self.set_solar_optimized(False)
 
-    def set_solar_calculated(self, calculated: bool):
+    def set_solar_production_calculated(
+        self,
+        calculated: bool,
+    ):
 
-        if calculated and not self.project_loaded:
+        if calculated and not self.solar_optimized:
             calculated = False
 
-        self.solar_calculated = calculated
+        self.solar_production_calculated = calculated
 
         enabled_color = QColor("#FFFFFF")
         disabled_color = QColor("#808080")
 
-        # Resultados que dependen del cálculo solar.
-        result_items = [
-            self.solar_item,
-            self.economics_item,
-            self.reports_item,
-        ]
-
-        for item in result_items:
-
-            item.setDisabled(not calculated)
-
-            item.setForeground(
-                0,
-                enabled_color if calculated else disabled_color,
-            )
-
-        self.reports_page.set_solar_report_available(
-            calculated
+        self.economics_item.setDisabled(not calculated)
+        self.economics_item.setForeground(
+            0,
+            enabled_color if calculated else disabled_color,
         )
 
     def set_solar_configured(self, configured: bool):
@@ -352,6 +343,32 @@ class MainWindow(QMainWindow):
             0,
             enabled_color if configured else disabled_color,
         )
+
+    def set_solar_optimized(self, optimized: bool):
+
+        self.solar_optimized = optimized
+
+        enabled_color = QColor("#FFFFFF")
+        disabled_color = QColor("#808080")
+
+        self.solar_item.setDisabled(not optimized)
+        self.solar_item.setForeground(
+            0,
+            enabled_color if optimized else disabled_color,
+        )
+
+        self.reports_item.setDisabled(not optimized)
+        self.reports_item.setForeground(
+            0,
+            enabled_color if optimized else disabled_color,
+        )
+
+        self.reports_page.set_solar_report_available(
+            optimized
+        )
+
+        if not optimized:
+            self.set_solar_production_calculated(False)
         
     # ==================================================
     # Señales
@@ -381,6 +398,9 @@ class MainWindow(QMainWindow):
 
         if page is self.solar_config_page:
             self.solar_config_page.update_data()
+
+        if page is self.solar_page:
+            self.solar_page.load_saved_configuration()
 
         self.pages.setCurrentWidget(page)
 
