@@ -23,6 +23,7 @@ from helios.gui.widgets.tariffs_page import TariffsPage
 from helios.gui.widgets.graphics_page import GraphicsPage
 from helios.gui.widgets.reports_page import ReportsPage
 from helios.gui.widgets.solar_config_page import SolarConfigPage
+from helios.gui.widgets.solar_optimization_page import SolarOptimizationPage
 
 from helios.core.project import HeliosProject
 
@@ -37,6 +38,8 @@ class MainWindow(QMainWindow):
         )
 
         self.page_map = {}
+
+        self.solar_configured = False
 
         self.project_loaded = False
 
@@ -105,13 +108,17 @@ class MainWindow(QMainWindow):
 
         self.pages.addWidget(self.home_page)
 
-        self.load_page = LoadDataPage(self.project, self)
-
-        self.pages.addWidget(self.load_page)
-
         self.solar_config_page = SolarConfigPage(self.project, self)
 
         self.pages.addWidget(self.solar_config_page)
+
+        self.solar_optimization_page = SolarOptimizationPage(self.project, self)
+
+        self.pages.addWidget(self.solar_optimization_page)
+        
+        self.load_page = LoadDataPage(self.project, self)
+
+        self.pages.addWidget(self.load_page)
 
         self.validation_page = ValidationPage(self.project)
 
@@ -167,14 +174,19 @@ class MainWindow(QMainWindow):
 
         self.results_item = QTreeWidgetItem(["Resultados"])
 
+        self.configuration_item = QTreeWidgetItem(
+            self.project_item,
+            ["Configuración solar"]
+        )
+        
         self.load_item = QTreeWidgetItem(
             self.project_item,
             ["Cargar datos"]
         )
 
-        self.configuration_item = QTreeWidgetItem(
+        self.solar_optimization_item = QTreeWidgetItem(
             self.project_item,
-            ["Configuración solar"]
+            ["Optimización solar"]
         )
 
         self.validation_item = QTreeWidgetItem(
@@ -237,6 +249,7 @@ class MainWindow(QMainWindow):
         self.page_map["Inicio"] = self.home_page
         self.page_map["Cargar datos"] = self.load_page
         self.page_map["Configuración solar"] = self.solar_config_page
+        self.page_map["Optimización solar"] = self.solar_optimization_page
         self.page_map["Validación"] = self.validation_page
         self.page_map["Estadísticas"] = self.statistics_page
         self.page_map["Perfiles"] = self.profiles_page
@@ -251,6 +264,10 @@ class MainWindow(QMainWindow):
 
         self.set_project_loaded(False)
 
+        self.set_solar_configured(
+            self.project.solar_configuration is not None
+        )
+
         self.navigation.expandAll()
 
     def set_project_loaded(self, loaded: bool):
@@ -261,7 +278,6 @@ class MainWindow(QMainWindow):
         disabled_color = QColor("#808080")
 
         items = [
-            self.configuration_item,
             self.validation_item,
             self.statistics_item,
             self.profiles_item,
@@ -282,6 +298,14 @@ class MainWindow(QMainWindow):
                 enabled_color if loaded else disabled_color,
             )
 
+        # La optimización solar requiere que los datos
+        # hayan sido cargados y analizados.
+        self.solar_optimization_item.setDisabled(not loaded)
+        self.solar_optimization_item.setForeground(
+            0,
+            enabled_color if loaded else disabled_color,
+        )
+
         # Cargar un nuevo dataset invalida
         # cualquier cálculo solar anterior.
         self.set_solar_calculated(False)
@@ -296,17 +320,37 @@ class MainWindow(QMainWindow):
         enabled_color = QColor("#FFFFFF")
         disabled_color = QColor("#808080")
 
-        self.economics_item.setDisabled(
-            not calculated
-        )
+        # Resultados que dependen del cálculo solar.
+        result_items = [
+            self.solar_item,
+            self.economics_item,
+            self.reports_item,
+        ]
 
-        self.economics_item.setForeground(
-            0,
-            enabled_color if calculated else disabled_color,
-        )
+        for item in result_items:
+
+            item.setDisabled(not calculated)
+
+            item.setForeground(
+                0,
+                enabled_color if calculated else disabled_color,
+            )
 
         self.reports_page.set_solar_report_available(
             calculated
+        )
+
+    def set_solar_configured(self, configured: bool):
+
+        self.solar_configured = configured
+
+        enabled_color = QColor("#FFFFFF")
+        disabled_color = QColor("#808080")
+
+        self.load_item.setDisabled(not configured)
+        self.load_item.setForeground(
+            0,
+            enabled_color if configured else disabled_color,
         )
         
     # ==================================================

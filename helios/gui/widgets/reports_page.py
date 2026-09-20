@@ -496,8 +496,6 @@ class ReportsPage(QWidget):
             self.generate_solar_pdf_report
         )
 
-        print(">>> BOTÓN PDF CONECTADO")
-
     # ==================================================
     # Captura de informes
     # ==================================================
@@ -661,18 +659,12 @@ class ReportsPage(QWidget):
         self,
         available: bool,
     ):
-        print(
-            ">>> SOLAR REPORT AVAILABLE:",
-            available,
-        )
 
         self.generate_solar_pdf_button.setEnabled(
             available
         )
 
     def generate_solar_pdf_report(self):
-
-        print(">>> GENERATE SOLAR PDF: ENTRANDO")
 
         output_path, _ = QFileDialog.getSaveFileName(
             self,

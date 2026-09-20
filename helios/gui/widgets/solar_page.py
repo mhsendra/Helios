@@ -567,11 +567,6 @@ class SolarPage(QWidget):
                 True
             )
 
-            print(
-                ">>> SOLAR CALCULATED: main_window =",
-                self.main_window,
-            )
-
             if self.main_window is not None:
 
                 self.main_window.set_solar_calculated(
@@ -1464,14 +1459,7 @@ class SolarPage(QWidget):
         No modifica la configuración solar persistente.
         """
 
-        print("PAGE MANAGER:", self.project.solar.analyzer.solar_engine.manager)
-
         self.project.solar.reset()
-
-        print(
-            "AFTER RESET:",
-            self.project.solar.analyzer.solar_engine.manager.hourly_production,
-        )
 
         self.update_production_status(
             source="PVGIS",
@@ -1491,3 +1479,6 @@ class SolarPage(QWidget):
         self.update_statistics()
 
         self.set_results_available(False)
+
+        if self.main_window is not None:
+            self.main_window.set_solar_calculated(False)

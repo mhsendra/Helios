@@ -30,6 +30,7 @@ class TestLoadDataPage:
             self.project,
             self.main_window
         )
+        self.project.solar_configuration = MagicMock()
 
     # ==================================================
     # Estado inicial
@@ -153,7 +154,7 @@ class TestLoadDataPage:
 
         self.page.update_project_info = MagicMock()
 
-        self.project.solar_configuration = None
+        self.project.solar_configuration = MagicMock()
 
         self.project.solar.reset = MagicMock()
         self.project.solar.calculate = MagicMock()
@@ -407,3 +408,28 @@ class TestLoadDataPage:
             self.page.solar_configuration_status.text()
             == "Configuración solar guardada."
         )
+
+    def test_load_dataset_without_solar_configuration(self):
+
+        self.project.solar_configuration = None
+        self.page.path_edit.setText("consumo.xlsx")
+
+        self.page.load_dataset()
+
+        self.project.load_data.assert_not_called()
+        self.project.analyze_data.assert_not_called()
+
+        assert (
+            self.page.info_label.text()
+            == "Debe guardar la configuración solar antes de cargar datos."
+        )
+
+    def test_load_dataset_preserves_solar_configuration(self):
+
+        solar_configuration = self.project.solar_configuration
+
+        self.page.path_edit.setText("consumo.xlsx")
+
+        self.page.load_dataset()
+
+        assert self.project.solar_configuration is solar_configuration

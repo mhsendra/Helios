@@ -21,6 +21,74 @@ class TestSolarReports:
         self.configuration = Configuration()
 
     # ==================================================
+    # presentation helpers
+    # ==================================================
+
+    @pytest.mark.parametrize(
+        "technology, expected",
+        [
+            (
+                "crystSi",
+                "Silicio cristalino",
+            ),
+            (
+                "CIS",
+                "CIS",
+            ),
+            (
+                "CdTe",
+                "CdTe",
+            ),
+            (
+                "unknown",
+                "unknown",
+            ),
+        ],
+    )
+    def test_get_technology_name(
+        self,
+        technology,
+        expected,
+    ):
+
+        assert (
+            SolarReports.get_technology_name(
+                technology
+            )
+            == expected
+        )
+
+    @pytest.mark.parametrize(
+        "mounting_place, expected",
+        [
+            (
+                "free",
+                "Estructura sobre el suelo",
+            ),
+            (
+                "building",
+                "Integrado en edificio",
+            ),
+            (
+                "unknown",
+                "unknown",
+            ),
+        ],
+    )
+    def test_get_mounting_name(
+        self,
+        mounting_place,
+        expected,
+    ):
+
+        assert (
+            SolarReports.get_mounting_name(
+                mounting_place
+            )
+            == expected
+        )
+
+    # ==================================================
     # production_statistics
     # ==================================================
 
@@ -89,7 +157,7 @@ class TestSolarReports:
 
         printer.text.assert_called_once_with(
             "Tecnología FV",
-            "crystSi"
+            "Silicio cristalino"
         )
 
         printer.value.assert_any_call(

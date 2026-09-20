@@ -1381,3 +1381,14 @@ class TestSolarPage:
         self.page.update_balance_summary.assert_called_once_with()
 
         self.page.update_statistics.assert_called_once_with()
+
+    def test_reset_results_marks_solar_as_not_calculated_in_main_window(
+        self,
+    ):
+        self.page.main_window = MagicMock()
+
+        self.page.reset_results()
+
+        self.page.main_window.set_solar_calculated.assert_called_once_with(
+            False
+        )

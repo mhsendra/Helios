@@ -7,6 +7,23 @@ from helios.styles.dark import DARK_STYLE
 
 from helios.core.economics_configuration import EconomicsConfiguration
 
+import traceback
+
+
+def excepthook(exc_type, exc_value, exc_traceback):
+    print("\n" + "=" * 80)
+    print("EXCEPCIÓN NO CONTROLADA EN HELIOS")
+    print("=" * 80)
+    traceback.print_exception(
+        exc_type,
+        exc_value,
+        exc_traceback,
+    )
+    print("=" * 80 + "\n")
+
+
+sys.excepthook = excepthook
+
 
 def main():
 

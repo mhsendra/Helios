@@ -102,7 +102,7 @@ class TestMainWindow:
 
     def test_all_pages_are_added_to_stack(self):
 
-        assert self.window.pages.count() == 13
+        assert self.window.pages.count() == 14
 
         pages = [
             self.window.home_page,
@@ -161,8 +161,9 @@ class TestMainWindow:
         ]
 
         assert children == [
-            "Cargar datos",
             "Configuración solar",
+            "Cargar datos",
+            "Optimización solar",
         ]
 
     def test_navigation_has_expected_analysis_items(self):
@@ -209,6 +210,7 @@ class TestMainWindow:
             "Inicio": self.window.home_page,
             "Cargar datos": self.window.load_page,
             "Configuración solar": self.window.solar_config_page,
+            "Optimización solar": self.window.solar_optimization_page,
             "Validación": self.window.validation_page,
             "Estadísticas": self.window.statistics_page,
             "Perfiles": self.window.profiles_page,
@@ -218,7 +220,7 @@ class TestMainWindow:
             "Informes": self.window.reports_page,
             "Gráficas": self.window.graphics_page,
             "Solar": self.window.solar_page,
-            "Economía": self.window.economics_page
+            "Economía": self.window.economics_page,
         }
 
     # ==================================================
@@ -247,29 +249,15 @@ class TestMainWindow:
     def test_project_navigation_items_remain_enabled_initially(self):
 
         assert not self.window.home_item.isDisabled()
-        assert not self.window.load_item.isDisabled()
+        assert self.window.load_item.isDisabled()
 
-        # ==================================================
+    # ==================================================
     # Estado del proyecto
     # ==================================================
 
     def test_set_project_loaded_enables_analysis_items(self):
 
         self.window.set_project_loaded(True)
-
-        for item in [
-            self.window.configuration_item,
-            self.window.validation_item,
-            self.window.statistics_item,
-            self.window.profiles_item,
-            self.window.comparisons_item,
-            self.window.indicators_item,
-            self.window.tariffs_item,
-            self.window.solar_item,
-            self.window.reports_item,
-            self.window.charts_item,
-        ]:
-            print(item.text(0), item.isDisabled())
 
         items = [
             self.window.validation_item,
@@ -278,8 +266,6 @@ class TestMainWindow:
             self.window.comparisons_item,
             self.window.indicators_item,
             self.window.tariffs_item,
-            self.window.solar_item,
-            self.window.reports_item,
             self.window.charts_item,
         ]
 
@@ -288,7 +274,16 @@ class TestMainWindow:
             for item in items
         )
 
+        assert not self.window.solar_optimization_item.isDisabled()
+        assert self.window.solar_item.isDisabled()
+        assert self.window.reports_item.isDisabled()
+        assert self.window.economics_item.isDisabled()
+
     def test_set_project_loaded_disables_analysis_items(self):
+
+        self.window.set_solar_configured(True)
+
+        assert not self.window.load_item.isDisabled()
 
         self.window.set_project_loaded(True)
 
@@ -311,7 +306,9 @@ class TestMainWindow:
             for item in items
         )
 
-        # ==================================================
+        assert not self.window.load_item.isDisabled()
+
+    # ==================================================
     # Cambio de página
     # ==================================================
 
@@ -341,7 +338,7 @@ class TestMainWindow:
             is current_page
         )
 
-    def test_change_page_does_not_change_to_solar_configuration_page_when_project_is_not_loaded(
+    def test_change_page_changes_to_solar_configuration_page_when_project_is_not_loaded(
         self,
     ):
 
@@ -351,7 +348,7 @@ class TestMainWindow:
 
         assert (
             self.window.pages.currentWidget()
-            is self.window.home_page
+            is self.window.solar_config_page
         )
         
     def test_change_page_changes_to_economics_page_after_solar_calculation(
@@ -371,13 +368,11 @@ class TestMainWindow:
             is self.window.economics_page
         )
 
-    def test_solar_configuration_page_is_disabled_when_project_is_not_loaded(
+    def test_solar_configuration_page_is_enabled_when_project_is_not_loaded(
         self,
     ):
 
-        assert (
-            self.window.configuration_item.isDisabled()
-        )
+        assert not self.window.configuration_item.isDisabled()
     
     # ==================================================
     # Actualización de páginas
@@ -493,3 +488,96 @@ class TestMainWindow:
             self.window.pages.currentWidget()
             is self.window.home_page
         )
+
+    def test_set_solar_configured_enables_load_data(self):
+        self.window.set_solar_configured(True)
+
+        assert not self.window.load_item.isDisabled()
+
+
+    def test_set_solar_configured_disables_load_data(self):
+        self.window.set_solar_configured(False)
+
+        assert self.window.load_item.isDisabled()
+
+    def test_solar_report_is_enabled_after_solar_calculation(self):
+
+        self.window.set_project_loaded(True)
+        self.window.set_solar_calculated(True)
+
+        assert (
+            self.window.reports_page
+            .generate_solar_pdf_button
+            .isEnabled()
+        )
+
+
+    def test_solar_report_is_disabled_when_solar_results_are_reset(self):
+
+        self.window.set_project_loaded(True)
+        self.window.set_solar_calculated(True)
+
+        assert (
+            self.window.reports_page
+            .generate_solar_pdf_button
+            .isEnabled()
+        )
+
+        self.window.set_solar_calculated(False)
+
+        assert not (
+            self.window.reports_page
+            .generate_solar_pdf_button
+            .isEnabled()
+        )
+
+    def test_solar_page_reset_invalidates_main_window_solar_state(self):
+        self.window.set_project_loaded(True)
+        self.window.set_solar_calculated(True)
+
+        assert self.window.solar_calculated is True
+        assert not self.window.economics_item.isDisabled()
+        assert self.window.reports_page.generate_solar_pdf_button.isEnabled()
+
+        self.window.solar_page.reset_results()
+
+        assert self.window.solar_calculated is False
+        assert self.window.economics_item.isDisabled()
+        assert not self.window.reports_page.generate_solar_pdf_button.isEnabled()
+
+    def test_initial_navigation_state_allows_only_solar_configuration(self):
+
+        assert not self.window.configuration_item.isDisabled()
+        assert self.window.load_item.isDisabled()
+        assert self.window.solar_optimization_item.isDisabled()
+
+    def test_solar_configuration_enables_load_data_but_not_optimization(
+        self,
+    ):
+
+        self.window.set_solar_configured(True)
+
+        assert not self.window.configuration_item.isDisabled()
+        assert not self.window.load_item.isDisabled()
+        assert self.window.solar_optimization_item.isDisabled()
+
+    def test_project_loaded_enables_solar_optimization(self):
+
+        self.window.set_solar_configured(True)
+        self.window.set_project_loaded(True)
+
+        assert not self.window.configuration_item.isDisabled()
+        assert not self.window.load_item.isDisabled()
+        assert not self.window.solar_optimization_item.isDisabled()
+
+    def test_project_unloaded_disables_solar_optimization(self):
+
+        self.window.set_solar_configured(True)
+        self.window.set_project_loaded(True)
+
+        assert not self.window.solar_optimization_item.isDisabled()
+
+        self.window.set_project_loaded(False)
+
+        assert not self.window.load_item.isDisabled()
+        assert self.window.solar_optimization_item.isDisabled()

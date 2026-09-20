@@ -3,6 +3,37 @@ from helios.reports.printer import ReportPrinter
 
 class SolarReports:
 
+    @staticmethod
+    def get_technology_name(
+        technology: str
+    ) -> str:
+
+        names = {
+            "crystSi": "Silicio cristalino",
+            "CIS": "CIS",
+            "CdTe": "CdTe",
+        }
+
+        return names.get(
+            technology,
+            technology
+        )
+
+    @staticmethod
+    def get_mounting_name(
+        mounting_place: str
+    ) -> str:
+
+        names = {
+            "free": "Estructura sobre el suelo",
+            "building": "Integrado en edificio",
+        }
+
+        return names.get(
+            mounting_place,
+            mounting_place
+        )
+
     def production_statistics(
         self,
         statistics,
@@ -23,7 +54,9 @@ class SolarReports:
 
         ReportPrinter.text(
             "Tecnología FV",
-            configuration.pv_technology
+            self.get_technology_name(
+                configuration.pv_technology
+            )
         )
 
         ReportPrinter.value(
