@@ -5,6 +5,7 @@ import pytest
 from helios.core.project import HeliosProject
 from helios.core.economics_configuration import EconomicsConfiguration
 from helios.solar.configuration import SolarConfiguration
+from helios.solar.battery_configuration import BatteryConfiguration
 
 
 def create_project():
@@ -231,6 +232,21 @@ def test_project_set_solar_configuration_replaces_previous_configuration():
         project.solar_configuration
         is not configuration_1
     )
+
+def test_project_set_battery_configuration():
+    project = HeliosProject(
+        EconomicsConfiguration(installation_cost=12490.0)
+    )
+
+    configuration = BatteryConfiguration(
+        capacity_kwh=16.6,
+        max_charge_power_kw=8.0,
+        max_discharge_power_kw=8.0,
+    )
+
+    project.set_battery_configuration(configuration)
+
+    assert project.battery_configuration is configuration
 
 def test_project_links_analyzer_back_to_project():
 

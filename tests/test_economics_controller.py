@@ -825,3 +825,51 @@ class TestEconomicsController:
             match="test error",
         ):
             self.controller.calculate_economic_indicators()
+
+    def test_calculate_cost_with_balance_uses_supplied_balance(self):
+        index = pd.date_range(
+            "2025-01-01",
+            periods=8760,
+            freq="h",
+        )
+
+        scenario = ConsumptionScenario(
+            hourly_consumption=pd.Series(
+                1.0,
+                index=index,
+                name="AE_kWh",
+            ),
+            reference_year=2025,
+        )
+
+        tariff_data = pd.DataFrame(
+            {
+                "Periodo": ["Valle"] * 8760,
+                "buy_price_eur_kwh": [0.12] * 8760,
+                "sell_price_eur_kwh": [0.06] * 8760,
+            },
+            index=index,
+        )
+
+        energy_balance = MagicMock()
+
+        self.analyzer.calculate_representative_consumption_scenario.return_value = (
+            scenario
+        )
+        self.analyzer.tariff_engine.build_tariff_data.return_value = (
+            tariff_data
+        )
+
+        engine = self.analyzer.economics_engine
+        engine.calculate_cost_with_pv.return_value = 321.0
+
+        result = self.controller.calculate_cost_with_balance(
+            energy_balance
+        )
+
+        assert result == 321.0
+
+        engine.calculate_cost_with_pv.assert_called_once_with(
+            energy_balance,
+            tariff_data,
+        )

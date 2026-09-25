@@ -2,6 +2,8 @@ import pandas as pd
 
 from helios.core.consumption_scenario import ConsumptionScenario
 from helios.solar.production_profile import SolarProductionProfile
+from helios.solar.battery import BatteryEngine
+from helios.solar.battery_configuration import BatteryConfiguration
 
 
 class SolarBalanceEngine:
@@ -9,6 +11,7 @@ class SolarBalanceEngine:
     def calculate(
         consumption_scenario: ConsumptionScenario,
         production_profile: SolarProductionProfile,
+        battery_configuration: BatteryConfiguration | None = None,
     ) -> pd.DataFrame:
         if not isinstance(
             consumption_scenario,
@@ -25,6 +28,22 @@ class SolarBalanceEngine:
             raise TypeError(
                 "production_profile must be a SolarProductionProfile."
             )
+
+        if battery_configuration is not None:
+            if not isinstance(
+                battery_configuration,
+                BatteryConfiguration,
+            ):
+                raise TypeError(
+                    "battery_configuration must be a "
+                    "BatteryConfiguration."
+                )
+
+            return BatteryEngine().calculate(
+                consumption_scenario,
+                production_profile,
+                battery_configuration,
+            ).hourly_data
 
         consumption = consumption_scenario.hourly_consumption
 

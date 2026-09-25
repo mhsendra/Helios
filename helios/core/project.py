@@ -3,6 +3,7 @@ from helios.core.economics_configuration import EconomicsConfiguration
 from helios.core.tariffs_model import TariffPrices
 
 from helios.solar.configuration import SolarConfiguration
+from helios.solar.battery_configuration import BatteryConfiguration
 
 
 class HeliosProject:
@@ -21,6 +22,8 @@ class HeliosProject:
         self.tariff_prices = TariffPrices()
 
         self.solar_configuration: SolarConfiguration | None = None
+
+        battery_configuration: BatteryConfiguration | None = None
 
     # ==================================================
     # Controllers
@@ -77,6 +80,12 @@ class HeliosProject:
         
         self.solar_configuration = configuration
         self.solar.set_configuration(configuration)
+
+    def set_battery_configuration(
+        self,
+        configuration: BatteryConfiguration,
+    ) -> None:
+        self.battery_configuration = configuration
 
     # ==================================================
     # Carga y preparación de datos

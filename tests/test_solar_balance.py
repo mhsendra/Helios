@@ -5,6 +5,7 @@ import pytest
 from helios.core.consumption_scenario import ConsumptionScenario
 from helios.core.statistics import ConsumptionStatistics
 from helios.solar.balance import SolarBalanceEngine
+from helios.solar.production_profile import SolarProductionProfile
 from helios.solar.installation_configuration import (
     InstallationConfiguration,
 )
@@ -23,9 +24,7 @@ from helios.solar.installation_recommendation import (
 from helios.solar.production_calculator import (
     SolarProductionCalculator,
 )
-from helios.solar.production_profile import (
-    SolarProductionProfile,
-)
+from helios.solar.battery_configuration import BatteryConfiguration
 
 
 def make_index(year: int = 2025) -> pd.DatetimeIndex:
@@ -90,7 +89,6 @@ def make_profile(
         installed_power_kwp=1.0,
     )
 
-
 class TestSolarBalanceEngine:
 
     def test_calculate_with_self_consumption(self):
@@ -127,8 +125,6 @@ class TestSolarBalanceEngine:
     def test_calculate_with_surplus_production(self):
         scenario = make_scenario(3.0)
         production = make_profile(5.0)
-        scenario = make_scenario(3.0)
-        production = make_profile(5.0)
 
         result = SolarBalanceEngine.calculate(
             scenario,
@@ -150,8 +146,6 @@ class TestSolarBalanceEngine:
         ] == pytest.approx(2.0)
 
     def test_calculate_without_production(self):
-        scenario = make_scenario(4.0)
-        production = make_profile(0.0)
         scenario = make_scenario(4.0)
         production = make_profile(0.0)
 
@@ -620,3 +614,161 @@ class TestSolarBalanceEngine:
             production_profile.annual_production
             - scenario.annual_consumption
         )
+
+    def test_calculate_with_battery_configuration_returns_battery_balance(
+        self,
+    ):
+        scenario = make_scenario(1.0)
+        production = make_profile(0.0)
+
+        battery_configuration = BatteryConfiguration(
+            capacity_kwh=10.0,
+            max_charge_power_kw=5.0,
+            max_discharge_power_kw=5.0,
+            charge_efficiency=1.0,
+            discharge_efficiency=1.0,
+            min_soc=0.0,
+            max_soc=1.0,
+            initial_soc=0.5,
+        )
+
+        result = SolarBalanceEngine.calculate(
+            scenario,
+            production,
+            battery_configuration,
+        )
+
+        assert isinstance(result, pd.DataFrame)
+        assert len(result) == 8760
+        assert "battery_discharge_kwh" in result.columns
+        assert "battery_soc" in result.columns
+        assert result["grid_import_kwh"].iloc[0] == pytest.approx(0.0)
+
+    def test_calculate_with_battery_aligns_different_reference_years(
+        self,
+    ):
+        scenario = make_scenario(
+            0.0,
+            year=2025,
+        )
+
+        production = make_profile(
+            0.0,
+            year=2024,
+        )
+
+        production.hourly_production.iloc[12] = 5.0
+
+        battery_configuration = BatteryConfiguration(
+            capacity_kwh=10.0,
+            max_charge_power_kw=5.0,
+            max_discharge_power_kw=5.0,
+            charge_efficiency=1.0,
+            discharge_efficiency=1.0,
+            min_soc=0.0,
+            max_soc=1.0,
+            initial_soc=0.0,
+        )
+
+        result = SolarBalanceEngine.calculate(
+            scenario,
+            production,
+            battery_configuration,
+        )
+
+        timestamp = pd.Timestamp("2025-01-01 12:00")
+
+        assert result.index.equals(
+            scenario.hourly_consumption.index
+        )
+
+        assert result.loc[
+            timestamp,
+            "battery_charge_kwh",
+        ] == pytest.approx(5.0)
+
+        assert result.loc[
+            timestamp,
+            "battery_soc",
+        ] == pytest.approx(0.5)
+
+        assert result.loc[
+            timestamp,
+            "grid_export_kwh",
+        ] == pytest.approx(0.0)
+
+    def test_calculate_with_battery_preserves_charge_and_discharge_sequence(
+            self,
+        ):
+            consumption = pd.Series(
+                0.0,
+                index=make_index(),
+                dtype=float,
+            )
+
+            production = pd.Series(
+                0.0,
+                index=make_index(),
+                dtype=float,
+            )
+
+            # 12:00 → 5 kWh de excedente solar → batería
+            production.iloc[12] = 5.0
+
+            # 13:00 → 3 kWh de consumo → batería
+            consumption.iloc[13] = 3.0
+
+            scenario = make_scenario(consumption)
+            profile = make_profile(production)
+
+            battery_configuration = BatteryConfiguration(
+                capacity_kwh=10.0,
+                max_charge_power_kw=5.0,
+                max_discharge_power_kw=5.0,
+                charge_efficiency=1.0,
+                discharge_efficiency=1.0,
+                min_soc=0.0,
+                max_soc=1.0,
+                initial_soc=0.0,
+            )
+
+            result = SolarBalanceEngine.calculate(
+                scenario,
+                profile,
+                battery_configuration,
+            )
+
+            charge_timestamp = make_index()[12]
+            discharge_timestamp = make_index()[13]
+
+            # Primera hora: los 5 kWh entran en batería.
+            assert result.loc[
+                charge_timestamp,
+                "battery_charge_kwh",
+            ] == pytest.approx(5.0)
+
+            assert result.loc[
+                charge_timestamp,
+                "battery_soc",
+            ] == pytest.approx(0.5)
+
+            assert result.loc[
+                charge_timestamp,
+                "grid_export_kwh",
+            ] == pytest.approx(0.0)
+
+            # Segunda hora: la batería cubre los 3 kWh de consumo.
+            assert result.loc[
+                discharge_timestamp,
+                "battery_discharge_kwh",
+            ] == pytest.approx(3.0)
+
+            assert result.loc[
+                discharge_timestamp,
+                "grid_import_kwh",
+            ] == pytest.approx(0.0)
+
+            assert result.loc[
+                discharge_timestamp,
+                "battery_soc",
+            ] == pytest.approx(0.2)

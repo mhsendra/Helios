@@ -76,6 +76,25 @@ class EconomicsController:
             )
         )
 
+    def calculate_cost_with_balance(self, energy_balance):
+        if self._economic_data is None:
+            self._economic_data = self._get_economic_data()
+
+        _, tariff_data = self._economic_data
+
+        self.analyzer.economics_engine.calculate_export_income(
+            energy_balance,
+            tariff_data,
+        )
+
+        return (
+            self.analyzer.economics_engine
+            .calculate_cost_with_pv(
+                energy_balance,
+                tariff_data,
+            )
+        )
+
     def calculate_annual_savings(self):
 
         return (

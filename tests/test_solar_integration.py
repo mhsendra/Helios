@@ -98,6 +98,11 @@ class TestSolarIntegration:
             (),
             {
                 "solar_engine": engine,
+                "project": type(
+                    "Project",
+                    (),
+                    {"battery_configuration": None},
+                )(),
                 "valid_dataset": lambda self: pd.DataFrame(
                     {
                         "AE_kWh": [
