@@ -303,6 +303,7 @@ class BatteryOptimizer:
         min_soc: float = 0.10,
         max_soc: float = 0.90,
         initial_soc: float = 0.10,
+        battery_cost_per_kwh_eur: float = 249.70,
         annual_cost_without_battery_eur: float | None = None,
         cost_calculator=None,
         economic_configuration: (
@@ -352,6 +353,9 @@ class BatteryOptimizer:
             min_soc=min_soc,
             max_soc=max_soc,
             initial_soc=initial_soc,
+            battery_cost_per_kwh_eur=(
+                battery_cost_per_kwh_eur
+            ),
             annual_cost_without_battery_eur=(
                 annual_cost_without_battery_eur
             ),

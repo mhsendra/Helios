@@ -2848,6 +2848,11 @@ class TestEconomicsCosts:
 
         energy_balance = pd.DataFrame(
             {
+                "grid_import_kwh": [
+                    10.0,
+                    20.0,
+                    30.0,
+                ],
                 "grid_export_kwh": [
                     10.0,
                     20.0,
@@ -2859,6 +2864,11 @@ class TestEconomicsCosts:
 
         tariff_data = pd.DataFrame(
             {
+                "buy_price_eur_kwh": [
+                    0.20,
+                    0.20,
+                    0.20,
+                ],
                 "sell_price_eur_kwh": [
                     0.06,
                     0.06,
@@ -2873,17 +2883,10 @@ class TestEconomicsCosts:
             tariff_data,
         )
 
-        expected = (
-            10.0 * 0.06
-            + 20.0 * 0.06
-            + 30.0 * 0.06
-        )
-
-        assert result == pytest.approx(expected)
-
-        assert self.engine.export_income == pytest.approx(
-            expected
-        )
+        # Import value = (10 + 20 + 30) * 0.20 = 12.00 €
+        # Export value = (10 + 20 + 30) * 0.06 = 3.60 €
+        # Monthly compensation is capped at the import value.
+        assert result == pytest.approx(3.60)
 
     def test_calculate_cost_with_pv(self):
 
@@ -3458,3 +3461,169 @@ class TestCalculateScenario:
         assert scenario_result.payback_years == pytest.approx(
             cash_flow_payback
         )
+
+    def test_calculate_export_income_does_not_carry_compensation_between_months(
+        self,
+    ):
+
+        index = pd.DatetimeIndex(
+            [
+                "2025-01-15 12:00",
+                "2025-02-15 12:00",
+            ]
+        )
+
+        energy_balance = pd.DataFrame(
+            {
+                "grid_import_kwh": [
+                    100.0,
+                    0.0,
+                ],
+                "grid_export_kwh": [
+                    0.0,
+                    100.0,
+                ],
+            },
+            index=index,
+        )
+
+        tariff_data = pd.DataFrame(
+            {
+                "buy_price_eur_kwh": [
+                    0.20,
+                    0.20,
+                ],
+                "sell_price_eur_kwh": [
+                    0.06,
+                    0.06,
+                ],
+            },
+            index=index,
+        )
+
+        result = self.engine.calculate_export_income(
+            energy_balance,
+            tariff_data,
+        )
+
+        # Enero:
+        # importación = 20 €
+        # excedentes = 0 €
+        # compensación = 0 €
+        #
+        # Febrero:
+        # importación = 0 €
+        # excedentes = 6 €
+        # compensación = 0 €
+        #
+        # Los 20 € de capacidad de compensación de enero
+        # no pueden trasladarse a febrero.
+        assert result == pytest.approx(0.0)
+
+    def test_calculate_export_income_caps_monthly_compensation(
+        self,
+    ):
+
+        index = pd.DatetimeIndex(
+            [
+                "2025-01-15 10:00",
+                "2025-01-15 11:00",
+            ]
+        )
+
+        energy_balance = pd.DataFrame(
+            {
+                "grid_import_kwh": [
+                    100.0,
+                    0.0,
+                ],
+                "grid_export_kwh": [
+                    0.0,
+                    500.0,
+                ],
+            },
+            index=index,
+        )
+
+        tariff_data = pd.DataFrame(
+            {
+                "buy_price_eur_kwh": [
+                    0.20,
+                    0.20,
+                ],
+                "sell_price_eur_kwh": [
+                    0.06,
+                    0.06,
+                ],
+            },
+            index=index,
+        )
+
+        result = self.engine.calculate_export_income(
+            energy_balance,
+            tariff_data,
+        )
+
+        # Importación:
+        # 100 × 0,20 = 20 €
+        #
+        # Excedentes:
+        # 500 × 0,06 = 30 €
+        #
+        # Compensación máxima:
+        # min(20, 30) = 20 €
+        assert result == pytest.approx(20.0)
+
+    def test_calculate_cost_with_pv_cannot_become_negative_from_surplus(
+        self,
+    ):
+
+        index = pd.DatetimeIndex(
+            [
+                "2025-01-15 10:00",
+                "2025-01-15 11:00",
+            ]
+        )
+
+        energy_balance = pd.DataFrame(
+            {
+                "grid_import_kwh": [
+                    100.0,
+                    0.0,
+                ],
+                "grid_export_kwh": [
+                    0.0,
+                    500.0,
+                ],
+            },
+            index=index,
+        )
+
+        tariff_data = pd.DataFrame(
+            {
+                "buy_price_eur_kwh": [
+                    0.20,
+                    0.20,
+                ],
+                "sell_price_eur_kwh": [
+                    0.06,
+                    0.06,
+                ],
+            },
+            index=index,
+        )
+
+        self.engine.calculate_export_income(
+            energy_balance,
+            tariff_data,
+        )
+
+        result = self.engine.calculate_cost_with_pv(
+            energy_balance,
+            tariff_data,
+        )
+
+        # Coste importación = 20 €
+        # Compensación = 20 €
+        # Coste neto = 0 €
+        assert result == pytest.approx(0.0)

@@ -4,8 +4,11 @@ import pytest
 from helios.core.controllers.solar_controller import SolarController
 from helios.core.solar import SolarEngine
 from helios.solar.configuration import SolarConfiguration
+from helios.core.economics_configuration import EconomicsConfiguration
+from helios.core.economics import EconomicsEngine
 from helios.core.consumption_scenario import ConsumptionScenario
-
+from helios.core.controllers.economics_controller import EconomicsController
+from helios.core.tariffs import TariffEngine
 
 class TestSolarIntegration:
 
@@ -98,6 +101,8 @@ class TestSolarIntegration:
             (),
             {
                 "solar_engine": engine,
+                "tariff_engine": TariffEngine(),
+                "economics_engine": EconomicsEngine(),
                 "project": type(
                     "Project",
                     (),
@@ -123,6 +128,13 @@ class TestSolarIntegration:
                     lambda self: consumption_scenario,
             }
         )()
+
+        analyzer.economics = EconomicsController(
+            analyzer,
+            EconomicsConfiguration(
+                installation_cost=0.0,
+            ),
+        )
 
         controller = SolarController(
             analyzer

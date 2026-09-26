@@ -96,6 +96,7 @@ class TestSolarReportData:
             "payback_years": 5.34,
             "net_present_value_eur": 22071.16,
             "internal_rate_of_return_percent": 18.80,
+            "battery_recommendations": [],
 
             "economic_horizon_years": 25,
             "first_year_degradation_percent": 1.0,

@@ -118,6 +118,28 @@ class EconomicsPage(QWidget):
         )
 
         # ==================================================
+        # Análisis económico del almacenamiento
+        # ==================================================
+
+        battery_group = QGroupBox(
+            "Análisis económico del almacenamiento"
+        )
+
+        battery_layout = QVBoxLayout(
+            battery_group
+        )
+
+        self.battery_table = QTableWidget()
+
+        battery_layout.addWidget(
+            self.battery_table
+        )
+
+        layout.addWidget(
+            battery_group
+        )
+
+        # ==================================================
         # Flujo de caja
         # ==================================================
 
@@ -169,6 +191,7 @@ class EconomicsPage(QWidget):
 
         self.update_summary()
         self.update_profitability()
+        self.update_battery_analysis()
         self.update_cash_flow()
 
     def update_summary(self):
@@ -246,6 +269,88 @@ class EconomicsPage(QWidget):
         self.discount_rate_label.setText(
             f"{self.project.economics.configuration.discount_rate * 100:.2f} %"
         )
+
+    def update_battery_analysis(self):
+
+        solar = getattr(
+            self.project,
+            "solar",
+            None,
+        )
+
+        recommendations = getattr(
+            solar,
+            "battery_recommendations",
+            [],
+        )
+
+        headers = [
+            "Capacidad",
+            "Coste anual",
+            "Ahorro adicional",
+            "Coste incremental",
+            "Ahorro incremental",
+            "Ahorro marginal",
+            "PB marginal",
+            "VAN",
+            "TIR",
+            "PB",
+        ]
+
+        self.battery_table.clear()
+        self.battery_table.setColumnCount(
+            len(headers)
+        )
+        self.battery_table.setHorizontalHeaderLabels(
+            headers
+        )
+
+        if not recommendations:
+
+            self.battery_table.setRowCount(0)
+            self.battery_table.resizeColumnsToContents()
+
+            return
+
+        self.battery_table.setRowCount(
+            len(recommendations)
+        )
+
+        for row, recommendation in enumerate(
+            recommendations
+        ):
+
+            marginal_payback = (
+                "N/D"
+                if recommendation.marginal_payback_years
+                == float("inf")
+                else (
+                    f"{recommendation.marginal_payback_years:.2f} años"
+                )
+            )
+
+            values = [
+                f"{recommendation.capacity_kwh:.1f} kWh",
+                f"{recommendation.annual_cost_with_battery_eur:,.2f} €",
+                f"{recommendation.annual_additional_savings_eur:,.2f} €",
+                f"{recommendation.incremental_battery_cost_eur:,.2f} €",
+                f"{recommendation.incremental_savings_eur:,.2f} €",
+                f"{recommendation.marginal_savings_per_kwh:,.2f} €/kWh",
+                marginal_payback,
+                f"{recommendation.economic_npv_eur:,.2f} €",
+                f"{recommendation.economic_irr_percent:.2f} %",
+                f"{recommendation.economic_payback_years:.2f} años",
+            ]
+
+            for column, value in enumerate(values):
+
+                self.battery_table.setItem(
+                    row,
+                    column,
+                    QTableWidgetItem(value),
+                )
+
+        self.battery_table.resizeColumnsToContents()
         
     def update_cash_flow(self):
 

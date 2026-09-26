@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import pandas as pd
 
@@ -81,7 +81,8 @@ class SolarReportData:
     # ==================================================
 
     scenario_results: list
-    
+    battery_recommendations: list = field(default_factory=list)
+
     # ==================================================
     # Automatic dimensioning
     # ==================================================

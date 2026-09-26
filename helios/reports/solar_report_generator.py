@@ -1385,6 +1385,184 @@ class SolarReportGenerator:
         )
 
         # ==================================================
+        # Análisis económico del almacenamiento
+        # ==================================================
+
+        if data.battery_recommendations:
+
+            battery_data = [
+                [
+                    "Capacidad",
+                    "Coste anual",
+                    "Ahorro adicional",
+                    "Coste incremental",
+                    "Ahorro incremental",
+                    "Ahorro marginal",
+                    "PB marginal",
+                    "VAN",
+                    "TIR",
+                    "PB",
+                ],
+            ]
+
+            for recommendation in data.battery_recommendations:
+
+                marginal_payback = (
+                    "N/D"
+                    if recommendation.marginal_payback_years == float("inf")
+                    else (
+                        f"{recommendation.marginal_payback_years:.2f} años"
+                    )
+                )
+
+                battery_data.append(
+                    [
+                        f"{recommendation.capacity_kwh:.1f} kWh",
+                        (
+                            f"{recommendation.annual_cost_with_battery_eur:,.2f} €"
+                        ),
+                        (
+                            f"{recommendation.annual_additional_savings_eur:,.2f} €"
+                        ),
+                        (
+                            f"{recommendation.incremental_battery_cost_eur:,.2f} €"
+                        ),
+                        (
+                            f"{recommendation.incremental_savings_eur:,.2f} €"
+                        ),
+                        (
+                            f"{recommendation.marginal_savings_per_kwh:,.2f} €/kWh"
+                        ),
+                        marginal_payback,
+                        f"{recommendation.economic_npv_eur:,.2f} €",
+                        (
+                            f"{recommendation.economic_irr_percent:.2f} %"
+                        ),
+                        (
+                            f"{recommendation.economic_payback_years:.2f} años"
+                        ),
+                    ]
+                )
+
+            battery_table = Table(
+                battery_data,
+                colWidths=[
+                    45,
+                    55,
+                    60,
+                    60,
+                    60,
+                    60,
+                    55,
+                    55,
+                    45,
+                    50,
+                ],
+                repeatRows=1,
+            )
+
+            battery_table.setStyle(
+                TableStyle(
+                    [
+                        (
+                            "BACKGROUND",
+                            (0, 0),
+                            (-1, 0),
+                            colors.HexColor(HELIOS_PURPLE),
+                        ),
+                        (
+                            "TEXTCOLOR",
+                            (0, 0),
+                            (-1, 0),
+                            colors.white,
+                        ),
+                        (
+                            "FONTNAME",
+                            (0, 0),
+                            (-1, 0),
+                            "Helvetica-Bold",
+                        ),
+                        (
+                            "FONTSIZE",
+                            (0, 0),
+                            (-1, -1),
+                            7,
+                        ),
+                        (
+                            "GRID",
+                            (0, 0),
+                            (-1, -1),
+                            0.5,
+                            colors.HexColor(HELIOS_BORDER),
+                        ),
+                        (
+                            "BACKGROUND",
+                            (0, 1),
+                            (-1, -1),
+                            colors.HexColor(HELIOS_BACKGROUND),
+                        ),
+                        (
+                            "VALIGN",
+                            (0, 0),
+                            (-1, -1),
+                            "MIDDLE",
+                        ),
+                        (
+                            "ALIGN",
+                            (1, 1),
+                            (-1, -1),
+                            "RIGHT",
+                        ),
+                        (
+                            "ALIGN",
+                            (0, 0),
+                            (0, -1),
+                            "CENTER",
+                        ),
+                        (
+                            "LEFTPADDING",
+                            (0, 0),
+                            (-1, -1),
+                            3,
+                        ),
+                        (
+                            "RIGHTPADDING",
+                            (0, 0),
+                            (-1, -1),
+                            3,
+                        ),
+                        (
+                            "TOPPADDING",
+                            (0, 0),
+                            (-1, -1),
+                            5,
+                        ),
+                        (
+                            "BOTTOMPADDING",
+                            (0, 0),
+                            (-1, -1),
+                            5,
+                        ),
+                    ]
+                )
+            )
+
+            story.append(
+                KeepTogether(
+                    [
+                        Spacer(1, 25),
+                        self._section_header(
+                            "Análisis económico del almacenamiento",
+                            styles,
+                            HELIOS_PURPLE,
+                        ),
+                        Spacer(1, 10),
+                        battery_table,
+                    ]
+                )
+            )
+
+        # ==================================================
         # Escenarios económicos
         # ==================================================
 

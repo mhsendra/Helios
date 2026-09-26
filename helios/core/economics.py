@@ -85,20 +85,131 @@ class EconomicsEngine:
         tariff_data,
     ) -> float:
         """
-        Calculate annual income from photovoltaic
+        Calculate effective annual income from photovoltaic
         energy exported to the grid.
+
+        Export compensation is limited independently for each
+        monthly billing period. For each month, the economic
+        value of exported energy cannot exceed the economic value
+        of energy imported from the grid during that same month.
+
+        This models the simplified surplus-compensation mechanism
+        used for self-consumption in Spain.
         """
 
-        data = energy_balance.join(
+        required_balance_columns = {
+            "grid_import_kwh",
+            "grid_export_kwh",
+        }
+
+        missing_balance_columns = (
+            required_balance_columns
+            - set(energy_balance.columns)
+        )
+
+        if missing_balance_columns:
+            raise ValueError(
+                "energy_balance must contain "
+                "'grid_import_kwh' and 'grid_export_kwh'."
+            )
+
+        required_tariff_columns = {
+            "buy_price_eur_kwh",
+            "sell_price_eur_kwh",
+        }
+
+        missing_tariff_columns = (
+            required_tariff_columns
+            - set(tariff_data.columns)
+        )
+
+        if missing_tariff_columns:
+            raise ValueError(
+                "tariff_data must contain "
+                "'buy_price_eur_kwh' and "
+                "'sell_price_eur_kwh'."
+            )
+
+        if not energy_balance.index.equals(
+            tariff_data.index
+        ):
+            raise ValueError(
+                "Energy balance and tariff data "
+                "must have the same hourly index."
+            )
+
+        data = energy_balance[
+            [
+                "grid_import_kwh",
+                "grid_export_kwh",
+            ]
+        ].join(
             tariff_data[
-                ["sell_price_eur_kwh"]
+                [
+                    "buy_price_eur_kwh",
+                    "sell_price_eur_kwh",
+                ]
             ]
         )
 
-        self.export_income = (
+        data["grid_import_cost_eur"] = (
+            data["grid_import_kwh"]
+            * data["buy_price_eur_kwh"]
+        )
+
+        data["grid_export_value_eur"] = (
             data["grid_export_kwh"]
             * data["sell_price_eur_kwh"]
-        ).sum()
+        )
+
+        data["billing_period"] = (
+            data.index.to_period("M")
+        )
+
+        monthly_import_cost = (
+            data
+            .groupby("billing_period")[
+                "grid_import_cost_eur"
+            ]
+            .sum()
+        )
+
+        monthly_export_value = (
+            data
+            .groupby("billing_period")[
+                "grid_export_value_eur"
+            ]
+            .sum()
+        )
+
+        monthly_compensation = (
+            pd.concat(
+                [
+                    monthly_import_cost,
+                    monthly_export_value,
+                ],
+                axis=1,
+            )
+            .fillna(0.0)
+        )
+
+        monthly_compensation[
+            "effective_export_income"
+        ] = (
+            monthly_compensation[
+                [
+                    "grid_import_cost_eur",
+                    "grid_export_value_eur",
+                ]
+            ]
+            .min(axis=1)
+        )
+
+        self.export_income = float(
+            monthly_compensation[
+                "effective_export_income"
+            ].sum()
+        )
 
         return self.export_income
 

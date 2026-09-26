@@ -318,6 +318,15 @@ class SolarReportDataBuilder:
                 solar_configuration.mounting_place
             )
 
+        battery_recommendations = list(
+            getattr(
+                project.solar,
+                "battery_recommendations",
+                [],
+            )
+            or []
+        )
+
         # ---------------------------------------------------------
         # Resultado final
         # ---------------------------------------------------------
@@ -370,6 +379,7 @@ class SolarReportDataBuilder:
             internal_rate_of_return_percent=(
                 internal_rate_of_return
             ),
+            battery_recommendations=battery_recommendations,
 
             economic_horizon_years=(
                 cls.ECONOMIC_HORIZON_YEARS

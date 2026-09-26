@@ -23,7 +23,7 @@ class HeliosProject:
 
         self.solar_configuration: SolarConfiguration | None = None
 
-        battery_configuration: BatteryConfiguration | None = None
+        self.battery_configuration: BatteryConfiguration | None = None
 
     # ==================================================
     # Controllers

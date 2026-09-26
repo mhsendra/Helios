@@ -1,4 +1,5 @@
 import pandas as pd
+
 import pytest
 
 from unittest.mock import MagicMock, call
@@ -15,16 +16,14 @@ from helios.solar.installation_configuration import (
     InstallationConfiguration,
 )
 
-from helios.solar.installation_constraints import (
-    InstallationConstraints,
-)
-
 from helios.core.consumption_scenario import ConsumptionScenario
 from helios.solar.installation_recommendation import (
     InstallationRecommendation,
 )
+from helios.solar.battery_economic_model import (
+    BatteryEconomicConfiguration,
+)
 from helios.solar.production_profile import SolarProductionProfile
-
 
 class TestSolarController:
 
@@ -646,6 +645,7 @@ class TestSolarController:
         )
 
         self.controller.calculate_energy_balance = MagicMock()
+        self.controller.evaluate_batteries = MagicMock()
 
         engine = self.analyzer.solar_engine
 
@@ -688,6 +688,7 @@ class TestSolarController:
         engine = self.analyzer.solar_engine
 
         self.controller.calculate_energy_balance = MagicMock()
+        self.controller.evaluate_batteries = MagicMock()
 
         self.controller.calculate(
             configuration,
@@ -722,6 +723,7 @@ class TestSolarController:
         self.analyzer.valid_dataset.return_value = dataset
 
         self.controller.calculate_energy_balance = MagicMock()
+        self.controller.evaluate_batteries = MagicMock()
 
         self.controller.calculate(
             installed_power_kwp=installed_power_kwp
@@ -766,6 +768,7 @@ class TestSolarController:
         self.analyzer.valid_dataset.return_value = dataset
 
         self.controller.calculate_energy_balance = MagicMock()
+        self.controller.evaluate_batteries = MagicMock()
 
         self.controller.calculate()
 
@@ -791,6 +794,7 @@ class TestSolarController:
         self.analyzer.valid_dataset.return_value = dataset
 
         self.controller.calculate_energy_balance = MagicMock()
+        self.controller.evaluate_batteries = MagicMock()
 
         self.controller.calculate()
 
@@ -856,6 +860,7 @@ class TestSolarController:
         )
 
         self.controller.calculate_energy_balance = MagicMock()
+        self.controller.evaluate_batteries = MagicMock()
 
         self.controller.calculate()
 
@@ -894,6 +899,7 @@ class TestSolarController:
         )
 
         self.controller.calculate_energy_balance = MagicMock()
+        self.controller.evaluate_batteries = MagicMock()
 
         self.controller.calculate()
 
@@ -1524,7 +1530,455 @@ class TestSolarController:
                 hourly_consumption=consumption,
                 reference_year=2025,
             )
-        
+
+    # ==================================================
+    # Evaluación de baterías
+    # ==================================================
+
+    def test_evaluate_batteries_returns_all_recommendations(
+        self,
+        monkeypatch,
+    ):
+
+        consumption_scenario = (
+            self._consumption_scenario()
+        )
+
+        production_profile = (
+            self._solar_production_profile()
+        )
+
+        self.analyzer.calculate_representative_consumption_scenario.return_value = (
+            consumption_scenario
+        )
+
+        self.analyzer.solar_engine.configuration = (
+            self._solar_configuration()
+        )
+
+        self.analyzer.solar_engine.hourly_production = (
+            pd.DataFrame(
+                {
+                    "production_kwh": (
+                        production_profile.hourly_production
+                    ),
+                }
+            )
+        )
+
+        self.analyzer.solar_engine.installed_power_kwp = 8.10
+
+        baseline_balance = MagicMock()
+
+        monkeypatch.setattr(
+            "helios.core.controllers.solar_controller."
+            "SolarBalanceEngine.calculate",
+            MagicMock(
+                return_value=baseline_balance
+            ),
+        )
+
+        self.analyzer.economics.calculate_cost_with_balance.return_value = (
+            1000.0
+        )
+
+        recommendations = [
+            MagicMock(),
+            MagicMock(),
+            MagicMock(),
+        ]
+
+        optimizer = MagicMock()
+        optimizer.evaluate.return_value = (
+            recommendations
+        )
+
+        monkeypatch.setattr(
+            "helios.core.controllers.solar_controller."
+            "BatteryOptimizer",
+            MagicMock(return_value=optimizer),
+        )
+
+        result = self.controller.evaluate_batteries(
+            [5.0, 8.3, 16.6],
+            max_charge_power_kw=5.0,
+            max_discharge_power_kw=5.0,
+        )
+
+        assert result is recommendations
+
+        optimizer.evaluate.assert_called_once()
+
+        call = optimizer.evaluate.call_args
+
+        assert call.args[0] is consumption_scenario
+        assert call.args[1] is not None
+        assert call.args[2] == [5.0, 8.3, 16.6]
+
+        assert (
+            call.kwargs["max_charge_power_kw"]
+            == pytest.approx(5.0)
+        )
+
+        assert (
+            call.kwargs["max_discharge_power_kw"]
+            == pytest.approx(5.0)
+        )
+
+        assert (
+            call.kwargs["annual_cost_without_battery_eur"]
+            == pytest.approx(1000.0)
+        )
+
+        assert (
+            call.kwargs["battery_cost_per_kwh_eur"]
+            == pytest.approx(249.70)
+        )
+
+
+    def test_evaluate_batteries_builds_economic_configuration_from_project_configuration(
+        self,
+        monkeypatch,
+    ):
+
+        consumption_scenario = (
+            self._consumption_scenario()
+        )
+
+        production_profile = (
+            self._solar_production_profile()
+        )
+
+        self.analyzer.calculate_representative_consumption_scenario.return_value = (
+            consumption_scenario
+        )
+
+        self.analyzer.solar_engine.configuration = (
+            self._solar_configuration()
+        )
+
+        self.analyzer.solar_engine.hourly_production = (
+            pd.DataFrame(
+                {
+                    "production_kwh": (
+                        production_profile.hourly_production
+                    ),
+                }
+            )
+        )
+
+        self.analyzer.solar_engine.installed_power_kwp = 8.10
+
+        baseline_balance = MagicMock()
+
+        monkeypatch.setattr(
+            "helios.core.controllers.solar_controller."
+            "SolarBalanceEngine.calculate",
+            MagicMock(
+                return_value=baseline_balance
+            ),
+        )
+
+        self.analyzer.economics.calculate_cost_with_balance.return_value = (
+            1000.0
+        )
+
+        economics_configuration = MagicMock()
+
+        economics_configuration.annual_electricity_price_growth = (
+            0.027
+        )
+
+        economics_configuration.annual_degradation = (
+            0.0035
+        )
+
+        economics_configuration.annual_maintenance_growth = (
+            0.018
+        )
+
+        economics_configuration.discount_rate = (
+            0.055
+        )
+
+        self.analyzer.economics.configuration = (
+            economics_configuration
+        )
+
+        optimizer = MagicMock()
+
+        optimizer.evaluate.return_value = []
+
+        optimizer_class = MagicMock(
+            return_value=optimizer,
+        )
+
+        monkeypatch.setattr(
+            "helios.core.controllers.solar_controller."
+            "BatteryOptimizer",
+            optimizer_class,
+        )
+
+        self.controller.evaluate_batteries(
+            [5.0, 8.3],
+            max_charge_power_kw=5.0,
+            max_discharge_power_kw=5.0,
+            battery_cost_per_kwh_eur=300.0,
+            years=25,
+            battery_degradation=0.025,
+            battery_annual_maintenance_eur=75.0,
+        )
+
+        optimizer.evaluate.assert_called_once()
+
+        economic_configuration = (
+            optimizer.evaluate.call_args.kwargs[
+                "economic_configuration"
+            ]
+        )
+
+        assert isinstance(
+            economic_configuration,
+            BatteryEconomicConfiguration,
+        )
+
+        assert (
+            economic_configuration.battery_cost_eur
+            == pytest.approx(0.0)
+        )
+
+        assert (
+            economic_configuration.annual_savings_eur
+            == pytest.approx(0.0)
+        )
+
+        assert (
+            economic_configuration.years
+            == 25
+        )
+
+        assert (
+            economic_configuration.electricity_price_growth
+            == pytest.approx(0.027)
+        )
+
+        assert (
+            economic_configuration.pv_degradation
+            == pytest.approx(0.0035)
+        )
+
+        assert (
+            economic_configuration.battery_degradation
+            == pytest.approx(0.025)
+        )
+
+        assert (
+            economic_configuration.annual_maintenance_eur
+            == pytest.approx(75.0)
+        )
+
+        assert (
+            economic_configuration.maintenance_growth
+            == pytest.approx(0.018)
+        )
+
+        assert (
+            economic_configuration.discount_rate
+            == pytest.approx(0.055)
+        )
+
+        assert (
+            optimizer.evaluate.call_args.kwargs[
+                "battery_cost_per_kwh_eur"
+            ]
+            == pytest.approx(300.0)
+        )
+
+    def test_evaluate_batteries_calculates_baseline_without_battery(
+        self,
+        monkeypatch,
+    ):
+        consumption_scenario = self._consumption_scenario()
+
+        self.analyzer.calculate_representative_consumption_scenario.return_value = (
+            consumption_scenario
+        )
+
+        self.analyzer.solar_engine.configuration = (
+            self._solar_configuration()
+        )
+
+        production = pd.Series(
+            1.0,
+            index=pd.date_range(
+                "2023-01-01 00:00:00",
+                periods=8760,
+                freq="h",
+            ),
+            name="production_kwh",
+        )
+
+        self.analyzer.solar_engine.hourly_production = (
+            pd.DataFrame(
+                {
+                    "production_kwh": production,
+                }
+            )
+        )
+
+        self.analyzer.solar_engine.installed_power_kwp = 8.10
+
+        baseline_balance = MagicMock()
+
+        balance_calculator = MagicMock(
+            return_value=baseline_balance,
+        )
+
+        monkeypatch.setattr(
+            "helios.core.controllers.solar_controller."
+            "SolarBalanceEngine.calculate",
+            staticmethod(balance_calculator),
+        )
+
+        self.analyzer.economics.calculate_cost_with_balance.return_value = (
+            3221.52
+        )
+
+        optimizer = MagicMock()
+        optimizer.evaluate.return_value = []
+
+        monkeypatch.setattr(
+            "helios.core.controllers.solar_controller."
+            "BatteryOptimizer",
+            MagicMock(return_value=optimizer),
+        )
+
+        self.controller.evaluate_batteries(
+            candidate_capacities_kwh=[5.0, 8.3],
+            max_charge_power_kw=8.0,
+            max_discharge_power_kw=8.0,
+        )
+
+        balance_calculator.assert_called_once_with(
+            consumption_scenario,
+            optimizer.evaluate.call_args.args[1],
+            None,
+        )
+
+        self.analyzer.economics.calculate_cost_with_balance.assert_called_once_with(
+            baseline_balance
+        )
+
+    def test_evaluate_batteries_passes_cost_calculator_and_returns_optimizer_result(
+        self,
+        monkeypatch,
+    ):
+        consumption_scenario = self._consumption_scenario()
+
+        self.analyzer.calculate_representative_consumption_scenario.return_value = (
+            consumption_scenario
+        )
+
+        self.analyzer.solar_engine.configuration = (
+            self._solar_configuration()
+        )
+
+        production = pd.Series(
+            1.0,
+            index=pd.date_range(
+                "2023-01-01 00:00:00",
+                periods=8760,
+                freq="h",
+            ),
+            name="production_kwh",
+        )
+
+        self.analyzer.solar_engine.hourly_production = (
+            pd.DataFrame(
+                {
+                    "production_kwh": production,
+                }
+            )
+        )
+
+        self.analyzer.solar_engine.installed_power_kwp = 8.10
+
+        self.analyzer.economics.calculate_cost_with_balance.return_value = (
+            1000.0
+        )
+
+        expected_result = [
+            MagicMock(),
+            MagicMock(),
+        ]
+
+        optimizer = MagicMock()
+        optimizer.evaluate.return_value = expected_result
+
+        optimizer_class = MagicMock(
+            return_value=optimizer,
+        )
+
+        monkeypatch.setattr(
+            "helios.core.controllers.solar_controller."
+            "BatteryOptimizer",
+            optimizer_class,
+        )
+
+        result = self.controller.evaluate_batteries(
+            candidate_capacities_kwh=[5.0, 8.3],
+            max_charge_power_kw=8.0,
+            max_discharge_power_kw=8.0,
+        )
+
+        assert result is expected_result
+
+        optimizer.evaluate.assert_called_once()
+
+        kwargs = optimizer.evaluate.call_args.kwargs
+
+        assert (
+            kwargs["cost_calculator"]
+            is self.analyzer.economics.calculate_cost_with_balance
+        )
+
+        assert kwargs["annual_cost_without_battery_eur"] == 1000.0
+
+    def test_evaluate_batteries_requires_representative_consumption_scenario(
+        self,
+    ):
+        self.analyzer.calculate_representative_consumption_scenario.return_value = (
+            None
+        )
+
+        with pytest.raises(
+            ValueError,
+            match="representative consumption scenario is required",
+        ):
+            self.controller.evaluate_batteries(
+                candidate_capacities_kwh=[5.0, 8.3],
+                max_charge_power_kw=8.0,
+                max_discharge_power_kw=8.0,
+            )
+    def test_evaluate_batteries_requires_hourly_production(
+        self,
+    ):
+        self.analyzer.calculate_representative_consumption_scenario.return_value = (
+            self._consumption_scenario()
+        )
+
+        self.analyzer.solar_engine.hourly_production = None
+
+        with pytest.raises(
+            RuntimeError,
+            match="Hourly solar production has not been calculated",
+        ):
+            self.controller.evaluate_batteries(
+                candidate_capacities_kwh=[5.0, 8.3],
+                max_charge_power_kw=8.0,
+                max_discharge_power_kw=8.0,
+            )
+
     # ==================================================
     # Reset
     # ==================================================
@@ -1755,3 +2209,139 @@ class TestSolarController:
             match="Hourly solar production has not been calculated",
         ):
             self.controller.calculate_energy_balance()
+
+    def test_evaluate_batteries_stores_recommendations(
+        self,
+        monkeypatch,
+    ):
+        recommendations = [
+            MagicMock(),
+            MagicMock(),
+        ]
+
+        evaluator = MagicMock()
+        evaluator.evaluate.return_value = recommendations
+
+        monkeypatch.setattr(
+            "helios.core.controllers.solar_controller.BatteryOptimizer",
+            MagicMock(return_value=evaluator),
+        )
+
+        self.analyzer.calculate_representative_consumption_scenario.return_value = (
+            self._consumption_scenario()
+        )
+
+        self.analyzer.solar_engine.configuration = (
+            self._solar_configuration()
+        )
+
+        self.analyzer.solar_engine.hourly_production = (
+            pd.DataFrame(
+                {
+                    "production_kwh": pd.Series(
+                        1.0,
+                        index=pd.date_range(
+                            "2023-01-01",
+                            periods=8760,
+                            freq="h",
+                        )
+                    )
+                }
+            )
+        )
+
+        self.analyzer.solar_engine.installed_power_kwp = 8.1
+
+        self.analyzer.economics.calculate_cost_with_balance.return_value = (
+            423.24
+        )
+
+        result = self.controller.evaluate_batteries(
+            [5.0, 8.3],
+            max_charge_power_kw=8.3,
+            max_discharge_power_kw=8.3,
+        )
+
+        assert result is recommendations
+        assert (
+            self.controller.battery_recommendations
+            is recommendations
+        )
+
+    def test_reset_clears_battery_recommendations(self):
+
+        recommendations = [
+            MagicMock(),
+            MagicMock(),
+        ]
+
+        self.controller._battery_recommendations = (
+            recommendations
+        )
+
+        self.controller.reset()
+
+        assert (
+            self.controller.battery_recommendations
+            == []
+        )
+
+    def test_calculate_evaluates_battery_recommendations(
+        self,
+        monkeypatch,
+    ):
+        self.controller.calculate_hourly_production = MagicMock()
+        self.controller.calculate_daily_production = MagicMock()
+        self.controller.calculate_monthly_production = MagicMock()
+        self.controller.calculate_yearly_production = MagicMock()
+        self.controller.calculate_energy_balance = MagicMock()
+        self.controller.calculate_statistics = MagicMock()
+        self.controller.evaluate_batteries = MagicMock()
+
+        configuration = self._solar_configuration()
+
+        self.controller.calculate(
+            configuration=configuration,
+            installed_power_kwp=8.1,
+        )
+
+        self.controller.evaluate_batteries.assert_called_once_with(
+            candidate_capacities_kwh=[
+                5.0,
+                8.3,
+                16.6,
+                24.9,
+                30.0,
+            ],
+            max_charge_power_kw=8.3,
+            max_discharge_power_kw=8.3,
+        )
+
+    def test_calculate_triggers_battery_evaluation(self):
+        configuration = self._solar_configuration()
+
+        self.analyzer.valid_dataset.return_value = pd.DataFrame(
+            {
+                "AE_kWh": [1.0, 2.0, 3.0],
+            }
+        )
+
+        self.controller.calculate_energy_balance = MagicMock()
+        self.controller.evaluate_batteries = MagicMock()
+
+        self.controller.calculate(
+            configuration,
+            8.10,
+        )
+
+        self.controller.evaluate_batteries.assert_called_once_with(
+            candidate_capacities_kwh=[
+                5.0,
+                8.3,
+                16.6,
+                24.9,
+                30.0,
+            ],
+            max_charge_power_kw=8.3,
+            max_discharge_power_kw=8.3,
+        )

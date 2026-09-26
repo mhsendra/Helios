@@ -12,11 +12,142 @@ from helios.reports.solar_report_charts import SolarReportCharts
 
 from reportlab.platypus import KeepTogether
 
+from helios.solar.battery_recommendation import (
+    BatteryRecommendation,
+)
 
 class TestSolarReportGenerator:
 
     @staticmethod
     def _report_data():
+
+        battery_recommendations = [
+            BatteryRecommendation(
+                capacity_kwh=5.0,
+                max_charge_power_kw=8.3,
+                max_discharge_power_kw=8.3,
+                annual_consumption_kwh=8911.90,
+                annual_production_kwh=12003.99,
+                annual_surplus_kwh=8626.64,
+                annual_export_kwh=7121.49,
+                annual_grid_import_kwh=4176.15,
+                annual_battery_charge_kwh=1505.15,
+                annual_battery_discharge_kwh=1429.89,
+                self_consumption_kwh=4735.75,
+                self_sufficiency_percent=53.14,
+                equivalent_cycles=357.47,
+                annual_cost_with_battery_eur=320.86,
+                annual_additional_savings_eur=102.38,
+                marginal_recovered_kwh_per_kwh=0.0,
+                incremental_battery_cost_eur=0.0,
+                incremental_savings_eur=0.0,
+                marginal_savings_per_kwh=0.0,
+                marginal_payback_years=float("inf"),
+                economic_npv_eur=260.10,
+                economic_irr_percent=6.80,
+                economic_payback_years=12.47,
+            ),
+            BatteryRecommendation(
+                capacity_kwh=8.3,
+                max_charge_power_kw=8.3,
+                max_discharge_power_kw=8.3,
+                annual_consumption_kwh=8911.90,
+                annual_production_kwh=12003.99,
+                annual_surplus_kwh=8626.64,
+                annual_export_kwh=6220.50,
+                annual_grid_import_kwh=3363.01,
+                annual_battery_charge_kwh=2406.14,
+                annual_battery_discharge_kwh=2285.83,
+                self_consumption_kwh=5548.89,
+                self_sufficiency_percent=62.26,
+                equivalent_cycles=344.25,
+                annual_cost_with_battery_eur=253.45,
+                annual_additional_savings_eur=169.79,
+                marginal_recovered_kwh_per_kwh=0.0,
+                incremental_battery_cost_eur=67.41,
+                incremental_savings_eur=67.41,
+                marginal_savings_per_kwh=20.43,
+                marginal_payback_years=12.22,
+                economic_npv_eur=429.40,
+                economic_irr_percent=6.79,
+                economic_payback_years=12.48,
+            ),
+            BatteryRecommendation(
+                capacity_kwh=16.6,
+                max_charge_power_kw=8.3,
+                max_discharge_power_kw=8.3,
+                annual_consumption_kwh=8911.90,
+                annual_production_kwh=12003.99,
+                annual_surplus_kwh=8626.64,
+                annual_export_kwh=4698.08,
+                annual_grid_import_kwh=1989.02,
+                annual_battery_charge_kwh=3928.56,
+                annual_battery_discharge_kwh=3732.13,
+                self_consumption_kwh=6922.88,
+                self_sufficiency_percent=77.68,
+                equivalent_cycles=281.03,
+                annual_cost_with_battery_eur=172.61,
+                annual_additional_savings_eur=250.63,
+                marginal_recovered_kwh_per_kwh=0.0,
+                incremental_battery_cost_eur=80.84,
+                incremental_savings_eur=80.84,
+                marginal_savings_per_kwh=9.74,
+                marginal_payback_years=25.64,
+                economic_npv_eur=-451.89,
+                economic_irr_percent=4.00,
+                economic_payback_years=17.06,
+            ),
+            BatteryRecommendation(
+                capacity_kwh=24.9,
+                max_charge_power_kw=8.3,
+                max_discharge_power_kw=8.3,
+                annual_consumption_kwh=8911.90,
+                annual_production_kwh=12003.99,
+                annual_surplus_kwh=8626.64,
+                annual_export_kwh=4008.33,
+                annual_grid_import_kwh=1366.52,
+                annual_battery_charge_kwh=4618.31,
+                annual_battery_discharge_kwh=4387.40,
+                self_consumption_kwh=7495.38,
+                self_sufficiency_percent=84.67,
+                equivalent_cycles=220.25,
+                annual_cost_with_battery_eur=146.01,
+                annual_additional_savings_eur=277.23,
+                marginal_recovered_kwh_per_kwh=0.0,
+                incremental_battery_cost_eur=26.60,
+                incremental_savings_eur=26.60,
+                marginal_savings_per_kwh=3.20,
+                marginal_payback_years=77.93,
+                economic_npv_eur=-2132.50,
+                economic_irr_percent=1.62,
+                economic_payback_years=23.42,
+            ),
+            BatteryRecommendation(
+                capacity_kwh=30.0,
+                max_charge_power_kw=8.3,
+                max_discharge_power_kw=8.3,
+                annual_consumption_kwh=8911.90,
+                annual_production_kwh=12003.99,
+                annual_surplus_kwh=8626.64,
+                annual_export_kwh=3884.71,
+                annual_grid_import_kwh=1254.96,
+                annual_battery_charge_kwh=4741.92,
+                annual_battery_discharge_kwh=4504.83,
+                self_consumption_kwh=7627.07,
+                self_sufficiency_percent=85.92,
+                equivalent_cycles=187.70,
+                annual_cost_with_battery_eur=141.57,
+                annual_additional_savings_eur=281.67,
+                marginal_recovered_kwh_per_kwh=0.0,
+                incremental_battery_cost_eur=4.44,
+                incremental_savings_eur=4.44,
+                marginal_savings_per_kwh=0.87,
+                marginal_payback_years=286.50,
+                economic_npv_eur=-3340.47,
+                economic_irr_percent=0.43,
+                economic_payback_years=28.02,
+            ),
+        ]
 
         return SolarReportData(
             # ==================================================
@@ -142,6 +273,7 @@ class TestSolarReportGenerator:
                     },
                 ),
             ],
+            battery_recommendations=battery_recommendations,
         )
 
     @staticmethod
@@ -378,7 +510,7 @@ class TestSolarReportGenerator:
         assert data.productive_hours == 4380
         assert data.capacity_factor_percent == 17.62
 
-    def test_report_contains_eight_tables_including_cover_kpis(
+    def test_report_contains_nine_tables_including_cover_kpis(
         self,
         monkeypatch,
         tmp_path,
@@ -397,7 +529,7 @@ class TestSolarReportGenerator:
             captured["story"]
         )
 
-        assert len(tables) == 9
+        assert len(tables) == 10
 
     def test_economic_assumptions_table_contains_exact_values(
         self,
@@ -488,6 +620,7 @@ class TestSolarReportGenerator:
             7,   # Balance
             11,  # Economía
             9,   # Hipótesis económicas
+            6,   # Análisis económico del almacenamiento: cabecera + 5 capacidades
             4,   # Escenarios
             18,  # Glosario y definiciones
         ]
@@ -525,6 +658,18 @@ class TestSolarReportGenerator:
             ["Concepto", "Valor"],
             ["Concepto", "Valor"],
             ["Hipótesis", "Valor"],
+            [
+                "Capacidad",
+                "Coste anual",
+                "Ahorro adicional",
+                "Coste incremental",
+                "Ahorro incremental",
+                "Ahorro marginal",
+                "PB marginal",
+                "VAN",
+                "TIR",
+                "PB",
+            ],
             [
                 "Escenario",
                 "Ahorro anual",
@@ -795,7 +940,7 @@ class TestSolarReportGenerator:
             captured["story"]
         )
 
-        rows = self._table_rows(tables[7])
+        rows = self._table_rows(tables[8])
 
         assert rows == [
             [
@@ -1318,6 +1463,7 @@ class TestSolarReportGenerator:
             "Rentabilidad económica",
             "La inversión neta asciende a 12,490.00 € y genera un ahorro anual estimado de 2,338.00 €. El periodo de retorno de la inversión es de 5.34 años. El valor actual neto alcanza 22,071.16 €. La tasa interna de retorno estimada es del 18.80 %. El valor actual neto es positivo, lo que indica que la inversión genera valor por encima de la tasa de descuento considerada.",
             "Hipótesis económicas",
+            "Análisis económico del almacenamiento",
             "Escenarios económicos",
             "El análisis de escenarios muestra cómo la rentabilidad de la instalación varía en función de las hipótesis económicas consideradas. En el escenario «Base», el ahorro anual estimado es de 2,338.00 €, con un periodo de retorno de 5.34 años y un VAN de 22,071.16 €. En el escenario «Conservador», el VAN se sitúa en 18,000.00 €, mientras que el escenario «Optimista» alcanza 28,000.00 €. En conjunto, los resultados muestran que la inversión mantiene una rentabilidad positiva bajo las diferentes hipótesis analizadas, aunque su atractivo económico varía según la evolución de los precios de la energía, los costes de mantenimiento y el resto de supuestos considerados.",
             "Conclusión",
@@ -1346,7 +1492,7 @@ class TestSolarReportGenerator:
             captured["story"]
         )
 
-        assert len(tables) == 9
+        assert len(tables) == 10
 
         assert [
             len(table._cellvalues)
@@ -1359,6 +1505,7 @@ class TestSolarReportGenerator:
             7,   # Balance
             11,  # Economía
             9,   # Hipótesis económicas
+            6,   # Análisis económico del almacenamiento: cabecera + 5 capacidades
             4,   # Escenarios
             18,  # Glosario y definiciones
         ]
@@ -1388,3 +1535,103 @@ class TestSolarReportGenerator:
             )
 
         assert "story" not in captured
+
+    def test_battery_economic_table_contains_exact_values(
+        self,
+        monkeypatch,
+        tmp_path,
+    ):
+
+        captured = self._capture_story(monkeypatch)
+
+        generator = SolarReportGenerator()
+
+        generator.generate(
+            self._report_data(),
+            tmp_path / "report.pdf",
+        )
+
+        tables = self._get_tables(
+            captured["story"]
+        )
+
+        battery_table = tables[7]
+
+        rows = self._table_rows(
+            battery_table
+        )
+
+        assert rows == [
+            [
+                "Capacidad",
+                "Coste anual",
+                "Ahorro adicional",
+                "Coste incremental",
+                "Ahorro incremental",
+                "Ahorro marginal",
+                "PB marginal",
+                "VAN",
+                "TIR",
+                "PB",
+            ],
+            [
+                "5.0 kWh",
+                "320.86 €",
+                "102.38 €",
+                "0.00 €",
+                "0.00 €",
+                "0.00 €/kWh",
+                "N/D",
+                "260.10 €",
+                "6.80 %",
+                "12.47 años",
+            ],
+            [
+                "8.3 kWh",
+                "253.45 €",
+                "169.79 €",
+                "67.41 €",
+                "67.41 €",
+                "20.43 €/kWh",
+                "12.22 años",
+                "429.40 €",
+                "6.79 %",
+                "12.48 años",
+            ],
+            [
+                "16.6 kWh",
+                "172.61 €",
+                "250.63 €",
+                "80.84 €",
+                "80.84 €",
+                "9.74 €/kWh",
+                "25.64 años",
+                "-451.89 €",
+                "4.00 %",
+                "17.06 años",
+            ],
+            [
+                "24.9 kWh",
+                "146.01 €",
+                "277.23 €",
+                "26.60 €",
+                "26.60 €",
+                "3.20 €/kWh",
+                "77.93 años",
+                "-2,132.50 €",
+                "1.62 %",
+                "23.42 años",
+            ],
+            [
+                "30.0 kWh",
+                "141.57 €",
+                "281.67 €",
+                "4.44 €",
+                "4.44 €",
+                "0.87 €/kWh",
+                "286.50 años",
+                "-3,340.47 €",
+                "0.43 %",
+                "28.02 años",
+            ],
+        ]
