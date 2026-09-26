@@ -2,20 +2,20 @@ from dataclasses import dataclass
 
 import numpy_financial as npf
 
+from dataclasses import dataclass
+
 
 @dataclass(frozen=True)
 class BatteryEconomicConfiguration:
     battery_cost_eur: float
-
     annual_savings_eur: float
-
     years: int = 30
 
     electricity_price_growth: float = 0.02
 
     # Degradación FV:
     # 1 % durante el primer año y 0.35 % anual posteriormente.
-    pv_initial_degradation: float = 0.01
+    pv_initial_degradation: float = 0.0
     pv_degradation: float = 0.0035
 
     # Degradación anual de la batería.
@@ -25,23 +25,6 @@ class BatteryEconomicConfiguration:
     maintenance_growth: float = 0.02
 
     discount_rate: float = 0.05
-@dataclass(frozen=True)
-class BatteryEconomicConfiguration:
-    battery_cost_eur: float
-
-    annual_savings_eur: float
-
-    years: int = 30
-
-    electricity_price_growth: float = 0.02
-    pv_degradation: float = 0.0035
-    battery_degradation: float = 0.02
-
-    annual_maintenance_eur: float = 0.0
-    maintenance_growth: float = 0.02
-
-    discount_rate: float = 0.05
-
 @dataclass(frozen=True)
 class BatteryEconomicResult:
     cash_flows: list[float]
@@ -78,11 +61,15 @@ class BatteryEconomicModel:
             #   initial degradation is applied once.
             #
             # Year 2 onwards:
-            #   the annual degradation is compounded.
+            #   annual degradation is accumulated linearly from the
+            #   initial degraded value.
             # ---------------------------------------------------------
             pv_factor = (
-                (1.0 - configuration.pv_degradation)
-                ** (year - 1)
+                (1.0 - configuration.pv_initial_degradation)
+                - (
+                    configuration.pv_degradation
+                    * (year - 1)
+                )
             )
 
             # ---------------------------------------------------------
@@ -116,6 +103,13 @@ class BatteryEconomicModel:
                 * electricity_factor
             )
 
+            # ---------------------------------------------------------
+            # Maintenance
+            #
+            # Year 1 = base maintenance
+            # Year 2 = base × (1 + growth)
+            # Year 3 = base × (1 + growth)²
+            # ---------------------------------------------------------
             maintenance = (
                 configuration.annual_maintenance_eur
                 * (

@@ -112,6 +112,7 @@ class TestBatteryEconomicModel:
             annual_savings_eur=500.0,
             years=2,
             electricity_price_growth=0.0,
+            pv_initial_degradation=0.0,
             pv_degradation=0.10,
             battery_degradation=0.0,
             annual_maintenance_eur=0.0,
@@ -249,6 +250,7 @@ class TestBatteryEconomicModel:
             annual_savings_eur=1000.0,
             years=3,
             electricity_price_growth=0.02,
+            pv_initial_degradation=0.01,
             pv_degradation=0.0035,
             battery_degradation=0.02,
             annual_maintenance_eur=0.0,
@@ -258,18 +260,21 @@ class TestBatteryEconomicModel:
 
         result = BatteryEconomicModel().calculate(configuration)
 
-        expected_year_1 = 1000.0
+        expected_year_1 = (
+            1000.0
+            * 0.99
+        )
 
         expected_year_2 = (
             1000.0
-            * 0.9965
+            * 0.9865
             * 0.98
             * 1.02
         )
 
         expected_year_3 = (
             1000.0
-            * 0.9965**2
+            * 0.9830
             * 0.98**2
             * 1.02**2
         )
@@ -337,3 +342,31 @@ class TestBatteryEconomicModel:
         assert result.cash_flows[1] == pytest.approx(900.0)
         assert result.cash_flows[2] == pytest.approx(898.0)
         assert result.cash_flows[3] == pytest.approx(895.96)
+
+    def test_pv_degradation_applies_initial_and_annual_degradation(self):
+        configuration = BatteryEconomicConfiguration(
+            battery_cost_eur=0.0,
+            annual_savings_eur=1000.0,
+            years=3,
+            electricity_price_growth=0.0,
+            pv_initial_degradation=0.01,
+            pv_degradation=0.0035,
+            battery_degradation=0.0,
+            annual_maintenance_eur=0.0,
+            maintenance_growth=0.0,
+            discount_rate=0.0,
+        )
+
+        result = BatteryEconomicModel().calculate(configuration)
+
+        assert result.cash_flows[1] == pytest.approx(
+            990.0
+        )
+
+        assert result.cash_flows[2] == pytest.approx(
+            986.5
+        )
+
+        assert result.cash_flows[3] == pytest.approx(
+            983.0
+        )

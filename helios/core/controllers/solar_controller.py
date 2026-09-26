@@ -478,7 +478,7 @@ class SolarController:
         max_soc: float = 0.90,
         initial_soc: float = 0.10,
         battery_cost_per_kwh_eur: float = 249.70,
-        years: int = 30,
+        years: int = 25,
         battery_degradation: float = 0.02,
         battery_annual_maintenance_eur: float = 0.0,
     ) -> list[BatteryRecommendation]:
@@ -554,6 +554,10 @@ class SolarController:
                     economics_configuration
                     .annual_electricity_price_growth
                 ),
+                pv_initial_degradation=(
+                    economics_configuration
+                    .first_year_degradation
+               ),
                 pv_degradation=(
                     economics_configuration
                     .annual_degradation

@@ -284,6 +284,9 @@ class EconomicsEngine:
         Calculate annual savings for an economic scenario.
 
         The original tariff data is not modified.
+
+        Export compensation is limited independently for each
+        monthly billing period.
         """
 
         if energy_balance is None:
@@ -291,7 +294,53 @@ class EconomicsEngine:
                 "Energy balance has not been calculated."
             )
 
-        data = energy_balance.join(
+        required_balance_columns = {
+            "grid_import_kwh",
+            "grid_export_kwh",
+        }
+
+        missing_balance_columns = (
+            required_balance_columns
+            - set(energy_balance.columns)
+        )
+
+        if missing_balance_columns:
+            raise ValueError(
+                "energy_balance must contain "
+                "'grid_import_kwh' and 'grid_export_kwh'."
+            )
+
+        required_tariff_columns = {
+            "buy_price_eur_kwh",
+            "sell_price_eur_kwh",
+        }
+
+        missing_tariff_columns = (
+            required_tariff_columns
+            - set(tariff_data.columns)
+        )
+
+        if missing_tariff_columns:
+            raise ValueError(
+                "tariff_data must contain "
+                "'buy_price_eur_kwh' and "
+                "'sell_price_eur_kwh'."
+            )
+
+        if not energy_balance.index.equals(
+            tariff_data.index
+        ):
+            raise ValueError(
+                "Energy balance and tariff data "
+                "must have the same hourly index."
+            )
+
+        data = energy_balance[
+            [
+                "grid_import_kwh",
+                "grid_export_kwh",
+            ]
+        ].join(
             tariff_data[
                 [
                     "buy_price_eur_kwh",
@@ -310,31 +359,73 @@ class EconomicsEngine:
             * sell_price_factor
         )
 
-        scenario_grid_import_cost = (
+        data["grid_import_cost_eur"] = (
             data["grid_import_kwh"]
             * data["scenario_buy_price"]
-        ).sum()
-
-        scenario_export_income = (
-            data["grid_export_kwh"]
-            * data["scenario_sell_price"]
-        ).sum()
-
-        scenario_cost_with_pv = (
-            scenario_grid_import_cost
-            - scenario_export_income
         )
 
-        scenario_self_consumption_savings = (
-            self.cost_without_pv
-            - (
-                scenario_cost_with_pv
-                + scenario_export_income
+        data["grid_export_value_eur"] = (
+            data["grid_export_kwh"]
+            * data["scenario_sell_price"]
+        )
+
+        data["billing_period"] = (
+            data.index.to_period("M")
+        )
+
+        monthly_import_cost = (
+            data
+            .groupby("billing_period")[
+                "grid_import_cost_eur"
+            ]
+            .sum()
+        )
+
+        monthly_export_value = (
+            data
+            .groupby("billing_period")[
+                "grid_export_value_eur"
+            ]
+            .sum()
+        )
+
+        monthly_compensation = (
+            pd.concat(
+                [
+                    monthly_import_cost,
+                    monthly_export_value,
+                ],
+                axis=1,
             )
+            .fillna(0.0)
+        )
+
+        monthly_compensation[
+            "effective_export_income"
+        ] = (
+            monthly_compensation[
+                [
+                    "grid_import_cost_eur",
+                    "grid_export_value_eur",
+                ]
+            ]
+            .min(axis=1)
+        )
+
+        scenario_export_income = float(
+            monthly_compensation[
+                "effective_export_income"
+            ].sum()
+        )
+
+        scenario_baseline_cost = (
+            self.cost_without_pv
+            * buy_price_factor
         )
 
         return (
-            scenario_self_consumption_savings
+            scenario_baseline_cost
+            - data["grid_import_cost_eur"].sum()
             + scenario_export_income
         )
 

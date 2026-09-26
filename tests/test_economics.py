@@ -3627,3 +3627,52 @@ class TestCalculateScenario:
         # Compensación = 20 €
         # Coste neto = 0 €
         assert result == pytest.approx(0.0)
+
+    def test_scenario_annual_savings_applies_monthly_export_compensation(
+        self,
+    ):
+        index = pd.DatetimeIndex(
+            [
+                "2025-01-15 12:00",
+                "2025-02-15 12:00",
+            ]
+        )
+
+        energy_balance = pd.DataFrame(
+            {
+                "grid_import_kwh": [
+                    100.0,
+                    0.0,
+                ],
+                "grid_export_kwh": [
+                    0.0,
+                    100.0,
+                ],
+            },
+            index=index,
+        )
+
+        tariff_data = pd.DataFrame(
+            {
+                "buy_price_eur_kwh": [
+                    0.20,
+                    0.20,
+                ],
+                "sell_price_eur_kwh": [
+                    0.06,
+                    0.06,
+                ],
+            },
+            index=index,
+        )
+
+        self.engine.cost_without_pv = 20.0
+
+        result = self.engine.calculate_scenario_annual_savings(
+            energy_balance,
+            tariff_data,
+        )
+
+        assert result == pytest.approx(
+            0.0
+        )
