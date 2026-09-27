@@ -47,6 +47,7 @@ from helios.solar.battery_optimizer import BatteryOptimizer
 
 from helios.solar.battery_economic_model import (
     BatteryEconomicConfiguration,
+    CombinedEconomicConfiguration,
 )
 
 from helios.solar.battery_recommendation import (
@@ -479,11 +480,15 @@ class SolarController:
         min_soc: float = 0.10,
         max_soc: float = 0.90,
         initial_soc: float = 0.10,
-        battery_economic_parameters: BatteryEconomicParameters | None = None
+        battery_economic_parameters: (
+            BatteryEconomicParameters | None
+        ) = None,
     ) -> list[BatteryRecommendation]:
 
         if battery_economic_parameters is None:
-            battery_economic_parameters = BatteryEconomicParameters()
+            battery_economic_parameters = (
+                BatteryEconomicParameters()
+            )
 
         consumption_scenario = (
             self.analyzer
@@ -498,7 +503,9 @@ class SolarController:
 
         solar_engine = self.analyzer.solar_engine
 
-        hourly_production = solar_engine.hourly_production
+        hourly_production = (
+            solar_engine.hourly_production
+        )
 
         if hourly_production is None:
             raise RuntimeError(
@@ -524,6 +531,13 @@ class SolarController:
         )
 
         economics_controller = self.analyzer.economics
+        economics_configuration = (
+            self.analyzer.economics.configuration
+        )
+
+        # ---------------------------------------------------------
+        # Baseline FV without battery
+        # ---------------------------------------------------------
 
         baseline_balance = SolarBalanceEngine.calculate(
             consumption_scenario,
@@ -531,11 +545,21 @@ class SolarController:
             None,
         )
 
-        annual_cost_without_battery = (
+        annual_cost_with_pv = (
             economics_controller
             .calculate_cost_with_balance(
                 baseline_balance
             )
+        )
+
+        annual_cost_without_pv = (
+            economics_controller
+            .calculate_cost_without_pv()
+        )
+
+        annual_pv_savings = (
+            annual_cost_without_pv
+            - annual_cost_with_pv
         )
 
         cost_calculator = (
@@ -543,9 +567,9 @@ class SolarController:
             .calculate_cost_with_balance
         )
 
-        economics_configuration = (
-            self.analyzer.economics.configuration
-        )
+        # ---------------------------------------------------------
+        # Incremental battery economics
+        # ---------------------------------------------------------
 
         battery_economic_configuration = (
             BatteryEconomicConfiguration(
@@ -562,7 +586,7 @@ class SolarController:
                 pv_initial_degradation=(
                     economics_configuration
                     .first_year_degradation
-               ),
+                ),
                 pv_degradation=(
                     economics_configuration
                     .annual_degradation
@@ -586,15 +610,87 @@ class SolarController:
             )
         )
 
+        # ---------------------------------------------------------
+        # Combined PV + battery economics
+        # ---------------------------------------------------------
+
+        net_installation_cost = (
+            self.analyzer.economics_engine
+            .calculate_net_investment(
+                economics_configuration
+            )
+        )
+
+        combined_economic_configuration = (
+            CombinedEconomicConfiguration(
+                installation_cost_eur=(
+                    net_installation_cost
+                ),
+                battery_cost_eur=0.0,
+                annual_pv_savings_eur=(
+                    annual_pv_savings
+                ),
+                annual_battery_additional_savings_eur=0.0,
+                years=(
+                    battery_economic_parameters
+                    .lifetime_years
+                ),
+                electricity_price_growth=(
+                    economics_configuration
+                    .annual_electricity_price_growth
+                ),
+                pv_initial_degradation=(
+                    economics_configuration
+                    .first_year_degradation
+                ),
+                pv_degradation=(
+                    economics_configuration
+                    .annual_degradation
+                ),
+                battery_degradation=(
+                    battery_economic_parameters
+                    .annual_degradation
+                ),
+                annual_pv_maintenance_eur=(
+                    economics_configuration
+                    .annual_maintenance_cost
+                ),
+                annual_battery_maintenance_eur=(
+                    battery_economic_parameters
+                    .annual_maintenance_eur
+                ),
+                maintenance_growth=(
+                    economics_configuration
+                    .annual_maintenance_growth
+                ),
+                discount_rate=(
+                    economics_configuration
+                    .discount_rate
+                ),
+            )
+        )
+
+        # ---------------------------------------------------------
+        # Battery evaluation
+        # ---------------------------------------------------------
+
         self._battery_recommendations = (
             BatteryOptimizer().evaluate(
                 consumption_scenario,
                 production_profile,
                 candidate_capacities_kwh,
-                max_charge_power_kw=max_charge_power_kw,
-                max_discharge_power_kw=max_discharge_power_kw,
-                charge_efficiency=charge_efficiency,
-                discharge_efficiency=discharge_efficiency,
+                max_charge_power_kw=(
+                    max_charge_power_kw
+                ),
+                max_discharge_power_kw=(
+                    max_discharge_power_kw
+                ),
+                charge_efficiency=(
+                    charge_efficiency
+                ),
+                discharge_efficiency=(
+                    discharge_efficiency
+                ),
                 min_soc=min_soc,
                 max_soc=max_soc,
                 initial_soc=initial_soc,
@@ -603,11 +699,14 @@ class SolarController:
                     .cost_per_kwh_eur
                 ),
                 annual_cost_without_battery_eur=(
-                    annual_cost_without_battery
+                    annual_cost_with_pv
                 ),
                 cost_calculator=cost_calculator,
                 economic_configuration=(
                     battery_economic_configuration
+                ),
+                combined_economic_configuration=(
+                    combined_economic_configuration
                 ),
             )
         )

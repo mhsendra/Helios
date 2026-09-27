@@ -82,14 +82,9 @@ class EconomicsController:
 
         _, tariff_data = self._economic_data
 
-        self.analyzer.economics_engine.calculate_export_income(
-            energy_balance,
-            tariff_data,
-        )
-
         return (
             self.analyzer.economics_engine
-            .calculate_cost_with_pv(
+            .calculate_cost_with_balance(
                 energy_balance,
                 tariff_data,
             )

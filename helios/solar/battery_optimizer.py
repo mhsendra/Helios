@@ -6,6 +6,7 @@ from helios.solar.battery import BatteryEngine
 from helios.solar.battery_economic_model import (
     BatteryEconomicConfiguration,
     BatteryEconomicModel,
+    CombinedEconomicConfiguration,
 )
 from helios.solar.battery_recommendation import BatteryRecommendation
 from helios.solar.production_profile import SolarProductionProfile
@@ -31,6 +32,9 @@ class BatteryOptimizer:
         cost_calculator=None,
         economic_configuration: (
             BatteryEconomicConfiguration | None
+        ) = None,
+        combined_economic_configuration: (
+            CombinedEconomicConfiguration | None
         ) = None,
     ) -> list[BatteryRecommendation]:
 
@@ -224,6 +228,41 @@ class BatteryOptimizer:
                     economic_result.payback_years
                 )
 
+            # ---------------------------------------------------------
+            # Combined PV + battery lifecycle economic analysis
+            # ---------------------------------------------------------
+
+            combined_economic_npv_eur = 0.0
+            combined_economic_irr_percent = 0.0
+            combined_economic_payback_years = float("inf")
+
+            if combined_economic_configuration is not None:
+                combined_configuration_for_capacity = replace(
+                    combined_economic_configuration,
+                    battery_cost_eur=battery_cost_eur,
+                    annual_battery_additional_savings_eur=(
+                        annual_additional_savings
+                    ),
+                )
+
+                combined_economic_result = (
+                    BatteryEconomicModel().calculate_combined(
+                        combined_configuration_for_capacity
+                    )
+                )
+
+                combined_economic_npv_eur = (
+                    combined_economic_result.npv_eur
+                )
+
+                combined_economic_irr_percent = (
+                    combined_economic_result.irr_percent
+                )
+
+                combined_economic_payback_years = (
+                    combined_economic_result.payback_years
+                )
+
             recommendations.append(
                 BatteryRecommendation(
                     capacity_kwh=capacity,
@@ -269,6 +308,15 @@ class BatteryOptimizer:
                     economic_payback_years=(
                         economic_payback_years
                     ),
+                    combined_economic_npv_eur=(
+                        combined_economic_npv_eur
+                    ),
+                    combined_economic_irr_percent=(
+                        combined_economic_irr_percent
+                    ),
+                    combined_economic_payback_years=(
+                        combined_economic_payback_years
+                    ),
                 )
             )
 
@@ -292,6 +340,9 @@ class BatteryOptimizer:
         cost_calculator=None,
         economic_configuration: (
             BatteryEconomicConfiguration | None
+        ) = None,
+        combined_economic_configuration: (
+            CombinedEconomicConfiguration | None
         ) = None,
     ) -> list[BatteryRecommendation]:
 
@@ -347,6 +398,9 @@ class BatteryOptimizer:
             economic_configuration=(
                 economic_configuration
             ),
+            combined_economic_configuration=(
+                combined_economic_configuration
+            ),
         )
 
     def optimize(
@@ -368,6 +422,9 @@ class BatteryOptimizer:
         economic_configuration: (
             BatteryEconomicConfiguration | None
         ) = None,
+        combined_economic_configuration: (
+            CombinedEconomicConfiguration | None
+        ) = None,
     ) -> BatteryRecommendation:
 
         recommendations = self.evaluate(
@@ -388,6 +445,9 @@ class BatteryOptimizer:
             cost_calculator=cost_calculator,
             economic_configuration=(
                 economic_configuration
+            ),
+            combined_economic_configuration=(
+                combined_economic_configuration
             ),
         )
 

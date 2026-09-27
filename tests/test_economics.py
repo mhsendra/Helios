@@ -3017,6 +3017,81 @@ class TestEconomicsCosts:
         ):
             self.engine.calculate_annual_savings()
 
+    def test_calculate_cost_with_balance_does_not_modify_engine_state(
+        self,
+    ):
+        index = pd.date_range(
+            "2025-01-01",
+            periods=2,
+            freq="h",
+        )
+
+        energy_balance = pd.DataFrame(
+            {
+                "grid_import_kwh": [2.0, 3.0],
+                "grid_export_kwh": [1.0, 4.0],
+            },
+            index=index,
+        )
+
+        tariff_data = pd.DataFrame(
+            {
+                "buy_price_eur_kwh": [0.20, 0.30],
+                "sell_price_eur_kwh": [0.10, 0.10],
+            },
+            index=index,
+        )
+
+        self.engine.cost_without_pv = 999.0
+        self.engine.cost_with_pv = 888.0
+        self.engine.grid_import_cost = 777.0
+        self.engine.export_income = 666.0
+        self.engine.annual_savings = 555.0
+
+        result = self.engine.calculate_cost_with_balance(
+            energy_balance,
+            tariff_data,
+        )
+
+        expected_import_cost = (
+            2.0 * 0.20
+            + 3.0 * 0.30
+        )
+
+        expected_export_value = (
+            1.0 * 0.10
+            + 4.0 * 0.10
+        )
+
+        expected_cost = (
+            expected_import_cost
+            - expected_export_value
+        )
+
+        assert result == pytest.approx(
+            expected_cost
+        )
+
+        assert self.engine.cost_without_pv == pytest.approx(
+            999.0
+        )
+
+        assert self.engine.cost_with_pv == pytest.approx(
+            888.0
+        )
+
+        assert self.engine.grid_import_cost == pytest.approx(
+            777.0
+        )
+
+        assert self.engine.export_income == pytest.approx(
+            666.0
+        )
+
+        assert self.engine.annual_savings == pytest.approx(
+            555.0
+        )
+
 
 # ==========================================================
 # Inversión

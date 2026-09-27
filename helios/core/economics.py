@@ -241,6 +241,142 @@ class EconomicsEngine:
 
         return self.cost_with_pv
 
+    def calculate_cost_with_balance(
+        self,
+        energy_balance,
+        tariff_data,
+    ) -> float:
+        """
+        Calculate the annual net electricity cost for an arbitrary
+        energy balance without modifying the economic engine state.
+
+        This method is intended for evaluating alternative energy
+        balances, such as different battery capacities.
+
+        Export compensation is limited independently for each
+        monthly billing period.
+        """
+
+        required_balance_columns = {
+            "grid_import_kwh",
+            "grid_export_kwh",
+        }
+
+        missing_balance_columns = (
+            required_balance_columns
+            - set(energy_balance.columns)
+        )
+
+        if missing_balance_columns:
+            raise ValueError(
+                "energy_balance must contain "
+                "'grid_import_kwh' and 'grid_export_kwh'."
+            )
+
+        required_tariff_columns = {
+            "buy_price_eur_kwh",
+            "sell_price_eur_kwh",
+        }
+
+        missing_tariff_columns = (
+            required_tariff_columns
+            - set(tariff_data.columns)
+        )
+
+        if missing_tariff_columns:
+            raise ValueError(
+                "tariff_data must contain "
+                "'buy_price_eur_kwh' and "
+                "'sell_price_eur_kwh'."
+            )
+
+        if not energy_balance.index.equals(
+            tariff_data.index
+        ):
+            raise ValueError(
+                "Energy balance and tariff data "
+                "must have the same hourly index."
+            )
+
+        data = energy_balance[
+            [
+                "grid_import_kwh",
+                "grid_export_kwh",
+            ]
+        ].join(
+            tariff_data[
+                [
+                    "buy_price_eur_kwh",
+                    "sell_price_eur_kwh",
+                ]
+            ]
+        )
+
+        data["grid_import_cost_eur"] = (
+            data["grid_import_kwh"]
+            * data["buy_price_eur_kwh"]
+        )
+
+        data["grid_export_value_eur"] = (
+            data["grid_export_kwh"]
+            * data["sell_price_eur_kwh"]
+        )
+
+        data["billing_period"] = (
+            data.index.to_period("M")
+        )
+
+        monthly_import_cost = (
+            data
+            .groupby("billing_period")[
+                "grid_import_cost_eur"
+            ]
+            .sum()
+        )
+
+        monthly_export_value = (
+            data
+            .groupby("billing_period")[
+                "grid_export_value_eur"
+            ]
+            .sum()
+        )
+
+        monthly_compensation = (
+            pd.concat(
+                [
+                    monthly_import_cost,
+                    monthly_export_value,
+                ],
+                axis=1,
+            )
+            .fillna(0.0)
+        )
+
+        monthly_compensation[
+            "effective_export_income"
+        ] = (
+            monthly_compensation[
+                [
+                    "grid_import_cost_eur",
+                    "grid_export_value_eur",
+                ]
+            ]
+            .min(axis=1)
+        )
+
+        export_income = float(
+            monthly_compensation[
+                "effective_export_income"
+            ].sum()
+        )
+
+        grid_import_cost = float(
+            data["grid_import_cost_eur"].sum()
+        )
+
+        return grid_import_cost - export_income
+
     def calculate_annual_savings(self) -> float:
 
         if self.cost_without_pv is None:

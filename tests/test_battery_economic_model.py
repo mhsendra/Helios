@@ -4,7 +4,8 @@ import pytest
 
 from helios.solar.battery_economic_model import (
     BatteryEconomicConfiguration,
-    BatteryEconomicModel,
+    BatteryEconomicModel, 
+    CombinedEconomicConfiguration
 )
 
 
@@ -369,4 +370,136 @@ class TestBatteryEconomicModel:
 
         assert result.cash_flows[3] == pytest.approx(
             983.0
+        )
+
+    def test_calculate_combined_uses_total_investment(
+        self,
+    ):
+        configuration = CombinedEconomicConfiguration(
+            installation_cost_eur=10000.0,
+            battery_cost_eur=2000.0,
+            annual_pv_savings_eur=2000.0,
+            annual_battery_additional_savings_eur=500.0,
+            years=2,
+            electricity_price_growth=0.0,
+            pv_initial_degradation=0.0,
+            pv_degradation=0.0,
+            battery_degradation=0.0,
+            annual_pv_maintenance_eur=0.0,
+            annual_battery_maintenance_eur=0.0,
+            maintenance_growth=0.0,
+            discount_rate=0.0,
+        )
+
+        result = BatteryEconomicModel().calculate_combined(
+            configuration
+        )
+
+        assert result.cash_flows == pytest.approx(
+            [
+                -12000.0,
+                2500.0,
+                2500.0,
+            ]
+        )
+
+        assert result.cumulative_cash_flow == pytest.approx(
+            [
+                -12000.0,
+                -9500.0,
+                -7000.0,
+            ]
+        )
+
+    def test_calculate_combined_applies_battery_degradation_only_to_additional_savings(
+        self,
+    ):
+        configuration = CombinedEconomicConfiguration(
+            installation_cost_eur=0.0,
+            battery_cost_eur=0.0,
+            annual_pv_savings_eur=1000.0,
+            annual_battery_additional_savings_eur=500.0,
+            years=2,
+            electricity_price_growth=0.0,
+            pv_initial_degradation=0.0,
+            pv_degradation=0.0,
+            battery_degradation=0.10,
+            annual_pv_maintenance_eur=0.0,
+            annual_battery_maintenance_eur=0.0,
+            maintenance_growth=0.0,
+            discount_rate=0.0,
+        )
+
+        result = BatteryEconomicModel().calculate_combined(
+            configuration
+        )
+
+        assert result.cash_flows[1] == pytest.approx(
+            1500.0
+        )
+
+        assert result.cash_flows[2] == pytest.approx(
+            1450.0
+        )
+
+    def test_calculate_combined_applies_pv_degradation_to_both_components(
+        self,
+    ):
+        configuration = CombinedEconomicConfiguration(
+            installation_cost_eur=0.0,
+            battery_cost_eur=0.0,
+            annual_pv_savings_eur=1000.0,
+            annual_battery_additional_savings_eur=500.0,
+            years=2,
+            electricity_price_growth=0.0,
+            pv_initial_degradation=0.0,
+            pv_degradation=0.10,
+            battery_degradation=0.0,
+            annual_pv_maintenance_eur=0.0,
+            annual_battery_maintenance_eur=0.0,
+            maintenance_growth=0.0,
+            discount_rate=0.0,
+        )
+
+        result = BatteryEconomicModel().calculate_combined(
+            configuration
+        )
+
+        assert result.cash_flows[1] == pytest.approx(
+            1500.0
+        )
+
+        assert result.cash_flows[2] == pytest.approx(
+            1350.0
+        )
+
+    def test_calculate_combined_includes_pv_and_battery_maintenance(
+        self,
+    ):
+        configuration = CombinedEconomicConfiguration(
+            installation_cost_eur=0.0,
+            battery_cost_eur=0.0,
+            annual_pv_savings_eur=1000.0,
+            annual_battery_additional_savings_eur=0.0,
+            years=2,
+            electricity_price_growth=0.0,
+            pv_initial_degradation=0.0,
+            pv_degradation=0.0,
+            battery_degradation=0.0,
+            annual_pv_maintenance_eur=100.0,
+            annual_battery_maintenance_eur=50.0,
+            maintenance_growth=0.10,
+            discount_rate=0.0,
+        )
+
+        result = BatteryEconomicModel().calculate_combined(
+            configuration
+        )
+
+        assert result.cash_flows == pytest.approx(
+            [
+                0.0,
+                850.0,
+                835.0,
+            ]
         )

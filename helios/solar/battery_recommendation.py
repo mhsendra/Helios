@@ -36,6 +36,10 @@ class BatteryRecommendation:
     economic_irr_percent: float = 0.0
     economic_payback_years: float = float("inf")
 
+    combined_economic_npv_eur: float = 0.0
+    combined_economic_irr_percent: float = 0.0
+    combined_economic_payback_years: float = float("inf")
+
     @property
     def battery_energy_stored_kwh(self) -> float:
         return self.annual_battery_charge_kwh

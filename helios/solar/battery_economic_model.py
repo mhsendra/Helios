@@ -31,6 +31,38 @@ class BatteryEconomicResult:
     irr_percent: float
     payback_years: float
 
+@dataclass(frozen=True)
+class CombinedEconomicConfiguration:
+    installation_cost_eur: float
+    battery_cost_eur: float
+
+    annual_pv_savings_eur: float
+    annual_battery_additional_savings_eur: float
+
+    years: int = 25
+
+    electricity_price_growth: float = 0.02
+
+    pv_initial_degradation: float = 0.01
+    pv_degradation: float = 0.0035
+    battery_degradation: float = 0.02
+
+    annual_pv_maintenance_eur: float = 150.0
+    annual_battery_maintenance_eur: float = 0.0
+    maintenance_growth: float = 0.02
+
+    discount_rate: float = 0.05
+
+
+@dataclass(frozen=True)
+class CombinedEconomicResult:
+    cash_flows: list[float]
+    cumulative_cash_flow: list[float]
+
+    npv_eur: float
+    irr_percent: float
+    payback_years: float
+
 
 class BatteryEconomicModel:
 
@@ -182,6 +214,151 @@ class BatteryEconomicModel:
                 break
 
         return BatteryEconomicResult(
+            cash_flows=cash_flows,
+            cumulative_cash_flow=cumulative_cash_flow,
+            npv_eur=float(npv),
+            irr_percent=irr_percent,
+            payback_years=payback_years,
+        )
+
+    def calculate_combined(
+        self,
+        configuration: CombinedEconomicConfiguration,
+    ) -> CombinedEconomicResult:
+        """
+        Calculate the lifecycle economics of the complete
+        photovoltaic + battery system.
+
+        PV savings are affected by PV degradation.
+
+        Battery additional savings are affected by both
+        PV degradation and battery degradation.
+
+        The initial investment includes both the PV installation
+        and the battery.
+
+        This calculation is independent from the incremental
+        battery-only calculation performed by calculate().
+        """
+
+        initial_investment = (
+            configuration.installation_cost_eur
+            + configuration.battery_cost_eur
+        )
+
+        cash_flows = [
+            -initial_investment
+        ]
+
+        cumulative_cash_flow = [
+            -initial_investment
+        ]
+
+        cumulative = -initial_investment
+
+        for year in range(1, configuration.years + 1):
+
+            pv_factor = (
+                (1.0 - configuration.pv_initial_degradation)
+                - (
+                    configuration.pv_degradation
+                    * (year - 1)
+                )
+            )
+
+            battery_factor = (
+                (1.0 - configuration.battery_degradation)
+                ** (year - 1)
+            )
+
+            electricity_factor = (
+                (1.0 + configuration.electricity_price_growth)
+                ** (year - 1)
+            )
+
+            pv_savings = (
+                configuration.annual_pv_savings_eur
+                * pv_factor
+                * electricity_factor
+            )
+
+            battery_savings = (
+                configuration.annual_battery_additional_savings_eur
+                * pv_factor
+                * battery_factor
+                * electricity_factor
+            )
+
+            maintenance = (
+                (
+                    configuration.annual_pv_maintenance_eur
+                    + configuration.annual_battery_maintenance_eur
+                )
+                * (
+                    (1.0 + configuration.maintenance_growth)
+                    ** (year - 1)
+                )
+            )
+
+            cash_flow = (
+                pv_savings
+                + battery_savings
+                - maintenance
+            )
+
+            cash_flows.append(cash_flow)
+
+            cumulative += cash_flow
+            cumulative_cash_flow.append(cumulative)
+
+        npv = sum(
+            cash_flow
+            / (
+                (1.0 + configuration.discount_rate) ** year
+            )
+            for year, cash_flow in enumerate(cash_flows)
+        )
+
+        try:
+            irr = npf.irr(cash_flows)
+
+            irr_percent = (
+                float(irr) * 100
+                if irr is not None
+                else float("nan")
+            )
+
+        except (ValueError, TypeError):
+            irr_percent = float("nan")
+
+        payback_years = float("inf")
+
+        for year in range(
+            1,
+            len(cumulative_cash_flow),
+        ):
+
+            previous = cumulative_cash_flow[year - 1]
+            current = cumulative_cash_flow[year]
+
+            if current >= 0:
+
+                if current == previous:
+                    payback_years = float(year)
+
+                else:
+                    fraction = (
+                        -previous
+                        / (current - previous)
+                    )
+
+                    payback_years = (
+                        year - 1 + fraction
+                    )
+
+                break
+
+        return CombinedEconomicResult(
             cash_flows=cash_flows,
             cumulative_cash_flow=cumulative_cash_flow,
             npv_eur=float(npv),
