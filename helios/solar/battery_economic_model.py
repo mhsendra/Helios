@@ -2,9 +2,6 @@ from dataclasses import dataclass
 
 import numpy_financial as npf
 
-from dataclasses import dataclass
-
-
 @dataclass(frozen=True)
 class BatteryEconomicConfiguration:
     battery_cost_eur: float

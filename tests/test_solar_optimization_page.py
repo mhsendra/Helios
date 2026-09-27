@@ -117,6 +117,146 @@ class TestSolarOptimizationPage:
             is True
         )
 
+    def test_battery_table_initialization(
+        self,
+    ):
+
+        page, _ = self.create_page()
+
+        assert (
+            page.battery_table.columnCount()
+            == 8
+        )
+
+        assert (
+            page.battery_table.rowCount()
+            == 0
+        )
+
+        assert (
+            page.battery_status_label.text()
+            == (
+                "No hay una evaluación de baterías disponible."
+            )
+        )
+
+    def test_show_battery_economic_results(
+        self,
+    ):
+
+        page, _ = self.create_page()
+
+        recommendations = []
+
+        for capacity in [5.0, 8.3]:
+
+            recommendation = MagicMock()
+
+            recommendation.capacity_kwh = capacity
+            recommendation.annual_additional_savings_eur = 200.0
+            recommendation.incremental_battery_cost_eur = 1000.0
+            recommendation.incremental_savings_eur = 50.0
+            recommendation.marginal_payback_years = 20.0
+            recommendation.economic_npv_eur = 1500.0
+            recommendation.economic_irr_percent = 8.5
+            recommendation.economic_payback_years = 10.0
+
+            recommendations.append(
+                recommendation
+            )
+
+        page.show_battery_economic_results(
+            recommendations
+        )
+
+        assert (
+            page.battery_table.rowCount()
+            == 2
+        )
+
+        assert (
+            page.battery_table.item(0, 0).text()
+            == "5.0 kWh"
+        )
+
+        assert (
+            page.battery_table.item(0, 1).text()
+            == "200.00 €"
+        )
+
+        assert (
+            page.battery_table.item(0, 2).text()
+            == "1,000.00 €"
+        )
+
+        assert (
+            page.battery_table.item(0, 4).text()
+            == "20.00 años"
+        )
+
+        assert (
+            page.battery_table.item(0, 5).text()
+            == "1,500.00 €"
+        )
+
+        assert (
+            page.battery_table.item(0, 6).text()
+            == "8.50 %"
+        )
+
+        assert (
+            page.battery_table.item(0, 7).text()
+            == "10.00 años"
+        )
+
+        assert (
+            page.battery_status_label.text()
+            == (
+                "Evaluación económica completada. "
+                "2 capacidades comparadas."
+            )
+        )
+
+    def test_evaluate_batteries_calls_controller(
+        self,
+    ):
+
+        page, project = self.create_page(
+            self.create_solar_configuration()
+        )
+
+        recommendations = [
+            MagicMock(),
+            MagicMock(),
+        ]
+
+        project.solar.evaluate_batteries.return_value = (
+            recommendations
+        )
+
+        page.show_battery_economic_results = MagicMock()
+
+        result = page.evaluate_batteries()
+
+        assert result == recommendations
+
+        project.solar.evaluate_batteries.assert_called_once_with(
+            [
+                5.0,
+                8.3,
+                16.6,
+                24.9,
+                30.0,
+            ],
+            max_charge_power_kw=5.0,
+            max_discharge_power_kw=5.0,
+            battery_cost_per_kwh_eur=249.70,
+        )
+
+        page.show_battery_economic_results.assert_called_once_with(
+            recommendations
+        )
+
     # ==========================================================
     # INSTALLATION CONFIGURATION
     # ==========================================================
@@ -846,6 +986,8 @@ class TestSolarOptimizationPage:
             result
         )
 
+        project.solar.evaluate_batteries.return_value = []
+
         page.show_optimization_result = MagicMock()
 
         page.start_optimization()
@@ -857,6 +999,19 @@ class TestSolarOptimizationPage:
             installed_power_kwp=(
                 result.installed_power_kwp
             ),
+        )
+
+        project.solar.evaluate_batteries.assert_called_once_with(
+            [
+                5.0,
+                8.3,
+                16.6,
+                24.9,
+                30.0,
+            ],
+            max_charge_power_kw=5.0,
+            max_discharge_power_kw=5.0,
+            battery_cost_per_kwh_eur=249.70,
         )
 
         assert (

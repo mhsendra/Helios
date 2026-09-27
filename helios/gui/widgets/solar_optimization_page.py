@@ -15,7 +15,11 @@ from PySide6.QtWidgets import (
     QGroupBox,
     QSizePolicy,
     QSlider,
+    QTableWidget,
+    QTableWidgetItem,
+    QHeaderView,
 )
+
 from PySide6.QtGui import (
     QPainter,
     QPen,
@@ -716,6 +720,10 @@ class SolarOptimizationPage(QWidget):
             self.create_result_group()
         )
 
+        layout.addWidget(
+            self.create_battery_economic_group()
+        )
+
         layout.addStretch()
 
         self.scroll_area.setWidget(content)
@@ -1160,6 +1168,78 @@ class SolarOptimizationPage(QWidget):
 
         return group
 
+    def create_battery_economic_group(self):
+
+        group = QGroupBox(
+            "Evaluación económica de baterías"
+        )
+
+        layout = QVBoxLayout(group)
+
+        description = QLabel(
+            "Comparación de distintas capacidades de batería "
+            "sobre la instalación fotovoltaica calculada. "
+            "Los resultados económicos incluyen ahorro anual, "
+            "coste incremental, payback marginal, NPV e IRR."
+        )
+
+        description.setWordWrap(True)
+
+        layout.addWidget(description)
+
+        self.battery_status_label = QLabel(
+            "No hay una evaluación de baterías disponible."
+        )
+
+        layout.addWidget(
+            self.battery_status_label
+        )
+
+        self.battery_table = QTableWidget()
+
+        self.battery_table.setColumnCount(8)
+
+        self.battery_table.setHorizontalHeaderLabels(
+            [
+                "Capacidad",
+                "Ahorro adicional",
+                "Coste incremental",
+                "Ahorro incremental",
+                "Payback marginal",
+                "NPV",
+                "IRR",
+                "Payback económico",
+            ]
+        )
+
+        self.battery_table.setEditTriggers(
+            QTableWidget.NoEditTriggers
+        )
+
+        self.battery_table.setSelectionBehavior(
+            QTableWidget.SelectRows
+        )
+
+        self.battery_table.setSelectionMode(
+            QTableWidget.SingleSelection
+        )
+
+        self.battery_table.horizontalHeader().setSectionResizeMode(
+            QHeaderView.Stretch
+        )
+
+        self.battery_table.verticalHeader().setVisible(
+            False
+        )
+
+        self.battery_table.setMinimumHeight(220)
+
+        layout.addWidget(
+            self.battery_table
+        )
+
+        return group
+
     # ==================================================
     # CONFIGURACIÓN
     # ==================================================
@@ -1391,6 +1471,109 @@ class SolarOptimizationPage(QWidget):
 
         self.show_installation_layout(result)
 
+    def evaluate_batteries(self):
+
+        candidate_capacities_kwh = [
+            5.0,
+            8.3,
+            16.6,
+            24.9,
+            30.0,
+        ]
+
+        recommendations = (
+            self.project.solar.evaluate_batteries(
+                candidate_capacities_kwh,
+                max_charge_power_kw=5.0,
+                max_discharge_power_kw=5.0,
+                battery_cost_per_kwh_eur=249.70,
+            )
+        )
+
+        self.show_battery_economic_results(
+            recommendations
+        )
+
+        return recommendations
+
+
+    def show_battery_economic_results(
+        self,
+        recommendations,
+    ):
+
+        self.battery_table.setRowCount(
+            len(recommendations)
+        )
+
+        for row, recommendation in enumerate(
+            recommendations
+        ):
+
+            values = [
+                (
+                    f"{recommendation.capacity_kwh:.1f} kWh"
+                ),
+                (
+                    f"{recommendation.annual_additional_savings_eur:,.2f} €"
+                ),
+                (
+                    f"{recommendation.incremental_battery_cost_eur:,.2f} €"
+                ),
+                (
+                    f"{recommendation.incremental_savings_eur:,.2f} €"
+                ),
+                self._format_years(
+                    recommendation.marginal_payback_years
+                ),
+                (
+                    f"{recommendation.economic_npv_eur:,.2f} €"
+                ),
+                (
+                    f"{recommendation.economic_irr_percent:.2f} %"
+                ),
+                self._format_years(
+                    recommendation.economic_payback_years
+                ),
+            ]
+
+            for column, value in enumerate(values):
+
+                item = QTableWidgetItem(value)
+
+                item.setTextAlignment(
+                    Qt.AlignCenter
+                )
+
+                self.battery_table.setItem(
+                    row,
+                    column,
+                    item,
+                )
+
+        if recommendations:
+
+            self.battery_status_label.setText(
+                "Evaluación económica completada. "
+                f"{len(recommendations)} capacidades comparadas."
+            )
+
+        else:
+
+            self.battery_status_label.setText(
+                "No se han obtenido recomendaciones de batería."
+            )
+
+
+    @staticmethod
+    def _format_years(value):
+
+        if value == float("inf"):
+
+            return "—"
+
+        return f"{value:.2f} años"
+
     # ==================================================
     # LAYOUT FÍSICO
     # ==================================================
@@ -1579,6 +1762,8 @@ class SolarOptimizationPage(QWidget):
                 installed_power_kwp=result.installed_power_kwp,
             )
 
+            self.evaluate_batteries()
+
             if self.main_window is not None:
 
                 self.main_window.set_solar_optimized(True)
@@ -1631,6 +1816,8 @@ class SolarOptimizationPage(QWidget):
         for label in labels:
             label.setText("-")
 
+        self.battery_table.setRowCount(0)
+
         self.roof_layout_widget.clear()
 
         self.walkway_slider.setEnabled(False)
@@ -1639,6 +1826,9 @@ class SolarOptimizationPage(QWidget):
 
         self.layout_info_label.setText(
             "No hay una instalación calculada."
+        )
+        self.battery_status_label.setText(
+            "No hay una evaluación de baterías disponible."
         )
 
     def reset(self):

@@ -1390,18 +1390,32 @@ class SolarReportGenerator:
 
         if data.battery_recommendations:
 
-            battery_data = [
+            # --------------------------------------------------
+            # Tabla 1: costes y ahorro marginal
+            # --------------------------------------------------
+
+            battery_operational_data = [
                 [
                     "Capacidad",
                     "Coste anual",
                     "Ahorro adicional",
                     "Coste incremental",
                     "Ahorro incremental",
-                    "Ahorro marginal",
                     "PB marginal",
+                ],
+            ]
+
+            # --------------------------------------------------
+            # Tabla 2: rentabilidad económica a largo plazo
+            # --------------------------------------------------
+
+            battery_economic_data = [
+                [
+                    "Capacidad",
+                    "Ahorro marginal",
                     "VAN",
                     "TIR",
-                    "PB",
+                    "Payback económico",
                 ],
             ]
 
@@ -1409,15 +1423,29 @@ class SolarReportGenerator:
 
                 marginal_payback = (
                     "N/D"
-                    if recommendation.marginal_payback_years == float("inf")
+                    if recommendation.marginal_payback_years
+                    == float("inf")
                     else (
                         f"{recommendation.marginal_payback_years:.2f} años"
                     )
                 )
 
-                battery_data.append(
+                economic_payback = (
+                    "N/D"
+                    if recommendation.economic_payback_years
+                    == float("inf")
+                    else (
+                        f"{recommendation.economic_payback_years:.2f} años"
+                    )
+                )
+
+                capacity = (
+                    f"{recommendation.capacity_kwh:.1f} kWh"
+                )
+
+                battery_operational_data.append(
                     [
-                        f"{recommendation.capacity_kwh:.1f} kWh",
+                        capacity,
                         (
                             f"{recommendation.annual_cost_with_battery_eur:,.2f} €"
                         ),
@@ -1430,83 +1458,65 @@ class SolarReportGenerator:
                         (
                             f"{recommendation.incremental_savings_eur:,.2f} €"
                         ),
-                        (
-                            f"{recommendation.marginal_savings_per_kwh:,.2f} €/kWh"
-                        ),
                         marginal_payback,
-                        f"{recommendation.economic_npv_eur:,.2f} €",
-                        (
-                            f"{recommendation.economic_irr_percent:.2f} %"
-                        ),
-                        (
-                            f"{recommendation.economic_payback_years:.2f} años"
-                        ),
                     ]
                 )
 
-            battery_table = Table(
-                battery_data,
+                battery_economic_data.append(
+                    [
+                        capacity,
+                        (
+                            f"{recommendation.marginal_savings_per_kwh:,.2f} €/kWh"
+                        ),
+                        (
+                            f"{recommendation.economic_npv_eur:,.2f} €"
+                        ),
+                        (
+                            f"{recommendation.economic_irr_percent:.2f} %"
+                        ),
+                        economic_payback,
+                    ]
+                )
+
+            battery_operational_table = Table(
+                battery_operational_data,
                 colWidths=[
-                    45,
-                    55,
-                    60,
-                    60,
-                    60,
-                    60,
-                    55,
-                    55,
-                    45,
-                    50,
+                    65,
+                    75,
+                    90,
+                    90,
+                    90,
+                    75,
                 ],
                 repeatRows=1,
             )
 
-            battery_table.setStyle(
+            battery_economic_table = Table(
+                battery_economic_data,
+                colWidths=[
+                    80,
+                    105,
+                    105,
+                    80,
+                    120,
+                ],
+                repeatRows=1,
+            )
+
+            self._style_table(
+                battery_operational_table,
+                HELIOS_PURPLE,
+            )
+
+            self._style_table(
+                battery_economic_table,
+                HELIOS_PURPLE,
+            )
+
+            # Alineación numérica.
+            battery_operational_table.setStyle(
                 TableStyle(
                     [
-                        (
-                            "BACKGROUND",
-                            (0, 0),
-                            (-1, 0),
-                            colors.HexColor(HELIOS_PURPLE),
-                        ),
-                        (
-                            "TEXTCOLOR",
-                            (0, 0),
-                            (-1, 0),
-                            colors.white,
-                        ),
-                        (
-                            "FONTNAME",
-                            (0, 0),
-                            (-1, 0),
-                            "Helvetica-Bold",
-                        ),
-                        (
-                            "FONTSIZE",
-                            (0, 0),
-                            (-1, -1),
-                            7,
-                        ),
-                        (
-                            "GRID",
-                            (0, 0),
-                            (-1, -1),
-                            0.5,
-                            colors.HexColor(HELIOS_BORDER),
-                        ),
-                        (
-                            "BACKGROUND",
-                            (0, 1),
-                            (-1, -1),
-                            colors.HexColor(HELIOS_BACKGROUND),
-                        ),
-                        (
-                            "VALIGN",
-                            (0, 0),
-                            (-1, -1),
-                            "MIDDLE",
-                        ),
                         (
                             "ALIGN",
                             (1, 1),
@@ -1519,29 +1529,24 @@ class SolarReportGenerator:
                             (0, -1),
                             "CENTER",
                         ),
+                    ]
+                )
+            )
+
+            battery_economic_table.setStyle(
+                TableStyle(
+                    [
                         (
-                            "LEFTPADDING",
-                            (0, 0),
+                            "ALIGN",
+                            (1, 1),
                             (-1, -1),
-                            3,
+                            "RIGHT",
                         ),
                         (
-                            "RIGHTPADDING",
+                            "ALIGN",
                             (0, 0),
-                            (-1, -1),
-                            3,
-                        ),
-                        (
-                            "TOPPADDING",
-                            (0, 0),
-                            (-1, -1),
-                            5,
-                        ),
-                        (
-                            "BOTTOMPADDING",
-                            (0, 0),
-                            (-1, -1),
-                            5,
+                            (0, -1),
+                            "CENTER",
                         ),
                     ]
                 )
@@ -1557,7 +1562,9 @@ class SolarReportGenerator:
                             HELIOS_PURPLE,
                         ),
                         Spacer(1, 10),
-                        battery_table,
+                        battery_operational_table,
+                        Spacer(1, 10),
+                        battery_economic_table,
                     ]
                 )
             )

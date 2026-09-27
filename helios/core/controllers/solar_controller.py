@@ -610,93 +610,6 @@ class SolarController:
     ) -> list[BatteryRecommendation]:
         return self._battery_recommendations
 
-    def optimize_battery(
-        self,
-        candidate_capacities_kwh: list[float],
-        *,
-        max_charge_power_kw: float,
-        max_discharge_power_kw: float,
-        charge_efficiency: float = 0.95,
-        discharge_efficiency: float = 0.95,
-        min_soc: float = 0.10,
-        max_soc: float = 0.90,
-        initial_soc: float = 0.10,
-    ):
-        consumption_scenario = (
-            self.analyzer
-            .calculate_representative_consumption_scenario()
-        )
-
-        if consumption_scenario is None:
-            raise ValueError(
-                "A representative consumption scenario is required "
-                "for battery optimization."
-            )
-
-        solar_engine = self.analyzer.solar_engine
-
-        hourly_production = solar_engine.hourly_production
-
-        if hourly_production is None:
-            raise RuntimeError(
-                "Hourly solar production has not been calculated."
-            )
-
-        production_profile = SolarProductionProfile(
-            hourly_production=(
-                hourly_production["production_kwh"]
-            ),
-            reference_year=(
-                solar_engine
-                .configuration
-                .reference_year
-            ),
-            installed_power_kwp=(
-                solar_engine
-                .installed_power_kwp
-            ),
-        )
-
-        economics_controller = (
-            self.analyzer.economics
-        )
-
-        # Coste de referencia: FV sin batería.
-        baseline_balance = SolarBalanceEngine.calculate(
-            consumption_scenario,
-            production_profile,
-            None,
-        )
-
-        annual_cost_without_battery = (
-            economics_controller
-            .calculate_cost_with_balance(
-                baseline_balance
-            )
-        )
-
-        cost_calculator = (
-            economics_controller
-            .calculate_cost_with_balance
-        )
-
-        return BatteryOptimizer().optimize(
-            consumption_scenario,
-            production_profile,
-            candidate_capacities_kwh,
-            max_charge_power_kw=max_charge_power_kw,
-            max_discharge_power_kw=max_discharge_power_kw,
-            charge_efficiency=charge_efficiency,
-            discharge_efficiency=discharge_efficiency,
-            min_soc=min_soc,
-            max_soc=max_soc,
-            initial_soc=initial_soc,
-            annual_cost_without_battery_eur=(
-                annual_cost_without_battery
-            ),
-            cost_calculator=cost_calculator,
-        )
-
     def calculate_statistics(self):
 
         self.analyzer.solar_engine.calculate_statistics()
@@ -742,18 +655,6 @@ class SolarController:
         self.calculate_yearly_production()
 
         self.calculate_energy_balance()
-
-        self.evaluate_batteries(
-            candidate_capacities_kwh=[
-                5.0,
-                8.3,
-                16.6,
-                24.9,
-                30.0,
-            ],
-            max_charge_power_kw=8.3,
-            max_discharge_power_kw=8.3,
-        )
 
         self.calculate_statistics()
 

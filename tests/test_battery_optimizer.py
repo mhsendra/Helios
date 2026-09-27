@@ -538,3 +538,71 @@ class TestBatteryOptimizer:
         )
 
         assert recommendation.capacity_kwh == pytest.approx(5.0)
+
+    def test_optimize_uses_default_battery_cost_per_kwh(
+        self,
+    ):
+        consumption = make_scenario([1.0] * 8760)
+        production = make_profile([1.0] * 8760)
+
+        economic_configuration = BatteryEconomicConfiguration(
+            battery_cost_eur=1.0,
+            annual_savings_eur=1.0,
+            years=2,
+            electricity_price_growth=0.0,
+            pv_degradation=0.0,
+            battery_degradation=0.0,
+            annual_maintenance_eur=0.0,
+            maintenance_growth=0.0,
+            discount_rate=0.0,
+        )
+
+        recommendation = make_optimizer().optimize(
+            consumption,
+            production,
+            [1.0],
+            max_charge_power_kw=5.0,
+            max_discharge_power_kw=5.0,
+            annual_cost_without_battery_eur=1000.0,
+            cost_calculator=lambda result: 400.0,
+            economic_configuration=economic_configuration,
+        )
+
+        assert recommendation.economic_npv_eur == pytest.approx(
+            -249.70 + 600.0 + 600.0
+        )
+
+
+    def test_optimize_uses_custom_battery_cost_per_kwh(
+        self,
+    ):
+        consumption = make_scenario([1.0] * 8760)
+        production = make_profile([1.0] * 8760)
+
+        economic_configuration = BatteryEconomicConfiguration(
+            battery_cost_eur=1.0,
+            annual_savings_eur=1.0,
+            years=2,
+            electricity_price_growth=0.0,
+            pv_degradation=0.0,
+            battery_degradation=0.0,
+            annual_maintenance_eur=0.0,
+            maintenance_growth=0.0,
+            discount_rate=0.0,
+        )
+
+        recommendation = make_optimizer().optimize(
+            consumption,
+            production,
+            [1.0],
+            max_charge_power_kw=5.0,
+            max_discharge_power_kw=5.0,
+            annual_cost_without_battery_eur=1000.0,
+            cost_calculator=lambda result: 400.0,
+            economic_configuration=economic_configuration,
+            battery_cost_per_kwh_eur=300.0,
+        )
+
+        assert recommendation.economic_npv_eur == pytest.approx(
+            -300.0 + 600.0 + 600.0
+        )

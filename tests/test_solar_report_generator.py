@@ -510,7 +510,7 @@ class TestSolarReportGenerator:
         assert data.productive_hours == 4380
         assert data.capacity_factor_percent == 17.62
 
-    def test_report_contains_nine_tables_including_cover_kpis(
+    def test_report_contains_eleven_tables_including_cover_kpis(
         self,
         monkeypatch,
         tmp_path,
@@ -529,7 +529,7 @@ class TestSolarReportGenerator:
             captured["story"]
         )
 
-        assert len(tables) == 10
+        assert len(tables) == 11
 
     def test_economic_assumptions_table_contains_exact_values(
         self,
@@ -620,7 +620,8 @@ class TestSolarReportGenerator:
             7,   # Balance
             11,  # Economía
             9,   # Hipótesis económicas
-            6,   # Análisis económico del almacenamiento: cabecera + 5 capacidades
+            6,   # Almacenamiento: análisis operativo/marginal
+            6,   # Almacenamiento: análisis económico
             4,   # Escenarios
             18,  # Glosario y definiciones
         ]
@@ -664,11 +665,14 @@ class TestSolarReportGenerator:
                 "Ahorro adicional",
                 "Coste incremental",
                 "Ahorro incremental",
-                "Ahorro marginal",
                 "PB marginal",
+            ],
+            [
+                "Capacidad",
+                "Ahorro marginal",
                 "VAN",
                 "TIR",
-                "PB",
+                "Payback económico",
             ],
             [
                 "Escenario",
@@ -940,7 +944,7 @@ class TestSolarReportGenerator:
             captured["story"]
         )
 
-        rows = self._table_rows(tables[8])
+        rows = self._table_rows(tables[9])
 
         assert rows == [
             [
@@ -1492,7 +1496,7 @@ class TestSolarReportGenerator:
             captured["story"]
         )
 
-        assert len(tables) == 10
+        assert len(tables) == 11
 
         assert [
             len(table._cellvalues)
@@ -1505,7 +1509,8 @@ class TestSolarReportGenerator:
             7,   # Balance
             11,  # Economía
             9,   # Hipótesis económicas
-            6,   # Análisis económico del almacenamiento: cabecera + 5 capacidades
+            6,   # Almacenamiento: costes y ahorro marginal
+            6,   # Almacenamiento: rentabilidad económica
             4,   # Escenarios
             18,  # Glosario y definiciones
         ]
@@ -1536,7 +1541,7 @@ class TestSolarReportGenerator:
 
         assert "story" not in captured
 
-    def test_battery_economic_table_contains_exact_values(
+    def test_battery_economic_tables_contain_exact_values(
         self,
         monkeypatch,
         tmp_path,
@@ -1555,24 +1560,21 @@ class TestSolarReportGenerator:
             captured["story"]
         )
 
-        battery_table = tables[7]
+        operational_table = tables[7]
+        economic_table = tables[8]
 
-        rows = self._table_rows(
-            battery_table
+        operational_rows = self._table_rows(
+            operational_table
         )
 
-        assert rows == [
+        assert operational_rows == [
             [
                 "Capacidad",
                 "Coste anual",
                 "Ahorro adicional",
                 "Coste incremental",
                 "Ahorro incremental",
-                "Ahorro marginal",
                 "PB marginal",
-                "VAN",
-                "TIR",
-                "PB",
             ],
             [
                 "5.0 kWh",
@@ -1580,11 +1582,7 @@ class TestSolarReportGenerator:
                 "102.38 €",
                 "0.00 €",
                 "0.00 €",
-                "0.00 €/kWh",
                 "N/D",
-                "260.10 €",
-                "6.80 %",
-                "12.47 años",
             ],
             [
                 "8.3 kWh",
@@ -1592,11 +1590,7 @@ class TestSolarReportGenerator:
                 "169.79 €",
                 "67.41 €",
                 "67.41 €",
-                "20.43 €/kWh",
                 "12.22 años",
-                "429.40 €",
-                "6.79 %",
-                "12.48 años",
             ],
             [
                 "16.6 kWh",
@@ -1604,11 +1598,7 @@ class TestSolarReportGenerator:
                 "250.63 €",
                 "80.84 €",
                 "80.84 €",
-                "9.74 €/kWh",
                 "25.64 años",
-                "-451.89 €",
-                "4.00 %",
-                "17.06 años",
             ],
             [
                 "24.9 kWh",
@@ -1616,11 +1606,7 @@ class TestSolarReportGenerator:
                 "277.23 €",
                 "26.60 €",
                 "26.60 €",
-                "3.20 €/kWh",
                 "77.93 años",
-                "-2,132.50 €",
-                "1.62 %",
-                "23.42 años",
             ],
             [
                 "30.0 kWh",
@@ -1628,10 +1614,95 @@ class TestSolarReportGenerator:
                 "281.67 €",
                 "4.44 €",
                 "4.44 €",
-                "0.87 €/kWh",
                 "286.50 años",
+            ],
+        ]
+
+        economic_rows = self._table_rows(
+            economic_table
+        )
+
+        assert economic_rows == [
+            [
+                "Capacidad",
+                "Ahorro marginal",
+                "VAN",
+                "TIR",
+                "Payback económico",
+            ],
+            [
+                "5.0 kWh",
+                "0.00 €/kWh",
+                "260.10 €",
+                "6.80 %",
+                "12.47 años",
+            ],
+            [
+                "8.3 kWh",
+                "20.43 €/kWh",
+                "429.40 €",
+                "6.79 %",
+                "12.48 años",
+            ],
+            [
+                "16.6 kWh",
+                "9.74 €/kWh",
+                "-451.89 €",
+                "4.00 %",
+                "17.06 años",
+            ],
+            [
+                "24.9 kWh",
+                "3.20 €/kWh",
+                "-2,132.50 €",
+                "1.62 %",
+                "23.42 años",
+            ],
+            [
+                "30.0 kWh",
+                "0.87 €/kWh",
                 "-3,340.47 €",
                 "0.43 %",
                 "28.02 años",
             ],
         ]
+
+    def test_battery_economic_table_formats_infinite_payback_as_not_available(
+        self,
+        monkeypatch,
+        tmp_path,
+    ):
+
+        captured = self._capture_story(monkeypatch)
+
+        data = self._report_data()
+
+        recommendation = data.battery_recommendations[0]
+
+        data.battery_recommendations[0] = replace(
+            recommendation,
+            marginal_payback_years=float("inf"),
+            economic_payback_years=float("inf"),
+        )
+
+        generator = SolarReportGenerator()
+
+        generator.generate(
+            data,
+            tmp_path / "report.pdf",
+        )
+
+        tables = self._get_tables(
+            captured["story"]
+        )
+
+        operational_rows = self._table_rows(
+            tables[7]
+        )
+
+        economic_rows = self._table_rows(
+            tables[8]
+        )
+
+        assert operational_rows[1][-1] == "N/D"
+        assert economic_rows[1][-1] == "N/D"

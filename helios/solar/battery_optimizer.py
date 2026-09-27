@@ -74,24 +74,8 @@ class BatteryOptimizer:
                     - annual_cost_with_battery
                 )
 
-                simple_payback_years = (
-                    battery_cost_eur
-                    / annual_additional_savings
-                    if annual_additional_savings > 0
-                    else float("inf")
-                )
-
-                annual_return_on_battery_cost = (
-                    annual_additional_savings
-                    / battery_cost_eur
-                    if battery_cost_eur > 0
-                    else 0.0
-                )
             else:
                 annual_additional_savings = 0.0
-
-                simple_payback_years = float("inf")
-                annual_return_on_battery_cost = 0.0
 
             annual_consumption = float(
                 result["consumption_kwh"].sum()
@@ -378,6 +362,7 @@ class BatteryOptimizer:
         min_soc: float = 0.10,
         max_soc: float = 0.90,
         initial_soc: float = 0.10,
+        battery_cost_per_kwh_eur: float = 249.70,
         annual_cost_without_battery_eur: float | None = None,
         cost_calculator=None,
         economic_configuration: (
@@ -396,6 +381,7 @@ class BatteryOptimizer:
             min_soc=min_soc,
             max_soc=max_soc,
             initial_soc=initial_soc,
+            battery_cost_per_kwh_eur=battery_cost_per_kwh_eur,
             annual_cost_without_battery_eur=(
                 annual_cost_without_battery_eur
             ),
