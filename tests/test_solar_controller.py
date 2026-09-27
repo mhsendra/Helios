@@ -25,6 +25,8 @@ from helios.solar.battery_economic_model import (
 )
 from helios.solar.production_profile import SolarProductionProfile
 
+from helios.solar.battery_economic_configuration import BatteryEconomicParameters
+
 class TestSolarController:
 
     def setup_method(self):
@@ -1685,6 +1687,10 @@ class TestSolarController:
 
         economics_configuration = MagicMock()
 
+        economics_configuration.first_year_degradation = (
+            0.011
+        )
+
         economics_configuration.annual_electricity_price_growth = (
             0.027
         )
@@ -1723,10 +1729,12 @@ class TestSolarController:
             [5.0, 8.3],
             max_charge_power_kw=5.0,
             max_discharge_power_kw=5.0,
-            battery_cost_per_kwh_eur=300.0,
-            years=25,
-            battery_degradation=0.025,
-            battery_annual_maintenance_eur=75.0,
+            battery_economic_parameters=BatteryEconomicParameters(
+                cost_per_kwh_eur=300.0,
+                lifetime_years=25,
+                annual_degradation=0.025,
+                annual_maintenance_eur=75.0,
+            ),
         )
 
         optimizer.evaluate.assert_called_once()
@@ -1760,6 +1768,11 @@ class TestSolarController:
         assert (
             economic_configuration.electricity_price_growth
             == pytest.approx(0.027)
+        )
+
+        assert (
+            economic_configuration.pv_initial_degradation
+            == pytest.approx(0.011)
         )
 
         assert (

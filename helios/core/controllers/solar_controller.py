@@ -53,6 +53,8 @@ from helios.solar.battery_recommendation import (
     BatteryRecommendation,
 )
 
+from helios.solar.battery_economic_configuration import BatteryEconomicParameters
+
 class SolarController:
 
     def __init__(self, analyzer):
@@ -477,11 +479,11 @@ class SolarController:
         min_soc: float = 0.10,
         max_soc: float = 0.90,
         initial_soc: float = 0.10,
-        battery_cost_per_kwh_eur: float = 249.70,
-        years: int = 25,
-        battery_degradation: float = 0.02,
-        battery_annual_maintenance_eur: float = 0.0,
+        battery_economic_parameters: BatteryEconomicParameters | None = None
     ) -> list[BatteryRecommendation]:
+
+        if battery_economic_parameters is None:
+            battery_economic_parameters = BatteryEconomicParameters()
 
         consumption_scenario = (
             self.analyzer
@@ -549,7 +551,10 @@ class SolarController:
             BatteryEconomicConfiguration(
                 battery_cost_eur=0.0,
                 annual_savings_eur=0.0,
-                years=years,
+                years=(
+                    battery_economic_parameters
+                    .lifetime_years
+                ),
                 electricity_price_growth=(
                     economics_configuration
                     .annual_electricity_price_growth
@@ -562,9 +567,13 @@ class SolarController:
                     economics_configuration
                     .annual_degradation
                 ),
-                battery_degradation=battery_degradation,
+                battery_degradation=(
+                    battery_economic_parameters
+                    .annual_degradation
+                ),
                 annual_maintenance_eur=(
-                    battery_annual_maintenance_eur
+                    battery_economic_parameters
+                    .annual_maintenance_eur
                 ),
                 maintenance_growth=(
                     economics_configuration
@@ -590,7 +599,8 @@ class SolarController:
                 max_soc=max_soc,
                 initial_soc=initial_soc,
                 battery_cost_per_kwh_eur=(
-                    battery_cost_per_kwh_eur
+                    battery_economic_parameters
+                    .cost_per_kwh_eur
                 ),
                 annual_cost_without_battery_eur=(
                     annual_cost_without_battery

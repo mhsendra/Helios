@@ -1486,7 +1486,6 @@ class SolarOptimizationPage(QWidget):
                 candidate_capacities_kwh,
                 max_charge_power_kw=5.0,
                 max_discharge_power_kw=5.0,
-                battery_cost_per_kwh_eur=249.70,
             )
         )
 

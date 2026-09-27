@@ -415,3 +415,376 @@ class TestBatteryEngine:
         assert (hourly["grid_export_kwh"] == 0.0).all()
         assert (hourly["battery_losses_kwh"] == 0.0).all()
         assert hourly["battery_soc"].to_numpy() == pytest.approx(0.5)
+
+    def test_energy_balance_is_conserved_with_charge_losses(self):
+
+        consumption = [0.0] * 8760
+        production = [0.0] * 8760
+
+        production[0] = 10.0
+
+        result = BatteryEngine().calculate(
+            make_consumption(consumption),
+            make_production(production),
+            make_configuration(
+                initial_soc=0.0,
+                charge_efficiency=0.8,
+            ),
+        )
+
+        row = result.hourly_data.iloc[0]
+
+        # Energía externa:
+        # producción = exportación + energía enviada a batería
+        assert (
+            row["production_kwh"]
+            == pytest.approx(
+                row["grid_export_kwh"]
+                + row["battery_charge_kwh"]
+            )
+        )
+
+        # Pérdidas de carga.
+        assert row["battery_losses_kwh"] == pytest.approx(2.0)
+
+        # 8 kWh quedan almacenados.
+        assert row["battery_soc"] == pytest.approx(0.8)
+
+
+    def test_energy_balance_is_conserved_with_discharge_losses(self):
+
+        consumption = [0.0] * 8760
+        production = [0.0] * 8760
+
+        consumption[0] = 4.0
+
+        result = BatteryEngine().calculate(
+            make_consumption(consumption),
+            make_production(production),
+            make_configuration(
+                initial_soc=0.5,
+                discharge_efficiency=0.8,
+            ),
+        )
+
+        row = result.hourly_data.iloc[0]
+
+        # Para entregar 4 kWh se extraen 5 kWh de la batería.
+        assert row["battery_discharge_kwh"] == pytest.approx(5.0)
+
+        # 1 kWh se pierde en la descarga.
+        assert row["battery_losses_kwh"] == pytest.approx(1.0)
+
+        # No queda energía importada de red.
+        assert row["grid_import_kwh"] == pytest.approx(0.0)
+
+        # SOC inicial 50 % -> 0 %.
+        assert row["battery_soc"] == pytest.approx(0.0)
+
+
+    def test_complete_energy_balance_over_multiple_hours(self):
+
+        consumption = [0.0] * 8760
+        production = [0.0] * 8760
+
+        production[0] = 6.0
+        consumption[1] = 3.0
+        production[2] = 10.0
+        consumption[3] = 8.0
+
+        result = BatteryEngine().calculate(
+            make_consumption(consumption),
+            make_production(production),
+            make_configuration(
+                initial_soc=0.2,
+                charge_efficiency=0.9,
+                discharge_efficiency=0.8,
+            ),
+        )
+
+        hourly = result.hourly_data
+
+        initial_energy = 10.0 * 0.2
+        final_energy = 10.0 * hourly.iloc[-1]["battery_soc"]
+
+        total_production = hourly["production_kwh"].sum()
+        total_consumption = hourly["consumption_kwh"].sum()
+        total_import = hourly["grid_import_kwh"].sum()
+        total_export = hourly["grid_export_kwh"].sum()
+        total_losses = hourly["battery_losses_kwh"].sum()
+
+        # Balance energético global:
+        #
+        # producción + importación
+        # =
+        # consumo + exportación + pérdidas + incremento de energía almacenada
+        #
+        assert (
+            total_production + total_import
+            == pytest.approx(
+                total_consumption
+                + total_export
+                + total_losses
+                + (final_energy - initial_energy)
+            )
+        )
+
+
+    def test_battery_soc_never_exceeds_configured_limits(self):
+
+        consumption = [0.0] * 8760
+        production = [0.0] * 8760
+
+        production[0] = 20.0
+        consumption[1] = 20.0
+        production[2] = 20.0
+        consumption[3] = 20.0
+
+        result = BatteryEngine().calculate(
+            make_consumption(consumption),
+            make_production(production),
+            make_configuration(
+                initial_soc=0.5,
+                min_soc=0.2,
+                max_soc=0.8,
+                charge_efficiency=0.9,
+                discharge_efficiency=0.9,
+            ),
+        )
+
+        soc = result.hourly_data["battery_soc"]
+
+        assert (soc >= 0.2).all()
+        assert (soc <= 0.8).all()
+
+    def test_charge_power_limit_is_input_side_power_with_efficiency(self):
+
+        consumption = [0.0] * 8760
+        production = [0.0] * 8760
+
+        production[0] = 10.0
+
+        result = BatteryEngine().calculate(
+            make_consumption(consumption),
+            make_production(production),
+            make_configuration(
+                initial_soc=0.0,
+                max_charge_power_kw=4.0,
+                charge_efficiency=0.75,
+            ),
+        )
+
+        row = result.hourly_data.iloc[0]
+
+        # El límite de 4 kW se aplica a la energía tomada de la
+        # producción, no a la energía finalmente almacenada.
+        assert row["battery_charge_kwh"] == pytest.approx(4.0)
+
+        # 4 kWh * 0.75 = 3 kWh almacenados.
+        assert row["battery_soc"] == pytest.approx(0.3)
+
+        # El resto se vierte.
+        assert row["grid_export_kwh"] == pytest.approx(6.0)
+
+        # 1 kWh de pérdidas.
+        assert row["battery_losses_kwh"] == pytest.approx(1.0)
+
+
+    def test_discharge_power_limit_is_output_side_power_with_efficiency(self):
+
+        consumption = [0.0] * 8760
+        production = [0.0] * 8760
+
+        consumption[0] = 10.0
+
+        result = BatteryEngine().calculate(
+            make_consumption(consumption),
+            make_production(production),
+            make_configuration(
+                initial_soc=1.0,
+                max_discharge_power_kw=4.0,
+                discharge_efficiency=0.75,
+            ),
+        )
+
+        row = result.hourly_data.iloc[0]
+
+        # El límite de potencia se aplica a la energía
+        # entregada a la carga.
+        assert row["battery_discharge_kwh"] == pytest.approx(
+            4.0 / 0.75
+        )
+
+        # Solo se entregan 4 kWh a la carga.
+        assert (
+            row["consumption_kwh"]
+            - row["grid_import_kwh"]
+            == pytest.approx(4.0)
+        )
+
+        # 5.3333 - 4 = 1.3333 kWh de pérdidas.
+        assert row["battery_losses_kwh"] == pytest.approx(
+            4.0 / 0.75 - 4.0
+        )
+
+        # 10 kWh iniciales -> 4.6667 kWh.
+        assert row["battery_soc"] == pytest.approx(
+            1.0 - (4.0 / 0.75) / 10.0
+        )
+
+
+    def test_capacity_limit_is_respected_with_charge_efficiency(self):
+
+        consumption = [0.0] * 8760
+        production = [0.0] * 8760
+
+        production[0] = 10.0
+
+        result = BatteryEngine().calculate(
+            make_consumption(consumption),
+            make_production(production),
+            make_configuration(
+                initial_soc=0.5,
+                max_soc=0.8,
+                charge_efficiency=0.8,
+            ),
+        )
+
+        row = result.hourly_data.iloc[0]
+
+        # Solo hay espacio para 3 kWh almacenados.
+        # Con eficiencia 80 %, hay que introducir 3.75 kWh.
+        assert row["battery_charge_kwh"] == pytest.approx(3.75)
+
+        assert row["battery_soc"] == pytest.approx(0.8)
+        assert row["grid_export_kwh"] == pytest.approx(6.25)
+
+        # 3.75 - 3.0 = 0.75 kWh de pérdidas.
+        assert row["battery_losses_kwh"] == pytest.approx(0.75)
+
+
+    def test_capacity_limit_is_respected_with_discharge_efficiency(self):
+
+        consumption = [0.0] * 8760
+        production = [0.0] * 8760
+
+        consumption[0] = 10.0
+
+        result = BatteryEngine().calculate(
+            make_consumption(consumption),
+            make_production(production),
+            make_configuration(
+                initial_soc=0.5,
+                min_soc=0.2,
+                discharge_efficiency=0.8,
+            ),
+        )
+
+        row = result.hourly_data.iloc[0]
+
+        # Hay 3 kWh disponibles por encima del SOC mínimo.
+        # Para entregar 2.4 kWh se necesitan 3 kWh internos.
+        assert row["battery_discharge_kwh"] == pytest.approx(3.0)
+
+        assert row["grid_import_kwh"] == pytest.approx(7.6)
+        assert row["battery_soc"] == pytest.approx(0.2)
+
+        # 3.0 - 2.4 = 0.6 kWh de pérdidas.
+        assert row["battery_losses_kwh"] == pytest.approx(0.6)
+
+    def test_annual_energy_balance_matches_hourly_balance(self):
+
+        consumption = [0.0] * 8760
+        production = [0.0] * 8760
+
+        # Patrón determinista repetido durante todo el año.
+        for hour in range(0, 8760, 24):
+            production[hour + 8] = 6.0
+            production[hour + 9] = 4.0
+            consumption[hour + 13] = 3.0
+            consumption[hour + 20] = 5.0
+
+        result = BatteryEngine().calculate(
+            make_consumption(consumption),
+            make_production(production),
+            make_configuration(
+                initial_soc=0.5,
+                charge_efficiency=0.9,
+                discharge_efficiency=0.8,
+            ),
+        )
+
+        hourly = result.hourly_data
+
+        total_production = hourly["production_kwh"].sum()
+        total_consumption = hourly["consumption_kwh"].sum()
+        total_import = hourly["grid_import_kwh"].sum()
+        total_export = hourly["grid_export_kwh"].sum()
+        total_losses = hourly["battery_losses_kwh"].sum()
+
+        initial_energy = (
+            10.0 * 0.5
+        )
+        final_energy = (
+            10.0 * hourly.iloc[-1]["battery_soc"]
+        )
+
+        assert (
+            total_production + total_import
+            == pytest.approx(
+                total_consumption
+                + total_export
+                + total_losses
+                + final_energy
+                - initial_energy
+            )
+        )
+
+
+    def test_annual_soc_matches_accumulated_battery_energy(self):
+
+        consumption = [0.0] * 8760
+        production = [0.0] * 8760
+
+        for hour in range(0, 8760, 24):
+            production[hour + 8] = 5.0
+            consumption[hour + 20] = 2.0
+
+        configuration = make_configuration(
+            initial_soc=0.4,
+            charge_efficiency=0.9,
+            discharge_efficiency=0.8,
+        )
+
+        result = BatteryEngine().calculate(
+            make_consumption(consumption),
+            make_production(production),
+            configuration,
+        )
+
+        hourly = result.hourly_data
+
+        initial_energy = (
+            configuration.capacity_kwh
+            * configuration.initial_soc
+        )
+
+        energy_stored = (
+            hourly["battery_charge_kwh"]
+            * configuration.charge_efficiency
+        ).sum()
+
+        energy_removed = hourly["battery_discharge_kwh"].sum()
+
+        accumulated_energy = (
+            initial_energy
+            + energy_stored
+            - energy_removed
+        )
+
+        final_energy = (
+            configuration.capacity_kwh
+            * hourly.iloc[-1]["battery_soc"]
+        )
+
+        assert final_energy == pytest.approx(accumulated_energy)
