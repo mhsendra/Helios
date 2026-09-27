@@ -314,7 +314,7 @@ class TestSolarConfigPage:
 
         project.solar.reset.assert_called_once()
 
-        main_window.set_solar_calculated.assert_called_once_with(
+        main_window.set_solar_optimized.assert_called_once_with(
             False
         )
 

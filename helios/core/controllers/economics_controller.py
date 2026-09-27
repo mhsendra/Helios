@@ -126,8 +126,10 @@ class EconomicsController:
               
     def calculate_cash_flow(
         self,
-        years: int = 25
+        years: int | None = None,
     ):
+        if years is None:
+            years = self.configuration.economic_horizon_years
 
         return (
             self.analyzer.economics_engine
@@ -156,21 +158,25 @@ class EconomicsController:
     def calculate_scenario(
         self,
         scenario: EconomicScenario,
+        years: int | None = None,
     ):
+        if years is None:
+            years = self.configuration.economic_horizon_years
 
-        return (
-            self.analyzer.economics_engine
-            .calculate_scenario(
-                scenario,
-                self.configuration,
-            )
+        return self.analyzer.economics_engine.calculate_scenario(
+            scenario,
+            self.configuration,
+            years,
         )
 
     def calculate_scenarios(
         self,
         scenarios,
-        years: int = 25,
+        years: int | None = None,
     ):
+        if years is None:
+            years = self.configuration.economic_horizon_years
+            
         return (
             self.analyzer.economics_engine
             .calculate_scenarios(

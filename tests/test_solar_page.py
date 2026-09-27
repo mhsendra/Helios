@@ -637,6 +637,8 @@ class TestSolarPage:
 
         self.project.solar_configuration = configuration
 
+        self.page.load_saved_configuration()
+
         self.project.solar.calculate = MagicMock()
 
         self.page.refresh_production_results = MagicMock()
@@ -671,6 +673,8 @@ class TestSolarPage:
         )
 
         self.project.solar_configuration = configuration
+
+        self.page.load_saved_configuration()
 
         self.page.installed_power_spinbox.setValue(
             8.10
@@ -924,6 +928,8 @@ class TestSolarPage:
         )
 
         self.project.solar_configuration = configuration
+
+        page.load_saved_configuration()
 
         self.project.solar.calculate = MagicMock()
 
@@ -1392,3 +1398,56 @@ class TestSolarPage:
         self.page.main_window.set_solar_optimized.assert_called_once_with(
             False
         )
+
+    def test_manual_simulation_does_not_modify_stored_configuration(
+        self,
+    ):
+        configuration = SolarConfiguration(
+            latitude=41.6,
+            longitude=2.1,
+            tilt=30,
+            azimuth=0,
+            reference_year=2023,
+            losses=14.0,
+            pv_technology="crystSi",
+            mounting_place="free",
+        )
+
+        self.project.solar_configuration = configuration
+        self.page.load_saved_configuration()
+
+        self.page.latitude_spinbox.setValue(42.0)
+        self.page.longitude_spinbox.setValue(2.5)
+        self.page.tilt_spinbox.setValue(20)
+        self.page.system_losses_spinbox.setValue(10.0)
+
+        self.project.solar.calculate = MagicMock()
+        self.page.refresh_production_results = MagicMock()
+        self.page.set_results_available = MagicMock()
+
+        self.page.calculate_production()
+
+        assert self.project.solar_configuration == configuration
+
+    def test_load_saved_configuration_loads_recommended_installed_power(
+        self,
+    ):
+        configuration = SolarConfiguration(
+            latitude=41.6,
+            longitude=2.1,
+            tilt=30,
+            azimuth=0,
+            reference_year=2023,
+            losses=14.0,
+            pv_technology="crystSi",
+            mounting_place="free",
+        )
+
+        self.project.solar_configuration = configuration
+
+        self.project.solar.sizing_result = MagicMock()
+        self.project.solar.sizing_result.installed_power_kwp = 8.10
+
+        self.page.load_saved_configuration()
+
+        assert self.page.installed_power_spinbox.value() == 8.10

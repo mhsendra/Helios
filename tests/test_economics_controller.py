@@ -19,6 +19,8 @@ class TestEconomicsController:
         self.analyzer = MagicMock()
         self.configuration = MagicMock()
 
+        self.configuration.economic_horizon_years = 25
+
         self.analyzer.dataset = MagicMock()
         self.analyzer.solar.energy_balance = MagicMock()
         self.analyzer.economics_engine = MagicMock()
@@ -519,6 +521,7 @@ class TestEconomicsController:
         engine.calculate_scenario.assert_called_once_with(
             scenario,
             self.configuration,
+            25,
         )
 
     # ==========================================================
@@ -861,7 +864,7 @@ class TestEconomicsController:
         )
 
         engine = self.analyzer.economics_engine
-        engine.calculate_cost_with_pv.return_value = 321.0
+        engine.calculate_cost_with_balance.return_value = 321.0
 
         result = self.controller.calculate_cost_with_balance(
             energy_balance
@@ -869,7 +872,7 @@ class TestEconomicsController:
 
         assert result == 321.0
 
-        engine.calculate_cost_with_pv.assert_called_once_with(
+        engine.calculate_cost_with_balance.assert_called_once_with(
             energy_balance,
             tariff_data,
         )

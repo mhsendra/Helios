@@ -21,7 +21,6 @@ from PySide6.QtGui import QFont
 
 from helios.solar.configuration import SolarConfiguration
 
-
 class SolarPage(QWidget):
 
     def __init__(self, project, main_window=None):
@@ -29,6 +28,7 @@ class SolarPage(QWidget):
 
         self.project = project
         self.main_window = main_window
+        self._reference_year = 2023
 
         self.setup_ui()
 
@@ -307,7 +307,7 @@ class SolarPage(QWidget):
             longitude=self.longitude_spinbox.value(),
             tilt=self.tilt_spinbox.value(),
             azimuth=self.azimuth_spinbox.value(),
-            reference_year=2023,
+            reference_year=self._reference_year,
             losses=self.system_losses_spinbox.value(),
             pv_technology=(
                 self.pv_technology_combobox.currentData()
@@ -526,16 +526,14 @@ class SolarPage(QWidget):
 
     def calculate_production(self):
 
-        configuration = (
-            self.project.solar_configuration
-        )
-
-        if configuration is None:
+        if self.project.solar_configuration is None:
 
             raise ValueError(
                 "Solar configuration is required "
                 "before calculating production."
             )
+
+        configuration = self.get_configuration()
 
         self.update_production_status(
             source="PVGIS",
@@ -589,10 +587,7 @@ class SolarPage(QWidget):
     def refresh_production_results(self):
 
         solar = self.project.solar
-
-        configuration = (
-            self.project.solar_configuration
-        )
+        configuration = solar.configuration
 
         self.update_production_status(
             source="PVGIS",
@@ -1491,6 +1486,8 @@ class SolarPage(QWidget):
 
         if configuration is None:
             return
+
+        self._reference_year = configuration.reference_year
 
         self.latitude_spinbox.setValue(
             configuration.latitude

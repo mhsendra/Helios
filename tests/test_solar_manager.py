@@ -304,7 +304,8 @@ class TestSolarManager:
 
         self.manager.reporter.production_statistics.assert_called_once_with(
             statistics,
-            configuration
+            configuration,
+            self.manager.installed_power_kwp,
         )
 
     def test_production_statistics_report_without_statistics(self):

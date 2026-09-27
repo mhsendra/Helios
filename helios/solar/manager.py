@@ -177,7 +177,8 @@ class SolarManager:
 
         self.reporter.production_statistics(
             self.statistics,
-            self.configuration
+            self.configuration,
+            self.installed_power_kwp,
         )
 
     def energy_balance_report(self):

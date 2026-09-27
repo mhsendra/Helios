@@ -37,7 +37,8 @@ class SolarReports:
     def production_statistics(
         self,
         statistics,
-        configuration
+        configuration,
+        installed_power_kwp,
     ):
 
         if not statistics:
@@ -61,7 +62,7 @@ class SolarReports:
 
         ReportPrinter.value(
             "Potencia instalada",
-            configuration.installed_power_kwp,
+            installed_power_kwp,
             "kWp",
             decimals=2
         )

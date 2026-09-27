@@ -1875,7 +1875,8 @@ class TestEconomicsCashFlow:
             match="Net investment has not been calculated.",
         ):
             self.engine.calculate_cash_flow(
-                self._configuration()
+                self._configuration(),
+                years=25,
             )
 
     def test_cash_flow_requires_annual_savings(self):
@@ -1887,7 +1888,8 @@ class TestEconomicsCashFlow:
             match="Annual savings have not been calculated.",
         ):
             self.engine.calculate_cash_flow(
-                self._configuration()
+                self._configuration(),
+                years=25,
             )
 
     def test_cash_flow_requires_positive_years(self):

@@ -340,10 +340,7 @@ class SolarConfigPage(QWidget):
             self.project.solar.reset()
 
             if self.main_window is not None:
-
-                self.main_window.set_solar_calculated(
-                    False
-                )
+                self.main_window.set_solar_optimized(False)
 
         self.project.set_solar_configuration(
             configuration

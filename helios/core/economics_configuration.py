@@ -21,3 +21,5 @@ class EconomicsConfiguration:
     annual_maintenance_growth: float = 0.02
     
     discount_rate: float = 0.05
+
+    economic_horizon_years: int = 25

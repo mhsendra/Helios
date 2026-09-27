@@ -13,8 +13,8 @@ from PySide6.QtWidgets import (
     QMessageBox,
 )
 
-from helios.reports.solar_report_data_builder import (
-    SolarReportDataBuilder,
+from helios.reports.solar_report_data_factory import (
+    SolarReportDataFactory,
 )
 
 from helios.reports.solar_report_generator import (
@@ -677,8 +677,9 @@ class ReportsPage(QWidget):
             return
 
         try:
-            data = SolarReportDataBuilder.from_project(
-                self.project
+            data = SolarReportDataFactory.create(
+                self.project.analyzer.solar,
+                self.project.analyzer.economics,
             )
 
             generator = SolarReportGenerator()

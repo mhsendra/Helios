@@ -101,7 +101,8 @@ class TestSolarReports:
 
             self.reports.production_statistics(
                 None,
-                self.configuration
+                self.configuration,
+                1.0,
             )
 
         with pytest.raises(
@@ -111,7 +112,8 @@ class TestSolarReports:
 
             self.reports.production_statistics(
                 {},
-                self.configuration
+                self.configuration,
+                1.0,
             )
 
     @patch(
@@ -132,7 +134,8 @@ class TestSolarReports:
 
         result = self.reports.production_statistics(
             statistics,
-            self.configuration
+            self.configuration,
+            1.0,
         )
 
         assert result is None
@@ -162,7 +165,7 @@ class TestSolarReports:
 
         printer.value.assert_any_call(
             "Potencia instalada",
-            5.4,
+            1.0,
             "kWp",
             decimals=2
         )

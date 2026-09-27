@@ -569,7 +569,7 @@ class EconomicsEngine:
         self,
         scenario,
         configuration,
-        years: int = 25,
+        years: int,
     ):
 
         if self.net_investment is None:
@@ -805,7 +805,7 @@ class EconomicsEngine:
         self,
         scenarios,
         configuration,
-        years: int = 25,
+        years: int,
     ) -> list[EconomicScenarioResult]:
 
         self.scenario_results = []
@@ -897,7 +897,7 @@ class EconomicsEngine:
     def calculate_cash_flow(
         self,
         configuration,
-        years: int = 25
+        years: int,
     ) -> pd.DataFrame:
 
         if self.net_investment is None:
