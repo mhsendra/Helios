@@ -606,3 +606,27 @@ class TestBatteryOptimizer:
         assert recommendation.economic_npv_eur == pytest.approx(
             -300.0 + 600.0 + 600.0
         )
+
+    @pytest.mark.parametrize(
+        "capacity",
+        [float("nan"), float("inf"), float("-inf")],
+    )
+    def test_evaluate_rejects_non_finite_capacities(
+        self,
+        capacity,
+    ):
+
+        consumption = make_scenario([1.0] * 8760)
+        production = make_profile([1.0] * 8760)
+
+        with pytest.raises(
+            ValueError,
+            match="Battery capacities must be greater than zero",
+        ):
+            make_optimizer().evaluate(
+                consumption,
+                production,
+                [capacity],
+                max_charge_power_kw=5.0,
+                max_discharge_power_kw=5.0,
+            )

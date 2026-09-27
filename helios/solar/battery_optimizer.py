@@ -1,3 +1,5 @@
+import math 
+
 from dataclasses import replace
 
 from helios.core.consumption_scenario import ConsumptionScenario
@@ -370,7 +372,8 @@ class BatteryOptimizer:
             )
 
         if any(
-            capacity <= 0
+            not math.isfinite(capacity)
+            or capacity <= 0
             for capacity in candidate_capacities_kwh
         ):
             raise ValueError(

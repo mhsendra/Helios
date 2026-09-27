@@ -788,3 +788,42 @@ class TestBatteryEngine:
         )
 
         assert final_energy == pytest.approx(accumulated_energy)
+    
+    @pytest.mark.parametrize(
+        "value",
+        [float("inf"), float("-inf")],
+    )
+    def test_consumption_profile_rejects_infinite_values(
+        self,
+        value,
+    ):
+
+        values = [0.0] * 8760
+        values[0] = value
+
+        with pytest.raises(
+            ValueError,
+            match="Consumption scenario cannot contain "
+            "NaN or infinite values",
+        ):
+            make_consumption(values)
+
+
+    @pytest.mark.parametrize(
+        "value",
+        [float("inf"), float("-inf")],
+    )
+    def test_production_profile_rejects_infinite_values(
+        self,
+        value,
+    ):
+
+        values = [0.0] * 8760
+        values[0] = value
+
+        with pytest.raises(
+            ValueError,
+            match="Solar production profile cannot contain "
+            "NaN or infinite values",
+        ):
+            make_production(values)

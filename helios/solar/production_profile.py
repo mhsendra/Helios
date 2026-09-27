@@ -1,4 +1,4 @@
-# helios/solar/production_profile.py
+import math
 
 from dataclasses import dataclass
 
@@ -45,6 +45,14 @@ class SolarProductionProfile:
                 "hourly_production must contain numeric values."
             )
 
+        if not self.hourly_production.map(float).map(
+            math.isfinite
+        ).all():
+            raise ValueError(
+                "Solar production profile cannot contain "
+                "NaN or infinite values."
+            )
+
         if (self.hourly_production < 0).any():
             raise ValueError(
                 "Solar production profile cannot contain negative values."
@@ -68,6 +76,16 @@ class SolarProductionProfile:
             raise ValueError(
                 "Solar production profile index must contain a complete "
                 "8760-hour reference year."
+            )
+
+        if self.installed_power_kwp <= 0:
+            raise ValueError(
+                "Installed power must be greater than zero."
+            )
+
+        if not math.isfinite(self.installed_power_kwp):
+            raise ValueError(
+                "Installed power must be finite."
             )
 
         if self.installed_power_kwp <= 0:

@@ -55,3 +55,42 @@ class TestBatteryConfiguration:
         assert configuration.min_soc == pytest.approx(0.15)
         assert configuration.max_soc == pytest.approx(0.95)
         assert configuration.initial_soc == pytest.approx(0.60)
+
+    @pytest.mark.parametrize(
+    "field",
+    [
+        "capacity_kwh",
+        "max_charge_power_kw",
+        "max_discharge_power_kw",
+        "charge_efficiency",
+        "discharge_efficiency",
+        "min_soc",
+        "max_soc",
+        "initial_soc",
+    ],
+)
+    @pytest.mark.parametrize(
+        "value",
+        [float("nan"), float("inf"), float("-inf")],
+    )
+    def test_rejects_non_finite_values(self, field, value):
+
+        values = {
+            "capacity_kwh": 10.0,
+            "max_charge_power_kw": 10.0,
+            "max_discharge_power_kw": 10.0,
+            "charge_efficiency": 0.95,
+            "discharge_efficiency": 0.95,
+            "min_soc": 0.10,
+            "max_soc": 0.90,
+            "initial_soc": 0.50,
+        }
+
+        values[field] = value
+
+        with pytest.raises(
+            ValueError,
+            match=f"{field} must be finite",
+        ):
+            BatteryConfiguration(**values)
+            

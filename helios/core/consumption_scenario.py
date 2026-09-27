@@ -1,3 +1,5 @@
+import math
+
 from dataclasses import dataclass
 
 import pandas as pd
@@ -32,6 +34,14 @@ class ConsumptionScenario:
         if not pd.api.types.is_numeric_dtype(self.hourly_consumption):
             raise TypeError(
                 "hourly_consumption must contain numeric values."
+            )
+
+        if not self.hourly_consumption.map(float).map(
+            math.isfinite
+        ).all():
+            raise ValueError(
+                "Consumption scenario cannot contain "
+                "NaN or infinite values."
             )
 
         if (self.hourly_consumption < 0).any():

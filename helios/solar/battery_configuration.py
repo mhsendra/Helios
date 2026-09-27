@@ -1,3 +1,4 @@
+import math
 from dataclasses import dataclass
 
 
@@ -21,6 +22,23 @@ class BatteryConfiguration:
     initial_soc: float = 0.50
 
     def __post_init__(self) -> None:
+        numeric_values = {
+            "capacity_kwh": self.capacity_kwh,
+            "max_charge_power_kw": self.max_charge_power_kw,
+            "max_discharge_power_kw": self.max_discharge_power_kw,
+            "charge_efficiency": self.charge_efficiency,
+            "discharge_efficiency": self.discharge_efficiency,
+            "min_soc": self.min_soc,
+            "max_soc": self.max_soc,
+            "initial_soc": self.initial_soc,
+        }
+
+        for name, value in numeric_values.items():
+            if not math.isfinite(value):
+                raise ValueError(
+                    f"{name} must be finite."
+                )
+
         if self.capacity_kwh <= 0:
             raise ValueError(
                 "Battery capacity must be greater than zero."
