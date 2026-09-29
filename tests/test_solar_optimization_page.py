@@ -250,7 +250,6 @@ class TestSolarOptimizationPage:
             ],
             max_charge_power_kw=5.0,
             max_discharge_power_kw=5.0,
-            battery_cost_per_kwh_eur=249.70,
         )
 
         page.show_battery_economic_results.assert_called_once_with(
@@ -1011,7 +1010,6 @@ class TestSolarOptimizationPage:
             ],
             max_charge_power_kw=5.0,
             max_discharge_power_kw=5.0,
-            battery_cost_per_kwh_eur=249.70,
         )
 
         assert (

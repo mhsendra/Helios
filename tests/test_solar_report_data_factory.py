@@ -2,13 +2,19 @@ import pandas as pd
 
 import pytest
 
-from helios.reports.solar_report_data import SolarReportData
+from helios.core.economics_configuration import (
+    EconomicsConfiguration,
+)
+from helios.reports.battery_report_data import (
+    BatteryReportData,
+)
+from helios.reports.solar_report_data import (
+    SolarReportData,
+)
 from helios.reports.solar_report_data_factory import (
     SolarReportDataFactory,
 )
 from helios.solar.configuration import SolarConfiguration
-
-from helios.core.economics_configuration import EconomicsConfiguration
 
 
 class TestSolarReportDataFactory:
@@ -26,6 +32,42 @@ class TestSolarReportDataFactory:
             pv_technology="crystSi",
             mounting_place="building",
         )
+
+    @staticmethod
+    def _battery_recommendation():
+
+        return type(
+            "BatteryRecommendation",
+            (),
+            {
+                "capacity_kwh": 5.0,
+                "max_charge_power_kw": 5.0,
+                "max_discharge_power_kw": 5.0,
+                "annual_consumption_kwh": 19541.72,
+                "annual_production_kwh": 12500.0,
+                "annual_surplus_kwh": 8752.0,
+                "annual_export_kwh": 8000.0,
+                "annual_grid_import_kwh": 5000.0,
+                "annual_battery_charge_kwh": 1200.0,
+                "annual_battery_discharge_kwh": 1050.0,
+                "self_consumption_kwh": 4500.0,
+                "self_sufficiency_percent": 45.0,
+                "equivalent_cycles": 210.0,
+                "annual_cost_with_battery_eur": 900.0,
+                "annual_additional_savings_eur": 178.973401,
+                "marginal_recovered_kwh_per_kwh": 210.0,
+                "incremental_battery_cost_eur": 1500.0,
+                "incremental_savings_eur": 178.973401,
+                "marginal_savings_per_kwh": 35.7946802,
+                "marginal_payback_years": 8.3819,
+                "economic_npv_eur": 126.77,
+                "economic_irr_percent": 6.01,
+                "economic_payback_years": 12.61,
+                "combined_economic_npv_eur": 2239.27,
+                "combined_economic_irr_percent": 6.47,
+                "combined_economic_payback_years": 12.79,
+            },
+        )()
 
     @staticmethod
     def _solar_controller():
@@ -82,6 +124,11 @@ class TestSolarReportDataFactory:
         solar.grid_export = 4000.0
         solar.grid_import = 11041.72
         solar.coverage = 43.5
+
+        solar.battery_recommendations = [
+            TestSolarReportDataFactory
+            ._battery_recommendation()
+        ]
 
         solar.monthly_production = pd.Series(
             [
@@ -381,6 +428,172 @@ class TestSolarReportDataFactory:
             result.self_sufficiency_rate_percent
             == 64.0
         )
+
+    # ==================================================
+    # Battery recommendations
+    # ==================================================
+
+    def test_create_contains_battery_recommendations(
+        self,
+    ):
+
+        solar_controller = (
+            self._solar_controller()
+        )
+
+        result = SolarReportDataFactory.create(
+            solar_controller,
+            self._economics_controller(),
+        )
+
+        assert len(
+            result.battery_recommendations
+        ) == 1
+
+        battery = (
+            result.battery_recommendations[0]
+        )
+
+        assert isinstance(
+            battery,
+            BatteryReportData,
+        )
+
+        assert battery.capacity_kwh == 5.0
+        assert battery.max_charge_power_kw == 5.0
+        assert battery.max_discharge_power_kw == 5.0
+
+        assert (
+            battery.annual_consumption_kwh
+            == 19541.72
+        )
+
+        assert (
+            battery.annual_production_kwh
+            == 12500.0
+        )
+
+        assert (
+            battery.annual_surplus_kwh
+            == 8752.0
+        )
+
+        assert (
+            battery.annual_export_kwh
+            == 8000.0
+        )
+
+        assert (
+            battery.annual_grid_import_kwh
+            == 5000.0
+        )
+
+        assert (
+            battery.annual_battery_charge_kwh
+            == 1200.0
+        )
+
+        assert (
+            battery.annual_battery_discharge_kwh
+            == 1050.0
+        )
+
+        assert (
+            battery.self_consumption_kwh
+            == 4500.0
+        )
+
+        assert (
+            battery.self_sufficiency_percent
+            == 45.0
+        )
+
+        assert (
+            battery.equivalent_cycles
+            == 210.0
+        )
+
+        assert (
+            battery.annual_cost_with_battery_eur
+            == 900.0
+        )
+
+        assert (
+            battery.annual_additional_savings_eur
+            == 178.973401
+        )
+
+        assert (
+            battery.marginal_recovered_kwh_per_kwh
+            == 210.0
+        )
+
+        assert (
+            battery.incremental_battery_cost_eur
+            == 1500.0
+        )
+
+        assert (
+            battery.incremental_savings_eur
+            == 178.973401
+        )
+
+        assert (
+            battery.marginal_savings_per_kwh
+            == 35.7946802
+        )
+
+        assert (
+            battery.marginal_payback_years
+            == 8.3819
+        )
+
+        assert (
+            battery.economic_npv_eur
+            == 126.77
+        )
+
+        assert (
+            battery.economic_irr_percent
+            == 6.01
+        )
+
+        assert (
+            battery.economic_payback_years
+            == 12.61
+        )
+
+        assert (
+            battery.combined_economic_npv_eur
+            == 2239.27
+        )
+
+        assert (
+            battery.combined_economic_irr_percent
+            == 6.47
+        )
+
+        assert (
+            battery.combined_economic_payback_years
+            == 12.79
+        )
+
+    def test_create_without_battery_recommendations_returns_empty_list(
+        self,
+    ):
+
+        solar_controller = (
+            self._solar_controller()
+        )
+
+        del solar_controller.battery_recommendations
+
+        result = SolarReportDataFactory.create(
+            solar_controller,
+            self._economics_controller(),
+        )
+
+        assert result.battery_recommendations == []
 
     # ==================================================
     # Manual mode
@@ -856,7 +1069,6 @@ class TestSolarReportDataFactory:
                 solar_controller,
                 self._economics_controller(),
             )
-
 
     def test_create_requires_economic_cash_flow(
         self,

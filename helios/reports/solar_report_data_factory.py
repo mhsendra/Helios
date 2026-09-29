@@ -1,4 +1,9 @@
-from helios.reports.solar_report_data import SolarReportData
+from helios.reports.battery_report_data import (
+    BatteryReportData,
+)
+from helios.reports.solar_report_data import (
+    SolarReportData,
+)
 
 
 class SolarReportDataFactory:
@@ -11,9 +16,9 @@ class SolarReportDataFactory:
     Soporta dos modos:
 
     - automatic: existe una InstallationRecommendation
-    procedente del dimensionamiento físico.
+      procedente del dimensionamiento físico.
     - manual: existe una SolarConfiguration y una potencia
-    de simulación, pero no existe InstallationRecommendation.
+      de simulación, pero no existe InstallationRecommendation.
     """
 
     @staticmethod
@@ -173,6 +178,100 @@ class SolarReportDataFactory:
             )
 
         # ==================================================
+        # Battery recommendations
+        # ==================================================
+
+        battery_recommendations = getattr(
+            solar_controller,
+            "battery_recommendations",
+            [],
+        )
+
+        battery_report_data = [
+            BatteryReportData(
+                capacity_kwh=(
+                    recommendation.capacity_kwh
+                ),
+                max_charge_power_kw=(
+                    recommendation.max_charge_power_kw
+                ),
+                max_discharge_power_kw=(
+                    recommendation.max_discharge_power_kw
+                ),
+                annual_consumption_kwh=(
+                    recommendation.annual_consumption_kwh
+                ),
+                annual_production_kwh=(
+                    recommendation.annual_production_kwh
+                ),
+                annual_surplus_kwh=(
+                    recommendation.annual_surplus_kwh
+                ),
+                annual_export_kwh=(
+                    recommendation.annual_export_kwh
+                ),
+                annual_grid_import_kwh=(
+                    recommendation.annual_grid_import_kwh
+                ),
+                annual_battery_charge_kwh=(
+                    recommendation.annual_battery_charge_kwh
+                ),
+                annual_battery_discharge_kwh=(
+                    recommendation.annual_battery_discharge_kwh
+                ),
+                self_consumption_kwh=(
+                    recommendation.self_consumption_kwh
+                ),
+                self_sufficiency_percent=(
+                    recommendation.self_sufficiency_percent
+                ),
+                equivalent_cycles=(
+                    recommendation.equivalent_cycles
+                ),
+                annual_cost_with_battery_eur=(
+                    recommendation.annual_cost_with_battery_eur
+                ),
+                annual_additional_savings_eur=(
+                    recommendation.annual_additional_savings_eur
+                ),
+                marginal_recovered_kwh_per_kwh=(
+                    recommendation.marginal_recovered_kwh_per_kwh
+                ),
+                incremental_battery_cost_eur=(
+                    recommendation.incremental_battery_cost_eur
+                ),
+                incremental_savings_eur=(
+                    recommendation.incremental_savings_eur
+                ),
+                marginal_savings_per_kwh=(
+                    recommendation.marginal_savings_per_kwh
+                ),
+                marginal_payback_years=(
+                    recommendation.marginal_payback_years
+                ),
+                economic_npv_eur=(
+                    recommendation.economic_npv_eur
+                ),
+                economic_irr_percent=(
+                    recommendation.economic_irr_percent
+                ),
+                economic_payback_years=(
+                    recommendation.economic_payback_years
+                ),
+                combined_economic_npv_eur=(
+                    recommendation.combined_economic_npv_eur
+                ),
+                combined_economic_irr_percent=(
+                    recommendation.combined_economic_irr_percent
+                ),
+                combined_economic_payback_years=(
+                    recommendation.combined_economic_payback_years
+                ),
+            )
+            for recommendation in battery_recommendations
+        ]
+
+        # ==================================================
         # Report data
         # ==================================================
 
@@ -314,6 +413,14 @@ class SolarReportDataFactory:
 
             scenario_results=(
                 scenario_results
+            ),
+
+            # ==================================================
+            # Battery recommendations
+            # ==================================================
+
+            battery_recommendations=(
+                battery_report_data
             ),
 
             # ==================================================

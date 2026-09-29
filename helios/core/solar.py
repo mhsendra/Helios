@@ -93,6 +93,10 @@ class SolarEngine:
     def installed_power_kwp(self):
         return self.manager.installed_power_kwp
 
+    @property
+    def battery_recommendations(self):
+        return self.manager.battery_recommendations
+
     # ==================================================
     # Informes
     # ==================================================

@@ -4,6 +4,7 @@ import pytest
 
 from helios.reports.solar_report_data import SolarReportData
 from helios.reports.solar_report_text import SolarReportText
+from helios.reports.battery_report_data import BatteryReportData
 
 
 class TestSolarReportText:
@@ -140,6 +141,92 @@ class TestSolarReportText:
                     },
                 )(),
             ],
+            battery_recommendations=[
+                BatteryReportData(
+                    capacity_kwh=5.0,
+                    max_charge_power_kw=5.0,
+                    max_discharge_power_kw=5.0,
+                    annual_consumption_kwh=19541.72,
+                    annual_production_kwh=12500.0,
+                    annual_surplus_kwh=4000.0,
+                    annual_export_kwh=3000.0,
+                    annual_grid_import_kwh=8500.0,
+                    annual_battery_charge_kwh=1000.0,
+                    annual_battery_discharge_kwh=900.0,
+                    self_consumption_kwh=9500.0,
+                    self_sufficiency_percent=56.0,
+                    equivalent_cycles=180.0,
+                    annual_cost_with_battery_eur=2400.0,
+                    annual_additional_savings_eur=178.97,
+                    marginal_recovered_kwh_per_kwh=180.0,
+                    incremental_battery_cost_eur=1800.0,
+                    incremental_savings_eur=178.97,
+                    marginal_savings_per_kwh=35.79,
+                    marginal_payback_years=10.06,
+                    economic_npv_eur=126.77,
+                    economic_irr_percent=6.01,
+                    economic_payback_years=12.61,
+                    combined_economic_npv_eur=2239.27,
+                    combined_economic_irr_percent=6.47,
+                    combined_economic_payback_years=12.79,
+                ),
+                BatteryReportData(
+                    capacity_kwh=8.3,
+                    max_charge_power_kw=5.0,
+                    max_discharge_power_kw=5.0,
+                    annual_consumption_kwh=19541.72,
+                    annual_production_kwh=12500.0,
+                    annual_surplus_kwh=4000.0,
+                    annual_export_kwh=2800.0,
+                    annual_grid_import_kwh=8300.0,
+                    annual_battery_charge_kwh=1200.0,
+                    annual_battery_discharge_kwh=1050.0,
+                    self_consumption_kwh=9700.0,
+                    self_sufficiency_percent=57.5,
+                    equivalent_cycles=145.0,
+                    annual_cost_with_battery_eur=2300.0,
+                    annual_additional_savings_eur=274.00,
+                    marginal_recovered_kwh_per_kwh=126.0,
+                    incremental_battery_cost_eur=3000.0,
+                    incremental_savings_eur=95.03,
+                    marginal_savings_per_kwh=28.80,
+                    marginal_payback_years=31.57,
+                    economic_npv_eur=208.28,
+                    economic_irr_percent=6.00,
+                    economic_payback_years=12.62,
+                    combined_economic_npv_eur=2320.78,
+                    combined_economic_irr_percent=6.44,
+                    combined_economic_payback_years=12.78,
+                ),
+                BatteryReportData(
+                    capacity_kwh=30.0,
+                    max_charge_power_kw=5.0,
+                    max_discharge_power_kw=5.0,
+                    annual_consumption_kwh=19541.72,
+                    annual_production_kwh=12500.0,
+                    annual_surplus_kwh=4000.0,
+                    annual_export_kwh=1000.0,
+                    annual_grid_import_kwh=6500.0,
+                    annual_battery_charge_kwh=2500.0,
+                    annual_battery_discharge_kwh=1800.0,
+                    self_consumption_kwh=11500.0,
+                    self_sufficiency_percent=66.0,
+                    equivalent_cycles=83.0,
+                    annual_cost_with_battery_eur=1900.0,
+                    annual_additional_savings_eur=500.0,
+                    marginal_recovered_kwh_per_kwh=60.0,
+                    incremental_battery_cost_eur=9000.0,
+                    incremental_savings_eur=100.0,
+                    marginal_savings_per_kwh=3.33,
+                    marginal_payback_years=float("inf"),
+                    economic_npv_eur=-3707.30,
+                    economic_irr_percent=-0.92,
+                    economic_payback_years=float("inf"),
+                    combined_economic_npv_eur=-1594.80,
+                    combined_economic_irr_percent=4.23,
+                    combined_economic_payback_years=15.74,
+                ),
+            ],
         )
 
     # ==================================================
@@ -210,6 +297,8 @@ class TestSolarReportText:
         assert "2,338.00 €" in text
         assert "12,490.00 €" in text
         assert "5.34 años" in text
+        assert "periodo de recuperación de la inversión" in text
+        assert "periodo de retorno" not in text
 
     # ==================================================
     # Production
@@ -321,6 +410,10 @@ class TestSolarReportText:
         assert "22,071.16 €" in text
         assert "18.80 %" in text
         assert "genera valor" in text
+        assert "periodo de recuperación de la inversión" in text
+        assert "periodo de retorno" not in text
+        assert "tasa de descuento" not in text
+        assert "valor del dinero en el tiempo" in text
 
     def test_economic_analysis_detects_negative_npv(self):
 
@@ -368,6 +461,42 @@ class TestSolarReportText:
         assert "No ha sido posible determinar" in text
 
     # ==================================================
+    # Batteries
+    # ==================================================
+
+    def test_battery_analysis_contains_main_values(self):
+
+        data = self._report_data()
+
+        text = SolarReportText.battery_analysis(data)
+
+        assert "3 capacidades de batería" in text
+        assert "5.0 kWh" in text
+        assert "500.00 €" in text
+        assert "208.28 €" in text
+        assert "ahorro marginal por kWh" in text
+        assert "periodo de recuperación marginal" in text
+        assert "Economía conjunta FV + batería" not in text
+
+    def test_battery_analysis_handles_empty_results(self):
+
+        data = self._report_data()
+
+        data = SolarReportData(
+            **{
+                **data.__dict__,
+                "battery_recommendations": [],
+            }
+        )
+
+        text = SolarReportText.battery_analysis(data)
+
+        assert (
+            "No se han realizado evaluaciones económicas"
+            in text
+        )
+
+    # ==================================================
     # Scenarios
     # ==================================================
 
@@ -381,6 +510,8 @@ class TestSolarReportText:
         assert "28,000.00 €" in text
         assert "Conservador" in text
         assert "18,000.00 €" in text
+        assert "periodo de recuperación de la inversión" in text
+        assert "periodo de retorno" not in text
 
     def test_scenario_analysis_handles_empty_results(self):
 
@@ -415,6 +546,9 @@ class TestSolarReportText:
         assert "2,338.00 €" in text
         assert "5.34 años" in text
         assert "inversión favorable" in text
+        assert "periodo de recuperación de la inversión" in text
+        assert "periodo de retorno" not in text
+
 
     def test_conclusion_detects_unfavorable_case(self):
 
@@ -430,3 +564,34 @@ class TestSolarReportText:
         text = SolarReportText.conclusion(data)
 
         assert "valoración prudente" in text
+
+    # ==================================================
+    # Glossary
+    # ==================================================
+
+    def test_glossary_uses_user_friendly_economic_terms(self):
+
+        glossary = dict(SolarReportText.glossary())
+
+        assert "Periodo de recuperación de la inversión" in glossary
+        assert "Periodo de retorno (Payback)" not in glossary
+
+        assert "Valor del dinero en el tiempo" in glossary
+        assert "Tasa de descuento" not in glossary
+
+        assert "No es lo mismo que el IPC" in (
+            glossary["Valor del dinero en el tiempo"]
+        )
+
+    def test_glossary_contains_battery_terms(self):
+
+        glossary = dict(SolarReportText.glossary())
+
+        assert "Ahorro adicional anual de la batería" in glossary
+        assert "Coste incremental de la batería" in glossary
+        assert "Ahorro incremental" in glossary
+        assert "Ahorro marginal por kWh de batería" in glossary
+        assert "Periodo de recuperación marginal" in glossary
+        assert "Ciclos equivalentes" in glossary
+        assert "VAN de la batería" in glossary
+        assert "Economía conjunta FV + batería" in glossary

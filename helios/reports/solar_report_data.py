@@ -2,6 +2,9 @@ from dataclasses import dataclass, field
 
 import pandas as pd
 
+from helios.reports.battery_report_data import (
+    BatteryReportData,
+)
 
 @dataclass(frozen=True)
 class SolarReportData:
@@ -81,7 +84,9 @@ class SolarReportData:
     # ==================================================
 
     scenario_results: list
-    battery_recommendations: list = field(default_factory=list)
+    battery_recommendations: list[
+        BatteryReportData
+    ] = field(default_factory=list)
 
     # ==================================================
     # Automatic dimensioning

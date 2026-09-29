@@ -673,6 +673,31 @@ class SolarReportGenerator:
             )
         )
 
+        styles.add(
+            ParagraphStyle(
+                name="HeliosBodyText",
+                parent=styles["BodyText"],
+                fontName="Lato",
+                fontSize=9,
+                leading=13,
+                textColor=colors.HexColor(HELIOS_TEXT),
+                spaceAfter=4,
+            )
+        )
+
+        styles.add(
+            ParagraphStyle(
+                name="HeliosSubsectionTitle",
+                parent=styles["Heading3"],
+                fontName="Montserrat-Bold",
+                fontSize=11,
+                leading=14,
+                textColor=colors.HexColor(HELIOS_PURPLE),
+                spaceBefore=4,
+                spaceAfter=4,
+            )
+        )
+
         document = SimpleDocTemplate(
             str(output_path),
             pagesize=A4,
@@ -1385,13 +1410,17 @@ class SolarReportGenerator:
         )
 
         # ==================================================
-        # Análisis económico del almacenamiento
+        # Evaluación económica de baterías
         # ==================================================
 
         if data.battery_recommendations:
 
+            battery_analysis_text = (
+                SolarReportText.battery_analysis(data)
+            )
+
             # --------------------------------------------------
-            # Tabla 1: costes y ahorro marginal
+            # Tabla 1: resultados marginales
             # --------------------------------------------------
 
             battery_operational_data = [
@@ -1401,21 +1430,34 @@ class SolarReportGenerator:
                     "Ahorro adicional",
                     "Coste incremental",
                     "Ahorro incremental",
-                    "PB marginal",
+                    "Ahorro marginal/kWh",
+                    "Recuperación marginal",
                 ],
             ]
 
             # --------------------------------------------------
-            # Tabla 2: rentabilidad económica a largo plazo
+            # Tabla 2: economía de la batería
             # --------------------------------------------------
 
             battery_economic_data = [
                 [
                     "Capacidad",
-                    "Ahorro marginal",
-                    "VAN",
-                    "TIR",
-                    "Payback económico",
+                    "VAN batería",
+                    "TIR batería",
+                    "Recuperación económica",
+                ],
+            ]
+
+            # --------------------------------------------------
+            # Tabla 3: economía conjunta FV + batería
+            # --------------------------------------------------
+
+            battery_combined_data = [
+                [
+                    "Capacidad",
+                    "VAN conjunto",
+                    "TIR conjunta",
+                    "Recuperación conjunta",
                 ],
             ]
 
@@ -1439,6 +1481,15 @@ class SolarReportGenerator:
                     )
                 )
 
+                combined_payback = (
+                    "N/D"
+                    if recommendation.combined_economic_payback_years
+                    == float("inf")
+                    else (
+                        f"{recommendation.combined_economic_payback_years:.2f} años"
+                    )
+                )
+
                 capacity = (
                     f"{recommendation.capacity_kwh:.1f} kWh"
                 )
@@ -1458,6 +1509,9 @@ class SolarReportGenerator:
                         (
                             f"{recommendation.incremental_savings_eur:,.2f} €"
                         ),
+                        (
+                            f"{recommendation.marginal_savings_per_kwh:,.2f} €/kWh"
+                        ),
                         marginal_payback,
                     ]
                 )
@@ -1465,9 +1519,6 @@ class SolarReportGenerator:
                 battery_economic_data.append(
                     [
                         capacity,
-                        (
-                            f"{recommendation.marginal_savings_per_kwh:,.2f} €/kWh"
-                        ),
                         (
                             f"{recommendation.economic_npv_eur:,.2f} €"
                         ),
@@ -1478,15 +1529,79 @@ class SolarReportGenerator:
                     ]
                 )
 
+                battery_combined_data.append(
+                    [
+                        capacity,
+                        (
+                            f"{recommendation.combined_economic_npv_eur:,.2f} €"
+                        ),
+                        (
+                            f"{recommendation.combined_economic_irr_percent:.2f} %"
+                        ),
+                        combined_payback,
+                    ]
+                )
+
+                        # --------------------------------------------------
+            # Estilo específico para cabeceras de baterías
+            # --------------------------------------------------
+
+            battery_header_style = ParagraphStyle(
+                name="BatteryTableHeader",
+                parent=styles["Normal"],
+                fontName="Helvetica-Bold",
+                fontSize=7.5,
+                leading=8.5,
+                textColor=colors.white,
+                alignment=TA_CENTER,
+            )
+
+            # Convertimos las cabeceras en Paragraph para permitir
+            # saltos de línea y evitar solapamientos.
+            battery_operational_data[0] = [
+                Paragraph("Capacidad", battery_header_style),
+                Paragraph("Coste<br/>anual", battery_header_style),
+                Paragraph("Ahorro<br/>adicional", battery_header_style),
+                Paragraph("Coste<br/>incremental", battery_header_style),
+                Paragraph("Ahorro<br/>incremental", battery_header_style),
+                Paragraph("Ahorro marginal<br/>/ kWh", battery_header_style),
+                Paragraph("Recuperación<br/>marginal", battery_header_style),
+            ]
+
+            battery_economic_data[0] = [
+                Paragraph("Capacidad", battery_header_style),
+                Paragraph("VAN<br/>batería", battery_header_style),
+                Paragraph("TIR<br/>batería", battery_header_style),
+                Paragraph(
+                    "Recuperación<br/>económica",
+                    battery_header_style,
+                ),
+            ]
+
+            battery_combined_data[0] = [
+                Paragraph("Capacidad", battery_header_style),
+                Paragraph("VAN<br/>conjunto", battery_header_style),
+                Paragraph("TIR<br/>conjunta", battery_header_style),
+                Paragraph(
+                    "Recuperación<br/>conjunta",
+                    battery_header_style,
+                ),
+            ]
+
+            # --------------------------------------------------
+            # Tablas
+            # --------------------------------------------------
+
             battery_operational_table = Table(
                 battery_operational_data,
                 colWidths=[
+                    60,
                     65,
-                    75,
-                    90,
-                    90,
-                    90,
-                    75,
+                    72,
+                    72,
+                    72,
+                    72,
+                    77,
                 ],
                 repeatRows=1,
             )
@@ -1494,11 +1609,21 @@ class SolarReportGenerator:
             battery_economic_table = Table(
                 battery_economic_data,
                 colWidths=[
-                    80,
+                    65,
+                    140,
                     105,
+                    180,
+                ],
+                repeatRows=1,
+            )
+
+            battery_combined_table = Table(
+                battery_combined_data,
+                colWidths=[
+                    65,
+                    140,
                     105,
-                    80,
-                    120,
+                    180,
                 ],
                 repeatRows=1,
             )
@@ -1513,58 +1638,101 @@ class SolarReportGenerator:
                 HELIOS_PURPLE,
             )
 
-            # Alineación numérica.
-            battery_operational_table.setStyle(
-                TableStyle(
-                    [
-                        (
-                            "ALIGN",
-                            (1, 1),
-                            (-1, -1),
-                            "RIGHT",
-                        ),
-                        (
-                            "ALIGN",
-                            (0, 0),
-                            (0, -1),
-                            "CENTER",
-                        ),
-                    ]
-                )
+            self._style_table(
+                battery_combined_table,
+                HELIOS_PURPLE,
             )
 
-            battery_economic_table.setStyle(
-                TableStyle(
-                    [
-                        (
-                            "ALIGN",
-                            (1, 1),
-                            (-1, -1),
-                            "RIGHT",
-                        ),
-                        (
-                            "ALIGN",
-                            (0, 0),
-                            (0, -1),
-                            "CENTER",
-                        ),
-                    ]
+            for table in (
+                battery_operational_table,
+                battery_economic_table,
+                battery_combined_table,
+            ):
+                table.setStyle(
+                    TableStyle(
+                        [
+                            (
+                                "ALIGN",
+                                (1, 1),
+                                (-1, -1),
+                                "RIGHT",
+                            ),
+                            (
+                                "ALIGN",
+                                (0, 0),
+                                (0, -1),
+                                "CENTER",
+                            ),
+                            (
+                                "VALIGN",
+                                (0, 0),
+                                (-1, -1),
+                                "MIDDLE",
+                            ),
+                            (
+                                "LEFTPADDING",
+                                (0, 0),
+                                (-1, -1),
+                                4,
+                            ),
+                            (
+                                "RIGHTPADDING",
+                                (0, 0),
+                                (-1, -1),
+                                4,
+                            ),
+                            (
+                                "TOPPADDING",
+                                (0, 0),
+                                (-1, 0),
+                                5,
+                            ),
+                            (
+                                "BOTTOMPADDING",
+                                (0, 0),
+                                (-1, 0),
+                                5,
+                            ),
+                        ]
+                    )
                 )
-            )
 
             story.append(
                 KeepTogether(
                     [
                         Spacer(1, 25),
+
                         self._section_header(
-                            "Análisis económico del almacenamiento",
+                            "Evaluación económica de baterías",
                             styles,
                             HELIOS_PURPLE,
                         ),
+
                         Spacer(1, 10),
+
+                        Paragraph(
+                            battery_analysis_text,
+                            styles["HeliosBodyText"],
+                        ),
+
+                        Spacer(1, 12),
+
                         battery_operational_table,
-                        Spacer(1, 10),
+
+                        Spacer(1, 12),
+
                         battery_economic_table,
+
+                        Spacer(1, 12),
+
+                        Paragraph(
+                            "Economía conjunta FV + batería",
+                            styles["HeliosSubsectionTitle"],
+                        ),
+
+                        Spacer(1, 6),
+
+                        battery_combined_table,
                     ]
                 )
             )

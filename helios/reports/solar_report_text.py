@@ -1,5 +1,5 @@
+from helios.reports.battery_report_data import BatteryReportData
 from helios.reports.solar_report_data import SolarReportData
-
 
 class SolarReportText:
     """Genera textos interpretativos para el informe solar."""
@@ -27,7 +27,7 @@ class SolarReportText:
             f"El ahorro económico estimado alcanza "
             f"{data.yearly_savings_eur:,.2f} € al año, con una "
             f"inversión de {data.investment_eur:,.2f} € y un "
-            f"periodo de retorno de "
+            f"periodo de recuperación de la inversión de "
             f"{data.payback_years:.2f} años."
         )
 
@@ -130,21 +130,23 @@ class SolarReportText:
 
         if data.net_present_value_eur > 0:
             npv_assessment = (
-                "El valor actual neto es positivo, lo que indica que "
-                "la inversión genera valor por encima de la tasa de "
-                "descuento considerada."
+                "El valor actual neto es positivo, lo que indica que la inversión "
+                "genera valor por encima del valor exigido, una vez tenido en cuenta "
+                "el valor del dinero en el tiempo."
             )
         elif data.net_present_value_eur < 0:
             npv_assessment = (
-                "El valor actual neto es negativo, lo que indica que "
-                "la inversión no alcanza la rentabilidad exigida "
-                "bajo las hipótesis consideradas."
+                "El valor actual neto es negativo, lo que indica que, bajo las "
+                "hipótesis consideradas, el valor de los ahorros futuros no alcanza "
+                "a compensar la inversión una vez tenido en cuenta el valor del dinero "
+                "en el tiempo."
             )
         else:
             npv_assessment = (
-                "El valor actual neto es aproximadamente nulo, "
-                "por lo que la inversión se sitúa en el umbral de "
-                "rentabilidad definido por la tasa de descuento."
+                "El valor actual neto es aproximadamente nulo, lo que indica que, "
+                "bajo las hipótesis consideradas, los ahorros futuros compensan "
+                "aproximadamente la inversión una vez tenido en cuenta el valor "
+                "del dinero en el tiempo."
             )
 
         if data.internal_rate_of_return_percent is not None:
@@ -162,13 +164,106 @@ class SolarReportText:
             f"La inversión neta asciende a "
             f"{data.investment_eur:,.2f} € y genera un ahorro anual "
             f"estimado de {data.yearly_savings_eur:,.2f} €. "
-            f"El periodo de retorno de la inversión es de "
+            f"El periodo de recuperación de la inversión es de "
             f"{data.payback_years:.2f} años. "
             f"El valor actual neto alcanza "
             f"{data.net_present_value_eur:,.2f} €. "
             f"{irr_text} "
             f"{npv_assessment}"
         )
+
+    @staticmethod
+    def battery_analysis(
+        data: SolarReportData,
+    ) -> str:
+        """
+        Interpreta los resultados económicos de las capacidades
+        de batería evaluadas.
+        """
+
+        if data is None:
+            raise ValueError("report data is required")
+
+        recommendations = data.battery_recommendations
+
+        if not recommendations:
+            return (
+                "No se han realizado evaluaciones económicas de "
+                "capacidades de batería para esta instalación."
+            )
+
+        viable = [
+            recommendation
+            for recommendation in recommendations
+            if recommendation.economic_npv_eur >= 0
+        ]
+
+        best_additional_savings = max(
+            recommendations,
+            key=lambda recommendation:
+            recommendation.annual_additional_savings_eur,
+        )
+
+        best_economic_npv = max(
+            recommendations,
+            key=lambda recommendation:
+            recommendation.economic_npv_eur,
+        )
+
+        text = (
+            f"Se han evaluado {len(recommendations)} capacidades "
+            f"de batería entre "
+            f"{min(r.capacity_kwh for r in recommendations):.1f} kWh "
+            f"y {max(r.capacity_kwh for r in recommendations):.1f} kWh. "
+            f"La batería permite almacenar parte del excedente "
+            f"fotovoltaico para utilizarlo posteriormente, reduciendo "
+            f"la energía que debe importarse de la red."
+        )
+
+        text += (
+            f" La capacidad de "
+            f"{best_additional_savings.capacity_kwh:.1f} kWh "
+            f"alcanza el mayor ahorro adicional anual, con "
+            f"{best_additional_savings.annual_additional_savings_eur:,.2f} € "
+            f"respecto a la instalación fotovoltaica sin batería."
+        )
+
+        text += (
+            f" En términos del valor actual neto de la propia batería, "
+            f"la capacidad de "
+            f"{best_economic_npv.capacity_kwh:.1f} kWh obtiene "
+            f"{best_economic_npv.economic_npv_eur:,.2f} € "
+            f"bajo las hipótesis económicas utilizadas."
+        )
+
+        if viable:
+            text += (
+                f" {len(viable)} de las {len(recommendations)} "
+                f"capacidades evaluadas presentan un valor actual neto "
+                f"de la batería igual o superior a cero."
+            )
+        else:
+            text += (
+                " Ninguna de las capacidades evaluadas presenta un "
+                "valor actual neto de la batería igual o superior a cero "
+                "bajo las hipótesis consideradas."
+            )
+
+        text += (
+            " El ahorro marginal por kWh representa el ahorro adicional "
+            "obtenido por cada kWh de capacidad de batería añadido, "
+            "mientras que el periodo de recuperación marginal expresa "
+            "el tiempo estimado necesario para recuperar el coste "
+            "incremental de esa capacidad mediante el ahorro incremental."
+        )
+
+        text += (
+            " Los indicadores económicos conjuntos permiten además "
+            "analizar el resultado de la inversión fotovoltaica y la "
+            "batería como un único sistema."
+        )
+
+        return text
 
     @staticmethod
     def scenario_analysis(
@@ -216,7 +311,8 @@ class SolarReportText:
             text += (
                 f"En el escenario «Base», el ahorro anual estimado es "
                 f"de {base.annual_savings:,.2f} €, con un periodo de "
-                f"retorno de {base.payback_years:.2f} años y un VAN de "
+                f"recuperación de la inversión de {base.payback_years:.2f} años "
+                f"y un VAN de "
                 f"{base.npv:,.2f} €. "
             )
 
@@ -239,30 +335,32 @@ class SolarReportText:
         data: SolarReportData,
     ) -> str:
         """
-        Genera la conclusión general del informe.
+        Genera la conclusión final del informe solar.
+
+        Incluye el resumen de la instalación fotovoltaica y,
+        cuando existen resultados de batería, una síntesis de
+        su comportamiento energético y económico.
         """
 
         if data is None:
             raise ValueError("report data is required")
 
-        if (
-            data.net_present_value_eur > 0
-            and data.payback_years
-            < data.economic_horizon_years
-        ):
+        if data.net_present_value_eur > 0:
             investment_assessment = (
-                "Los resultados económicos muestran una "
-                "inversión favorable dentro del horizonte de "
-                "análisis considerado."
+                "La inversión favorable bajo las hipótesis utilizadas."
+            )
+        elif data.net_present_value_eur < 0:
+            investment_assessment = (
+                "La inversión presenta una valoración prudente "
+                "bajo las hipótesis utilizadas."
             )
         else:
             investment_assessment = (
-                "Los resultados económicos aconsejan una "
-                "valoración prudente de la inversión dentro "
-                "del horizonte de análisis considerado."
+                "La inversión presenta un valor actual neto "
+                "aproximadamente nulo bajo las hipótesis utilizadas."
             )
 
-        return (
+        conclusion = (
             f"La instalación fotovoltaica analizada, con una "
             f"potencia instalada de {data.installed_power_kwp:.2f} kWp, "
             f"alcanza una producción solar anual estimada de "
@@ -276,8 +374,84 @@ class SolarReportText:
             f"genera un ahorro anual estimado de "
             f"{data.yearly_savings_eur:,.2f} €, con una inversión "
             f"neta de {data.investment_eur:,.2f} € y un periodo "
-            f"de retorno de {data.payback_years:.2f} años. "
+            f"de recuperación de la inversión de "
+            f"{data.payback_years:.2f} años. "
             f"{investment_assessment}"
+        )
+
+        # ---------------------------------------------------------
+        # Evaluación económica de las baterías
+        # ---------------------------------------------------------
+
+        if data.battery_recommendations:
+            recommendations = data.battery_recommendations
+
+            highest_savings = max(
+                recommendations,
+                key=lambda recommendation: (
+                    recommendation.annual_additional_savings_eur
+                ),
+            )
+
+            highest_npv = max(
+                recommendations,
+                key=lambda recommendation: (
+                    recommendation.economic_npv_eur
+                ),
+            )
+
+            viable_count = sum(
+                recommendation.economic_npv_eur >= 0
+                for recommendation in recommendations
+            )
+
+            capacities = [
+                recommendation.capacity_kwh
+                for recommendation in recommendations
+            ]
+
+            min_capacity = min(capacities)
+            max_capacity = max(capacities)
+
+        if highest_npv.economic_payback_years == float("inf"):
+            payback_text = "no se recupera durante el horizonte analizado"
+        else:
+            payback_text = (
+                f"{highest_npv.economic_payback_years:.2f} años"
+            )
+
+            conclusion += (
+                f"<br/><br/>"
+                f"También se ha evaluado el almacenamiento mediante "
+                f"{len(recommendations)} capacidades de batería, entre "
+                f"{min_capacity:.1f} y {max_capacity:.1f} kWh. "
+                f"El mayor ahorro adicional anual obtenido en la "
+                f"simulación corresponde a una capacidad de "
+                f"{highest_savings.capacity_kwh:.1f} kWh, con un ahorro "
+                f"adicional anual de "
+                f"{highest_savings.annual_additional_savings_eur:,.2f} €."
+                f"<br/><br/>"
+                f"Desde el punto de vista económico de la propia batería, "
+                f"la capacidad de {highest_npv.capacity_kwh:.1f} kWh "
+                f"presenta el mayor valor actual neto, de "
+                f"{highest_npv.economic_npv_eur:,.2f} €, con una TIR del "
+                f"{highest_npv.economic_irr_percent:.2f} % y un periodo "
+                f"de recuperación de {payback_text}. "
+                f"En total, {viable_count} de las {len(recommendations)} "
+                f"capacidades evaluadas presentan un valor actual neto "
+                f"de la batería igual o superior a cero."
+                f"<br/><br/>"
+                f"Estos resultados muestran que aumentar la capacidad de "
+                f"almacenamiento puede incrementar el ahorro anual, pero "
+                f"ese incremento no implica necesariamente una mejora "
+                f"proporcional de la rentabilidad económica de la batería."
+            )
+
+        # ---------------------------------------------------------
+        # Cierre general
+        # ---------------------------------------------------------
+
+        conclusion += (
             f"<br/><br/>"
             f"En conjunto, los resultados indican que la instalación "
             f"presenta una capacidad significativa para reducir el "
@@ -287,6 +461,8 @@ class SolarReportText:
             f"producción, consumo, tarifas, degradación y evolución "
             f"de precios utilizadas en el análisis."
         )
+
+        return conclusion
 
     @staticmethod
     def glossary() -> list[tuple[str, str]]:
@@ -357,15 +533,16 @@ class SolarReportText:
                 "gracias a la instalación fotovoltaica.",
             ),
             (
-                "Periodo de retorno (Payback)",
+                "Periodo de recuperación de la inversión",
                 "Tiempo estimado necesario para recuperar la inversión "
-                "inicial mediante los ahorros generados por la instalación.",
+                "inicial mediante los ahorros y otros beneficios económicos "
+                "generados por la instalación.",
             ),
             (
                 "VAN (Valor Actual Neto)",
                 "Indicador económico que representa el valor que genera "
                 "la inversión durante el horizonte analizado, teniendo "
-                "en cuenta el valor temporal del dinero.",
+                "en cuenta el valor del dinero en el tiempo.",
             ),
             (
                 "TIR (Tasa Interna de Retorno)",
@@ -378,8 +555,56 @@ class SolarReportText:
                 "módulos fotovoltaicos a lo largo de su vida útil.",
             ),
             (
-                "Tasa de descuento",
-                "Porcentaje utilizado para convertir los flujos económicos "
-                "futuros a su valor equivalente en el momento actual.",
+                "Valor del dinero en el tiempo",
+                "Porcentaje utilizado para expresar en euros de hoy los "
+                "ahorros que se producirán en el futuro. Por ejemplo, con "
+                "un 5 %, 1.000 € dentro de un año equivalen aproximadamente "
+                "a 952 € de hoy. No es lo mismo que el IPC: el IPC mide "
+                "la evolución general de los precios, mientras que este "
+                "valor permite comparar económicamente cantidades recibidas "
+                "en distintos momentos.",
+            ),
+            (
+                "Ahorro adicional anual de la batería",
+                "Ahorro anual que proporciona una batería respecto a la "
+                "misma instalación fotovoltaica funcionando sin batería.",
+            ),
+            (
+                "Coste incremental de la batería",
+                "Coste asociado a incorporar la capacidad de batería "
+                "evaluada respecto a la capacidad de referencia.",
+            ),
+            (
+                "Ahorro incremental",
+                "Ahorro económico adicional generado por una capacidad "
+                "de batería respecto a la capacidad de referencia.",
+            ),
+            (
+                "Ahorro marginal por kWh de batería",
+                "Ahorro incremental obtenido por cada kWh adicional "
+                "de capacidad de batería instalada.",
+            ),
+            (
+                "Periodo de recuperación marginal",
+                "Tiempo estimado necesario para recuperar el coste "
+                "incremental de una capacidad adicional de batería "
+                "mediante el ahorro incremental que proporciona.",
+            ),
+            (
+                "Ciclos equivalentes",
+                "Número estimado de ciclos completos de carga y descarga "
+                "que representa el uso anual de la batería.",
+            ),
+            (
+                "VAN de la batería",
+                "Valor actual neto de la inversión adicional en la batería, "
+                "considerando sus ahorros futuros y el valor del dinero "
+                "en el tiempo.",
+            ),
+            (
+                "Economía conjunta FV + batería",
+                "Evaluación económica de la instalación fotovoltaica y "
+                "la batería consideradas conjuntamente como una única "
+                "inversión.",
             ),
         ]
