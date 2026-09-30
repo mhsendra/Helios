@@ -25,6 +25,7 @@ from reportlab.platypus import (
     Table,
     TableStyle,
 )
+from reportlab.platypus.tableofcontents import TableOfContents
 
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
@@ -40,8 +41,6 @@ HELIOS_MUTED = "#666666"
 HELIOS_BORDER = "#d0d7de"
 HELIOS_BACKGROUND = "#f8f9fa"
 HELIOS_KPI_BACKGROUND = "#f4f6f8"
-
-HELIOS_LOGO = Path(__file__).resolve().parents[2] / "assets" / "Logo_Helios.png"
 
 HELIOS_ASSETS = Path(__file__).resolve().parents[2] / "assets"
 
@@ -75,6 +74,53 @@ pdfmetrics.registerFont(
         str(HELIOS_FONTS / "Lato-Bold.ttf"),
     )
 )
+
+class HeliosDocTemplate(SimpleDocTemplate):
+    """Plantilla de documento con índice y marcadores PDF."""
+
+    def afterFlowable(self, flowable):
+        """Registra automáticamente las secciones en el índice."""
+
+        if not isinstance(flowable, Paragraph):
+            return
+
+        toc_level = getattr(
+            flowable,
+            "_toc_level",
+            None,
+        )
+
+        if toc_level is None:
+            return
+
+        title = flowable.getPlainText()
+        key = getattr(
+            flowable,
+            "_toc_key",
+            None,
+        )
+
+        if key is None:
+            return
+
+        self.canv.bookmarkPage(key)
+
+        self.canv.addOutlineEntry(
+            title,
+            key,
+            level=toc_level,
+            closed=False,
+        )
+
+        self.notify(
+            "TOCEntry",
+            (
+                toc_level,
+                title,
+                self.page,
+                key,
+            ),
+        )
 
 class NumberedCanvas(canvas.Canvas):
     """Canvas de ReportLab que permite mostrar 'Página X de Y'."""
@@ -572,16 +618,24 @@ class SolarReportGenerator:
         title: str,
         styles,
         color: str = HELIOS_BLUE,
+        toc_level: int = 0,
     ) -> KeepTogether:
-        """Crea un encabezado de sección con separador visual."""
+        """Crea un encabezado de sección registrado en el índice PDF."""
+
+        heading = Paragraph(
+            title,
+            styles["HeliosSectionTitle"],
+        )
+
+        # Metadatos utilizados por ``afterFlowable`` para construir
+        # automáticamente el índice y los marcadores del PDF.
+        heading._toc_level = toc_level
+        heading._toc_key = f"helios-section-{id(heading)}"
 
         return KeepTogether(
             [
                 Spacer(1, 6 * mm),
-                Paragraph(
-                    title,
-                    styles["HeliosSectionTitle"],
-                ),
+                heading,
                 HRFlowable(
                     width="100%",
                     thickness=1,
@@ -698,7 +752,7 @@ class SolarReportGenerator:
             )
         )
 
-        document = SimpleDocTemplate(
+        document = HeliosDocTemplate(
             str(output_path),
             pagesize=A4,
             rightMargin=18 * mm,
@@ -713,6 +767,33 @@ class SolarReportGenerator:
         cover_logo_height = (
             cover_logo_width * 345 / 1170
         )
+
+        toc = TableOfContents()
+
+        toc.levelStyles = [
+            ParagraphStyle(
+                name="HeliosTocLevel0",
+                fontName="Lato-Bold",
+                fontSize=10,
+                leading=14,
+                leftIndent=0,
+                firstLineIndent=0,
+                spaceBefore=4,
+                spaceAfter=4,
+                textColor=colors.HexColor(HELIOS_BLUE),
+            ),
+            ParagraphStyle(
+                name="HeliosTocLevel1",
+                fontName="Lato",
+                fontSize=9,
+                leading=12,
+                leftIndent=12,
+                firstLineIndent=0,
+                spaceBefore=2,
+                spaceAfter=2,
+                textColor=colors.HexColor(HELIOS_TEXT),
+            ),
+        ]
 
         story = [
 
@@ -874,12 +955,29 @@ class SolarReportGenerator:
 
                 PageBreak(),
 
+                Paragraph(
+                    "Índice",
+                    styles["HeliosSectionTitle"],
+                ),
+
+                HRFlowable(
+                    width="100%",
+                    thickness=1,
+                    color=colors.HexColor(HELIOS_BLUE),
+                    spaceBefore=1,
+                    spaceAfter=10,
+                ),
+
+                toc,
+
+                PageBreak(),
+
                 self._section_header(
                     "Resumen ejecutivo",
                     styles,
                 ),
 
-                                ExecutiveKpiGrid(
+                ExecutiveKpiGrid(
                     [
                         (
                             "Producción solar",
@@ -1542,7 +1640,7 @@ class SolarReportGenerator:
                     ]
                 )
 
-                        # --------------------------------------------------
+            # --------------------------------------------------
             # Estilo específico para cabeceras de baterías
             # --------------------------------------------------
 
@@ -1909,7 +2007,7 @@ class SolarReportGenerator:
             )
         )
 
-                # ==================================================
+        # ==================================================
         # Conclusión
         # ==================================================
 
@@ -2000,7 +2098,7 @@ class SolarReportGenerator:
         # Generación
         # ==================================================
 
-        document.build(
+        document.multiBuild(
             story,
             canvasmaker=NumberedCanvas,
         )

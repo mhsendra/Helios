@@ -324,16 +324,14 @@ class TestSolarReportGenerator:
         captured = {}
 
         class FakeDocument:
-
             def __init__(self, *args, **kwargs):
-                self.args = args
-                self.kwargs = kwargs
+                pass
 
-            def build(self, story, canvasmaker=None):
+            def multiBuild(self, story, canvasmaker=None, **kwargs):
                 captured["story"] = story
 
         monkeypatch.setattr(
-            "helios.reports.solar_report_generator.SimpleDocTemplate",
+            "helios.reports.solar_report_generator.HeliosDocTemplate",
             FakeDocument,
         )
 
@@ -1492,6 +1490,7 @@ class TestSolarReportGenerator:
         expected_sections = [
             "Informe de rendimiento solar",
             "Instalación fotovoltaica — 8.10 kWp",
+            "Índice",
             "Resumen ejecutivo",
             "La instalación fotovoltaica analizada tiene una potencia instalada de 8.10 kWp y una producción solar estimada de 12,500 kWh anuales. Esta producción permite cubrir directamente 64.0 % del consumo eléctrico anual mediante energía solar. El ahorro económico estimado alcanza 2,338.00 € al año, con una inversión de 12,490.00 € y un periodo de recuperación de la inversión de 5.34 años.",
             "Resumen de la instalación",
