@@ -44,6 +44,10 @@ class SolarReportData:
     # ==================================================
 
     yearly_consumption_kwh: float
+    # Año calendario utilizado como índice del perfil de
+    # consumo representativo/sintético. No debe confundirse
+    # con SolarConfiguration.reference_year, que identifica
+    # el año meteorológico solicitado a PVGIS.
     consumption_reference_year: int
     monthly_consumption: pd.Series
     self_consumption_kwh: float
@@ -105,6 +109,9 @@ class SolarReportData:
     longitude: float | None = None
     tilt: int | None = None
     azimuth: int | None = None
+    # Año de referencia de la simulación fotovoltaica
+    # (PVGIS). Es independiente del año sintético
+    # utilizado para el consumo.
     reference_year: int | None = None
     losses: float | None = None
     pv_technology: str | None = None

@@ -306,3 +306,15 @@ class TestSolarReportData:
 
         assert second.installed_power_kwp == 10.8
         assert second.panel_count == 20
+
+    def test_consumption_reference_year_is_independent_from_solar_reference_year(
+        self,
+    ):
+
+        data = self._data(
+            consumption_reference_year=2025,
+            reference_year=2023,
+        )
+
+        assert data.consumption_reference_year == 2025
+        assert data.reference_year == 2023

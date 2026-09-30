@@ -566,6 +566,190 @@ def test_calculate_yearly_consumption_updates_engine_state():
 
     assert engine.yearly_consumption is result
 
+# ==========================================================
+# Año representativo / sintético
+# ==========================================================
+
+
+def create_full_hourly_dataset(
+    start="2024-01-01 00:00:00",
+    end="2025-12-31 23:00:00",
+    value=1.0,
+):
+    index = pd.date_range(
+        start=start,
+        end=end,
+        freq="h",
+    )
+
+    return pd.DataFrame(
+        {
+            "AE_kWh": [value] * len(index),
+        },
+        index=index,
+    )
+
+
+def test_calculate_representative_year_uses_2025_by_default():
+
+    engine = create_engine()
+
+    df = create_full_hourly_dataset()
+
+    result = (
+        engine
+        .calculate_representative_year_consumption(df)
+    )
+
+    assert len(result) == 8760
+
+    assert result.index[0] == pd.Timestamp(
+        "2025-01-01 00:00:00"
+    )
+
+    assert result.index[-1] == pd.Timestamp(
+        "2025-12-31 23:00:00"
+    )
+
+    assert result.index.year.min() == 2025
+    assert result.index.year.max() == 2025
+
+    assert not (
+        (result.index.month == 2)
+        & (result.index.day == 29)
+    ).any()
+
+
+def test_calculate_representative_year_uses_requested_reference_year():
+
+    engine = create_engine()
+
+    df = create_full_hourly_dataset(
+        start="2024-01-01 00:00:00",
+        end="2024-12-31 23:00:00",
+    )
+
+    result = (
+        engine
+        .calculate_representative_year_consumption(
+            df,
+            reference_year=2024,
+        )
+    )
+
+    assert len(result) == 8760
+
+    assert result.index[0] == pd.Timestamp(
+        "2024-01-01 00:00:00"
+    )
+
+    assert result.index[-1] == pd.Timestamp(
+        "2024-12-31 23:00:00"
+    )
+
+    assert not (
+        (result.index.month == 2)
+        & (result.index.day == 29)
+    ).any()
+
+
+def test_calculate_representative_year_preserves_annualized_consumption():
+
+    engine = create_engine()
+
+    df = create_full_hourly_dataset(
+        start="2024-01-01 00:00:00",
+        end="2025-12-31 23:00:00",
+        value=1.0,
+    )
+
+    result = (
+        engine
+        .calculate_representative_year_consumption(df)
+    )
+
+    observed_days = (
+        df.index.max().normalize()
+        - df.index.min().normalize()
+    ).days + 1
+
+    historical_annualized = (
+        df["AE_kWh"].sum()
+        / observed_days
+        * 365
+    )
+
+    assert result.sum() == pytest.approx(
+        historical_annualized
+    )
+
+    assert engine.representative_annual_consumption == pytest.approx(
+        historical_annualized
+    )
+
+
+def test_calculate_representative_year_creates_matching_consumption_scenario():
+
+    engine = create_engine()
+
+    df = create_full_hourly_dataset()
+
+    result = (
+        engine
+        .calculate_representative_year_consumption(
+            df,
+            reference_year=2025,
+        )
+    )
+
+    scenario = (
+        engine
+        .representative_consumption_scenario
+    )
+
+    assert scenario is not None
+
+    assert scenario.reference_year == 2025
+
+    assert scenario.hourly_consumption is result
+
+    assert scenario.hourly_consumption.index.equals(
+        result.index
+    )
+
+    assert scenario.annual_consumption == pytest.approx(
+        result.sum()
+    )
+
+
+def test_calculate_representative_year_excludes_february_29_from_leap_year():
+
+    engine = create_engine()
+
+    df = create_full_hourly_dataset(
+        start="2024-01-01 00:00:00",
+        end="2024-12-31 23:00:00",
+    )
+
+    result = (
+        engine
+        .calculate_representative_year_consumption(
+            df,
+            reference_year=2024,
+        )
+    )
+
+    assert len(result) == 8760
+
+    assert pd.Timestamp(
+        "2024-02-29 00:00:00"
+    ) not in result.index
+
+    assert pd.Timestamp(
+        "2024-02-29 23:00:00"
+    ) not in result.index
+
+    assert result.index.is_unique
 
 # ==========================================================
 # Perfil horario

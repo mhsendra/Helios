@@ -1275,3 +1275,44 @@ class TestSolarReportDataFactory:
                 self._solar_controller(),
                 economics_controller,
             )
+
+    def test_create_derives_consumption_reference_year_from_energy_balance(
+        self,
+    ):
+
+        solar_controller = self._solar_controller()
+
+        energy_balance = (
+            solar_controller.energy_balance.copy()
+        )
+
+        energy_balance.index = (
+            pd.date_range(
+                "2025-01-01 00:00:00",
+                periods=len(energy_balance),
+                freq="h",
+            )
+        )
+
+        solar_controller.energy_balance = (
+            energy_balance
+        )
+
+        result = SolarReportDataFactory.create(
+            solar_controller,
+            self._economics_controller(),
+        )
+
+        assert result.consumption_reference_year == 2025
+
+    def test_consumption_reference_year_is_independent_from_solar_reference_year(
+        self,
+    ):
+
+        result = SolarReportDataFactory.create(
+            self._solar_controller(),
+            self._economics_controller(),
+        )
+
+        assert result.reference_year == 2023
+        assert result.consumption_reference_year == 2025

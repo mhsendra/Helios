@@ -304,12 +304,6 @@ class SolarReportDataFactory:
             .sum()
         )
 
-        monthly_consumption = (
-            energy_balance["consumption_kwh"]
-            .resample("ME")
-            .sum()
-        )
-
         # ==================================================
         # Report data
         # ==================================================
