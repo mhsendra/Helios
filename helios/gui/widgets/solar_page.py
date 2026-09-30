@@ -967,13 +967,23 @@ class SolarPage(QWidget):
         self,
         table: QTableWidget,
         balance: pd.DataFrame,
-    ):
+    ) -> None:
+        table.setRowCount(0)
 
         if balance is None or balance.empty:
-
-            table.setRowCount(0)
-
             return
+
+        monthly_balance = (
+            balance[
+                [
+                    "self_consumption_kwh",
+                    "grid_import_kwh",
+                    "grid_export_kwh",
+                ]
+            ]
+            .resample("ME")
+            .sum()
+        )
 
         months = [
             "Enero",
@@ -990,144 +1000,70 @@ class SolarPage(QWidget):
             "Diciembre",
         ]
 
-        table.setRowCount(
-            len(balance) + 1
-        )
-
-        total_self_consumption = 0.0
-        total_grid_import = 0.0
-        total_grid_export = 0.0
+        table.setRowCount(len(monthly_balance) + 1)
 
         for row, (date, values) in enumerate(
-            balance.iterrows()
+            monthly_balance.iterrows()
         ):
-
-            self_consumption = float(
-                values["self_consumption_kwh"]
-            )
-
-            grid_import = float(
-                values["grid_import_kwh"]
-            )
-
-            grid_export = float(
-                values["grid_export_kwh"]
-            )
-
-            total_self_consumption += (
-                self_consumption
-            )
-
-            total_grid_import += (
-                grid_import
-            )
-
-            total_grid_export += (
-                grid_export
-            )
-
             month_item = QTableWidgetItem(
                 months[date.month - 1]
             )
+            month_item.setTextAlignment(Qt.AlignCenter)
 
-            month_item.setTextAlignment(
-                Qt.AlignCenter
+            self_consumption_item = QTableWidgetItem(
+                f"{values['self_consumption_kwh']:.2f}"
+            )
+            grid_import_item = QTableWidgetItem(
+                f"{values['grid_import_kwh']:.2f}"
+            )
+            grid_export_item = QTableWidgetItem(
+                f"{values['grid_export_kwh']:.2f}"
             )
 
-            values_items = [
-                QTableWidgetItem(
-                    f"{self_consumption:.2f}"
-                ),
-                QTableWidgetItem(
-                    f"{grid_import:.2f}"
-                ),
-                QTableWidgetItem(
-                    f"{grid_export:.2f}"
-                ),
-            ]
-
-            for item in values_items:
-
+            for item in (
+                self_consumption_item,
+                grid_import_item,
+                grid_export_item,
+            ):
                 item.setTextAlignment(
-                    Qt.AlignRight
-                    | Qt.AlignVCenter
+                    Qt.AlignRight | Qt.AlignVCenter
                 )
 
-            table.setItem(
-                row,
-                0,
-                month_item,
-            )
+            table.setItem(row, 0, month_item)
+            table.setItem(row, 1, self_consumption_item)
+            table.setItem(row, 2, grid_import_item)
+            table.setItem(row, 3, grid_export_item)
 
-            table.setItem(
-                row,
-                1,
-                values_items[0],
-            )
+        totals = monthly_balance.sum()
+        total_row = len(monthly_balance)
 
-            table.setItem(
-                row,
-                2,
-                values_items[1],
-            )
+        total_label = QTableWidgetItem("TOTAL")
+        total_label.setTextAlignment(Qt.AlignCenter)
 
-            table.setItem(
-                row,
-                3,
-                values_items[2],
-            )
-
-        total_row = len(balance)
-
-        total_label = QTableWidgetItem(
-            "TOTAL"
+        total_self_consumption = QTableWidgetItem(
+            f"{totals['self_consumption_kwh']:.2f}"
+        )
+        total_grid_import = QTableWidgetItem(
+            f"{totals['grid_import_kwh']:.2f}"
+        )
+        total_grid_export = QTableWidgetItem(
+            f"{totals['grid_export_kwh']:.2f}"
         )
 
-        total_items = [
-            QTableWidgetItem(
-                f"{total_self_consumption:.2f}"
-            ),
-            QTableWidgetItem(
-                f"{total_grid_import:.2f}"
-            ),
-            QTableWidgetItem(
-                f"{total_grid_export:.2f}"
-            ),
-        ]
-
-        font = QFont()
-        font.setBold(True)
-
-        total_label.setFont(font)
-
-        for item in total_items:
-
-            item.setFont(font)
-
-            item.setTextAlignment(
-                Qt.AlignRight
-                | Qt.AlignVCenter
-            )
-
-        table.setItem(
-            total_row,
-            0,
-            total_label,
-        )
-
-        for column, item in enumerate(
-            total_items,
-            start=1,
+        for item in (
+            total_self_consumption,
+            total_grid_import,
+            total_grid_export,
         ):
-
-            table.setItem(
-                total_row,
-                column,
-                item,
+            item.setTextAlignment(
+                Qt.AlignRight | Qt.AlignVCenter
             )
 
-        table.resizeColumnsToContents()
-
+        table.setItem(total_row, 0, total_label)
+        table.setItem(total_row, 1, total_self_consumption)
+        table.setItem(total_row, 2, total_grid_import)
+        table.setItem(total_row, 3, total_grid_export)
+        
     def update_balance_summary(self):
 
         solar = self.project.solar

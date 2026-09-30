@@ -203,6 +203,30 @@ class TestSolarReportGenerator:
             # Energy balance
             # ==================================================
 
+            consumption_reference_year=2025,
+
+            monthly_consumption=pd.Series(
+                [
+                    1600.00,
+                    1500.00,
+                    1550.00,
+                    1580.00,
+                    1650.00,
+                    1700.00,
+                    1720.00,
+                    1680.00,
+                    1570.00,
+                    1600.00,
+                    1650.00,
+                    1741.72,
+                ],
+                index=pd.date_range(
+                    "2025-01-31",
+                    periods=12,
+                    freq="ME",
+                ),
+            ),
+
             yearly_consumption_kwh=19541.72,
             self_consumption_kwh=8500.0,
             grid_export_kwh=4000.0,

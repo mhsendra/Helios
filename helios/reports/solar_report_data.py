@@ -44,6 +44,8 @@ class SolarReportData:
     # ==================================================
 
     yearly_consumption_kwh: float
+    consumption_reference_year: int
+    monthly_consumption: pd.Series
     self_consumption_kwh: float
     grid_export_kwh: float
     grid_import_kwh: float

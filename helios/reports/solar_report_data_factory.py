@@ -1,3 +1,5 @@
+import pandas as pd
+
 from helios.reports.battery_report_data import (
     BatteryReportData,
 )
@@ -272,6 +274,43 @@ class SolarReportDataFactory:
         ]
 
         # ==================================================
+        # Monthly consumption
+        # ==================================================
+
+        energy_balance = (
+            solar_controller.energy_balance
+        )
+
+        if energy_balance is None:
+            raise ValueError(
+                "solar energy balance is required"
+            )
+
+        if not isinstance(
+            energy_balance.index,
+            pd.DatetimeIndex,
+        ):
+            raise TypeError(
+                "solar energy balance index must be a DatetimeIndex"
+            )
+
+        consumption_reference_year = (
+            int(energy_balance.index[0].year)
+        )
+
+        monthly_consumption = (
+            energy_balance["consumption_kwh"]
+            .resample("ME")
+            .sum()
+        )
+
+        monthly_consumption = (
+            energy_balance["consumption_kwh"]
+            .resample("ME")
+            .sum()
+        )
+
+        # ==================================================
         # Report data
         # ==================================================
 
@@ -299,6 +338,10 @@ class SolarReportDataFactory:
 
             yearly_production_kwh=(
                 yearly_production_kwh
+            ),
+
+            consumption_reference_year=(
+                consumption_reference_year
             ),
 
             monthly_production=(
@@ -339,6 +382,10 @@ class SolarReportDataFactory:
 
             yearly_consumption_kwh=(
                 yearly_consumption_kwh
+            ),
+
+            monthly_consumption=(
+                monthly_consumption
             ),
 
             self_consumption_kwh=(

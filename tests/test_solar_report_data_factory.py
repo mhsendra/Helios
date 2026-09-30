@@ -152,6 +152,49 @@ class TestSolarReportDataFactory:
             ),
         )
 
+        solar.energy_balance = pd.DataFrame(
+            {
+                "consumption_kwh": [
+                    100.0,
+                    150.0,
+                    200.0,
+                    250.0,
+                ],
+                "production_kwh": [
+                    120.0,
+                    180.0,
+                    220.0,
+                    300.0,
+                ],
+                "self_consumption_kwh": [
+                    90.0,
+                    140.0,
+                    190.0,
+                    230.0,
+                ],
+                "grid_import_kwh": [
+                    10.0,
+                    10.0,
+                    10.0,
+                    20.0,
+                ],
+                "grid_export_kwh": [
+                    30.0,
+                    40.0,
+                    30.0,
+                    70.0,
+                ],
+            },
+            index=pd.to_datetime(
+                [
+                    "2025-01-01 00:00",
+                    "2025-01-15 00:00",
+                    "2025-02-01 00:00",
+                    "2025-02-15 00:00",
+                ]
+            ),
+        )
+
         solar.statistics = {
             "productive_hours": 4380,
             "daily_average": 34.25,
@@ -210,6 +253,49 @@ class TestSolarReportDataFactory:
                 "2025-01-31",
                 periods=12,
                 freq="ME",
+            ),
+        )
+
+        solar.energy_balance = pd.DataFrame(
+            {
+                "consumption_kwh": [
+                    100.0,
+                    150.0,
+                    200.0,
+                    250.0,
+                ],
+                "production_kwh": [
+                    120.0,
+                    180.0,
+                    220.0,
+                    300.0,
+                ],
+                "self_consumption_kwh": [
+                    90.0,
+                    140.0,
+                    190.0,
+                    230.0,
+                ],
+                "grid_import_kwh": [
+                    10.0,
+                    10.0,
+                    10.0,
+                    20.0,
+                ],
+                "grid_export_kwh": [
+                    30.0,
+                    40.0,
+                    30.0,
+                    70.0,
+                ],
+            },
+            index=pd.to_datetime(
+                [
+                    "2025-01-01 00:00",
+                    "2025-01-15 00:00",
+                    "2025-02-01 00:00",
+                    "2025-02-15 00:00",
+                ]
             ),
         )
 
@@ -427,6 +513,35 @@ class TestSolarReportDataFactory:
         assert (
             result.self_sufficiency_rate_percent
             == 64.0
+        )
+
+    def test_create_contains_monthly_consumption(
+        self,
+    ):
+
+        result = SolarReportDataFactory.create(
+            self._solar_controller(),
+            self._economics_controller(),
+        )
+
+        expected = pd.Series(
+            [250.0, 450.0],
+            index=pd.date_range(
+                "2025-01-31",
+                periods=2,
+                freq="ME",
+            ),
+            name="consumption_kwh",
+        )
+
+        pd.testing.assert_series_equal(
+            result.monthly_consumption,
+            expected,
+        )
+
+        assert (
+            result.consumption_reference_year
+            == 2025
         )
 
     # ==================================================

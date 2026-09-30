@@ -76,6 +76,19 @@ class TestSolarReportData:
             # ==================================================
 
             "yearly_consumption_kwh": 19541.72,
+            "consumption_reference_year": 2025,
+            "monthly_consumption": pd.Series(
+                [
+                    250.0,
+                    450.0,
+                ],
+                index=pd.to_datetime(
+                    [
+                        "2025-01-31",
+                        "2025-02-28",
+                    ]
+                ),
+            ),
             "self_consumption_kwh": 8500.0,
             "grid_export_kwh": 4000.0,
             "grid_import_kwh": 11041.72,
@@ -193,6 +206,11 @@ class TestSolarReportData:
             == 780.0
         )
 
+        assert (
+            data.consumption_reference_year
+            == 2025
+        )
+
     def test_contains_economic_assumptions(
         self,
     ):
@@ -236,6 +254,17 @@ class TestSolarReportData:
             == 5.0
         )
 
+        assert len(data.monthly_consumption) == 2
+
+        assert (
+            data.monthly_consumption.iloc[0]
+            == 250.0
+        )
+
+        assert (
+            data.monthly_consumption.iloc[1]
+            == 450.0
+        )
 
     # ==================================================
     # Immutability

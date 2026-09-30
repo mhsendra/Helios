@@ -155,6 +155,9 @@ class TestSolarReportDataBuilder:
         sizing_result = SimpleNamespace(
             installed_power_kwp=8.1,
             panel_count=15,
+            annual_production_kwh=12500.0,
+            annual_consumption_kwh=19541.72,
+            self_sufficiency_percent=43.5,
         )
 
         installation_configuration = SimpleNamespace(
@@ -241,6 +244,22 @@ class TestSolarReportDataBuilder:
         )
 
         assert result.yearly_consumption_kwh == 19541.72
+        assert result.consumption_reference_year == 2023
+
+        expected_monthly_consumption = pd.Series(
+            [19541.72],
+            index=pd.date_range(
+                "2023-01-31",
+                periods=1,
+                freq="ME",
+            ),
+            name="consumption_kwh",
+        )
+
+        pd.testing.assert_series_equal(
+            result.monthly_consumption,
+            expected_monthly_consumption,
+        )
         assert result.self_consumption_kwh == 8500.0
         assert result.grid_export_kwh == 4000.0
         assert result.grid_import_kwh == 11041.72
@@ -300,8 +319,14 @@ class TestSolarReportDataBuilder:
             configuration.discount_rate
         )
 
-    def test_from_project_uses_25_year_economic_horizon(self):
+    def test_from_project_maps_economic_horizon_from_cash_flow(self):
         project = self.create_project()
+
+        project.analyzer.economics_engine.cash_flow = pd.DataFrame(
+            {
+                "year": [0, 1, 2, 3, 25],
+            }
+        )
 
         result = SolarReportDataBuilder.from_project(
             project
@@ -309,14 +334,29 @@ class TestSolarReportDataBuilder:
 
         assert result.economic_horizon_years == 25
 
-    def test_from_project_maps_calculation_mode(self):
+    def test_from_project_maps_automatic_calculation_mode(self):
         project = self.create_project()
 
         result = SolarReportDataBuilder.from_project(
             project
         )
 
-        assert result.calculation_mode == "project"
+        assert result.calculation_mode == "automatic"
+
+    def test_from_project_maps_manual_calculation_mode(self):
+        project = self.create_project()
+
+        project.solar.sizing_result = None
+        project.solar.simulation_installed_power_kwp = 8.1
+
+        result = SolarReportDataBuilder.from_project(
+            project
+        )
+
+        assert result.calculation_mode == "manual"
+        assert result.installed_power_kwp == 8.1
+        assert result.panel_count is None
+        assert result.panel_power_wp is None
 
     def test_from_project_maps_battery_recommendations(self):
         project = self.create_project()
@@ -325,9 +365,90 @@ class TestSolarReportDataBuilder:
             project
         )
 
-        assert result.battery_recommendations == (
-            project.solar.battery_recommendations
+        assert len(result.battery_recommendations) == (
+            len(project.solar.battery_recommendations)
         )
+
+        for result_item, source_item in zip(
+            result.battery_recommendations,
+            project.solar.battery_recommendations,
+        ):
+            assert result_item.capacity_kwh == source_item.capacity_kwh
+            assert result_item.max_charge_power_kw == (
+                source_item.max_charge_power_kw
+            )
+            assert result_item.max_discharge_power_kw == (
+                source_item.max_discharge_power_kw
+            )
+            assert result_item.annual_consumption_kwh == (
+                source_item.annual_consumption_kwh
+            )
+            assert result_item.annual_production_kwh == (
+                source_item.annual_production_kwh
+            )
+            assert result_item.annual_surplus_kwh == (
+                source_item.annual_surplus_kwh
+            )
+            assert result_item.annual_export_kwh == (
+                source_item.annual_export_kwh
+            )
+            assert result_item.annual_grid_import_kwh == (
+                source_item.annual_grid_import_kwh
+            )
+            assert result_item.annual_battery_charge_kwh == (
+                source_item.annual_battery_charge_kwh
+            )
+            assert result_item.annual_battery_discharge_kwh == (
+                source_item.annual_battery_discharge_kwh
+            )
+            assert result_item.self_consumption_kwh == (
+                source_item.self_consumption_kwh
+            )
+            assert result_item.self_sufficiency_percent == (
+                source_item.self_sufficiency_percent
+            )
+            assert result_item.equivalent_cycles == (
+                source_item.equivalent_cycles
+            )
+            assert result_item.annual_cost_with_battery_eur == (
+                source_item.annual_cost_with_battery_eur
+            )
+            assert result_item.annual_additional_savings_eur == (
+                source_item.annual_additional_savings_eur
+            )
+            assert result_item.marginal_recovered_kwh_per_kwh == (
+                source_item.marginal_recovered_kwh_per_kwh
+            )
+            assert result_item.incremental_battery_cost_eur == (
+                source_item.incremental_battery_cost_eur
+            )
+            assert result_item.incremental_savings_eur == (
+                source_item.incremental_savings_eur
+            )
+            assert result_item.marginal_savings_per_kwh == (
+                source_item.marginal_savings_per_kwh
+            )
+            assert result_item.marginal_payback_years == (
+                source_item.marginal_payback_years
+            )
+            assert result_item.economic_npv_eur == (
+                source_item.economic_npv_eur
+            )
+            assert result_item.economic_irr_percent == (
+                source_item.economic_irr_percent
+            )
+            assert result_item.economic_payback_years == (
+                source_item.economic_payback_years
+            )
+            assert result_item.combined_economic_npv_eur == (
+                source_item.combined_economic_npv_eur
+            )
+            assert result_item.combined_economic_irr_percent == (
+                source_item.combined_economic_irr_percent
+            )
+            assert result_item.combined_economic_payback_years == (
+                source_item.combined_economic_payback_years
+            )
 
         assert len(result.battery_recommendations) == 1
         assert result.battery_recommendations[0].capacity_kwh == 5.0
@@ -339,3 +460,31 @@ class TestSolarReportDataBuilder:
             result.battery_recommendations[0].economic_npv_eur
             == 260.10
         )
+
+        def test_from_project_uses_sizing_result_for_automatic_annual_values(
+            self,
+        ):
+            project = self.create_project()
+
+            result = SolarReportDataBuilder.from_project(
+                project
+            )
+
+            assert result.calculation_mode == "automatic"
+            assert result.yearly_production_kwh == 12003.99
+            assert result.yearly_consumption_kwh == 19541.72
+
+        def test_from_project_uses_statistics_for_manual_consumption(self):
+            project = self.create_project()
+
+            project.solar.sizing_result = None
+            project.solar.simulation_installed_power_kwp = 8.1
+            project.solar.statistics["consumption"] = 12345.67
+
+            result = SolarReportDataBuilder.from_project(
+                project
+            )
+
+            assert result.calculation_mode == "manual"
+            assert result.yearly_production_kwh == 12500.0
+            assert result.yearly_consumption_kwh == 12345.67

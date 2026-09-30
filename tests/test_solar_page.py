@@ -301,19 +301,20 @@ class TestSolarPage:
     # ==================================================
 
     def test_populate_balance_table(self):
-
         balance = pd.DataFrame(
             {
-                "consumption_kwh": [100.0, 200.0],
-                "production_kwh": [150.0, 250.0],
-                "self_consumption_kwh": [80.0, 120.0],
-                "grid_import_kwh": [20.0, 30.0],
-                "grid_export_kwh": [70.0, 130.0],
+                "consumption_kwh": [100.0, 50.0, 200.0, 80.0],
+                "production_kwh": [150.0, 75.0, 250.0, 120.0],
+                "self_consumption_kwh": [80.0, 30.0, 120.0, 60.0],
+                "grid_import_kwh": [20.0, 10.0, 30.0, 15.0],
+                "grid_export_kwh": [70.0, 45.0, 130.0, 60.0],
             },
             index=pd.to_datetime(
                 [
-                    "2025-01-31",
-                    "2025-02-28",
+                    "2025-01-01 00:00",
+                    "2025-01-01 01:00",
+                    "2025-01-15 12:00",
+                    "2025-02-01 00:00",
                 ]
             ),
         )
@@ -327,20 +328,23 @@ class TestSolarPage:
 
         assert table.rowCount() == 3
 
+        # Enero: suma de las tres filas de enero.
         assert table.item(0, 0).text() == "Enero"
-        assert table.item(0, 1).text() == "80.00"
-        assert table.item(0, 2).text() == "20.00"
-        assert table.item(0, 3).text() == "70.00"
+        assert table.item(0, 1).text() == "230.00"
+        assert table.item(0, 2).text() == "60.00"
+        assert table.item(0, 3).text() == "245.00"
 
+        # Febrero: una única fila.
         assert table.item(1, 0).text() == "Febrero"
-        assert table.item(1, 1).text() == "120.00"
-        assert table.item(1, 2).text() == "30.00"
-        assert table.item(1, 3).text() == "130.00"
+        assert table.item(1, 1).text() == "60.00"
+        assert table.item(1, 2).text() == "15.00"
+        assert table.item(1, 3).text() == "60.00"
 
+        # TOTAL: suma mensual.
         assert table.item(2, 0).text() == "TOTAL"
-        assert table.item(2, 1).text() == "200.00"
-        assert table.item(2, 2).text() == "50.00"
-        assert table.item(2, 3).text() == "200.00"
+        assert table.item(2, 1).text() == "290.00"
+        assert table.item(2, 2).text() == "75.00"
+        assert table.item(2, 3).text() == "305.00"
 
     def test_populate_balance_table_empty(self):
 
