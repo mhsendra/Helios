@@ -1248,10 +1248,65 @@ class TestSolarReportGenerator:
             "5.34 años",
             "22,071.16 €",
             "18.80 %",
+            "El consumo eléctrico anual de referencia asciende a",
+            "El análisis energético utiliza un perfil de consumo",
         ]
 
         for value in expected_values:
             assert value in text
+
+    def test_report_contains_methodology_reference_year(
+        self,
+        monkeypatch,
+        tmp_path,
+    ):
+
+        captured = self._capture_story(monkeypatch)
+
+        generator = SolarReportGenerator()
+
+        generator.generate(
+            self._report_data(),
+            tmp_path / "report.pdf",
+        )
+
+        text = self._story_text(
+            captured["story"]
+        )
+
+        assert (
+            "El análisis energético utiliza un perfil de consumo "
+            "representativo correspondiente al año "
+            "2025."
+        ) in text
+
+    def test_report_contains_energy_situation_analysis(
+        self,
+        monkeypatch,
+        tmp_path,
+    ):
+        captured = self._capture_story(monkeypatch)
+
+        generator = SolarReportGenerator()
+
+        generator.generate(
+            self._report_data(),
+            tmp_path / "report.pdf",
+        )
+
+        text = self._story_text(
+            captured["story"]
+        )
+
+        assert (
+            "El consumo eléctrico anual de referencia asciende a"
+            in text
+        )
+
+        assert (
+            "Este perfil de consumo constituye la base utilizada"
+            in text
+        )
 
     def test_report_contains_economic_scenarios(
         self,

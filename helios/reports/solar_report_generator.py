@@ -707,19 +707,7 @@ class SolarReportGenerator:
             ),
             Spacer(1, 10),
             Paragraph(
-                (
-                    "La situación energética de referencia se "
-                    "describe mediante el consumo anual y el perfil "
-                    "de consumo utilizado en la simulación."
-                ),
-                styles["HeliosBodyText"],
-            ),
-            Spacer(1, 8),
-            Paragraph(
-                (
-                    f"Consumo anual de referencia: "
-                    f"{data.yearly_consumption_kwh:,.2f} kWh."
-                ),
+                SolarReportText.energy_situation_analysis(data),
                 styles["HeliosBodyText"],
             ),
         ]
@@ -1624,8 +1612,12 @@ class SolarReportGenerator:
             ),
             Spacer(1, 6),
             economic_assumptions_table,
+            Spacer(1, 12),
+            Paragraph(
+                SolarReportText.methodology_analysis(data),
+                styles["HeliosBodyText"],
+            ),
         ]
-
 
     def _build_conclusion(
         self,

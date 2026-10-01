@@ -418,6 +418,60 @@ class TestSolarReportText:
 
         assert "elevada tasa de autoconsumo" in text
 
+    def test_methodology_analysis_explains_simulation_scope(self):
+
+        data = self._report_data()
+
+        text = SolarReportText.methodology_analysis(data)
+
+        assert (
+            "resolución horaria"
+            in text
+        )
+
+        assert (
+            "hipótesis de inversión, degradación"
+            in text
+        )
+
+        assert (
+            "estimación del comportamiento esperado"
+            in text
+        )
+
+        assert (
+            "no como una garantía de resultados futuros"
+            in text
+        )
+
+    def test_methodology_analysis_contains_reference_year(self):
+
+        data = self._report_data()
+
+        text = SolarReportText.methodology_analysis(data)
+
+        assert (
+            "perfil de consumo representativo correspondiente al año 2025"
+            in text
+        )
+
+        assert "resolución horaria" in text
+
+        assert (
+            "hipótesis de inversión, degradación"
+            in text
+        )
+
+        assert (
+            "estimación del comportamiento esperado"
+            in text
+        )
+
+        assert (
+            "no como una garantía de resultados futuros"
+            in text
+        )
+
     # ==================================================
     # Economics
     # ==================================================
@@ -569,12 +623,12 @@ class TestSolarReportText:
         assert "64.0 %" in text
         assert "2,338.00 €" in text
         assert "5.34 años" in text
-        assert "inversión favorable" in text
+        assert "El valor actual neto es positivo bajo las hipótesis utilizadas" in text
         assert "periodo de recuperación de la inversión" in text
         assert "periodo de retorno" not in text
 
 
-    def test_conclusion_detects_unfavorable_case(self):
+    def test_conclusion_detects_negative_npv(self):
 
         data = self._report_data()
 
@@ -587,7 +641,26 @@ class TestSolarReportText:
 
         text = SolarReportText.conclusion(data)
 
-        assert "valoración prudente" in text
+        assert (
+            "El valor actual neto es negativo bajo las hipótesis utilizadas"
+            in text
+        )
+
+    def test_conclusion_handles_empty_battery_recommendations(self):
+
+        data = self._report_data()
+
+        data = SolarReportData(
+            **{
+                **data.__dict__,
+                "battery_recommendations": [],
+            }
+        )
+
+        text = SolarReportText.conclusion(data)
+
+        assert text
+        assert "batería" not in text.lower()
 
     # ==================================================
     # Glossary

@@ -1,6 +1,7 @@
 from helios.reports.battery_report_data import BatteryReportData
 from helios.reports.solar_report_data import SolarReportData
 
+
 class SolarReportText:
     """Genera textos interpretativos para el informe solar."""
 
@@ -115,6 +116,59 @@ class SolarReportText:
             f"autosuficiencia alcanza el "
             f"{data.self_sufficiency_rate_percent:.1f} %. "
             f"{autoconsumption_assessment}"
+        )
+
+    @staticmethod
+    def energy_situation_analysis(
+        data: SolarReportData,
+    ) -> str:
+        """Interpreta la situación energética de referencia."""
+
+        if data is None:
+            raise ValueError("report data is required")
+
+        monthly_average = (
+            data.yearly_consumption_kwh / 12
+        )
+
+        return (
+            f"El consumo eléctrico anual de referencia asciende a "
+            f"{data.yearly_consumption_kwh:,.2f} kWh, con un consumo medio "
+            f"de aproximadamente {monthly_average:,.2f} kWh al mes. "
+            f"Este perfil de consumo constituye la base utilizada para "
+            f"comparar la generación fotovoltaica con la demanda eléctrica "
+            f"y para evaluar el autoconsumo, la autosuficiencia y la "
+            f"necesidad de energía importada de la red. "
+            f"El análisis utiliza el año de referencia "
+            f"{data.consumption_reference_year} como año representativo "
+            f"del consumo."
+        )
+
+    @staticmethod
+    def methodology_analysis(
+        data: SolarReportData,
+    ) -> str:
+        """
+        Explica la metodología utilizada para interpretar los resultados.
+        """
+
+        if data is None:
+            raise ValueError("report data is required")
+
+        return (
+            f"El análisis energético utiliza un perfil de consumo "
+            f"representativo correspondiente al año "
+            f"{data.consumption_reference_year}. La producción "
+            "fotovoltaica se simula con resolución horaria y se "
+            "compara con dicho perfil para determinar el autoconsumo, "
+            "la autosuficiencia, la energía importada y los excedentes. "
+            "El análisis económico utiliza las hipótesis de inversión, "
+            "degradación, evolución de los precios de la electricidad, "
+            "mantenimiento y tasa de descuento definidas para el proyecto. "
+            "Los resultados representan una simulación basada en estas "
+            "hipótesis y deben interpretarse como una estimación del "
+            "comportamiento esperado, no como una garantía de resultados "
+            "futuros."
         )
 
     @staticmethod
@@ -320,12 +374,8 @@ class SolarReportText:
             f"En el escenario «{worst.name}», el VAN se sitúa en "
             f"{worst.npv:,.2f} €, mientras que el escenario "
             f"«{best.name}» alcanza {best.npv:,.2f} €. "
-            f"En conjunto, los resultados muestran que la inversión "
-            f"mantiene una rentabilidad positiva bajo las diferentes "
-            f"hipótesis analizadas, aunque su atractivo económico "
-            f"varía según la evolución de los precios de la energía, "
-            f"los costes de mantenimiento y el resto de supuestos "
-            f"considerados."
+            f"El intervalo entre ambos resultados muestra la sensibilidad "
+            f"de la rentabilidad económica a las hipótesis utilizadas."
         )
 
         return text
@@ -347,17 +397,22 @@ class SolarReportText:
 
         if data.net_present_value_eur > 0:
             investment_assessment = (
-                "La inversión favorable bajo las hipótesis utilizadas."
+                "El valor actual neto es positivo bajo las hipótesis utilizadas, "
+                "por lo que los flujos económicos estimados superan la inversión "
+                "inicial en términos de valor actual."
             )
+
         elif data.net_present_value_eur < 0:
             investment_assessment = (
-                "La inversión presenta una valoración prudente "
-                "bajo las hipótesis utilizadas."
+                "El valor actual neto es negativo bajo las hipótesis utilizadas, "
+                "por lo que los flujos económicos estimados no compensan "
+                "la inversión inicial en términos de valor actual."
             )
+
         else:
             investment_assessment = (
-                "La inversión presenta un valor actual neto "
-                "aproximadamente nulo bajo las hipótesis utilizadas."
+                "El valor actual neto es aproximadamente nulo bajo las "
+                "hipótesis utilizadas."
             )
 
         conclusion = (
@@ -413,12 +468,14 @@ class SolarReportText:
             min_capacity = min(capacities)
             max_capacity = max(capacities)
 
-        if highest_npv.economic_payback_years == float("inf"):
-            payback_text = "no se recupera durante el horizonte analizado"
-        else:
-            payback_text = (
-                f"{highest_npv.economic_payback_years:.2f} años"
-            )
+            if highest_npv.economic_payback_years == float("inf"):
+                payback_text = (
+                    "no se recupera durante el horizonte analizado"
+                )
+            else:
+                payback_text = (
+                    f"{highest_npv.economic_payback_years:.2f} años"
+                )
 
             conclusion += (
                 f"<br/><br/>"
