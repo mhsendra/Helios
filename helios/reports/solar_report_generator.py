@@ -646,6 +646,1055 @@ class SolarReportGenerator:
             ]
         )
 
+
+    def _build_executive_summary(
+        self,
+        data: SolarReportData,
+        styles,
+    ) -> list:
+        return [
+            self._section_header(
+                "Resumen ejecutivo",
+                styles,
+                toc_level=0,
+            ),
+            ExecutiveKpiGrid(
+                [
+                    (
+                        "Producción solar",
+                        f"{data.yearly_production_kwh:,.0f} kWh/año",
+                        HELIOS_GREEN,
+                    ),
+                    (
+                        "Autosuficiencia",
+                        f"{data.self_sufficiency_rate_percent:.1f} %",
+                        HELIOS_GREEN_DARK,
+                    ),
+                    (
+                        "Ahorro anual",
+                        f"{data.yearly_savings_eur:,.2f} €/año",
+                        HELIOS_GOLD,
+                    ),
+                    (
+                        "Retorno",
+                        f"{data.payback_years:.2f} años",
+                        HELIOS_BLUE,
+                    ),
+                ],
+                width=174 * mm,
+                height=25 * mm,
+            ),
+            Spacer(1, 5 * mm),
+            Paragraph(
+                SolarReportText.executive_summary(data),
+                styles["BodyText"],
+            ),
+        ]
+
+
+    def _build_energy_situation(
+        self,
+        data: SolarReportData,
+        styles,
+    ) -> list:
+        return [
+            Spacer(1, 12),
+            self._section_header(
+                "Situación energética actual",
+                styles,
+                HELIOS_GOLD,
+                0,
+            ),
+            Spacer(1, 10),
+            Paragraph(
+                (
+                    "La situación energética de referencia se "
+                    "describe mediante el consumo anual y el perfil "
+                    "de consumo utilizado en la simulación."
+                ),
+                styles["HeliosBodyText"],
+            ),
+            Spacer(1, 8),
+            Paragraph(
+                (
+                    f"Consumo anual de referencia: "
+                    f"{data.yearly_consumption_kwh:,.2f} kWh."
+                ),
+                styles["HeliosBodyText"],
+            ),
+        ]
+
+
+    def _build_pv_section(
+        self,
+        data: SolarReportData,
+        styles,
+    ) -> list:
+        story = [
+            self._section_header(
+                "Instalación fotovoltaica",
+                styles,
+                HELIOS_BLUE,
+                0,
+            ),
+            Spacer(1, 10),
+        ]
+
+        if data.calculation_mode == "automatic":
+            installation_data = [
+                ["Concepto", "Valor"],
+                [
+                    "Potencia instalada",
+                    f"{data.installed_power_kwp:.2f} kWp",
+                ],
+                [
+                    "Número de paneles",
+                    str(data.panel_count),
+                ],
+                [
+                    "Potencia por panel",
+                    f"{data.panel_power_wp:.0f} Wp",
+                ],
+                [
+                    "Tecnología fotovoltaica",
+                    "Silicio cristalino",
+                ],
+                [
+                    "Tipo de montaje",
+                    "Coplanar a cubierta",
+                ],
+            ]
+
+        elif data.calculation_mode in (
+            "manual",
+            "project",
+        ):
+            installation_data = [
+                ["Concepto", "Valor"],
+                [
+                    "Potencia instalada",
+                    f"{data.installed_power_kwp:.2f} kWp",
+                ],
+                [
+                    "Latitud",
+                    f"{data.latitude:.5f}°",
+                ],
+                [
+                    "Longitud",
+                    f"{data.longitude:.5f}°",
+                ],
+                [
+                    "Inclinación",
+                    f"{data.tilt}°",
+                ],
+                [
+                    "Azimut",
+                    f"{data.azimuth}°",
+                ],
+                [
+                    "Año de referencia",
+                    str(data.reference_year),
+                ],
+                [
+                    "Pérdidas del sistema",
+                    f"{data.losses:.1f} %",
+                ],
+                [
+                    "Tecnología fotovoltaica",
+                    "Silicio cristalino",
+                ],
+                [
+                    "Tipo de montaje",
+                    "Coplanar a cubierta",
+                ],
+            ]
+
+        else:
+            raise ValueError(
+                "unsupported calculation mode"
+            )
+
+        installation_table = Table(
+            installation_data,
+            colWidths=[260, 180],
+        )
+
+        self._style_table(
+            installation_table,
+            HELIOS_BLUE,
+        )
+
+        story.append(installation_table)
+        story.append(PageBreak())
+
+        story.extend(
+            [
+                Spacer(1, 25),
+                self._section_header(
+                    "Producción solar",
+                    styles,
+                    HELIOS_GREEN,
+                    1,
+                ),
+                Spacer(1, 10),
+            ]
+        )
+
+        production_data = [
+            ["Concepto", "Valor"],
+            [
+                "Producción anual",
+                f"{data.yearly_production_kwh:,.2f} kWh",
+            ],
+            [
+                "Producción específica",
+                f"{data.specific_production_kwh_kwp:,.2f} "
+                "kWh/kWp",
+            ],
+            [
+                "Potencia instalada",
+                f"{data.installed_power_kwp:.2f} kWp",
+            ],
+        ]
+
+        production_table = Table(
+            production_data,
+            colWidths=[260, 180],
+        )
+
+        self._style_table(
+            production_table,
+            HELIOS_GREEN,
+        )
+
+        story.append(production_table)
+        story.append(Spacer(1, 15))
+
+        story.append(
+            SolarReportCharts.monthly_consumption_vs_production(
+                data.monthly_consumption,
+                data.monthly_production,
+            )
+        )
+
+        story.append(Spacer(1, 15))
+
+        story.append(
+            Paragraph(
+                SolarReportText.production_analysis(data),
+                styles["BodyText"],
+            )
+        )
+
+        story.extend(
+            [
+                Spacer(1, 25),
+                self._section_header(
+                    "Estadísticas de producción",
+                    styles,
+                    HELIOS_GREEN_DARK,
+                    1,
+                ),
+                Spacer(1, 10),
+            ]
+        )
+
+        solar_statistics_data = [
+            ["Métrica", "Valor"],
+            [
+                "Horas productivas",
+                f"{data.productive_hours:,}",
+            ],
+            [
+                "Producción media diaria",
+                f"{data.daily_average_kwh:,.2f} kWh/día",
+            ],
+            [
+                "Producción media mensual",
+                f"{data.monthly_average_kwh:,.2f} kWh/mes",
+            ],
+            [
+                "Máxima producción horaria",
+                f"{data.maximum_hourly_production_kwh:,.2f} kWh",
+            ],
+            [
+                "Factor de capacidad",
+                f"{data.capacity_factor_percent:.2f} %",
+            ],
+        ]
+
+        solar_statistics_table = Table(
+            solar_statistics_data,
+            colWidths=[260, 180],
+        )
+
+        self._style_table(
+            solar_statistics_table,
+            HELIOS_GREEN_DARK,
+        )
+
+        story.append(solar_statistics_table)
+
+        return story
+
+
+    def _build_energy_balance(
+        self,
+        data: SolarReportData,
+        styles,
+    ) -> list:
+        story = [
+            PageBreak(),
+            Spacer(1, 25),
+            self._section_header(
+                "Balance energético",
+                styles,
+                HELIOS_GOLD,
+                0,
+            ),
+            Spacer(1, 10),
+        ]
+
+        balance_data = [
+            ["Concepto", "Valor"],
+            [
+                "Consumo anual",
+                f"{data.yearly_consumption_kwh:,.2f} kWh",
+            ],
+            [
+                "Autoconsumo",
+                f"{data.self_consumption_kwh:,.2f} kWh",
+            ],
+            [
+                "Energía vertida a red",
+                f"{data.grid_export_kwh:,.2f} kWh",
+            ],
+            [
+                "Energía importada de red",
+                f"{data.grid_import_kwh:,.2f} kWh",
+            ],
+            [
+                "Tasa de autoconsumo",
+                f"{data.self_consumption_rate_percent:.2f} %",
+            ],
+            [
+                "Tasa de autosuficiencia",
+                f"{data.self_sufficiency_rate_percent:.2f} %",
+            ],
+        ]
+
+        balance_table = Table(
+            balance_data,
+            colWidths=[260, 180],
+        )
+
+        self._style_table(
+            balance_table,
+            HELIOS_GOLD,
+        )
+
+        story.append(balance_table)
+        story.append(Spacer(1, 15))
+
+        story.append(
+            SolarReportCharts.energy_balance(
+                data.yearly_production_kwh,
+                data.yearly_consumption_kwh,
+                data.self_consumption_kwh,
+                data.grid_import_kwh,
+                data.grid_export_kwh,
+            )
+        )
+
+        story.append(Spacer(1, 15))
+
+        story.append(
+            Paragraph(
+                SolarReportText.energy_balance_analysis(data),
+                styles["BodyText"],
+            )
+        )
+
+        return story
+
+
+    def _build_economic_section(
+        self,
+        data: SolarReportData,
+        styles,
+    ) -> list:
+        story = [
+            Spacer(1, 25),
+            self._section_header(
+                "Rentabilidad económica",
+                styles,
+                HELIOS_PURPLE,
+                0,
+            ),
+            Spacer(1, 10),
+        ]
+
+        economics_data = [
+            ["Concepto", "Valor"],
+            [
+                "Coste anual sin FV",
+                f"{data.cost_without_pv_eur:,.2f} €",
+            ],
+            [
+                "Coste energía importada con FV",
+                f"{data.grid_import_cost_eur:,.2f} €",
+            ],
+            [
+                "Ingresos por excedentes",
+                f"{data.export_income_eur:,.2f} €",
+            ],
+            [
+                "Coste neto con FV",
+                f"{data.cost_with_pv_eur:,.2f} €",
+            ],
+            [
+                "Ahorro por autoconsumo",
+                f"{data.self_consumption_savings_eur:,.2f} €",
+            ],
+            [
+                "Ahorro anual total",
+                f"{data.yearly_savings_eur:,.2f} €",
+            ],
+            [
+                "Inversión neta",
+                f"{data.investment_eur:,.2f} €",
+            ],
+            [
+                "Periodo de retorno",
+                f"{data.payback_years:.2f} años",
+            ],
+            [
+                "Valor actual neto (VAN)",
+                f"{data.net_present_value_eur:,.2f} €",
+            ],
+            [
+                "Tasa interna de retorno (TIR)",
+                (
+                    f"{data.internal_rate_of_return_percent:.2f} %"
+                    if data.internal_rate_of_return_percent
+                    is not None
+                    else "N/D"
+                ),
+            ],
+        ]
+
+        economics_table = Table(
+            economics_data,
+            colWidths=[260, 180],
+        )
+
+        self._style_table(
+            economics_table,
+            HELIOS_PURPLE,
+        )
+
+        story.extend(
+            [
+                economics_table,
+                Spacer(1, 15),
+                Paragraph(
+                    SolarReportText.economic_analysis(data),
+                    styles["BodyText"],
+                ),
+            ]
+        )
+
+        story.extend(
+            [
+                Spacer(1, 25),
+                self._section_header(
+                    "Escenarios económicos",
+                    styles,
+                    HELIOS_PURPLE_LIGHT,
+                    1,
+                ),
+                Spacer(1, 10),
+            ]
+        )
+
+        scenarios_data = [
+            [
+                "Escenario",
+                "Ahorro anual",
+                "Payback",
+                "VAN",
+                "TIR",
+            ],
+        ]
+
+        scenario_order = {
+            "Conservador": 0,
+            "Base": 1,
+            "Optimista": 2,
+        }
+
+        ordered_scenarios = sorted(
+            data.scenario_results,
+            key=lambda result: scenario_order.get(
+                result.name,
+                99,
+            ),
+        )
+
+        for result in ordered_scenarios:
+            scenarios_data.append(
+                [
+                    result.name,
+                    f"{result.annual_savings:,.2f} €",
+                    f"{result.payback_years:.2f} años",
+                    f"{result.npv:,.2f} €",
+                    f"{result.irr * 100:.2f} %",
+                ]
+            )
+
+        scenarios_table = Table(
+            scenarios_data,
+            colWidths=[
+                105,
+                105,
+                85,
+                105,
+                80,
+            ],
+        )
+
+        scenarios_table.setStyle(
+            TableStyle(
+                [
+                    (
+                        "BACKGROUND",
+                        (0, 0),
+                        (-1, 0),
+                        colors.HexColor(HELIOS_PURPLE_LIGHT),
+                    ),
+                    (
+                        "TEXTCOLOR",
+                        (0, 0),
+                        (-1, 0),
+                        colors.white,
+                    ),
+                    (
+                        "FONTNAME",
+                        (0, 0),
+                        (-1, 0),
+                        "Helvetica-Bold",
+                    ),
+                    (
+                        "GRID",
+                        (0, 0),
+                        (-1, -1),
+                        0.5,
+                        colors.grey,
+                    ),
+                    (
+                        "BACKGROUND",
+                        (0, 1),
+                        (-1, -1),
+                        colors.whitesmoke,
+                    ),
+                    (
+                        "VALIGN",
+                        (0, 0),
+                        (-1, -1),
+                        "MIDDLE",
+                    ),
+                    (
+                        "ALIGN",
+                        (1, 1),
+                        (-1, -1),
+                        "RIGHT",
+                    ),
+                    (
+                        "ALIGN",
+                        (0, 0),
+                        (0, -1),
+                        "LEFT",
+                    ),
+                    (
+                        "LEFTPADDING",
+                        (0, 0),
+                        (-1, -1),
+                        6,
+                    ),
+                    (
+                        "RIGHTPADDING",
+                        (0, 0),
+                        (-1, -1),
+                        6,
+                    ),
+                    (
+                        "TOPPADDING",
+                        (0, 0),
+                        (-1, -1),
+                        6,
+                    ),
+                    (
+                        "BOTTOMPADDING",
+                        (0, 0),
+                        (-1, -1),
+                        6,
+                    ),
+                ]
+            )
+        )
+
+        story.extend(
+            [
+                scenarios_table,
+                Spacer(1, 15),
+                SolarReportCharts.economic_scenarios(
+                    data.scenario_results,
+                ),
+                Spacer(1, 15),
+                Paragraph(
+                    SolarReportText.scenario_analysis(data),
+                    styles["BodyText"],
+                ),
+            ]
+        )
+
+        return story
+
+
+    def _build_battery_section(
+        self,
+        data: SolarReportData,
+        styles,
+    ) -> list:
+        if not data.battery_recommendations:
+            return []
+
+        battery_analysis_text = (
+            SolarReportText.battery_analysis(data)
+        )
+
+        battery_operational_data = [
+            [
+                "Capacidad",
+                "Coste anual",
+                "Ahorro adicional",
+                "Coste incremental",
+                "Ahorro incremental",
+                "Ahorro marginal/kWh",
+                "Recuperación marginal",
+            ],
+        ]
+
+        battery_economic_data = [
+            [
+                "Capacidad",
+                "VAN batería",
+                "TIR batería",
+                "Recuperación económica",
+            ],
+        ]
+
+        battery_combined_data = [
+            [
+                "Capacidad",
+                "VAN conjunto",
+                "TIR conjunta",
+                "Recuperación conjunta",
+            ],
+        ]
+
+        for recommendation in data.battery_recommendations:
+            marginal_payback = (
+                "N/D"
+                if recommendation.marginal_payback_years == float("inf")
+                else (
+                    f"{recommendation.marginal_payback_years:.2f} años"
+                )
+            )
+
+            economic_payback = (
+                "N/D"
+                if recommendation.economic_payback_years == float("inf")
+                else (
+                    f"{recommendation.economic_payback_years:.2f} años"
+                )
+            )
+
+            combined_payback = (
+                "N/D"
+                if recommendation.combined_economic_payback_years
+                == float("inf")
+                else (
+                    f"{recommendation.combined_economic_payback_years:.2f} años"
+                )
+            )
+
+            capacity = (
+                f"{recommendation.capacity_kwh:.1f} kWh"
+            )
+
+            battery_operational_data.append(
+                [
+                    capacity,
+                    (
+                        f"{recommendation.annual_cost_with_battery_eur:,.2f} €"
+                    ),
+                    (
+                        f"{recommendation.annual_additional_savings_eur:,.2f} €"
+                    ),
+                    (
+                        f"{recommendation.incremental_battery_cost_eur:,.2f} €"
+                    ),
+                    (
+                        f"{recommendation.incremental_savings_eur:,.2f} €"
+                    ),
+                    (
+                        f"{recommendation.marginal_savings_per_kwh:,.2f} €/kWh"
+                    ),
+                    marginal_payback,
+                ]
+            )
+
+            battery_economic_data.append(
+                [
+                    capacity,
+                    f"{recommendation.economic_npv_eur:,.2f} €",
+                    f"{recommendation.economic_irr_percent:.2f} %",
+                    economic_payback,
+                ]
+            )
+
+            battery_combined_data.append(
+                [
+                    capacity,
+                    f"{recommendation.combined_economic_npv_eur:,.2f} €",
+                    f"{recommendation.combined_economic_irr_percent:.2f} %",
+                    combined_payback,
+                ]
+            )
+
+        battery_header_style = ParagraphStyle(
+            name="BatteryTableHeader",
+            parent=styles["Normal"],
+            fontName="Helvetica-Bold",
+            fontSize=7.5,
+            leading=8.5,
+            textColor=colors.white,
+            alignment=TA_CENTER,
+        )
+
+        battery_operational_data[0] = [
+            Paragraph("Capacidad", battery_header_style),
+            Paragraph("Coste<br/>anual", battery_header_style),
+            Paragraph("Ahorro<br/>adicional", battery_header_style),
+            Paragraph("Coste<br/>incremental", battery_header_style),
+            Paragraph("Ahorro<br/>incremental", battery_header_style),
+            Paragraph("Ahorro marginal<br/>/ kWh", battery_header_style),
+            Paragraph("Recuperación<br/>marginal", battery_header_style),
+        ]
+
+        battery_economic_data[0] = [
+            Paragraph("Capacidad", battery_header_style),
+            Paragraph("VAN<br/>batería", battery_header_style),
+            Paragraph("TIR<br/>batería", battery_header_style),
+            Paragraph(
+                "Recuperación<br/>económica",
+                battery_header_style,
+            ),
+        ]
+
+        battery_combined_data[0] = [
+            Paragraph("Capacidad", battery_header_style),
+            Paragraph("VAN<br/>conjunto", battery_header_style),
+            Paragraph("TIR<br/>conjunta", battery_header_style),
+            Paragraph(
+                "Recuperación<br/>conjunta",
+                battery_header_style,
+            ),
+        ]
+
+        battery_operational_table = Table(
+            battery_operational_data,
+            colWidths=[
+                60,
+                65,
+                72,
+                72,
+                72,
+                72,
+                77,
+            ],
+            repeatRows=1,
+        )
+
+        battery_economic_table = Table(
+            battery_economic_data,
+            colWidths=[
+                65,
+                140,
+                105,
+                180,
+            ],
+            repeatRows=1,
+        )
+
+        battery_combined_table = Table(
+            battery_combined_data,
+            colWidths=[
+                65,
+                140,
+                105,
+                180,
+            ],
+            repeatRows=1,
+        )
+
+        for table in (
+            battery_operational_table,
+            battery_economic_table,
+            battery_combined_table,
+            
+        ):
+            self._style_table(
+                table,
+                HELIOS_PURPLE,
+            )
+            table.setStyle(
+                TableStyle(
+                    [
+                        (
+                            "ALIGN",
+                            (1, 1),
+                            (-1, -1),
+                            "RIGHT",
+                        ),
+                        (
+                            "ALIGN",
+                            (0, 0),
+                            (0, -1),
+                            "CENTER",
+                        ),
+                        (
+                            "VALIGN",
+                            (0, 0),
+                            (-1, -1),
+                            "MIDDLE",
+                        ),
+                        (
+                            "LEFTPADDING",
+                            (0, 0),
+                            (-1, -1),
+                            4,
+                        ),
+                        (
+                            "RIGHTPADDING",
+                            (0, 0),
+                            (-1, -1),
+                            4,
+                        ),
+                        (
+                            "TOPPADDING",
+                            (0, 0),
+                            (-1, 0),
+                            5,
+                        ),
+                        (
+                            "BOTTOMPADDING",
+                            (0, 0),
+                            (-1, 0),
+                            5,
+                        ),
+                    ]
+                )
+            )
+
+        return [
+            Spacer(1, 25),
+            self._section_header(
+                "Evaluación económica de baterías",
+                styles,
+                HELIOS_PURPLE,
+                0,
+            ),
+            Spacer(1, 10),
+            Paragraph(
+                battery_analysis_text,
+                styles["HeliosBodyText"],
+            ),
+            Spacer(1, 12),
+            battery_operational_table,
+            Spacer(1, 12),
+            battery_economic_table,
+            Spacer(1, 12),
+            Paragraph(
+                "Economía conjunta FV + batería",
+                styles["HeliosSubsectionTitle"],
+            ),
+            Spacer(1, 6),
+            battery_combined_table,
+
+            Spacer(1, 15),
+
+            SolarReportCharts.battery_marginal_savings(
+                data.battery_recommendations,
+            ),
+
+            Spacer(1, 10),
+        ]
+
+
+    def _build_methodology_section(
+        self,
+        data: SolarReportData,
+        styles,
+    ) -> list:
+        economic_assumptions_data = [
+            ["Hipótesis", "Valor"],
+            [
+                "Horizonte económico",
+                f"{data.economic_horizon_years} años",
+            ],
+            [
+                "Degradación primer año",
+                f"{data.first_year_degradation_percent:.2f} %",
+            ],
+            [
+                "Degradación anual",
+                f"{data.annual_degradation_percent:.2f} %",
+            ],
+            [
+                "Incremento anual precio electricidad",
+                (
+                    f"{data.annual_electricity_price_growth_percent:.2f} %"
+                ),
+            ],
+            [
+                "Incremento anual precio excedentes",
+                (
+                    f"{data.annual_export_price_growth_percent:.2f} %"
+                ),
+            ],
+            [
+                "Coste anual de mantenimiento",
+                f"{data.annual_maintenance_cost_eur:,.2f} €",
+            ],
+            [
+                "Incremento anual del mantenimiento",
+                f"{data.annual_maintenance_growth_percent:.2f} %",
+            ],
+            [
+                "Tasa de descuento",
+                f"{data.discount_rate_percent:.2f} %",
+            ],
+        ]
+
+        economic_assumptions_table = Table(
+            economic_assumptions_data,
+            colWidths=[260, 180],
+        )
+
+        self._style_table(
+            economic_assumptions_table,
+            HELIOS_PURPLE,
+        )
+
+        return [
+            PageBreak(),
+            self._section_header(
+                "Hipótesis y metodología",
+                styles,
+                HELIOS_PURPLE,
+                0,
+            ),
+            Spacer(1, 10),
+            Paragraph(
+                (
+                    "La simulación utiliza el perfil de consumo "
+                    "representativo generado para el año de referencia "
+                    f"{data.consumption_reference_year}. Este año es "
+                    "independiente del año meteorológico utilizado "
+                    f"por PVGIS ({data.reference_year})."
+                ),
+                styles["HeliosBodyText"],
+            ),
+            Spacer(1, 10),
+            Paragraph(
+                "Hipótesis económicas",
+                styles["HeliosSubsectionTitle"],
+            ),
+            Spacer(1, 6),
+            economic_assumptions_table,
+        ]
+
+
+    def _build_conclusion(
+        self,
+        data: SolarReportData,
+        styles,
+    ) -> list:
+        return [
+            Spacer(1, 25),
+            self._section_header(
+                "Conclusión",
+                styles,
+                toc_level=0,
+            ),
+            Spacer(1, 10),
+            ConclusionBlock(
+                SolarReportText.conclusion(data),
+                width=174 * mm,
+            ),
+        ]
+
+
+    def _build_glossary(
+        self,
+        data: SolarReportData,
+        styles,
+    ) -> list:
+        glossary_data = [
+            ["Término", "Definición"],
+        ]
+
+        for term, definition in SolarReportText.glossary():
+            glossary_data.append(
+                [
+                    Paragraph(
+                        term,
+                        styles["BodyText"],
+                    ),
+                    Paragraph(
+                        definition,
+                        styles["BodyText"],
+                    ),
+                ]
+            )
+
+        glossary_table = Table(
+            glossary_data,
+            colWidths=[
+                55 * mm,
+                125 * mm,
+            ],
+            repeatRows=1,
+        )
+
+        self._style_table(
+            glossary_table,
+            HELIOS_BLUE,
+        )
+
+        return [
+            PageBreak(),
+            self._section_header(
+                "Glosario y definiciones",
+                styles,
+                toc_level=0,
+            ),
+            Spacer(1, 10),
+            glossary_table,
+        ]
+
     def generate(
         self,
         data: SolarReportData,
@@ -952,7 +2001,6 @@ class SolarReportGenerator:
         story.extend(
             [
                 kpi_table,
-
                 PageBreak(),
 
                 Paragraph(
@@ -969,1134 +2017,72 @@ class SolarReportGenerator:
                 ),
 
                 toc,
-
                 PageBreak(),
-
-                self._section_header(
-                    "Resumen ejecutivo",
-                    styles,
-                ),
-
-                ExecutiveKpiGrid(
-                    [
-                        (
-                            "Producción solar",
-                            f"{data.yearly_production_kwh:,.0f} kWh/año",
-                            HELIOS_GREEN,
-                        ),
-                        (
-                            "Autosuficiencia",
-                            f"{data.self_sufficiency_rate_percent:.1f} %",
-                            HELIOS_GREEN_DARK,
-                        ),
-                        (
-                            "Ahorro anual",
-                            f"{data.yearly_savings_eur:,.2f} €/año",
-                            HELIOS_GOLD,
-                        ),
-                        (
-                            "Retorno",
-                            f"{data.payback_years:.2f} años",
-                            HELIOS_BLUE,
-                        ),
-                    ],
-                    width=174 * mm,
-                    height=25 * mm,
-                ),
-
-                Spacer(1, 5 * mm),
-
-                Paragraph(
-                    SolarReportText.executive_summary(data),
-                    styles["BodyText"],
-                ),
-
-                Spacer(1, 12),
-
-                self._section_header(
-                    "Resumen de la instalación",
-                    styles,
-                ),
-
-                Spacer(1, 4),
             ]
         )
-
-        # ==================================================
-        # Instalación
-        # ==================================================
-
-        if data.calculation_mode == "automatic":
-
-            installation_data = [
-                ["Concepto", "Valor"],
-                [
-                    "Potencia instalada",
-                    f"{data.installed_power_kwp:.2f} kWp",
-                ],
-                [
-                    "Número de paneles",
-                    str(data.panel_count),
-                ],
-                [
-                    "Potencia por panel",
-                    f"{data.panel_power_wp:.0f} Wp",
-                ],
-                [
-                    "Tecnología fotovoltaica",
-                    "Silicio cristalino",
-                ],
-                [
-                    "Tipo de montaje",
-                    "Coplanar a cubierta",
-                ],
-            ]
-
-        elif data.calculation_mode in (
-            "manual",
-            "project",
-        ):
-
-            installation_data = [
-                ["Concepto", "Valor"],
-                [
-                    "Potencia instalada",
-                    f"{data.installed_power_kwp:.2f} kWp",
-                ],
-                [
-                    "Latitud",
-                    f"{data.latitude:.5f}°",
-                ],
-                [
-                    "Longitud",
-                    f"{data.longitude:.5f}°",
-                ],
-                [
-                    "Inclinación",
-                    f"{data.tilt}°",
-                ],
-                [
-                    "Azimut",
-                    f"{data.azimuth}°",
-                ],
-                [
-                    "Año de referencia",
-                    str(data.reference_year),
-                ],
-                [
-                    "Pérdidas del sistema",
-                    f"{data.losses:.1f} %",
-                ],
-                [
-                    "Tecnología fotovoltaica",
-                    "Silicio cristalino",
-                ],
-                [
-                    "Tipo de montaje",
-                    "Coplanar a cubierta",
-                ],
-            ]
-
-        else:
-
-            raise ValueError(
-                "unsupported calculation mode"
-            )
-
-        installation_table = Table(
-            installation_data,
-            colWidths=[260, 180],
-        )
-
-        self._style_table(
-            installation_table,
-            HELIOS_BLUE,
-        )
-
-        story.append(installation_table)
-
-        # ==================================================
-        # Nueva página: detalle técnico
-        # ==================================================
-
-        story.append(PageBreak())
-
-        # ==================================================
-        # Producción solar
-        # ==================================================
 
         story.extend(
-            [
-                Spacer(1, 25),
-                self._section_header(
-                    "Producción solar",
-                    styles,
-                    HELIOS_GREEN,
-                ),
-                Spacer(1, 10),
-            ]
-        )
-
-        production_data = [
-            ["Concepto", "Valor"],
-            [
-                "Producción anual",
-                f"{data.yearly_production_kwh:,.2f} kWh",
-            ],
-            [
-                "Producción específica",
-                f"{data.specific_production_kwh_kwp:,.2f} "
-                "kWh/kWp",
-            ],
-            [
-                "Potencia instalada",
-                f"{data.installed_power_kwp:.2f} kWp",
-            ],
-        ]
-
-        production_table = Table(
-            production_data,
-            colWidths=[260, 180],
-        )
-
-        self._style_table(
-            production_table,
-            HELIOS_GREEN,
-        )
-
-        story.append(production_table)
-
-        story.append(
-            Spacer(
-                1,
-                15,
-            )
-        )
-
-        story.append(
-            SolarReportCharts.yearly_production(
-                data.yearly_production_kwh,
-            )
-        )
-
-        story.append(
-            Spacer(
-                1,
-                15,
-            )
-        )
-
-        story.append(
-            SolarReportCharts.monthly_production(
-                data.monthly_production,
-            )
-        )
-
-        story.append(
-            Spacer(
-                1,
-                15,
-            )
-        )
-
-        story.append(
-            Paragraph(
-                SolarReportText.production_analysis(data),
-                styles["BodyText"],
-            )
-        )
-
-        # ==================================================
-        # Estadísticas solares
-        # ==================================================
-
-        story.extend(
-            [
-                Spacer(1, 25),
-                self._section_header(
-                    "Estadísticas solares",
-                    styles,
-                    HELIOS_GREEN_DARK,
-                ),
-                Spacer(1, 10),
-            ]
-        )
-
-        solar_statistics_data = [
-            ["Métrica", "Valor"],
-            [
-                "Horas productivas",
-                f"{data.productive_hours:,}",
-            ],
-            [
-                "Producción media diaria",
-                f"{data.daily_average_kwh:,.2f} kWh/día",
-            ],
-            [
-                "Producción media mensual",
-                f"{data.monthly_average_kwh:,.2f} kWh/mes",
-            ],
-            [
-                "Máxima producción horaria",
-                f"{data.maximum_hourly_production_kwh:,.2f} kWh",
-            ],
-            [
-                "Factor de capacidad",
-                f"{data.capacity_factor_percent:.2f} %",
-            ],
-        ]
-
-        solar_statistics_table = Table(
-            solar_statistics_data,
-            colWidths=[260, 180],
-        )
-
-        self._style_table(
-            solar_statistics_table,
-            HELIOS_GREEN_DARK,
-        )
-
-        story.append(solar_statistics_table)
-
-        story.append(PageBreak())
-
-        # ==================================================
-        # Balance energético
-        # ==================================================
-
-        story.extend(
-            [
-                Spacer(1, 25),
-                self._section_header(
-                    "Consumo y balance energético",
-                    styles,
-                    HELIOS_GOLD,
-                ),
-                Spacer(1, 10),
-            ]
-        )
-
-        balance_data = [
-            ["Concepto", "Valor"],
-            [
-                "Consumo anual",
-                f"{data.yearly_consumption_kwh:,.2f} kWh",
-            ],
-            [
-                "Autoconsumo",
-                f"{data.self_consumption_kwh:,.2f} kWh",
-            ],
-            [
-                "Energía vertida a red",
-                f"{data.grid_export_kwh:,.2f} kWh",
-            ],
-            [
-                "Energía importada de red",
-                f"{data.grid_import_kwh:,.2f} kWh",
-            ],
-            [
-                "Tasa de autoconsumo",
-                f"{data.self_consumption_rate_percent:.2f} %",
-            ],
-            [
-                "Tasa de autosuficiencia",
-                f"{data.self_sufficiency_rate_percent:.2f} %",
-            ],
-        ]
-
-        balance_table = Table(
-            balance_data,
-            colWidths=[260, 180],
-        )
-
-        self._style_table(
-            balance_table,
-            HELIOS_GOLD,
-        )
-
-        story.append(balance_table)
-
-        story.append(
-            Spacer(
-                1,
-                15,
-            )
-        )
-
-        story.append(
-            SolarReportCharts.energy_balance(
-                data.yearly_production_kwh,
-                data.yearly_consumption_kwh,
-                data.self_consumption_kwh,
-                data.grid_import_kwh,
-                data.grid_export_kwh,
-            )
-        )
-
-        story.append(
-            Spacer(
-                1,
-                15,
-            )
-        )
-
-        story.append(
-            Paragraph(
-                SolarReportText.energy_balance_analysis(data),
-                styles["BodyText"],
-            )
-        )
-
-        # ==================================================
-        # Rentabilidad económica
-        # ==================================================
-
-        story.extend(
-            [
-                Spacer(1, 25),
-                self._section_header(
-                    "Rentabilidad económica",
-                    styles,
-                    HELIOS_PURPLE,
-                ),
-                Spacer(1, 10),
-            ]
-        )
-
-        economics_data = [
-            ["Concepto", "Valor"],
-            [
-                "Coste anual sin FV",
-                f"{data.cost_without_pv_eur:,.2f} €",
-            ],
-            [
-                "Coste energía importada con FV",
-                f"{data.grid_import_cost_eur:,.2f} €",
-            ],
-            [
-                "Ingresos por excedentes",
-                f"{data.export_income_eur:,.2f} €",
-            ],
-            [
-                "Coste neto con FV",
-                f"{data.cost_with_pv_eur:,.2f} €",
-            ],
-            [
-                "Ahorro por autoconsumo",
-                f"{data.self_consumption_savings_eur:,.2f} €",
-            ],
-            [
-                "Ahorro anual total",
-                f"{data.yearly_savings_eur:,.2f} €",
-            ],
-            [
-                "Inversión neta",
-                f"{data.investment_eur:,.2f} €",
-            ],
-            [
-                "Periodo de retorno",
-                f"{data.payback_years:.2f} años",
-            ],
-            [
-                "Valor actual neto (VAN)",
-                f"{data.net_present_value_eur:,.2f} €",
-            ],
-            [
-                "Tasa interna de retorno (TIR)",
-                (
-                    f"{data.internal_rate_of_return_percent:.2f} %"
-                    if data.internal_rate_of_return_percent
-                    is not None
-                    else "N/D"
-                ),
-            ],
-        ]
-
-        economics_table = Table(
-            economics_data,
-            colWidths=[260, 180],
-        )
-
-        self._style_table(
-            economics_table,
-            HELIOS_PURPLE,
-        )
-
-        story.append(economics_table)
-
-        story.append(
-            Spacer(
-                1,
-                15,
-            )
-        )
-
-        story.append(
-            Paragraph(
-                SolarReportText.economic_analysis(data),
-                styles["BodyText"],
-            )
-        )
-
-        # ==================================================
-        # Hipótesis económicas
-        # ==================================================
-
-        economic_assumptions_data = [
-            ["Hipótesis", "Valor"],
-            [
-                "Horizonte económico",
-                f"{data.economic_horizon_years} años",
-            ],
-            [
-                "Degradación primer año",
-                f"{data.first_year_degradation_percent:.2f} %",
-            ],
-            [
-                "Degradación anual",
-                f"{data.annual_degradation_percent:.2f} %",
-            ],
-            [
-                "Incremento anual precio electricidad",
-                (
-                    f"{data.annual_electricity_price_growth_percent:.2f} %"
-                ),
-            ],
-            [
-                "Incremento anual precio excedentes",
-                (
-                    f"{data.annual_export_price_growth_percent:.2f} %"
-                ),
-            ],
-            [
-                "Coste anual de mantenimiento",
-                f"{data.annual_maintenance_cost_eur:,.2f} €",
-            ],
-            [
-                "Incremento anual del mantenimiento",
-                f"{data.annual_maintenance_growth_percent:.2f} %",
-            ],
-            [
-                "Tasa de descuento",
-                f"{data.discount_rate_percent:.2f} %",
-            ],
-        ]
-
-        economic_assumptions_table = Table(
-            economic_assumptions_data,
-            colWidths=[260, 180],
-        )
-
-        self._style_table(
-            economic_assumptions_table,
-            HELIOS_PURPLE,
-        )
-
-        story.append(
-            KeepTogether(
-                [
-                    Spacer(1, 25),
-                    self._section_header(
-                        "Hipótesis económicas",
-                        styles,
-                        HELIOS_PURPLE,
-                    ),
-                    Spacer(1, 10),
-                    economic_assumptions_table,
-                ]
-            )
-        )
-
-        # ==================================================
-        # Evaluación económica de baterías
-        # ==================================================
-
-        if data.battery_recommendations:
-
-            battery_analysis_text = (
-                SolarReportText.battery_analysis(data)
-            )
-
-            # --------------------------------------------------
-            # Tabla 1: resultados marginales
-            # --------------------------------------------------
-
-            battery_operational_data = [
-                [
-                    "Capacidad",
-                    "Coste anual",
-                    "Ahorro adicional",
-                    "Coste incremental",
-                    "Ahorro incremental",
-                    "Ahorro marginal/kWh",
-                    "Recuperación marginal",
-                ],
-            ]
-
-            # --------------------------------------------------
-            # Tabla 2: economía de la batería
-            # --------------------------------------------------
-
-            battery_economic_data = [
-                [
-                    "Capacidad",
-                    "VAN batería",
-                    "TIR batería",
-                    "Recuperación económica",
-                ],
-            ]
-
-            # --------------------------------------------------
-            # Tabla 3: economía conjunta FV + batería
-            # --------------------------------------------------
-
-            battery_combined_data = [
-                [
-                    "Capacidad",
-                    "VAN conjunto",
-                    "TIR conjunta",
-                    "Recuperación conjunta",
-                ],
-            ]
-
-            for recommendation in data.battery_recommendations:
-
-                marginal_payback = (
-                    "N/D"
-                    if recommendation.marginal_payback_years
-                    == float("inf")
-                    else (
-                        f"{recommendation.marginal_payback_years:.2f} años"
-                    )
-                )
-
-                economic_payback = (
-                    "N/D"
-                    if recommendation.economic_payback_years
-                    == float("inf")
-                    else (
-                        f"{recommendation.economic_payback_years:.2f} años"
-                    )
-                )
-
-                combined_payback = (
-                    "N/D"
-                    if recommendation.combined_economic_payback_years
-                    == float("inf")
-                    else (
-                        f"{recommendation.combined_economic_payback_years:.2f} años"
-                    )
-                )
-
-                capacity = (
-                    f"{recommendation.capacity_kwh:.1f} kWh"
-                )
-
-                battery_operational_data.append(
-                    [
-                        capacity,
-                        (
-                            f"{recommendation.annual_cost_with_battery_eur:,.2f} €"
-                        ),
-                        (
-                            f"{recommendation.annual_additional_savings_eur:,.2f} €"
-                        ),
-                        (
-                            f"{recommendation.incremental_battery_cost_eur:,.2f} €"
-                        ),
-                        (
-                            f"{recommendation.incremental_savings_eur:,.2f} €"
-                        ),
-                        (
-                            f"{recommendation.marginal_savings_per_kwh:,.2f} €/kWh"
-                        ),
-                        marginal_payback,
-                    ]
-                )
-
-                battery_economic_data.append(
-                    [
-                        capacity,
-                        (
-                            f"{recommendation.economic_npv_eur:,.2f} €"
-                        ),
-                        (
-                            f"{recommendation.economic_irr_percent:.2f} %"
-                        ),
-                        economic_payback,
-                    ]
-                )
-
-                battery_combined_data.append(
-                    [
-                        capacity,
-                        (
-                            f"{recommendation.combined_economic_npv_eur:,.2f} €"
-                        ),
-                        (
-                            f"{recommendation.combined_economic_irr_percent:.2f} %"
-                        ),
-                        combined_payback,
-                    ]
-                )
-
-            # --------------------------------------------------
-            # Estilo específico para cabeceras de baterías
-            # --------------------------------------------------
-
-            battery_header_style = ParagraphStyle(
-                name="BatteryTableHeader",
-                parent=styles["Normal"],
-                fontName="Helvetica-Bold",
-                fontSize=7.5,
-                leading=8.5,
-                textColor=colors.white,
-                alignment=TA_CENTER,
-            )
-
-            # Convertimos las cabeceras en Paragraph para permitir
-            # saltos de línea y evitar solapamientos.
-            battery_operational_data[0] = [
-                Paragraph("Capacidad", battery_header_style),
-                Paragraph("Coste<br/>anual", battery_header_style),
-                Paragraph("Ahorro<br/>adicional", battery_header_style),
-                Paragraph("Coste<br/>incremental", battery_header_style),
-                Paragraph("Ahorro<br/>incremental", battery_header_style),
-                Paragraph("Ahorro marginal<br/>/ kWh", battery_header_style),
-                Paragraph("Recuperación<br/>marginal", battery_header_style),
-            ]
-
-            battery_economic_data[0] = [
-                Paragraph("Capacidad", battery_header_style),
-                Paragraph("VAN<br/>batería", battery_header_style),
-                Paragraph("TIR<br/>batería", battery_header_style),
-                Paragraph(
-                    "Recuperación<br/>económica",
-                    battery_header_style,
-                ),
-            ]
-
-            battery_combined_data[0] = [
-                Paragraph("Capacidad", battery_header_style),
-                Paragraph("VAN<br/>conjunto", battery_header_style),
-                Paragraph("TIR<br/>conjunta", battery_header_style),
-                Paragraph(
-                    "Recuperación<br/>conjunta",
-                    battery_header_style,
-                ),
-            ]
-
-            # --------------------------------------------------
-            # Tablas
-            # --------------------------------------------------
-
-            battery_operational_table = Table(
-                battery_operational_data,
-                colWidths=[
-                    60,
-                    65,
-                    72,
-                    72,
-                    72,
-                    72,
-                    77,
-                ],
-                repeatRows=1,
-            )
-
-            battery_economic_table = Table(
-                battery_economic_data,
-                colWidths=[
-                    65,
-                    140,
-                    105,
-                    180,
-                ],
-                repeatRows=1,
-            )
-
-            battery_combined_table = Table(
-                battery_combined_data,
-                colWidths=[
-                    65,
-                    140,
-                    105,
-                    180,
-                ],
-                repeatRows=1,
-            )
-
-            self._style_table(
-                battery_operational_table,
-                HELIOS_PURPLE,
-            )
-
-            self._style_table(
-                battery_economic_table,
-                HELIOS_PURPLE,
-            )
-
-            self._style_table(
-                battery_combined_table,
-                HELIOS_PURPLE,
-            )
-
-            for table in (
-                battery_operational_table,
-                battery_economic_table,
-                battery_combined_table,
-            ):
-                table.setStyle(
-                    TableStyle(
-                        [
-                            (
-                                "ALIGN",
-                                (1, 1),
-                                (-1, -1),
-                                "RIGHT",
-                            ),
-                            (
-                                "ALIGN",
-                                (0, 0),
-                                (0, -1),
-                                "CENTER",
-                            ),
-                            (
-                                "VALIGN",
-                                (0, 0),
-                                (-1, -1),
-                                "MIDDLE",
-                            ),
-                            (
-                                "LEFTPADDING",
-                                (0, 0),
-                                (-1, -1),
-                                4,
-                            ),
-                            (
-                                "RIGHTPADDING",
-                                (0, 0),
-                                (-1, -1),
-                                4,
-                            ),
-                            (
-                                "TOPPADDING",
-                                (0, 0),
-                                (-1, 0),
-                                5,
-                            ),
-                            (
-                                "BOTTOMPADDING",
-                                (0, 0),
-                                (-1, 0),
-                                5,
-                            ),
-                        ]
-                    )
-                )
-
-            story.append(
-                KeepTogether(
-                    [
-                        Spacer(1, 25),
-
-                        self._section_header(
-                            "Evaluación económica de baterías",
-                            styles,
-                            HELIOS_PURPLE,
-                        ),
-
-                        Spacer(1, 10),
-
-                        Paragraph(
-                            battery_analysis_text,
-                            styles["HeliosBodyText"],
-                        ),
-
-                        Spacer(1, 12),
-
-                        battery_operational_table,
-
-                        Spacer(1, 12),
-
-                        battery_economic_table,
-
-                        Spacer(1, 12),
-
-                        Paragraph(
-                            "Economía conjunta FV + batería",
-                            styles["HeliosSubsectionTitle"],
-                        ),
-
-                        Spacer(1, 6),
-
-                        battery_combined_table,
-                    ]
-                )
-            )
-
-        # ==================================================
-        # Escenarios económicos
-        # ==================================================
-
-        story.extend(
-            [
-                Spacer(1, 25),
-                self._section_header(
-                    "Escenarios económicos",
-                    styles,
-                    HELIOS_PURPLE_LIGHT,
-                ),
-                Spacer(1, 10),
-            ]
-        )
-
-        scenarios_data = [
-            [
-                "Escenario",
-                "Ahorro anual",
-                "Payback",
-                "VAN",
-                "TIR",
-            ],
-        ]
-
-        scenario_order = {
-            "Conservador": 0,
-            "Base": 1,
-            "Optimista": 2,
-        }
-
-        ordered_scenarios = sorted(
-            data.scenario_results,
-            key=lambda result: scenario_order.get(
-                result.name,
-                99,
-            ),
-        )
-
-        for result in ordered_scenarios:
-
-            scenarios_data.append(
-                [
-                    result.name,
-                    f"{result.annual_savings:,.2f} €",
-                    f"{result.payback_years:.2f} años",
-                    f"{result.npv:,.2f} €",
-                    f"{result.irr * 100:.2f} %",
-                ]
-            )
-
-        scenarios_table = Table(
-            scenarios_data,
-            colWidths=[
-                105,
-                105,
-                85,
-                105,
-                80,
-            ],
-        )
-
-        scenarios_table.setStyle(
-            TableStyle(
-                [
-                    (
-                        "BACKGROUND",
-                        (0, 0),
-                        (-1, 0),
-                        colors.HexColor(HELIOS_PURPLE_LIGHT),
-                    ),
-                    (
-                        "TEXTCOLOR",
-                        (0, 0),
-                        (-1, 0),
-                        colors.white,
-                    ),
-                    (
-                        "FONTNAME",
-                        (0, 0),
-                        (-1, 0),
-                        "Helvetica-Bold",
-                    ),
-                    (
-                        "GRID",
-                        (0, 0),
-                        (-1, -1),
-                        0.5,
-                        colors.grey,
-                    ),
-                    (
-                        "BACKGROUND",
-                        (0, 1),
-                        (-1, -1),
-                        colors.whitesmoke,
-                    ),
-                    (
-                        "VALIGN",
-                        (0, 0),
-                        (-1, -1),
-                        "MIDDLE",
-                    ),
-                    (
-                        "ALIGN",
-                        (1, 1),
-                        (-1, -1),
-                        "RIGHT",
-                    ),
-                    (
-                        "ALIGN",
-                        (0, 0),
-                        (0, -1),
-                        "LEFT",
-                    ),
-                    (
-                        "LEFTPADDING",
-                        (0, 0),
-                        (-1, -1),
-                        6,
-                    ),
-                    (
-                        "RIGHTPADDING",
-                        (0, 0),
-                        (-1, -1),
-                        6,
-                    ),
-                    (
-                        "TOPPADDING",
-                        (0, 0),
-                        (-1, -1),
-                        6,
-                    ),
-                    (
-                        "BOTTOMPADDING",
-                        (0, 0),
-                        (-1, -1),
-                        6,
-                    ),
-                ]
-            )
-        )
-
-        story.append(scenarios_table)
-
-        story.append(
-            Spacer(
-                1,
-                15,
-            )
-        )
-
-        story.append(
-            SolarReportCharts.economic_scenarios(
-                data.scenario_results,
-            )
-        )
-
-        story.append(
-            Spacer(
-                1,
-                15,
-            )
-        )
-
-        story.append(
-            Paragraph(
-                SolarReportText.scenario_analysis(data),
-                styles["BodyText"],
-            )
-        )
-
-        # ==================================================
-        # Conclusión
-        # ==================================================
-
-        story.append(
-            Spacer(
-                1,
-                25,
-            )
-        )
-
-        story.append(
-            self._section_header(
-                "Conclusión",
-                styles,
-            ),
-        )
-
-        story.append(
-            Spacer(
-                1,
-                10,
-            )
-        )
-
-        story.append(
-            ConclusionBlock(
-                SolarReportText.conclusion(data),
-                width=174 * mm,
-            )
-        )
-
-        story.append(PageBreak())
-
-        # ==================================================
-        # Glosario y definiciones
-        # ==================================================
-
-        story.append(
-            self._section_header(
-                "Glosario y definiciones",
+            self._build_executive_summary(
+                data,
                 styles,
             )
         )
 
-        story.append(
-            Spacer(
-                1,
-                10,
+        story.extend(
+            self._build_energy_situation(
+                data,
+                styles,
             )
         )
 
-        glossary_data = [
-            ["Término", "Definición"],
-        ]
-
-        for term, definition in SolarReportText.glossary():
-
-            glossary_data.append(
-                [
-                    Paragraph(
-                        term,
-                        styles["BodyText"],
-                    ),
-                    Paragraph(
-                        definition,
-                        styles["BodyText"],
-                    ),
-                ]
+        story.extend(
+            self._build_pv_section(
+                data,
+                styles,
             )
-
-        glossary_table = Table(
-            glossary_data,
-            colWidths=[
-                55 * mm,
-                125 * mm,
-            ],
-            repeatRows=1,
         )
 
-        self._style_table(
-            glossary_table,
-            HELIOS_BLUE,
+        story.extend(
+            self._build_energy_balance(
+                data,
+                styles,
+            )
         )
 
-        story.append(glossary_table)
+        story.extend(
+            self._build_economic_section(
+                data,
+                styles,
+            )
+        )
 
-        # ==================================================
-        # Generación
-        # ==================================================
+        story.extend(
+            self._build_battery_section(
+                data,
+                styles,
+            )
+        )
+
+        story.extend(
+            self._build_methodology_section(
+                data,
+                styles,
+            )
+        )
+
+        story.extend(
+            self._build_conclusion(
+                data,
+                styles,
+            )
+        )
+
+        story.extend(
+            self._build_glossary(
+                data,
+                styles,
+            )
+        )
 
         document.multiBuild(
             story,

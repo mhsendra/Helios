@@ -128,6 +128,325 @@ class TestSolarReportCharts:
                 monthly_production,
             )
 
+    def test_monthly_consumption_vs_production_returns_drawing(self):
+
+        monthly_consumption = pd.Series(
+            [
+                1600.0,
+                1500.0,
+                1550.0,
+                1580.0,
+                1650.0,
+                1700.0,
+                1720.0,
+                1680.0,
+                1570.0,
+                1600.0,
+                1650.0,
+                1741.72,
+            ],
+            index=pd.date_range(
+                "2025-01-31",
+                periods=12,
+                freq="ME",
+            ),
+        )
+
+        monthly_production = pd.Series(
+            [
+                850.0,
+                1020.0,
+                1250.0,
+                1480.0,
+                1650.0,
+                1720.0,
+                1800.0,
+                1760.0,
+                1510.0,
+                1180.0,
+                920.0,
+                780.0,
+            ],
+            index=pd.date_range(
+                "2025-01-31",
+                periods=12,
+                freq="ME",
+            ),
+        )
+
+        result = (
+            SolarReportCharts
+            .monthly_consumption_vs_production(
+                monthly_consumption,
+                monthly_production,
+            )
+        )
+
+        assert isinstance(result, Drawing)
+
+
+    def test_monthly_consumption_vs_production_contains_two_series(self):
+
+        monthly_consumption = pd.Series(
+            [1000.0, 1100.0, 1200.0],
+            index=pd.date_range(
+                "2025-01-31",
+                periods=3,
+                freq="ME",
+            ),
+        )
+
+        monthly_production = pd.Series(
+            [800.0, 1300.0, 1500.0],
+            index=pd.date_range(
+                "2025-01-31",
+                periods=3,
+                freq="ME",
+            ),
+        )
+
+        drawing = (
+            SolarReportCharts
+            .monthly_consumption_vs_production(
+                monthly_consumption,
+                monthly_production,
+            )
+        )
+
+        chart = next(
+            item
+            for item in drawing.contents
+            if isinstance(item, VerticalBarChart)
+        )
+
+        assert chart.data == [
+            [1000.0, 1100.0, 1200.0],
+            [800.0, 1300.0, 1500.0],
+        ]
+
+        assert chart.categoryAxis.categoryNames == [
+            "Jan",
+            "Feb",
+            "Mar",
+        ]
+
+
+    def test_monthly_consumption_vs_production_rejects_empty_consumption(self):
+
+        monthly_consumption = pd.Series(
+            dtype=float,
+        )
+
+        monthly_production = pd.Series(
+            [800.0, 900.0],
+            index=pd.date_range(
+                "2025-01-31",
+                periods=2,
+                freq="ME",
+            ),
+        )
+
+        with pytest.raises(
+            ValueError,
+            match="monthly consumption data is required",
+        ):
+            (
+                SolarReportCharts
+                .monthly_consumption_vs_production(
+                    monthly_consumption,
+                    monthly_production,
+                )
+            )
+
+
+    def test_monthly_consumption_vs_production_rejects_mismatched_lengths(self):
+
+        monthly_consumption = pd.Series(
+            [1000.0, 1100.0],
+            index=pd.date_range(
+                "2025-01-31",
+                periods=2,
+                freq="ME",
+            ),
+        )
+
+        monthly_production = pd.Series(
+            [800.0, 900.0, 1000.0],
+            index=pd.date_range(
+                "2025-01-31",
+                periods=3,
+                freq="ME",
+            ),
+        )
+
+        with pytest.raises(
+            ValueError,
+            match="must have the same length",
+        ):
+            (
+                SolarReportCharts
+                .monthly_consumption_vs_production(
+                    monthly_consumption,
+                    monthly_production,
+                )
+            )
+
+
+    def test_monthly_consumption_vs_production_rejects_negative_consumption(self):
+
+        monthly_consumption = pd.Series(
+            [1000.0, -100.0],
+            index=pd.date_range(
+                "2025-01-31",
+                periods=2,
+                freq="ME",
+            ),
+        )
+
+        monthly_production = pd.Series(
+            [800.0, 900.0],
+            index=pd.date_range(
+                "2025-01-31",
+                periods=2,
+                freq="ME",
+            ),
+        )
+
+        with pytest.raises(
+            ValueError,
+            match="monthly consumption cannot be negative",
+        ):
+            (
+                SolarReportCharts
+                .monthly_consumption_vs_production(
+                    monthly_consumption,
+                    monthly_production,
+                )
+            )
+
+
+    def test_battery_marginal_savings_returns_drawing(self):
+
+        recommendations = [
+            type(
+                "BatteryRecommendation",
+                (),
+                {
+                    "capacity_kwh": 5.0,
+                    "marginal_savings_per_kwh": 0.0,
+                },
+            )(),
+            type(
+                "BatteryRecommendation",
+                (),
+                {
+                    "capacity_kwh": 8.3,
+                    "marginal_savings_per_kwh": 20.43,
+                },
+            ),
+            type(
+                "BatteryRecommendation",
+                (),
+                {
+                    "capacity_kwh": 16.6,
+                    "marginal_savings_per_kwh": 9.74,
+                },
+            ),
+        ]
+
+        result = (
+            SolarReportCharts
+            .battery_marginal_savings(
+                recommendations,
+            )
+        )
+
+        assert isinstance(result, Drawing)
+
+
+    def test_battery_marginal_savings_contains_expected_data(self):
+
+        recommendations = [
+            type(
+                "BatteryRecommendation",
+                (),
+                {
+                    "capacity_kwh": 5.0,
+                    "marginal_savings_per_kwh": 0.0,
+                },
+            )(),
+            type(
+                "BatteryRecommendation",
+                (),
+                {
+                    "capacity_kwh": 8.3,
+                    "marginal_savings_per_kwh": 20.43,
+                },
+            ),
+            type(
+                "BatteryRecommendation",
+                (),
+                {
+                    "capacity_kwh": 16.6,
+                    "marginal_savings_per_kwh": 9.74,
+                },
+            ),
+        ]
+
+        drawing = (
+            SolarReportCharts
+            .battery_marginal_savings(
+                recommendations,
+            )
+        )
+
+        chart = next(
+            item
+            for item in drawing.contents
+            if isinstance(item, VerticalBarChart)
+        )
+
+        assert chart.data == [
+            [0.0, 20.43, 9.74]
+        ]
+
+        assert chart.categoryAxis.categoryNames == [
+            "5.0",
+            "8.3",
+            "16.6",
+        ]
+
+
+    def test_battery_marginal_savings_rejects_empty_data(self):
+
+        with pytest.raises(
+            ValueError,
+            match="battery recommendation data is required",
+        ):
+            SolarReportCharts.battery_marginal_savings([])
+
+
+    def test_battery_marginal_savings_rejects_negative_values(self):
+
+        recommendations = [
+            type(
+                "BatteryRecommendation",
+                (),
+                {
+                    "capacity_kwh": 5.0,
+                    "marginal_savings_per_kwh": -1.0,
+                },
+            )(),
+        ]
+
+        with pytest.raises(
+            ValueError,
+            match="marginal savings cannot be negative",
+        ):
+            SolarReportCharts.battery_marginal_savings(
+                recommendations,
+            )
+
     def test_energy_balance_creates_drawing(self):
         result = SolarReportCharts.energy_balance(
             yearly_production_kwh=12500.0,

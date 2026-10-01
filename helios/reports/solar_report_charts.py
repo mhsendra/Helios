@@ -18,8 +18,8 @@ class SolarReportCharts:
     TITLE_X = 250
     TITLE_Y = 275
 
-    CHART_Y = 60
-    CHART_AREA_HEIGHT = 180
+    CHART_Y = 55
+    CHART_AREA_HEIGHT = 185
 
     FONT_TITLE = "Montserrat-Bold"
     FONT_AXIS = "Lato"
@@ -70,13 +70,58 @@ class SolarReportCharts:
         )
 
     @classmethod
+    def _add_legend(
+        cls,
+        drawing: Drawing,
+        items,
+        y: float = 252,
+    ) -> None:
+        """Añade una leyenda horizontal sencilla."""
+
+        total_width = sum(
+            10 + 4 + len(label) * 4.6 + 18
+            for label, _ in items
+        )
+
+        x = (
+            cls.CHART_WIDTH - total_width
+        ) / 2
+
+        for label, fill_color in items:
+
+            drawing.add(
+                String(
+                    x,
+                    y,
+                    "■",
+                    fontName="Helvetica",
+                    fontSize=8,
+                    fillColor=fill_color,
+                )
+            )
+
+            x += 10
+
+            drawing.add(
+                String(
+                    x,
+                    y,
+                    label,
+                    fontName=cls.FONT_AXIS,
+                    fontSize=8,
+                    fillColor=cls.HELIOS_MUTED,
+                )
+            )
+
+            x += len(label) * 4.6 + 18
+
+    @classmethod
     def _style_chart(
         cls,
         chart: VerticalBarChart,
     ) -> None:
         """Aplica el estilo común HELIOS al gráfico."""
 
-        # Eje de categorías
         chart.categoryAxis.labels.fontName = cls.FONT_AXIS
         chart.categoryAxis.labels.fontSize = cls.FONT_AXIS_SIZE
         chart.categoryAxis.labels.fillColor = cls.HELIOS_MUTED
@@ -84,7 +129,6 @@ class SolarReportCharts:
         chart.categoryAxis.strokeColor = cls.HELIOS_BORDER
         chart.categoryAxis.strokeWidth = 0.6
 
-        # Eje de valores
         chart.valueAxis.labels.fontName = cls.FONT_AXIS
         chart.valueAxis.labels.fontSize = cls.FONT_AXIS_SIZE
         chart.valueAxis.labels.fillColor = cls.HELIOS_MUTED
@@ -98,14 +142,31 @@ class SolarReportCharts:
         chart: VerticalBarChart,
         bar_colors,
     ) -> None:
-        """Aplica el acabado visual HELIOS a la serie de barras."""
+        """Aplica colores a las series de barras."""
 
         if not bar_colors:
             return
 
-        chart.bars[0].fillColor = bar_colors[0]
-        chart.bars[0].strokeColor = None
-        chart.bars[0].strokeWidth = 0
+        for series_index, fill_color in enumerate(
+            bar_colors
+        ):
+            if series_index >= len(chart.data):
+                break
+
+            for category_index in range(
+                len(chart.data[series_index])
+            ):
+                chart.bars[
+                    (series_index, category_index)
+                ].fillColor = fill_color
+
+                chart.bars[
+                    (series_index, category_index)
+                ].strokeColor = None
+
+                chart.bars[
+                    (series_index, category_index)
+                ].strokeWidth = 0
 
     @classmethod
     def _configure_value_axis(
@@ -136,7 +197,12 @@ class SolarReportCharts:
         cls,
         production_kwh: float,
     ) -> Drawing:
-        """Genera el gráfico de producción solar anual."""
+        """
+        Genera el gráfico de producción solar anual.
+
+        Se conserva por compatibilidad con código existente.
+        El informe definitivo utiliza el gráfico mensual comparativo.
+        """
 
         if production_kwh < 0:
             raise ValueError(
@@ -251,6 +317,123 @@ class SolarReportCharts:
         return drawing
 
     # ------------------------------------------------------------------
+    # Monthly consumption vs production
+    # ------------------------------------------------------------------
+
+    @classmethod
+    def monthly_consumption_vs_production(
+        cls,
+        monthly_consumption: pd.Series,
+        monthly_production: pd.Series,
+    ) -> Drawing:
+        """
+        Compara consumo y producción solar mes a mes.
+
+        No realiza ningún cálculo energético: representa directamente
+        las dos series recibidas.
+        """
+
+        if (
+            monthly_consumption is None
+            or monthly_consumption.empty
+        ):
+            raise ValueError(
+                "monthly consumption data is required"
+            )
+
+        if (
+            monthly_production is None
+            or monthly_production.empty
+        ):
+            raise ValueError(
+                "monthly production data is required"
+            )
+
+        if len(monthly_consumption) != len(
+            monthly_production
+        ):
+            raise ValueError(
+                "monthly consumption and production "
+                "must have the same length"
+            )
+
+        if (
+            monthly_consumption < 0
+        ).any():
+            raise ValueError(
+                "monthly consumption cannot be negative"
+            )
+
+        if (
+            monthly_production < 0
+        ).any():
+            raise ValueError(
+                "monthly production cannot be negative"
+            )
+
+        drawing = cls._create_drawing()
+
+        cls._add_title(
+            drawing,
+            "Consumo y producción mensual",
+        )
+
+        cls._add_legend(
+            drawing,
+            [
+                (
+                    "Consumo",
+                    cls.HELIOS_BLUE,
+                ),
+                (
+                    "Producción solar",
+                    cls.HELIOS_GREEN,
+                ),
+            ],
+        )
+
+        chart = VerticalBarChart()
+
+        chart.x = 48
+        chart.y = cls.CHART_Y
+        chart.height = cls.CHART_AREA_HEIGHT
+        chart.width = 410
+
+        chart.data = [
+            monthly_consumption.tolist(),
+            monthly_production.tolist(),
+        ]
+
+        chart.categoryAxis.categoryNames = [
+            date.strftime("%b")
+            for date in monthly_production.index
+        ]
+
+        maximum = max(
+            float(monthly_consumption.max()),
+            float(monthly_production.max()),
+        )
+
+        cls._configure_value_axis(
+            chart,
+            maximum,
+        )
+
+        cls._style_chart(chart)
+
+        cls._style_bars(
+            chart,
+            [
+                cls.HELIOS_BLUE,
+                cls.HELIOS_GREEN,
+            ],
+        )
+
+        drawing.add(chart)
+
+        return drawing
+
+    # ------------------------------------------------------------------
     # Annual energy balance
     # ------------------------------------------------------------------
 
@@ -313,7 +496,6 @@ class SolarReportCharts:
 
         cls._style_chart(chart)
 
-        # Colores individuales por categoría.
         bar_colors = [
             cls.HELIOS_GREEN,
             cls.HELIOS_BLUE,
@@ -322,10 +504,10 @@ class SolarReportCharts:
             cls.HELIOS_GOLD,
         ]
 
-        for index, fill_color in enumerate(bar_colors):
-            chart.bars[(0, index)].fillColor = fill_color
-            chart.bars[(0, index)].strokeColor = None
-            chart.bars[(0, index)].strokeWidth = 0
+        cls._style_bars(
+            chart,
+            bar_colors,
+        )
 
         drawing.add(chart)
 
@@ -400,5 +582,108 @@ class SolarReportCharts:
         )
 
         drawing.add(chart)
+
+        return drawing
+
+    # ------------------------------------------------------------------
+    # Battery marginal economics
+    # ------------------------------------------------------------------
+
+    @classmethod
+    def battery_marginal_savings(
+        cls,
+        battery_recommendations,
+    ) -> Drawing:
+        """
+        Representa el ahorro marginal por kWh de capacidad instalada.
+
+        Cada barra corresponde directamente a una recomendación de
+        capacidad de batería.
+        """
+
+        if (
+            battery_recommendations is None
+            or not battery_recommendations
+        ):
+            raise ValueError(
+                "battery recommendation data is required"
+            )
+
+        names = [
+            f"{recommendation.capacity_kwh:.1f}"
+            for recommendation
+            in battery_recommendations
+        ]
+
+        values = [
+            recommendation.marginal_savings_per_kwh
+            for recommendation
+            in battery_recommendations
+        ]
+
+        if any(value < 0 for value in values):
+            raise ValueError(
+                "marginal savings cannot be negative"
+            )
+
+        drawing = cls._create_drawing()
+
+        cls._add_title(
+            drawing,
+            "Ahorro marginal según capacidad de batería",
+        )
+
+        chart = VerticalBarChart()
+
+        chart.x = 55
+        chart.y = cls.CHART_Y
+        chart.height = cls.CHART_AREA_HEIGHT
+        chart.width = 400
+
+        chart.data = [
+            values,
+        ]
+
+        chart.categoryAxis.categoryNames = names
+
+        maximum = max(values)
+
+        cls._configure_value_axis(
+            chart,
+            maximum,
+        )
+
+        cls._style_chart(chart)
+
+        cls._style_bars(
+            chart,
+            [cls.HELIOS_GOLD],
+        )
+
+        drawing.add(chart)
+
+        drawing.add(
+            String(
+                250,
+                28,
+                "Capacidad de batería (kWh)",
+                textAnchor="middle",
+                fontName=cls.FONT_AXIS,
+                fontSize=8,
+                fillColor=cls.HELIOS_MUTED,
+            )
+        )
+
+        drawing.add(
+            String(
+                12,
+                150,
+                "€/kWh",
+                textAnchor="middle",
+                fontName=cls.FONT_AXIS,
+                fontSize=8,
+                fillColor=cls.HELIOS_MUTED,
+            )
+        )
 
         return drawing

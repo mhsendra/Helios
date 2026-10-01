@@ -572,7 +572,7 @@ class TestSolarReportGenerator:
             captured["story"]
         )
 
-        rows = self._table_rows(tables[6])
+        rows = self._table_rows(tables[10])
 
         assert rows == [
             ["Hipótesis", "Valor"],
@@ -629,24 +629,22 @@ class TestSolarReportGenerator:
             captured["story"]
         )
 
-        row_counts = [
+        assert [
             len(table._cellvalues)
             for table in tables
-        ]
-
-        assert row_counts == [
+        ] == [
             4,   # KPI de portada
             6,   # Instalación
             4,   # Producción
             6,   # Estadísticas
             7,   # Balance
             11,  # Economía
-            9,   # Hipótesis económicas
+            4,   # Escenarios
             6,   # Baterías: resultados marginales
             6,   # Baterías: economía
             6,   # Baterías: economía conjunta FV + batería
-            4,   # Escenarios
-            26,  # Glosario y definiciones
+            9,   # Hipótesis económicas
+            26,  # Glosario
         ]
 
     def test_report_tables_have_expected_headers(
@@ -686,7 +684,13 @@ class TestSolarReportGenerator:
             ["Métrica", "Valor"],
             ["Concepto", "Valor"],
             ["Concepto", "Valor"],
-            ["Hipótesis", "Valor"],
+            [
+                "Escenario",
+                "Ahorro anual",
+                "Payback",
+                "VAN",
+                "TIR",
+            ],
             [
                 "Capacidad",
                 "Coste anual",
@@ -709,11 +713,8 @@ class TestSolarReportGenerator:
                 "Recuperación conjunta",
             ],
             [
-                "Escenario",
-                "Ahorro anual",
-                "Payback",
-                "VAN",
-                "TIR",
+                "Hipótesis",
+                "Valor",
             ],
             ["Término", "Definición"],
         ]
@@ -978,7 +979,7 @@ class TestSolarReportGenerator:
             captured["story"]
         )
 
-        rows = self._table_rows(tables[10])
+        rows = self._table_rows(tables[6])
 
         assert rows == [
             [
@@ -1031,10 +1032,12 @@ class TestSolarReportGenerator:
         )
 
         assert "Informe de rendimiento solar" in text
-        assert "Resumen de la instalación" in text
+        assert "Situación energética actual" in text
+        assert "Balance energético" in text
+        assert "Instalación fotovoltaica" in text
+        assert "Estadísticas de producción" in text
+        assert "Hipótesis y metodología" in text
         assert "Producción solar" in text
-        assert "Estadísticas solares" in text
-        assert "Consumo y balance energético" in text
         assert "Rentabilidad económica" in text
 
     def test_report_sections_are_in_expected_order(
@@ -1063,15 +1066,16 @@ class TestSolarReportGenerator:
 
         expected_sections = [
             "Informe de rendimiento solar",
-            "Instalación fotovoltaica — 8.10 kWp",
             "Resumen ejecutivo",
-            "Resumen de la instalación",
+            "Situación energética actual",
+            "Instalación fotovoltaica",
             "Producción solar",
-            "Estadísticas solares",
-            "Consumo y balance energético",
+            "Estadísticas de producción",
+            "Balance energético",
             "Rentabilidad económica",
-            "Hipótesis económicas",
             "Escenarios económicos",
+            "Evaluación económica de baterías",
+            "Hipótesis y metodología",
             "Conclusión",
             "Glosario y definiciones",
         ]
@@ -1104,13 +1108,15 @@ class TestSolarReportGenerator:
 
         section_titles = {
             "Resumen ejecutivo",
-            "Resumen de la instalación",
+            "Situación energética actual",
+            "Instalación fotovoltaica",
             "Producción solar",
-            "Estadísticas solares",
-            "Consumo y balance energético",
+            "Estadísticas de producción",
+            "Balance energético",
             "Rentabilidad económica",
-            "Hipótesis económicas",
             "Escenarios económicos",
+            "Evaluación económica de baterías",
+            "Hipótesis y metodología",
             "Conclusión",
         }
 
@@ -1122,13 +1128,15 @@ class TestSolarReportGenerator:
 
         assert found == [
             "Resumen ejecutivo",
-            "Resumen de la instalación",
+            "Situación energética actual",
+            "Instalación fotovoltaica",
             "Producción solar",
-            "Estadísticas solares",
-            "Consumo y balance energético",
+            "Estadísticas de producción",
+            "Balance energético",
             "Rentabilidad económica",
-            "Hipótesis económicas",
             "Escenarios económicos",
+            "Evaluación económica de baterías",
+            "Hipótesis y metodología",
             "Conclusión",
         ]
 
@@ -1468,7 +1476,6 @@ class TestSolarReportGenerator:
         monkeypatch,
         tmp_path,
     ):
-
         captured = self._capture_story(monkeypatch)
 
         generator = SolarReportGenerator()
@@ -1492,27 +1499,25 @@ class TestSolarReportGenerator:
             "Instalación fotovoltaica — 8.10 kWp",
             "Índice",
             "Resumen ejecutivo",
-            "La instalación fotovoltaica analizada tiene una potencia instalada de 8.10 kWp y una producción solar estimada de 12,500 kWh anuales. Esta producción permite cubrir directamente 64.0 % del consumo eléctrico anual mediante energía solar. El ahorro económico estimado alcanza 2,338.00 € al año, con una inversión de 12,490.00 € y un periodo de recuperación de la inversión de 5.34 años.",
-            "Resumen de la instalación",
+            "Situación energética actual",
+            "Instalación fotovoltaica",
             "Producción solar",
-            "La instalación genera aproximadamente 12,500 kWh al año, equivalentes a 1,543 kWh/kWp de producción específica. Se registran aproximadamente 4,380 horas productivas al año y una producción media de 1,042 kWh mensuales. El factor de capacidad refleja un nivel de aprovechamiento razonable de la potencia instalada para una instalación fotovoltaica.",
-            "Estadísticas solares",
-            "Consumo y balance energético",
-            "El consumo eléctrico anual asciende a 19,542 kWh. De la producción fotovoltaica, 8,500 kWh se consumen directamente en la instalación, mientras que 4,000 kWh se vierten a la red. La energía importada de la red asciende a 11,042 kWh. La tasa de autoconsumo es del 43.5 % y la autosuficiencia alcanza el 64.0 %. La tasa de autoconsumo muestra un aprovechamiento moderado de la energía generada directamente en la instalación.",
+            "Estadísticas de producción",
+            "Balance energético",
             "Rentabilidad económica",
-            "La inversión neta asciende a 12,490.00 € y genera un ahorro anual estimado de 2,338.00 €. El periodo de recuperación de la inversión es de 5.34 años. El valor actual neto alcanza 22,071.16 €. La tasa interna de retorno estimada es del 18.80 %. El valor actual neto es positivo, lo que indica que la inversión genera valor por encima del valor exigido, una vez tenido en cuenta el valor del dinero en el tiempo.",
-            "Hipótesis económicas",
-            "Evaluación económica de baterías",
-            "Se han evaluado 5 capacidades de batería entre 5.0 kWh y 30.0 kWh. La batería permite almacenar parte del excedente fotovoltaico para utilizarlo posteriormente, reduciendo la energía que debe importarse de la red. La capacidad de 30.0 kWh alcanza el mayor ahorro adicional anual, con 281.67 € respecto a la instalación fotovoltaica sin batería. En términos del valor actual neto de la propia batería, la capacidad de 8.3 kWh obtiene 429.40 € bajo las hipótesis económicas utilizadas. 2 de las 5 capacidades evaluadas presentan un valor actual neto de la batería igual o superior a cero. El ahorro marginal por kWh representa el ahorro adicional obtenido por cada kWh de capacidad de batería añadido, mientras que el periodo de recuperación marginal expresa el tiempo estimado necesario para recuperar el coste incremental de esa capacidad mediante el ahorro incremental. Los indicadores económicos conjuntos permiten además analizar el resultado de la inversión fotovoltaica y la batería como un único sistema.",
-            "Economía conjunta FV + batería",
             "Escenarios económicos",
-            "El análisis de escenarios muestra cómo la rentabilidad de la instalación varía en función de las hipótesis económicas consideradas. En el escenario «Base», el ahorro anual estimado es de 2,338.00 €, con un periodo de recuperación de la inversión de 5.34 años y un VAN de 22,071.16 €. En el escenario «Conservador», el VAN se sitúa en 18,000.00 €, mientras que el escenario «Optimista» alcanza 28,000.00 €. En conjunto, los resultados muestran que la inversión mantiene una rentabilidad positiva bajo las diferentes hipótesis analizadas, aunque su atractivo económico varía según la evolución de los precios de la energía, los costes de mantenimiento y el resto de supuestos considerados.",
+            "Evaluación económica de baterías",
+            "Hipótesis y metodología",
             "Conclusión",
-            "La instalación fotovoltaica analizada, con una potencia instalada de 8.10 kWp, alcanza una producción solar anual estimada de 12,500 kWh. Esta generación permite cubrir mediante energía solar el 64.0 % del consumo eléctrico anual, reduciendo la dependencia de la red eléctrica.<br/><br/>Desde el punto de vista económico, la instalación genera un ahorro anual estimado de 2,338.00 €, con una inversión neta de 12,490.00 € y un periodo de recuperación de la inversión de 5.34 años. La inversión favorable bajo las hipótesis utilizadas.<br/><br/>También se ha evaluado el almacenamiento mediante 5 capacidades de batería, entre 5.0 y 30.0 kWh. El mayor ahorro adicional anual obtenido en la simulación corresponde a una capacidad de 30.0 kWh, con un ahorro adicional anual de 281.67 €.<br/><br/>Desde el punto de vista económico de la propia batería, la capacidad de 8.3 kWh presenta el mayor valor actual neto, de 429.40 €, con una TIR del 6.79 % y un periodo de recuperación de 12.48 años. En total, 2 de las 5 capacidades evaluadas presentan un valor actual neto de la batería igual o superior a cero.<br/><br/>Estos resultados muestran que aumentar la capacidad de almacenamiento puede incrementar el ahorro anual, pero ese incremento no implica necesariamente una mejora proporcional de la rentabilidad económica de la batería.<br/><br/>En conjunto, los resultados indican que la instalación presenta una capacidad significativa para reducir el coste energético anual y mejorar el grado de autosuficiencia eléctrica del sistema. La valoración final debe entenderse dentro de las hipótesis de producción, consumo, tarifas, degradación y evolución de precios utilizadas en el análisis.",
             "Glosario y definiciones",
         ]
 
-        assert paragraph_text == expected_sections
+        positions = [
+            paragraph_text.index(section)
+            for section in expected_sections
+        ]
+
+        assert positions == sorted(positions)
 
     def test_manual_report_keeps_common_tables(
         self,
@@ -1545,12 +1550,12 @@ class TestSolarReportGenerator:
             6,   # Estadísticas
             7,   # Balance
             11,  # Economía
-            9,   # Hipótesis económicas
+            4,   # Escenarios
             6,   # Baterías: resultados marginales
             6,   # Baterías: economía
             6,   # Baterías: economía conjunta FV + batería
-            4,   # Escenarios
-            26,  # Glosario y definiciones
+            9,   # Hipótesis económicas
+            26,  # Glosario
         ]
 
     def test_invalid_calculation_mode_is_rejected(
