@@ -1810,3 +1810,34 @@ class TestSolarReportGenerator:
 
         assert operational_rows[1][-1] == "N/D"
         assert economic_rows[1][-1] == "N/D"
+
+    def test_report_contains_section_conclusions(
+        self,
+        monkeypatch,
+        tmp_path,
+    ):
+        captured = self._capture_story(monkeypatch)
+
+        generator = SolarReportGenerator()
+
+        generator.generate(
+            self._report_data(),
+            tmp_path / "report.pdf",
+        )
+
+        text = self._story_text(
+            captured["story"]
+        )
+
+        expected_conclusions = [
+            "Conclusión de la sección",
+            "coincidencia horaria",
+            "no coincide temporalmente",
+            "VAN resulta positivo",
+            "sensibilidad",
+            "coste incremental",
+            "no constituyen una garantía",
+        ]
+
+        for value in expected_conclusions:
+            assert value in text

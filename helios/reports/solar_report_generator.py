@@ -363,11 +363,16 @@ class ConclusionBlock(Flowable):
         self,
         text: str,
         width: float,
+        accent_color: str = HELIOS_GREEN,
     ):
         super().__init__()
 
-        self.text = text
+        self.text = (
+            "<b>Conclusión de la sección</b><br/><br/>"
+            f"{text}"
+        )
         self.width = width
+        self.accent_color = accent_color
 
         self.padding_horizontal = 9 * mm
         self.padding_vertical = 6 * mm
@@ -427,7 +432,7 @@ class ConclusionBlock(Flowable):
         )
 
         canvas.setFillColor(
-            colors.HexColor(HELIOS_GREEN)
+            colors.HexColor(self.accent_color)
         )
 
         canvas.roundRect(
@@ -710,6 +715,11 @@ class SolarReportGenerator:
                 SolarReportText.energy_situation_analysis(data),
                 styles["HeliosBodyText"],
             ),
+            Spacer(1, 12),
+            self._section_conclusion(
+                SolarReportText.energy_situation_conclusion(data),
+                HELIOS_GOLD,
+            ),
         ]
 
 
@@ -813,6 +823,13 @@ class SolarReportGenerator:
         )
 
         story.append(installation_table)
+        story.append(Spacer(1, 12))
+        story.append(
+            self._section_conclusion(
+                SolarReportText.installation_conclusion(data),
+                HELIOS_BLUE,
+            )
+        )
         story.append(PageBreak())
 
         story.extend(
@@ -874,6 +891,15 @@ class SolarReportGenerator:
             )
         )
 
+        story.append(Spacer(1, 12))
+
+        story.append(
+            self._section_conclusion(
+                SolarReportText.production_conclusion(data),
+                HELIOS_GREEN,
+            )
+        )
+
         story.extend(
             [
                 Spacer(1, 25),
@@ -922,6 +948,14 @@ class SolarReportGenerator:
         )
 
         story.append(solar_statistics_table)
+        story.append(Spacer(1, 12))
+
+        story.append(
+            self._section_conclusion(
+                SolarReportText.production_statistics_conclusion(data),
+                HELIOS_GREEN_DARK,
+            )
+        )
 
         return story
 
@@ -1000,6 +1034,15 @@ class SolarReportGenerator:
             Paragraph(
                 SolarReportText.energy_balance_analysis(data),
                 styles["BodyText"],
+            )
+        )
+
+        story.append(Spacer(1, 12))
+
+        story.append(
+            self._section_conclusion(
+                SolarReportText.energy_balance_conclusion(data),
+                HELIOS_GOLD,
             )
         )
 
@@ -1088,6 +1131,11 @@ class SolarReportGenerator:
                 Paragraph(
                     SolarReportText.economic_analysis(data),
                     styles["BodyText"],
+                ),
+                Spacer(1, 12),
+                self._section_conclusion(
+                    SolarReportText.economic_conclusion(data),
+                    HELIOS_PURPLE,
                 ),
             ]
         )
@@ -1242,6 +1290,11 @@ class SolarReportGenerator:
                 Paragraph(
                     SolarReportText.scenario_analysis(data),
                     styles["BodyText"],
+                ),
+                Spacer(1, 12),
+                self._section_conclusion(
+                    SolarReportText.scenario_conclusion(data),
+                    HELIOS_PURPLE_LIGHT,
                 ),
             ]
         )
@@ -1527,6 +1580,13 @@ class SolarReportGenerator:
                 data.battery_recommendations,
             ),
 
+            Spacer(1, 12),
+
+            self._section_conclusion(
+                SolarReportText.battery_conclusion(data),
+                HELIOS_PURPLE,
+            ),
+
             Spacer(1, 10),
         ]
 
@@ -1617,7 +1677,23 @@ class SolarReportGenerator:
                 SolarReportText.methodology_analysis(data),
                 styles["HeliosBodyText"],
             ),
+            Spacer(1, 12),
+            self._section_conclusion(
+                SolarReportText.methodology_conclusion(data),
+                HELIOS_PURPLE,
+            ),
         ]
+
+    @staticmethod
+    def _section_conclusion(
+        text: str,
+        accent_color: str,
+    ) -> ConclusionBlock:
+        return ConclusionBlock(
+            text,
+            width=174 * mm,
+            accent_color=accent_color,
+        )
 
     def _build_conclusion(
         self,

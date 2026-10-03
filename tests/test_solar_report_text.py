@@ -692,3 +692,97 @@ class TestSolarReportText:
         assert "Ciclos equivalentes" in glossary
         assert "VAN de la batería" in glossary
         assert "Economía conjunta FV + batería" in glossary
+
+    # ==================================================
+    # Section conclusions
+    # ==================================================
+
+    def test_energy_situation_conclusion_contains_interpretation(self):
+
+        text = SolarReportText.energy_situation_conclusion(
+            self._report_data()
+        )
+
+        assert "19,542 kWh anuales" in text
+        assert "autosuficiencia alcanzable" in text
+
+    def test_installation_conclusion_interprets_coverage(self):
+
+        text = SolarReportText.installation_conclusion(
+            self._report_data()
+        )
+
+        assert "64.0 %" in text
+        assert "coincidencia horaria" in text
+
+    def test_production_conclusion_interprets_annual_generation(self):
+
+        text = SolarReportText.production_conclusion(
+            self._report_data()
+        )
+
+        assert "12,500 kWh/año" in text
+        assert "64.0 %" in text
+        assert "no determina cuánto" in text
+
+    def test_production_statistics_conclusion_contains_performance(self):
+
+        text = SolarReportText.production_statistics_conclusion(
+            self._report_data()
+        )
+
+        assert "4,380 horas" in text
+        assert "17.62 %" in text
+        assert "rendimiento global" in text
+
+    def test_energy_balance_conclusion_identifies_temporal_mismatch(self):
+
+        text = SolarReportText.energy_balance_conclusion(
+            self._report_data()
+        )
+
+        assert "4,000 kWh" in text
+        assert "11,042 kWh" in text
+        assert "no coincide temporalmente" in text
+        assert "almacenamiento" in text
+
+    def test_economic_conclusion_contains_key_indicators(self):
+
+        text = SolarReportText.economic_conclusion(
+            self._report_data()
+        )
+
+        assert "12,490.00 €" in text
+        assert "2,338.00 €" in text
+        assert "5.34 años" in text
+        assert "VAN resulta positivo" in text
+
+    def test_scenario_conclusion_explains_sensitivity(self):
+
+        text = SolarReportText.scenario_conclusion(
+            self._report_data()
+        )
+
+        assert "18,000.00 €" in text
+        assert "28,000.00 €" in text
+        assert "sensibilidad" in text
+
+    def test_battery_conclusion_distinguishes_savings_and_npv(self):
+
+        text = SolarReportText.battery_conclusion(
+            self._report_data()
+        )
+
+        assert "ahorro adicional anual" in text
+        assert "mayor VAN" in text
+        assert "coste incremental" in text
+
+    def test_methodology_conclusion_defines_interpretation_scope(self):
+
+        text = SolarReportText.methodology_conclusion(
+            self._report_data()
+        )
+
+        assert "2025" in text
+        assert "simulación" in text
+        assert "no constituyen una garantía" in text
