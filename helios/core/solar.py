@@ -126,6 +126,10 @@ class SolarEngine:
             configuration
         )
 
+    def invalidate_energy_balance(self):
+        
+        self.manager.invalidate_energy_balance()
+
     def reset(self):
 
         self.manager.reset()

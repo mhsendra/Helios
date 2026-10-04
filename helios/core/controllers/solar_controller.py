@@ -371,6 +371,9 @@ class SolarController:
         """
         Sincroniza la configuración solar con el motor.
 
+        Cambiar la configuración invalida todos los resultados
+        derivados de la configuración anterior.
+
         No ejecuta cálculos ni gestiona la persistencia
         del proyecto.
         """
@@ -387,6 +390,21 @@ class SolarController:
         self.analyzer.solar_engine.set_configuration(
             configuration
         )
+
+        # La configuración solar afecta a todos estos resultados.
+        self.sizing_result = None
+        self.installation_configuration = None
+        self._battery_recommendations = []
+
+    def invalidate_energy_balance(self) -> None:
+        """
+        Invalida los resultados que dependen de la configuración
+        energética actual, manteniendo intacta la producción solar.
+
+        Se utiliza cuando cambia la configuración de batería.
+        """
+
+        self.analyzer.solar_engine.invalidate_energy_balance()
 
     # ==================================================
     # Cálculos de producción

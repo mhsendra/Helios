@@ -85,7 +85,9 @@ class HeliosProject:
         self,
         configuration: BatteryConfiguration,
     ) -> None:
+        
         self.battery_configuration = configuration
+        self.solar.invalidate_energy_balance()
 
     # ==================================================
     # Carga y preparación de datos

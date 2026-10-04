@@ -389,6 +389,47 @@ class TestSolarController:
         self.analyzer.solar_engine.calculate_energy_balance.assert_not_called()
         self.analyzer.solar_engine.calculate_statistics.assert_not_called()
 
+    def test_set_configuration_invalidates_derived_results(self):
+
+        configuration = self._solar_configuration()
+
+        self.controller.sizing_result = MagicMock()
+
+        self.controller.installation_configuration = (
+            MagicMock()
+        )
+
+        self.controller._battery_recommendations = [
+            MagicMock(),
+            MagicMock(),
+        ]
+
+        self.controller.set_configuration(
+            configuration
+        )
+
+        assert self.controller.sizing_result is None
+
+        assert (
+            self.controller.installation_configuration
+            is None
+        )
+
+        assert (
+            self.controller.battery_recommendations
+            == []
+        )
+
+        self.analyzer.solar_engine.set_configuration.assert_called_once_with(
+            configuration
+        )
+
+    def test_invalidate_energy_balance_delegates_to_engine(self):
+
+        self.controller.invalidate_energy_balance()
+
+        self.analyzer.solar_engine.invalidate_energy_balance.assert_called_once_with()
+
     # ==================================================
     # Cálculo horario
     # ==================================================

@@ -274,3 +274,26 @@ def test_project_solar_controller_uses_project_configuration():
     )
 
     assert project.solar.configuration is configuration
+
+def test_project_set_battery_configuration():
+    project = HeliosProject(
+        EconomicsConfiguration(installation_cost=12490.0)
+    )
+
+    configuration = BatteryConfiguration(
+        capacity_kwh=16.6,
+        max_charge_power_kw=8.0,
+        max_discharge_power_kw=8.0,
+    )
+
+    solar = MagicMock()
+
+    project.analyzer.solar = solar
+
+    project.set_battery_configuration(
+        configuration
+    )
+
+    assert project.battery_configuration is configuration
+
+    solar.invalidate_energy_balance.assert_called_once_with()

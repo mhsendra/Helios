@@ -204,6 +204,17 @@ class SolarManager:
         self.reporter.monthly_production(
             self.monthly_production
         )
+
+    def invalidate_energy_balance(self):
+        """
+        Invalida el balance energético y sus estadísticas derivadas.
+
+        La producción solar calculada sigue siendo válida porque
+        no depende de la configuración de batería.
+        """
+
+        self.energy_balance = None
+        self.statistics = None
         
     def reset(self):
 

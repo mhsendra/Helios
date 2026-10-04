@@ -468,6 +468,25 @@ class TestSolarManager:
         assert self.manager.energy_balance is None
         assert self.manager.statistics is None
 
+    def test_invalidate_energy_balance_clears_balance_and_statistics(self):
+
+        self.manager.hourly_production = MagicMock()
+        self.manager.daily_production = MagicMock()
+        self.manager.monthly_production = MagicMock()
+        self.manager.yearly_production = MagicMock()
+        self.manager.energy_balance = MagicMock()
+        self.manager.statistics = MagicMock()
+
+        self.manager.invalidate_energy_balance()
+
+        assert self.manager.hourly_production is not None
+        assert self.manager.daily_production is not None
+        assert self.manager.monthly_production is not None
+        assert self.manager.yearly_production is not None
+
+        assert self.manager.energy_balance is None
+        assert self.manager.statistics is None
+
 
     def test_reset_is_idempotent(
         self,
