@@ -56,6 +56,16 @@ from helios.solar.battery_recommendation import (
 
 from helios.solar.battery_economic_configuration import BatteryEconomicParameters
 
+from helios.core.diagnostics.energy import EnergyDiagnostics
+from helios.core.diagnostics import (
+    DiagnosticResult,
+    EnergyRecommendations,
+    RecommendationResult,
+)
+
+from helios.core.diagnostics.battery_economics import (
+    BatteryEconomicAnalyzer,
+    BatteryEconomicRecommendation,)
 class SolarController:
 
     def __init__(self, analyzer):
@@ -310,6 +320,45 @@ class SolarController:
         return balance.resample(
             "ME"
         ).sum()
+
+    # ==================================================
+    # Resultados de diagnóstico
+    # ==================================================
+
+    @property
+    def diagnostics(self) -> list[DiagnosticResult]:
+        balance = self.energy_balance
+
+        if balance is None or balance.empty:
+            return []
+
+        return EnergyDiagnostics.diagnose(balance)
+
+    @property
+    def recommendations(self) -> list[RecommendationResult]:
+        """
+        Recomendaciones derivadas de los diagnósticos energéticos actuales.
+
+        Las recomendaciones se calculan siempre a partir del balance vigente,
+        a través de EnergyDiagnostics, y no mantienen estado propio.
+        """
+        diagnostics = self.diagnostics
+
+        if not diagnostics:
+            return []
+
+        return EnergyRecommendations.recommend(
+            diagnostics,
+            self.battery_economic_recommendations,
+        )
+
+    @property
+    def battery_economic_recommendations(
+        self,
+    ) -> list[BatteryEconomicRecommendation]:
+        return BatteryEconomicAnalyzer.analyze(
+            self.battery_recommendations
+        )
 
     # ==================================================
     # Configuración solar
@@ -717,7 +766,7 @@ class SolarController:
     def battery_recommendations(
         self,
     ) -> list[BatteryRecommendation]:
-        return self._battery_recommendations
+        return getattr(self, "_battery_recommendations", [])
 
     def calculate_statistics(self):
 
