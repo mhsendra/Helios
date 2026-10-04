@@ -413,5 +413,5 @@ class MainWindow(QMainWindow):
         self.indicators_page.update_data()
         self.tariffs_page.update()
         self.solar_config_page.update_data()
-        self.economics_page.update()
+        self.economics_page.refresh_battery_analysis()
 

@@ -1084,3 +1084,48 @@ class TestEconomicsPage:
             "6.80 %",
             "12.47 años",
         ]
+
+    def test_refresh_battery_analysis_updates_table(
+        self,
+        app,
+    ):
+
+        project = self._create_project()
+
+        project.solar.battery_recommendations = [
+            BatteryRecommendation(
+                capacity_kwh=5.0,
+                max_charge_power_kw=8.3,
+                max_discharge_power_kw=8.3,
+                annual_consumption_kwh=8911.90,
+                annual_production_kwh=12003.99,
+                annual_surplus_kwh=8626.64,
+                annual_export_kwh=7121.49,
+                annual_grid_import_kwh=4176.15,
+                annual_battery_charge_kwh=1505.15,
+                annual_battery_discharge_kwh=1429.89,
+                self_consumption_kwh=4735.75,
+                self_sufficiency_percent=53.14,
+                equivalent_cycles=357.47,
+                annual_cost_with_battery_eur=320.86,
+                annual_additional_savings_eur=102.38,
+                marginal_recovered_kwh_per_kwh=0.0,
+                incremental_battery_cost_eur=0.0,
+                incremental_savings_eur=0.0,
+                marginal_savings_per_kwh=0.0,
+                marginal_payback_years=float("inf"),
+                economic_npv_eur=260.10,
+                economic_irr_percent=6.80,
+                economic_payback_years=12.47,
+            ),
+        ]
+
+        page = EconomicsPage(project)
+
+        page.refresh_battery_analysis()
+
+        assert page.battery_table.rowCount() == 1
+        assert page.battery_table.item(0, 0).text() == "5.0 kWh"
+        assert page.battery_table.item(0, 7).text() == "260.10 €"
+        assert page.battery_table.item(0, 8).text() == "6.80 %"
+        assert page.battery_table.item(0, 9).text() == "12.47 años"

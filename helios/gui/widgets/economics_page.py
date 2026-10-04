@@ -1,12 +1,15 @@
+from PySide6.QtCore import Qt
+
 from PySide6.QtWidgets import (
     QWidget,
     QLabel,
     QVBoxLayout,
-    QGroupBox,
     QFormLayout,
     QPushButton,
     QTableWidget,
     QTableWidgetItem,
+    QGroupBox,
+    QScrollArea,
 )
 
 from helios.core.economic_scenarios import default_economic_scenarios
@@ -20,15 +23,24 @@ class EconomicsPage(QWidget):
         self.project = project
         self.controller = self.project.economics
 
-        layout = QVBoxLayout(self)
+        outer_layout = QVBoxLayout(self)
 
-        title = QLabel("<h2>Economía</h2>")
-        layout.addWidget(title)
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarAlwaysOff
+        )
+
+        content = QWidget()
+
+        layout = QVBoxLayout(content)
 
         # ==================================================
         # Resumen económico
         # ==================================================
 
+        title = QLabel("<h2>Economía</h2>")
+        layout.addWidget(title)
         summary_group = QGroupBox(
             "Resumen económico"
         )
@@ -131,6 +143,8 @@ class EconomicsPage(QWidget):
 
         self.battery_table = QTableWidget()
 
+        self.battery_table.setMinimumHeight(220)
+
         battery_layout.addWidget(
             self.battery_table
         )
@@ -152,6 +166,8 @@ class EconomicsPage(QWidget):
         )
 
         self.cash_flow_table = QTableWidget()
+
+        self.cash_flow_table.setMinimumHeight(220)
 
         cash_flow_layout.addWidget(
             self.cash_flow_table
@@ -178,6 +194,12 @@ class EconomicsPage(QWidget):
         )
 
         layout.addStretch()
+
+        self.scroll_area.setWidget(content)
+
+        outer_layout.addWidget(
+            self.scroll_area
+        )
 
     def calculate(self):
 
@@ -309,7 +331,7 @@ class EconomicsPage(QWidget):
 
             self.battery_table.setRowCount(0)
             self.battery_table.resizeColumnsToContents()
-
+            
             return
 
         self.battery_table.setRowCount(
@@ -351,6 +373,14 @@ class EconomicsPage(QWidget):
                 )
 
         self.battery_table.resizeColumnsToContents()
+        self.battery_table.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarAsNeeded
+        )
+
+    def refresh_battery_analysis(self):
+        """Actualiza la tabla económica del almacenamiento."""
+
+        self.update_battery_analysis()
         
     def update_cash_flow(self):
 

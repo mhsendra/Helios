@@ -430,6 +430,54 @@ class TestSolarController:
 
         self.analyzer.solar_engine.invalidate_energy_balance.assert_called_once_with()
 
+    def test_set_same_configuration_preserves_derived_results(
+        self,
+    ):
+        configuration = SolarConfiguration(
+            latitude=41.62,
+            longitude=2.09,
+            tilt=30.0,
+            azimuth=0.0,
+            reference_year=2023,
+            losses=14.0,
+            pv_technology="crystSi",
+            mounting_place="building",
+        )
+
+        self.controller.set_configuration(
+            configuration
+        )
+
+        # El solar engine está mockeado en este test, por lo que
+        # simulamos el estado que tendría después de set_configuration().
+        self.analyzer.solar_engine.configuration = (
+            configuration
+        )
+
+        self.controller.sizing_result = "sizing"
+        self.controller.installation_configuration = (
+            "installation"
+        )
+        self.controller._battery_recommendations = [
+            "battery",
+        ]
+
+        self.controller.set_configuration(
+            configuration
+        )
+
+        assert self.controller.sizing_result == "sizing"
+
+        assert (
+            self.controller.installation_configuration
+            == "installation"
+        )
+
+        assert (
+            self.controller._battery_recommendations
+            == ["battery"]
+        )
+
     # ==================================================
     # Cálculo horario
     # ==================================================

@@ -374,6 +374,9 @@ class SolarController:
         Cambiar la configuración invalida todos los resultados
         derivados de la configuración anterior.
 
+        Reaplicar exactamente la misma configuración no invalida
+        resultados ya calculados.
+
         No ejecuta cálculos ni gestiona la persistencia
         del proyecto.
         """
@@ -387,15 +390,21 @@ class SolarController:
                 "SolarConfiguration."
             )
 
+        current_configuration = self.configuration
+
+        configuration_changed = (
+            current_configuration != configuration
+        )
+
         self.analyzer.solar_engine.set_configuration(
             configuration
         )
 
-        # La configuración solar afecta a todos estos resultados.
-        self.sizing_result = None
-        self.installation_configuration = None
-        self._battery_recommendations = []
-
+        if configuration_changed:
+            self.sizing_result = None
+            self.installation_configuration = None
+            self._battery_recommendations = []
+            
     def invalidate_energy_balance(self) -> None:
         """
         Invalida los resultados que dependen de la configuración
