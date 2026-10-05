@@ -37,14 +37,23 @@ class SolarReportText:
         data: SolarReportData,
     ) -> str:
         """
-        Genera un diagnóstico ejecutivo breve de la instalación.
+        Genera un diagnóstico ejecutivo breve y orientado a decisión.
 
-        Resume el grado de aprovechamiento de la producción solar,
-        la dependencia de la red y la existencia de excedentes.
+        Resume producción frente a consumo, aprovechamiento solar,
+        excedentes, dependencia de red y viabilidad económica.
         """
 
         if data is None:
             raise ValueError("report data is required")
+
+        if data.yearly_consumption_kwh > 0:
+            production_ratio = (
+                data.yearly_production_kwh
+                / data.yearly_consumption_kwh
+                * 100
+            )
+        else:
+            production_ratio = 0.0
 
         if data.yearly_production_kwh > 0:
             export_ratio = (
@@ -55,70 +64,76 @@ class SolarReportText:
         else:
             export_ratio = 0.0
 
-        messages = []
-
-        if data.self_consumption_rate_percent < 30:
-            messages.append(
-                "El aprovechamiento directo de la producción solar "
-                "es bajo"
-            )
-        elif data.self_consumption_rate_percent < 60:
-            messages.append(
-                "El aprovechamiento directo de la producción solar "
-                "es moderado"
+        if production_ratio >= 100:
+            production_message = (
+                f"✓ La instalación puede generar el "
+                f"{production_ratio:.1f} % del consumo anual de referencia."
             )
         else:
-            messages.append(
-                "El aprovechamiento directo de la producción solar "
-                "es elevado"
+            production_message = (
+                f"⚠ La producción anual cubre aproximadamente el "
+                f"{production_ratio:.1f} % del consumo anual de referencia."
             )
 
         if export_ratio >= 50:
-            messages.append(
-                f"aproximadamente el {export_ratio:.1f} % de la "
-                "producción se vierte a la red"
+            export_message = (
+                f"⚠ Aproximadamente el {export_ratio:.1f} % de la "
+                f"energía generada se vierte a la red."
             )
         elif export_ratio > 0:
-            messages.append(
-                f"existe un excedente exportado equivalente al "
-                f"{export_ratio:.1f} % de la producción"
-            )
-
-        if data.self_sufficiency_rate_percent < 50:
-            messages.append(
-                "la instalación mantiene una dependencia "
-                "significativa de la energía de red"
-            )
-        elif data.self_sufficiency_rate_percent < 75:
-            messages.append(
-                "la instalación reduce de forma relevante, aunque "
-                "no elimina, la dependencia de la red"
+            export_message = (
+                f"ℹ Existe un excedente equivalente al "
+                f"{export_ratio:.1f} % de la producción."
             )
         else:
-            messages.append(
-                "la instalación alcanza un elevado grado de "
-                "autosuficiencia energética"
+            export_message = (
+                "✓ No se han identificado excedentes fotovoltaicos "
+                "significativos en el escenario analizado."
             )
 
-        diagnostic = "; ".join(messages)
+        if data.net_present_value_eur > 0:
+            economic_message = (
+                "✓ La inversión presenta un VAN positivo bajo las "
+                "hipótesis económicas utilizadas."
+            )
+        elif data.net_present_value_eur < 0:
+            economic_message = (
+                "⚠ La inversión presenta un VAN negativo bajo las "
+                "hipótesis económicas utilizadas."
+            )
+        else:
+            economic_message = (
+                "ℹ La inversión presenta un VAN aproximadamente nulo "
+                "bajo las hipótesis económicas utilizadas."
+            )
 
-        storage_opportunity = (
+        if (
             data.grid_export_kwh > 0
             and data.grid_import_kwh > 0
-        )
-
-        if storage_opportunity:
-            diagnostic += (
-                ". La existencia simultánea de excedentes vertidos "
-                "y energía importada evidencia un desajuste temporal "
-                "entre generación y demanda, por lo que existe una "
-                "oportunidad potencial para desplazar energía mediante "
-                "gestión de consumos y/o almacenamiento."
+        ):
+            flexibility_message = (
+                "✓ Existe potencial para aumentar el aprovechamiento "
+                "solar mediante gestión de cargas y/o almacenamiento."
             )
         else:
-            diagnostic += "."
-            
-        return diagnostic
+            flexibility_message = (
+                "ℹ El balance energético presenta un menor margen "
+                "para desplazar energía mediante almacenamiento."
+            )
+
+        return "<br/>".join(
+            [
+                "<b>Diagnóstico rápido</b>",
+                production_message,
+                (
+                    f"✓ La autosuficiencia energética estimada es del "
+                    f"{data.self_sufficiency_rate_percent:.1f} %."
+                ),
+                export_message,
+                economic_message,
+                flexibility_message,
+            ]
+        )
 
     @staticmethod
     def energy_flow_summary(
@@ -585,27 +600,35 @@ class SolarReportText:
         data: SolarReportData,
     ) -> str:
         """
-        Resume qué significa la producción fotovoltaica obtenida.
+        Explica la relación entre producción anual, consumo y
+        aprovechamiento directo de la energía solar.
         """
 
         if data is None:
             raise ValueError("report data is required")
 
-        production_ratio = (
-            data.yearly_production_kwh
-            / data.yearly_consumption_kwh
-            * 100
-        )
+        if data.yearly_consumption_kwh > 0:
+            production_ratio = (
+                data.yearly_production_kwh
+                / data.yearly_consumption_kwh
+                * 100
+            )
+        else:
+            production_ratio = 0.0
 
         return (
-            f"La producción estimada de "
-            f"{data.yearly_production_kwh:,.0f} kWh/año representa "
-            f"aproximadamente el {production_ratio:.1f} % del consumo "
-            f"eléctrico anual de referencia. "
-            f"El resultado confirma que la instalación dispone de "
-            f"una capacidad de generación relevante respecto a la demanda, "
-            f"pero el balance anual por sí solo no determina cuánto de "
-            f"esa energía puede utilizarse directamente."
+            f"La instalación genera aproximadamente "
+            f"{data.yearly_production_kwh:,.0f} kWh/año, equivalentes "
+            f"al {production_ratio:.1f} % del consumo eléctrico anual "
+            f"de referencia. Sin embargo, la autosuficiencia energética "
+            f"se sitúa en el {data.self_sufficiency_rate_percent:.1f} %. "
+            f"Esta diferencia no representa una contradicción: refleja "
+            f"la falta de coincidencia temporal entre la generación "
+            f"fotovoltaica y la demanda eléctrica. "
+            f"Una parte relevante de la energía generada se produce cuando "
+            f"la vivienda no puede consumirla directamente y debe "
+            f"utilizarse posteriormente, gestionarse mediante cargas "
+            f"flexibles, almacenarse o verterse a la red."
         )
 
     @staticmethod
@@ -805,6 +828,82 @@ class SolarReportText:
             f"Su utilidad principal es comparar escenarios de forma "
             f"coherente; no constituyen una garantía de comportamiento "
             f"futuro."
+        )
+
+    @staticmethod
+    def final_recommendation(
+        data: SolarReportData,
+    ) -> str:
+        """
+        Genera una recomendación final orientada a la toma de decisión.
+
+        Integra producción, autosuficiencia y resultado económico de la
+        instalación fotovoltaica. La recomendación de almacenamiento o
+        movilidad eléctrica se reserva para fases posteriores.
+        """
+
+        if data is None:
+            raise ValueError("report data is required")
+
+        if data.yearly_consumption_kwh > 0:
+            production_ratio = (
+                data.yearly_production_kwh
+                / data.yearly_consumption_kwh
+                * 100
+            )
+        else:
+            production_ratio = 0.0
+
+        if data.net_present_value_eur > 0:
+            economic_message = (
+                "El resultado económico es favorable, ya que el "
+                "valor actual neto es positivo bajo las hipótesis utilizadas."
+            )
+            recommendation = (
+                "Se recomienda la instalación fotovoltaica en el escenario "
+                "analizado."
+            )
+        elif data.net_present_value_eur < 0:
+            economic_message = (
+                "El resultado económico no es favorable bajo las hipótesis "
+                "utilizadas, ya que el valor actual neto es negativo."
+            )
+            recommendation = (
+                "No se recomienda ejecutar la instalación sin revisar "
+                "previamente sus condiciones económicas."
+            )
+        else:
+            economic_message = (
+                "El resultado económico se encuentra aproximadamente "
+                "en el punto de equilibrio bajo las hipótesis utilizadas."
+            )
+            recommendation = (
+                "La decisión de ejecutar la instalación requiere valorar "
+                "también criterios energéticos y no económicos."
+            )
+         
+        production_message = (
+            f"La instalación genera aproximadamente "
+            f"{data.yearly_production_kwh:,.0f} kWh/año, equivalentes "
+            f"al {production_ratio:.1f} % del consumo eléctrico anual "
+            f"de referencia."
+        )
+
+        flexibility_message = (
+            "La diferencia entre la producción anual y la autosuficiencia "
+            "pone de manifiesto un margen de mejora mediante una mejor "
+            "gestión temporal de la energía, cargas flexibles y, cuando "
+            "resulte económicamente justificado, almacenamiento."
+        )
+
+        return (
+            f"<b>Recomendación final</b><br/>"
+            f"{recommendation} "
+            f"{production_message} "
+            f"La autosuficiencia energética estimada es del "
+            f"{data.self_sufficiency_rate_percent:.1f} %. "
+            f"{economic_message} "
+            f"{flexibility_message}"
         )
 
     @staticmethod

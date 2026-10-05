@@ -1035,7 +1035,6 @@ class TestSolarReportGenerator:
         assert "Situación energética actual" in text
         assert "Balance energético" in text
         assert "Instalación fotovoltaica" in text
-        assert "Estadísticas de producción" in text
         assert "Hipótesis y metodología" in text
         assert "Producción solar" in text
         assert "Rentabilidad económica" in text
@@ -1070,7 +1069,6 @@ class TestSolarReportGenerator:
             "Situación energética actual",
             "Instalación fotovoltaica",
             "Producción solar",
-            "Estadísticas de producción",
             "Balance energético",
             "Rentabilidad económica",
             "Escenarios económicos",
@@ -1111,7 +1109,6 @@ class TestSolarReportGenerator:
             "Situación energética actual",
             "Instalación fotovoltaica",
             "Producción solar",
-            "Estadísticas de producción",
             "Balance energético",
             "Rentabilidad económica",
             "Escenarios económicos",
@@ -1131,7 +1128,6 @@ class TestSolarReportGenerator:
             "Situación energética actual",
             "Instalación fotovoltaica",
             "Producción solar",
-            "Estadísticas de producción",
             "Balance energético",
             "Rentabilidad económica",
             "Escenarios económicos",
@@ -1557,7 +1553,6 @@ class TestSolarReportGenerator:
             "Situación energética actual",
             "Instalación fotovoltaica",
             "Producción solar",
-            "Estadísticas de producción",
             "Balance energético",
             "Rentabilidad económica",
             "Escenarios económicos",

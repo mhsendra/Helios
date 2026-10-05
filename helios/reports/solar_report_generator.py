@@ -889,10 +889,9 @@ class SolarReportGenerator:
                     0,
                 ),
                 Spacer(1, 10),
-                self._keep_table(
-                    installation_table
-                ),
+                self._keep_table(installation_table),
             ),
+
             self._keep_section_content(
                 Spacer(1, 12),
                 self._section_conclusion(
@@ -900,7 +899,6 @@ class SolarReportGenerator:
                     HELIOS_BLUE,
                 ),
             ),
-            PageBreak(),
 
             Spacer(1, 25),
 
@@ -912,9 +910,7 @@ class SolarReportGenerator:
                     1,
                 ),
                 Spacer(1, 10),
-                self._keep_table(
-                    production_table
-                ),
+                self._keep_table(production_table),
             ),
 
             Spacer(1, 15),
@@ -931,36 +927,15 @@ class SolarReportGenerator:
                 styles["BodyText"],
             ),
 
+            Spacer(1, 15),
+
+            solar_statistics_table,
+
             self._keep_section_content(
                 Spacer(1, 12),
                 self._section_conclusion(
                     SolarReportText.production_conclusion(data),
                     HELIOS_GREEN,
-                ),
-            ),
-
-            Spacer(1, 25),
-
-            self._keep_section_content(
-                self._section_header(
-                    "Estadísticas de producción",
-                    styles,
-                    HELIOS_GREEN_DARK,
-                    1,
-                ),
-                Spacer(1, 10),
-                self._keep_table(
-                    solar_statistics_table
-                ),
-            ),
-
-            self._keep_section_content(
-                Spacer(1, 12),
-                self._section_conclusion(
-                    SolarReportText.production_statistics_conclusion(
-                        data
-                    ),
-                    HELIOS_GREEN_DARK,
                 ),
             ),
         ]
@@ -1011,7 +986,6 @@ class SolarReportGenerator:
         )
 
         story = [
-            PageBreak(),
             Spacer(1, 25),
 
             self._keep_section_content(
@@ -1698,16 +1672,16 @@ class SolarReportGenerator:
                 self._section_header(
                     "Conclusión",
                     styles,
+                    HELIOS_GREEN,
                     toc_level=0,
                 ),
                 Spacer(1, 10),
-                ConclusionBlock(
-                    SolarReportText.conclusion(data),
-                    width=174 * mm,
+                self._section_conclusion(
+                    SolarReportText.final_recommendation(data),
+                    HELIOS_GREEN,
                 ),
             ),
         ]
-
 
     def _build_glossary(
         self,

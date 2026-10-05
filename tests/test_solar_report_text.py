@@ -723,7 +723,9 @@ class TestSolarReportText:
 
         assert "12,500 kWh/año" in text
         assert "64.0 %" in text
-        assert "no determina cuánto" in text
+        assert "autosuficiencia energética" in text
+        assert "falta de coincidencia temporal" in text
+        assert "cargas flexibles" in text
 
     def test_production_statistics_conclusion_contains_performance(self):
 
@@ -787,16 +789,80 @@ class TestSolarReportText:
         assert "simulación" in text
         assert "no constituyen una garantía" in text
 
+    def test_final_recommendation_recommends_positive_npv_installation(self):
+
+        text = SolarReportText.final_recommendation(
+            self._report_data()
+        )
+
+        assert "<b>Recomendación final</b>" in text
+        assert "Se recomienda la instalación fotovoltaica" in text
+        assert "63.98 %" not in text
+        assert "64.0 %" in text
+        assert "63.9 %" not in text
+        assert "63.99 %" not in text
+        assert "63.9 %" not in text
+        assert "valor actual neto es positivo" in text
+        assert "12,500 kWh" in text
+        assert "producción anual" in text
+        assert "gestión temporal de la energía" in text
+
+    def test_final_recommendation_detects_negative_npv(self):
+
+        data = self._report_data()
+
+        data = SolarReportData(
+            **{
+                **data.__dict__,
+                "net_present_value_eur": -1000.0,
+            }
+        )
+
+        text = SolarReportText.final_recommendation(data)
+
+        assert "No se recomienda ejecutar la instalación" in text
+        assert "valor actual neto es negativo" in text
+
+
+    def test_final_recommendation_detects_zero_npv(self):
+
+        data = self._report_data()
+
+        data = SolarReportData(
+            **{
+                **data.__dict__,
+                "net_present_value_eur": 0.0,
+            }
+        )
+
+        text = SolarReportText.final_recommendation(data)
+
+        assert "punto de equilibrio" in text
+        assert "La decisión de ejecutar la instalación requiere" in text
+
+
+    def test_final_recommendation_recommends_positive_npv_installation(self):
+
+        text = SolarReportText.final_recommendation(
+            self._report_data()
+        )
+
+        assert "<b>Recomendación final</b>" in text
+        assert "Se recomienda la instalación fotovoltaica" in text
+        assert "64.0 %" in text
+        assert "valor actual neto es positivo" in text
+        assert "12,500 kWh" in text
+        assert "gestión temporal de la energía" in text
+
     def test_quick_diagnostic_identifies_energy_opportunity(self):
 
         text = SolarReportText.quick_diagnostic(
             self._report_data()
         )
 
-        assert "aprovechamiento directo" in text
-        assert "existe un excedente" in text
-        assert "dependencia" in text
-        assert "desajuste temporal" in text
+        assert "producción anual" in text
+        assert "consumo anual de referencia" in text
+        assert "producción anual cubre aproximadamente" in text
         assert "almacenamiento" in text
 
     def test_quick_diagnostic_rejects_none(self):
