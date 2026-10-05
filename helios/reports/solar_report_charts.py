@@ -119,6 +119,7 @@ class SolarReportCharts:
     def _style_chart(
         cls,
         chart: VerticalBarChart,
+        value_format: str = "%0.0f",
     ) -> None:
         """Aplica el estilo común HELIOS al gráfico."""
 
@@ -135,6 +136,7 @@ class SolarReportCharts:
 
         chart.valueAxis.strokeColor = cls.HELIOS_BORDER
         chart.valueAxis.strokeWidth = 0.6
+        chart.valueAxis.labelTextFormat = value_format
 
     @classmethod
     def _style_bars(
@@ -653,7 +655,10 @@ class SolarReportCharts:
             maximum,
         )
 
-        cls._style_chart(chart)
+        cls._style_chart(
+            chart,
+            value_format="%0.1f",
+        )
 
         cls._style_bars(
             chart,

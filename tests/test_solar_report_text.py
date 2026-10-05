@@ -786,3 +786,44 @@ class TestSolarReportText:
         assert "2025" in text
         assert "simulación" in text
         assert "no constituyen una garantía" in text
+
+    def test_quick_diagnostic_identifies_energy_opportunity(self):
+
+        text = SolarReportText.quick_diagnostic(
+            self._report_data()
+        )
+
+        assert "aprovechamiento directo" in text
+        assert "existe un excedente" in text
+        assert "dependencia" in text
+        assert "desajuste temporal" in text
+        assert "almacenamiento" in text
+
+    def test_quick_diagnostic_rejects_none(self):
+
+        with pytest.raises(
+            ValueError,
+            match="report data is required",
+        ):
+            SolarReportText.quick_diagnostic(None)
+
+    def test_energy_flow_summary_contains_generation_distribution(self):
+
+        text = SolarReportText.energy_flow_summary(
+            self._report_data()
+        )
+
+        assert "12,500 kWh" in text
+        assert "8,500 kWh" in text
+        assert "4,000 kWh" in text
+        assert "11,042 kWh" in text
+        assert "68.0 %" in text
+        assert "32.0 %" in text
+
+    def test_energy_flow_summary_rejects_none(self):
+
+        with pytest.raises(
+            ValueError,
+            match="report data is required",
+        ):
+            SolarReportText.energy_flow_summary(None)

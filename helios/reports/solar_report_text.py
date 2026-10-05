@@ -33,6 +33,154 @@ class SolarReportText:
         )
 
     @staticmethod
+    def quick_diagnostic(
+        data: SolarReportData,
+    ) -> str:
+        """
+        Genera un diagnóstico ejecutivo breve de la instalación.
+
+        Resume el grado de aprovechamiento de la producción solar,
+        la dependencia de la red y la existencia de excedentes.
+        """
+
+        if data is None:
+            raise ValueError("report data is required")
+
+        if data.yearly_production_kwh > 0:
+            export_ratio = (
+                data.grid_export_kwh
+                / data.yearly_production_kwh
+                * 100
+            )
+        else:
+            export_ratio = 0.0
+
+        messages = []
+
+        if data.self_consumption_rate_percent < 30:
+            messages.append(
+                "El aprovechamiento directo de la producción solar "
+                "es bajo"
+            )
+        elif data.self_consumption_rate_percent < 60:
+            messages.append(
+                "El aprovechamiento directo de la producción solar "
+                "es moderado"
+            )
+        else:
+            messages.append(
+                "El aprovechamiento directo de la producción solar "
+                "es elevado"
+            )
+
+        if export_ratio >= 50:
+            messages.append(
+                f"aproximadamente el {export_ratio:.1f} % de la "
+                "producción se vierte a la red"
+            )
+        elif export_ratio > 0:
+            messages.append(
+                f"existe un excedente exportado equivalente al "
+                f"{export_ratio:.1f} % de la producción"
+            )
+
+        if data.self_sufficiency_rate_percent < 50:
+            messages.append(
+                "la instalación mantiene una dependencia "
+                "significativa de la energía de red"
+            )
+        elif data.self_sufficiency_rate_percent < 75:
+            messages.append(
+                "la instalación reduce de forma relevante, aunque "
+                "no elimina, la dependencia de la red"
+            )
+        else:
+            messages.append(
+                "la instalación alcanza un elevado grado de "
+                "autosuficiencia energética"
+            )
+
+        diagnostic = "; ".join(messages)
+
+        storage_opportunity = (
+            data.grid_export_kwh > 0
+            and data.grid_import_kwh > 0
+        )
+
+        if storage_opportunity:
+            diagnostic += (
+                ". La existencia simultánea de excedentes vertidos "
+                "y energía importada evidencia un desajuste temporal "
+                "entre generación y demanda, por lo que existe una "
+                "oportunidad potencial para desplazar energía mediante "
+                "gestión de consumos y/o almacenamiento."
+            )
+        else:
+            diagnostic += "."
+            
+        return diagnostic
+
+    @staticmethod
+    def energy_flow_summary(
+        data: SolarReportData,
+    ) -> str:
+        """
+        Explica de forma directa cómo se distribuyen la generación
+        fotovoltaica y la demanda eléctrica.
+        """
+
+        if data is None:
+            raise ValueError("report data is required")
+
+        if data.yearly_production_kwh > 0:
+            self_consumption_of_production = (
+                data.self_consumption_kwh
+                / data.yearly_production_kwh
+                * 100
+            )
+            export_of_production = (
+                data.grid_export_kwh
+                / data.yearly_production_kwh
+                * 100
+            )
+        else:
+            self_consumption_of_production = 0.0
+            export_of_production = 0.0
+
+        if data.yearly_consumption_kwh > 0:
+            solar_share_of_consumption = (
+                data.self_consumption_kwh
+                / data.yearly_consumption_kwh
+                * 100
+            )
+            grid_share_of_consumption = (
+                data.grid_import_kwh
+                / data.yearly_consumption_kwh
+                * 100
+            )
+        else:
+            solar_share_of_consumption = 0.0
+            grid_share_of_consumption = 0.0
+
+        return (
+            f"De los {data.yearly_production_kwh:,.0f} kWh generados "
+            f"por la instalación fotovoltaica, "
+            f"{data.self_consumption_kwh:,.0f} kWh "
+            f"({self_consumption_of_production:.1f} %) se utilizan "
+            f"directamente en la vivienda y "
+            f"{data.grid_export_kwh:,.0f} kWh "
+            f"({export_of_production:.1f} %) se vierten a la red. "
+            f"Desde el punto de vista de la demanda, de los "
+            f"{data.yearly_consumption_kwh:,.0f} kWh consumidos "
+            f"anualmente, {data.self_consumption_kwh:,.0f} kWh "
+            f"({solar_share_of_consumption:.1f} %) quedan cubiertos "
+            f"directamente por la generación solar y "
+            f"{data.grid_import_kwh:,.0f} kWh "
+            f"({grid_share_of_consumption:.1f} %) deben importarse "
+            f"de la red."
+        )
+
+    @staticmethod
     def production_analysis(
         data: SolarReportData,
     ) -> str:
