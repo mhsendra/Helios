@@ -6,7 +6,7 @@ from helios.core.project import HeliosProject
 from helios.core.economics_configuration import EconomicsConfiguration
 from helios.solar.configuration import SolarConfiguration
 from helios.solar.battery_configuration import BatteryConfiguration
-
+from helios.ev.configuration import EVConfiguration
 
 def create_project():
 
@@ -297,3 +297,45 @@ def test_project_set_battery_configuration():
     assert project.battery_configuration is configuration
 
     solar.invalidate_energy_balance.assert_called_once_with()
+
+def test_project_set_ev_configuration():
+
+    project = create_project()
+
+    configuration = EVConfiguration(
+        annual_consumption_kwh=3000.0,
+        reference_year=2025,
+    )
+
+    project.set_ev_configuration(
+        configuration
+    )
+
+    assert project.ev_configuration is configuration
+
+
+def test_project_set_ev_configuration_replaces_previous_configuration():
+
+    project = create_project()
+
+    configuration_1 = EVConfiguration(
+        annual_consumption_kwh=3000.0,
+        reference_year=2025,
+    )
+
+    configuration_2 = EVConfiguration(
+        annual_consumption_kwh=4500.0,
+        reference_year=2025,
+    )
+
+    project.set_ev_configuration(
+        configuration_1
+    )
+
+    project.set_ev_configuration(
+        configuration_2
+    )
+
+    assert project.ev_configuration is configuration_2
+
+    assert project.ev_configuration is not configuration_1

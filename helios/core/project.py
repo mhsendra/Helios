@@ -4,6 +4,7 @@ from helios.core.tariffs_model import TariffPrices
 
 from helios.solar.configuration import SolarConfiguration
 from helios.solar.battery_configuration import BatteryConfiguration
+from helios.ev.configuration import EVConfiguration
 
 
 class HeliosProject:
@@ -24,6 +25,8 @@ class HeliosProject:
         self.solar_configuration: SolarConfiguration | None = None
 
         self.battery_configuration: BatteryConfiguration | None = None
+
+        self.ev_configuration: EVConfiguration | None = None
 
     # ==================================================
     # Controllers
@@ -88,6 +91,13 @@ class HeliosProject:
         
         self.battery_configuration = configuration
         self.solar.invalidate_energy_balance()
+
+    def set_ev_configuration(
+        self,
+        configuration: EVConfiguration,
+    ) -> None:
+
+        self.ev_configuration = configuration
 
     # ==================================================
     # Carga y preparación de datos
