@@ -4,7 +4,10 @@ from helios.core.tariffs_model import TariffPrices
 
 from helios.solar.configuration import SolarConfiguration
 from helios.solar.battery_configuration import BatteryConfiguration
+
 from helios.ev.configuration import EVConfiguration
+from helios.ev.builder import EVScenarioBuilder
+from helios.ev.scenario import EVScenario
 
 
 class HeliosProject:
@@ -98,6 +101,17 @@ class HeliosProject:
     ) -> None:
 
         self.ev_configuration = configuration
+        self.solar.invalidate_energy_balance()
+
+    def build_ev_scenario(self) -> EVScenario:
+        if self.ev_configuration is None:
+            raise ValueError(
+                "EV configuration has not been set."
+            )
+
+        return EVScenarioBuilder.build(
+            self.ev_configuration
+        )
 
     # ==================================================
     # Carga y preparación de datos

@@ -522,8 +522,10 @@ class SolarController:
             ),
         )
 
+        project = self.analyzer.project
+
         battery_configuration = getattr(
-            self.analyzer.project,
+            project,
             "battery_configuration",
             None,
         )
@@ -537,11 +539,17 @@ class SolarController:
                 "BatteryConfiguration."
             )
 
+        ev_scenario = None
+
+        if getattr(project, "ev_configuration", None) is not None:
+            ev_scenario = project.build_ev_scenario()
+
         solar_engine.set_energy_balance(
             SolarBalanceEngine.calculate(
                 consumption_scenario,
                 production_profile,
                 battery_configuration,
+                ev_scenario,
             )
         )
 

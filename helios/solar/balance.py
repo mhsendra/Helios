@@ -1,9 +1,11 @@
 import pandas as pd
 
+from helios.core.combined_demand import CombinedDemandBuilder
 from helios.core.consumption_scenario import ConsumptionScenario
-from helios.solar.production_profile import SolarProductionProfile
+from helios.ev.scenario import EVScenario
 from helios.solar.battery import BatteryEngine
 from helios.solar.battery_configuration import BatteryConfiguration
+from helios.solar.production_profile import SolarProductionProfile
 
 
 class SolarBalanceEngine:
@@ -12,6 +14,7 @@ class SolarBalanceEngine:
         consumption_scenario: ConsumptionScenario,
         production_profile: SolarProductionProfile,
         battery_configuration: BatteryConfiguration | None = None,
+        ev_scenario: EVScenario | None = None,
     ) -> pd.DataFrame:
         if not isinstance(
             consumption_scenario,
@@ -39,6 +42,21 @@ class SolarBalanceEngine:
                     "BatteryConfiguration."
                 )
 
+        if ev_scenario is not None:
+            if not isinstance(
+                ev_scenario,
+                EVScenario,
+            ):
+                raise TypeError(
+                    "ev_scenario must be an EVScenario."
+                )
+
+            consumption_scenario = CombinedDemandBuilder.build(
+                consumption_scenario,
+                ev_scenario,
+            )
+
+        if battery_configuration is not None:
             return BatteryEngine().calculate(
                 consumption_scenario,
                 production_profile,
