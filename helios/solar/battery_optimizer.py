@@ -4,7 +4,7 @@ from dataclasses import replace
 
 from helios.core.consumption_scenario import ConsumptionScenario
 from helios.solar.battery_configuration import BatteryConfiguration
-from helios.solar.battery import BatteryEngine
+from helios.solar.balance import SolarBalanceEngine
 from helios.solar.battery_economic_model import (
     BatteryEconomicConfiguration,
     BatteryEconomicModel,
@@ -13,8 +13,71 @@ from helios.solar.battery_economic_model import (
 from helios.solar.battery_recommendation import BatteryRecommendation
 from helios.solar.production_profile import SolarProductionProfile
 
+from helios.ev.scenario import EVScenario
+
 
 class BatteryOptimizer:
+
+    @staticmethod
+    def _select_recommendation(
+        recommendations: list[BatteryRecommendation],
+        optimization_criterion: str,
+    ) -> BatteryRecommendation:
+        if not recommendations:
+            raise ValueError(
+                "recommendations must not be empty."
+            )
+
+        if optimization_criterion == "energy":
+            return max(
+                recommendations,
+                key=lambda recommendation: (
+                    recommendation.battery_energy_recovered_kwh,
+                    -recommendation.capacity_kwh,
+                ),
+            )
+
+        if optimization_criterion == "npv":
+            return max(
+                recommendations,
+                key=lambda recommendation: (
+                    recommendation.economic_npv_eur,
+                    -recommendation.capacity_kwh,
+                ),
+            )
+
+        if optimization_criterion == "combined_npv":
+            return max(
+                recommendations,
+                key=lambda recommendation: (
+                    recommendation.combined_economic_npv_eur,
+                    -recommendation.capacity_kwh,
+                ),
+            )
+
+        if optimization_criterion == "payback":
+            return min(
+                recommendations,
+                key=lambda recommendation: (
+                    recommendation.economic_payback_years,
+                    recommendation.capacity_kwh,
+                ),
+            )
+
+        if optimization_criterion == "combined_payback":
+            return min(
+                recommendations,
+                key=lambda recommendation: (
+                    recommendation.combined_economic_payback_years,
+                    recommendation.capacity_kwh,
+                ),
+            )
+
+        raise ValueError(
+            "optimization_criterion must be one of: "
+            "'energy', 'npv', 'combined_npv', "
+            "'payback', 'combined_payback'."
+        )
 
     def _evaluate_capacities(
         self,
@@ -38,6 +101,7 @@ class BatteryOptimizer:
         combined_economic_configuration: (
             CombinedEconomicConfiguration | None
         ) = None,
+        ev_scenario: EVScenario | None = None,
     ) -> list[BatteryRecommendation]:
 
         recommendations = []
@@ -61,11 +125,12 @@ class BatteryOptimizer:
                 initial_soc=initial_soc,
             )
 
-            result = BatteryEngine().calculate(
+            result = SolarBalanceEngine.calculate(
                 consumption_scenario,
                 production_profile,
                 configuration,
-            ).hourly_data
+                ev_scenario,
+            )
 
             if cost_calculator is not None:
                 annual_cost_with_battery = float(
@@ -345,6 +410,7 @@ class BatteryOptimizer:
         combined_economic_configuration: (
             CombinedEconomicConfiguration | None
         ) = None,
+        ev_scenario: EVScenario | None = None,
     ) -> list[BatteryRecommendation]:
 
         if not isinstance(
@@ -363,6 +429,14 @@ class BatteryOptimizer:
             raise TypeError(
                 "production_profile must be a "
                 "SolarProductionProfile."
+            )
+
+        if ev_scenario is not None and not isinstance(
+            ev_scenario,
+            EVScenario,
+        ):
+            raise TypeError(
+                "ev_scenario must be an EVScenario."
             )
 
         if not candidate_capacities_kwh:
@@ -403,6 +477,7 @@ class BatteryOptimizer:
             combined_economic_configuration=(
                 combined_economic_configuration
             ),
+            ev_scenario=ev_scenario,
         )
 
     def optimize(
@@ -410,6 +485,7 @@ class BatteryOptimizer:
         consumption_scenario: ConsumptionScenario,
         production_profile: SolarProductionProfile,
         candidate_capacities_kwh: list[float],
+        optimization_criterion: str = "energy",
         *,
         max_charge_power_kw: float,
         max_discharge_power_kw: float,
@@ -427,6 +503,7 @@ class BatteryOptimizer:
         combined_economic_configuration: (
             CombinedEconomicConfiguration | None
         ) = None,
+        ev_scenario: EVScenario | None = None,
     ) -> BatteryRecommendation:
 
         recommendations = self.evaluate(
@@ -451,12 +528,10 @@ class BatteryOptimizer:
             combined_economic_configuration=(
                 combined_economic_configuration
             ),
+            ev_scenario=ev_scenario,
         )
 
-        return max(
+        return self._select_recommendation(
             recommendations,
-            key=lambda recommendation: (
-                recommendation.battery_energy_recovered_kwh,
-                -recommendation.capacity_kwh,
-            ),
+            optimization_criterion,
         )

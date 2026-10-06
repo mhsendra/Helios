@@ -673,3 +673,171 @@ class TestBatteryOptimizer:
                 max_charge_power_kw=5.0,
                 max_discharge_power_kw=5.0,
             )
+
+    def test_select_recommendation_by_energy(self):
+        recommendations = [
+            BatteryRecommendation(
+                capacity_kwh=5.0,
+                max_charge_power_kw=5.0,
+                max_discharge_power_kw=5.0,
+                annual_consumption_kwh=1000.0,
+                annual_production_kwh=1000.0,
+                annual_surplus_kwh=500.0,
+                annual_export_kwh=100.0,
+                annual_grid_import_kwh=100.0,
+                annual_battery_charge_kwh=200.0,
+                annual_battery_discharge_kwh=150.0,
+                self_consumption_kwh=900.0,
+                self_sufficiency_percent=90.0,
+                equivalent_cycles=30.0,
+            ),
+            BatteryRecommendation(
+                capacity_kwh=10.0,
+                max_charge_power_kw=5.0,
+                max_discharge_power_kw=5.0,
+                annual_consumption_kwh=1000.0,
+                annual_production_kwh=1000.0,
+                annual_surplus_kwh=500.0,
+                annual_export_kwh=50.0,
+                annual_grid_import_kwh=50.0,
+                annual_battery_charge_kwh=300.0,
+                annual_battery_discharge_kwh=250.0,
+                self_consumption_kwh=950.0,
+                self_sufficiency_percent=95.0,
+                equivalent_cycles=27.0,
+            ),
+        ]
+
+        result = BatteryOptimizer._select_recommendation(
+            recommendations,
+            "energy",
+        )
+
+        assert result.capacity_kwh == 10.0
+
+    def test_select_recommendation_by_combined_npv(self):
+        recommendations = [
+            BatteryRecommendation(
+                capacity_kwh=5.0,
+                max_charge_power_kw=5.0,
+                max_discharge_power_kw=5.0,
+                annual_consumption_kwh=1000.0,
+                annual_production_kwh=1000.0,
+                annual_surplus_kwh=500.0,
+                annual_export_kwh=100.0,
+                annual_grid_import_kwh=100.0,
+                annual_battery_charge_kwh=200.0,
+                annual_battery_discharge_kwh=150.0,
+                self_consumption_kwh=900.0,
+                self_sufficiency_percent=90.0,
+                equivalent_cycles=30.0,
+                combined_economic_npv_eur=2500.0,
+            ),
+            BatteryRecommendation(
+                capacity_kwh=10.0,
+                max_charge_power_kw=5.0,
+                max_discharge_power_kw=5.0,
+                annual_consumption_kwh=1000.0,
+                annual_production_kwh=1000.0,
+                annual_surplus_kwh=500.0,
+                annual_export_kwh=50.0,
+                annual_grid_import_kwh=50.0,
+                annual_battery_charge_kwh=300.0,
+                annual_battery_discharge_kwh=250.0,
+                self_consumption_kwh=950.0,
+                self_sufficiency_percent=95.0,
+                equivalent_cycles=27.0,
+                combined_economic_npv_eur=1800.0,
+            ),
+        ]
+
+        result = BatteryOptimizer._select_recommendation(
+            recommendations,
+            "combined_npv",
+        )
+
+        assert result.capacity_kwh == 5.0
+
+    def test_select_recommendation_rejects_invalid_criterion(self):
+        recommendation = BatteryRecommendation(
+            capacity_kwh=5.0,
+            max_charge_power_kw=5.0,
+            max_discharge_power_kw=5.0,
+            annual_consumption_kwh=1000.0,
+            annual_production_kwh=1000.0,
+            annual_surplus_kwh=500.0,
+            annual_export_kwh=100.0,
+            annual_grid_import_kwh=100.0,
+            annual_battery_charge_kwh=200.0,
+            annual_battery_discharge_kwh=150.0,
+            self_consumption_kwh=900.0,
+            self_sufficiency_percent=90.0,
+            equivalent_cycles=30.0,
+        )
+
+        with pytest.raises(
+            ValueError,
+            match="optimization_criterion must be one of",
+        ):
+            BatteryOptimizer._select_recommendation(
+                [recommendation],
+                "invalid",
+            )
+
+    def test_optimize_uses_selected_optimization_criterion(
+        self,
+        monkeypatch,
+    ):
+        recommendations = [
+            BatteryRecommendation(
+                capacity_kwh=5.0,
+                max_charge_power_kw=5.0,
+                max_discharge_power_kw=5.0,
+                annual_consumption_kwh=1000.0,
+                annual_production_kwh=1500.0,
+                annual_surplus_kwh=500.0,
+                annual_export_kwh=400.0,
+                annual_grid_import_kwh=100.0,
+                annual_battery_charge_kwh=100.0,
+                annual_battery_discharge_kwh=90.0,
+                self_consumption_kwh=1100.0,
+                self_sufficiency_percent=90.0,
+                equivalent_cycles=18.0,
+                combined_economic_npv_eur=3500.0,
+            ),
+            BatteryRecommendation(
+                capacity_kwh=10.0,
+                max_charge_power_kw=10.0,
+                max_discharge_power_kw=10.0,
+                annual_consumption_kwh=1000.0,
+                annual_production_kwh=1500.0,
+                annual_surplus_kwh=500.0,
+                annual_export_kwh=300.0,
+                annual_grid_import_kwh=50.0,
+                annual_battery_charge_kwh=150.0,
+                annual_battery_discharge_kwh=140.0,
+                self_consumption_kwh=1200.0,
+                self_sufficiency_percent=95.0,
+                equivalent_cycles=14.0,
+                combined_economic_npv_eur=2500.0,
+            ),
+        ]
+
+        monkeypatch.setattr(
+            BatteryOptimizer,
+            "evaluate",
+            lambda self, *args, **kwargs: recommendations,
+        )
+
+        optimizer = BatteryOptimizer()
+
+        result = optimizer.optimize(
+            consumption_scenario=object(),
+            production_profile=object(),
+            candidate_capacities_kwh=[5.0, 10.0],
+            max_charge_power_kw=5.0,
+            max_discharge_power_kw=5.0,
+            optimization_criterion="combined_npv",
+        )
+        assert result.capacity_kwh == pytest.approx(5.0)
+        assert result.combined_economic_npv_eur == pytest.approx(3500.0)
