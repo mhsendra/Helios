@@ -97,6 +97,82 @@ class TestBatteryEconomicAnalyzer:
             "incremental_battery_cost_eur"
         ] == pytest.approx(2072.51)
 
+    def test_positive_npv_includes_marginal_economic_evidence(self):
+        recommendation = make_recommendation(
+            8.3,
+            economic_npv_eur=1200.0,
+            economic_irr_percent=11.5,
+            economic_payback_years=7.2,
+            annual_additional_savings_eur=450.0,
+            incremental_battery_cost_eur=2072.51,
+        )
+
+        recommendation = BatteryRecommendation(
+            **{
+                **recommendation.__dict__,
+                "incremental_savings_eur": 180.0,
+                "marginal_savings_per_kwh": 54.5454545,
+                "marginal_payback_years": 11.5139444,
+            }
+        )
+
+        result = BatteryEconomicAnalyzer.analyze(
+            [recommendation]
+        )[0]
+
+        assert result.evidence[
+            "incremental_savings_eur"
+        ] == pytest.approx(180.0)
+
+        assert result.evidence[
+            "marginal_savings_per_kwh"
+        ] == pytest.approx(54.5454545)
+
+        assert result.evidence[
+            "marginal_payback_years"
+        ] == pytest.approx(11.5139444)
+
+        assert "ahorro" in result.description
+        assert "marginal" in result.description
+
+    def test_no_positive_npv_includes_marginal_economic_evidence(self):
+        recommendation = make_recommendation(
+            16.6,
+            economic_npv_eur=-800.0,
+            economic_irr_percent=2.5,
+            economic_payback_years=18.4,
+            annual_additional_savings_eur=600.0,
+            incremental_battery_cost_eur=2072.51,
+        )
+
+        recommendation = BatteryRecommendation(
+            **{
+                **recommendation.__dict__,
+                "incremental_savings_eur": -35.0,
+                "marginal_savings_per_kwh": -4.2168675,
+                "marginal_payback_years": float("inf"),
+            }
+        )
+
+        result = BatteryEconomicAnalyzer.analyze(
+            [recommendation]
+        )[0]
+
+        assert result.evidence[
+            "incremental_savings_eur"
+        ] == pytest.approx(-35.0)
+
+        assert result.evidence[
+            "marginal_savings_per_kwh"
+        ] == pytest.approx(-4.2168675)
+
+        assert result.evidence[
+            "marginal_payback_years"
+        ] == float("inf")
+
+        assert "ahorro" in result.description
+        assert "marginal" in result.description
+
     def test_when_no_npv_is_positive_selects_best_npv(self):
         recommendations = [
             make_recommendation(
@@ -211,3 +287,89 @@ class TestBatteryEconomicAnalyzer:
         )[0]
 
         assert "no se alcanza" in result.description
+
+    def test_selects_best_economic_capacity_from_realistic_candidates(self):
+        recommendations = [
+            make_recommendation(
+                5.0,
+                economic_npv_eur=850.0,
+                economic_irr_percent=8.2,
+                economic_payback_years=9.4,
+                annual_additional_savings_eur=320.0,
+                incremental_battery_cost_eur=1248.50,
+            ),
+            make_recommendation(
+                8.3,
+                economic_npv_eur=1250.0,
+                economic_irr_percent=10.7,
+                economic_payback_years=7.8,
+                annual_additional_savings_eur=455.0,
+                incremental_battery_cost_eur=2072.51,
+            ),
+            make_recommendation(
+                16.6,
+                economic_npv_eur=980.0,
+                economic_irr_percent=7.1,
+                economic_payback_years=10.2,
+                annual_additional_savings_eur=590.0,
+                incremental_battery_cost_eur=2072.51,
+            ),
+            make_recommendation(
+                24.9,
+                economic_npv_eur=420.0,
+                economic_irr_percent=4.8,
+                economic_payback_years=14.1,
+                annual_additional_savings_eur=650.0,
+                incremental_battery_cost_eur=2072.51,
+            ),
+            make_recommendation(
+                30.0,
+                economic_npv_eur=-150.0,
+                economic_irr_percent=3.4,
+                economic_payback_years=17.8,
+                annual_additional_savings_eur=675.0,
+                incremental_battery_cost_eur=1271.97,
+            ),
+        ]
+
+        recommendations[1] = BatteryRecommendation(
+            **{
+                **recommendations[1].__dict__,
+                "incremental_savings_eur": 135.0,
+                "marginal_savings_per_kwh": 40.9090909,
+                "marginal_payback_years": 15.352,
+            }
+        )
+
+        result = BatteryEconomicAnalyzer.analyze(
+            recommendations
+        )
+
+        assert len(result) == 1
+
+        recommendation = result[0]
+
+        assert recommendation.capacity_kwh == pytest.approx(8.3)
+        assert recommendation.criterion == (
+            BatteryEconomicAnalyzer.CRITERION_POSITIVE_NPV
+        )
+
+        assert recommendation.evidence[
+            "economic_npv_eur"
+        ] == pytest.approx(1250.0)
+
+        assert recommendation.evidence[
+            "annual_additional_savings_eur"
+        ] == pytest.approx(455.0)
+
+        assert recommendation.evidence[
+            "incremental_savings_eur"
+        ] == pytest.approx(135.0)
+
+        assert recommendation.evidence[
+            "marginal_savings_per_kwh"
+        ] == pytest.approx(40.9090909)
+
+        assert recommendation.evidence[
+            "marginal_payback_years"
+        ] == pytest.approx(15.352)

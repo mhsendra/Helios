@@ -172,10 +172,9 @@ class BatteryOptimizer:
                     * battery_cost_per_kwh_eur
                 )
 
-                incremental_savings = max(
-                    0.0,
+                incremental_savings = (
                     annual_additional_savings
-                    - previous.annual_additional_savings_eur,
+                    - previous.annual_additional_savings_eur
                 )
 
                 marginal_savings_per_kwh = (

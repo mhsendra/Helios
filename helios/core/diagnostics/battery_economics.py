@@ -110,8 +110,16 @@ class BatteryEconomicAnalyzer:
             f"presenta el mayor NPV incremental entre las capacidades "
             f"económicamente viables, con un NPV de "
             f"{recommendation.economic_npv_eur:.2f} €. "
+            f"El ahorro anual adicional es de "
+            f"{recommendation.annual_additional_savings_eur:.2f} €. "
             f"El payback económico es {payback_text} "
-            f"y la TIR es {irr:.2f} %."
+            f"y la TIR es {irr:.2f} %. "
+            f"El incremento marginal respecto a la capacidad anterior "
+            f"supone un ahorro de "
+            f"{recommendation.incremental_savings_eur:.2f} € "
+            f"por año, equivalente a "
+            f"{recommendation.marginal_savings_per_kwh:.2f} €/kWh "
+            f"de capacidad adicional."
         )
 
         return BatteryEconomicRecommendation(
@@ -131,6 +139,15 @@ class BatteryEconomicAnalyzer:
                 ),
                 "incremental_battery_cost_eur": (
                     recommendation.incremental_battery_cost_eur
+                ),
+                "incremental_savings_eur": (
+                    recommendation.incremental_savings_eur
+                ),
+                "marginal_savings_per_kwh": (
+                    recommendation.marginal_savings_per_kwh
+                ),
+                "marginal_payback_years": (
+                    recommendation.marginal_payback_years
                 ),
             },
         )
@@ -154,8 +171,16 @@ class BatteryEconomicAnalyzer:
             "actuales. La capacidad con mejor resultado es "
             f"{recommendation.capacity_kwh:.1f} kWh, con un NPV de "
             f"{recommendation.economic_npv_eur:.2f} €. "
-            f"Su payback económico es {payback_text} "
-            f"y la TIR es {irr:.2f} %."
+            f"Su ahorro anual adicional es de "
+            f"{recommendation.annual_additional_savings_eur:.2f} €. "
+            f"El payback económico es {payback_text} "
+            f"y la TIR es {irr:.2f} %. "
+            f"El incremento marginal respecto a la capacidad anterior "
+            f"supone un ahorro de "
+            f"{recommendation.incremental_savings_eur:.2f} € "
+            f"por año, equivalente a "
+            f"{recommendation.marginal_savings_per_kwh:.2f} €/kWh "
+            f"de capacidad adicional."
         )
 
         return BatteryEconomicRecommendation(
@@ -175,6 +200,15 @@ class BatteryEconomicAnalyzer:
                 ),
                 "incremental_battery_cost_eur": (
                     recommendation.incremental_battery_cost_eur
+                ),
+                "incremental_savings_eur": (
+                    recommendation.incremental_savings_eur
+                ),
+                "marginal_savings_per_kwh": (
+                    recommendation.marginal_savings_per_kwh
+                ),
+                "marginal_payback_years": (
+                    recommendation.marginal_payback_years
                 ),
             },
         )

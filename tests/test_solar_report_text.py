@@ -769,15 +769,18 @@ class TestSolarReportText:
         assert "28,000.00 €" in text
         assert "sensibilidad" in text
 
-    def test_battery_conclusion_distinguishes_savings_and_npv(self):
-
+    def test_battery_conclusion_recommends_highest_positive_npv(self):
         text = SolarReportText.battery_conclusion(
             self._report_data()
         )
 
+        assert "recomendación económica" in text
+        assert "mayor VAN positivo" in text
         assert "ahorro adicional anual" in text
-        assert "mayor VAN" in text
-        assert "coste incremental" in text
+        assert "recuperación económica" in text
+        assert "ahorro anual adicional" in text
+        assert "€/kWh" in text
+        assert "VAN de batería positivo" in text
 
     def test_methodology_conclusion_defines_interpretation_scope(self):
 

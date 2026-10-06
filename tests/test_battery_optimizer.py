@@ -280,6 +280,49 @@ class TestBatteryOptimizer:
             0.0
         )
 
+    def test_evaluate_preserves_negative_incremental_savings(self):
+        consumption = make_scenario([1.0] * 8760)
+        production = make_profile([1.0] * 8760)
+
+        calls = 0
+
+        def cost_calculator(result):
+            nonlocal calls
+            calls += 1
+
+            if calls == 1:
+                return 400.0
+
+            return 450.0
+
+        recommendations = make_optimizer().evaluate(
+            consumption,
+            production,
+            [5.0, 10.0],
+            max_charge_power_kw=5.0,
+            max_discharge_power_kw=5.0,
+            annual_cost_without_battery_eur=1000.0,
+            cost_calculator=cost_calculator,
+        )
+
+        assert recommendations[0].annual_additional_savings_eur == pytest.approx(
+            600.0
+        )
+
+        assert recommendations[1].annual_additional_savings_eur == pytest.approx(
+            550.0
+        )
+
+        assert recommendations[1].incremental_savings_eur == pytest.approx(
+            -50.0
+        )
+
+        assert recommendations[1].marginal_savings_per_kwh == pytest.approx(
+            -10.0
+        )
+
+        assert recommendations[1].marginal_payback_years == float("inf")
+
     def test_evaluate_calculates_marginal_savings_per_kwh(self):
         consumption = make_scenario([1.0] * 8760)
         production = make_profile([1.0] * 8760)

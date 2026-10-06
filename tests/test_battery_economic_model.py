@@ -294,7 +294,7 @@ class TestBatteryEconomicModel:
         configuration = BatteryEconomicConfiguration(
             battery_cost_eur=1000.0,
             annual_savings_eur=400.0,
-            years=30,
+            years=25,
             electricity_price_growth=0.02,
             pv_degradation=0.0,
             battery_degradation=0.0,
@@ -312,7 +312,7 @@ class TestBatteryEconomicModel:
         configuration = BatteryEconomicConfiguration(
             battery_cost_eur=10000.0,
             annual_savings_eur=100.0,
-            years=30,
+            years=25,
             electricity_price_growth=0.0,
             pv_degradation=0.0035,
             battery_degradation=0.02,

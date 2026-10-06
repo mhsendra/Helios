@@ -6,7 +6,7 @@ import numpy_financial as npf
 class BatteryEconomicConfiguration:
     battery_cost_eur: float
     annual_savings_eur: float
-    years: int = 30
+    years: int = 25
 
     electricity_price_growth: float = 0.02
 

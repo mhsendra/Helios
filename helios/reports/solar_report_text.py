@@ -412,19 +412,13 @@ class SolarReportText:
         viable = [
             recommendation
             for recommendation in recommendations
-            if recommendation.economic_npv_eur >= 0
+            if recommendation.economic_npv_eur > 0.0
         ]
 
         best_additional_savings = max(
             recommendations,
             key=lambda recommendation:
             recommendation.annual_additional_savings_eur,
-        )
-
-        best_economic_npv = max(
-            recommendations,
-            key=lambda recommendation:
-            recommendation.economic_npv_eur,
         )
 
         text = (
@@ -445,25 +439,74 @@ class SolarReportText:
             f"respecto a la instalación fotovoltaica sin batería."
         )
 
-        text += (
-            f" En términos del valor actual neto de la propia batería, "
-            f"la capacidad de "
-            f"{best_economic_npv.capacity_kwh:.1f} kWh obtiene "
-            f"{best_economic_npv.economic_npv_eur:,.2f} € "
-            f"bajo las hipótesis económicas utilizadas."
-        )
-
         if viable:
+            best_economic = max(
+                viable,
+                key=lambda recommendation: (
+                    recommendation.economic_npv_eur,
+                    -recommendation.capacity_kwh,
+                ),
+            )
+
+            economic_payback = (
+                "N/D"
+                if best_economic.economic_payback_years == float("inf")
+                else (
+                    f"{best_economic.economic_payback_years:.2f} años"
+                )
+            )
+
+            marginal_payback = (
+                "N/D"
+                if best_economic.marginal_payback_years == float("inf")
+                else (
+                    f"{best_economic.marginal_payback_years:.2f} años"
+                )
+            )
+
+            text += (
+                f" Desde el punto de vista económico, la capacidad "
+                f"recomendada es {best_economic.capacity_kwh:.1f} kWh, "
+                f"al ser la que obtiene el mayor VAN positivo de la "
+                f"batería, con {best_economic.economic_npv_eur:,.2f} €. "
+                f"Su ahorro adicional anual es de "
+                f"{best_economic.annual_additional_savings_eur:,.2f} € "
+                f"y su recuperación económica estimada es de "
+                f"{economic_payback}."
+            )
+
+            text += (
+                f" Para esta capacidad, el ahorro incremental respecto "
+                f"a la capacidad anterior es de "
+                f"{best_economic.incremental_savings_eur:,.2f} €, "
+                f"equivalente a "
+                f"{best_economic.marginal_savings_per_kwh:,.2f} €/kWh "
+                f"de capacidad añadida, con una recuperación marginal "
+                f"estimada de {marginal_payback}."
+            )
+
             text += (
                 f" {len(viable)} de las {len(recommendations)} "
-                f"capacidades evaluadas presentan un valor actual neto "
-                f"de la batería igual o superior a cero."
+                f"capacidades evaluadas presentan un VAN de batería "
+                f"positivo bajo las hipótesis económicas utilizadas."
             )
         else:
+            best_economic = max(
+                recommendations,
+                key=lambda recommendation: (
+                    recommendation.economic_npv_eur,
+                    -recommendation.capacity_kwh,
+                ),
+            )
+
             text += (
-                " Ninguna de las capacidades evaluadas presenta un "
-                "valor actual neto de la batería igual o superior a cero "
-                "bajo las hipótesis consideradas."
+                f" Sin embargo, ninguna de las capacidades evaluadas "
+                f"alcanza un VAN positivo. La alternativa con mejor "
+                f"resultado económico es {best_economic.capacity_kwh:.1f} kWh, "
+                f"con un VAN de "
+                f"{best_economic.economic_npv_eur:,.2f} €, "
+                f"por lo que el almacenamiento no resulta "
+                f"económicamente rentable bajo las hipótesis actuales."
             )
 
         text += (
@@ -471,13 +514,7 @@ class SolarReportText:
             "obtenido por cada kWh de capacidad de batería añadido, "
             "mientras que el periodo de recuperación marginal expresa "
             "el tiempo estimado necesario para recuperar el coste "
-            "incremental de esa capacidad mediante el ahorro incremental."
-        )
-
-        text += (
-            " Los indicadores económicos conjuntos permiten además "
-            "analizar el resultado de la inversión fotovoltaica y la "
-            "batería como un único sistema."
+            "incremental de esa capacidad."
         )
 
         return text
@@ -773,39 +810,87 @@ class SolarReportText:
                 "para esta instalación."
             )
 
-        highest_savings = max(
-            recommendations,
-            key=lambda recommendation:
-            recommendation.annual_additional_savings_eur,
-        )
-
-        highest_npv = max(
-            recommendations,
-            key=lambda recommendation:
-            recommendation.economic_npv_eur,
-        )
-
-        viable_count = sum(
-            recommendation.economic_npv_eur >= 0
+        viable = [
+            recommendation
             for recommendation in recommendations
+            if recommendation.economic_npv_eur > 0.0
+        ]
+
+        if viable:
+            recommended = max(
+                viable,
+                key=lambda recommendation: (
+                    recommendation.economic_npv_eur,
+                    -recommendation.capacity_kwh,
+                ),
+            )
+
+            economic_payback = (
+                "N/D"
+                if recommended.economic_payback_years == float("inf")
+                else (
+                    f"{recommended.economic_payback_years:.2f} años"
+                )
+            )
+
+            marginal_payback = (
+                "N/D"
+                if recommended.marginal_payback_years == float("inf")
+                else (
+                    f"{recommended.marginal_payback_years:.2f} años"
+                )
+            )
+
+            return (
+                f"El almacenamiento permite desplazar parte de los "
+                f"excedentes fotovoltaicos hacia momentos de mayor "
+                f"demanda. Bajo las hipótesis económicas utilizadas, "
+                f"la capacidad de {recommended.capacity_kwh:.1f} kWh "
+                f"es la recomendación económica, al obtener el mayor "
+                f"VAN positivo de las capacidades evaluadas, con "
+                f"{recommended.economic_npv_eur:,.2f} €. "
+                f"Su ahorro adicional anual es de "
+                f"{recommended.annual_additional_savings_eur:,.2f} € "
+                f"y su recuperación económica estimada es de "
+                f"{economic_payback}. "
+                f"El incremento respecto a la capacidad anterior "
+                f"aporta {recommended.incremental_savings_eur:,.2f} € "
+                f"de ahorro anual adicional, equivalente a "
+                f"{recommended.marginal_savings_per_kwh:,.2f} €/kWh "
+                f"de capacidad añadida, con una recuperación marginal "
+                f"de {marginal_payback}. "
+                f"En total, {len(viable)} de las "
+                f"{len(recommendations)} capacidades evaluadas "
+                f"presentan un VAN de batería positivo. "
+                f"El aumento de capacidad puede mejorar el "
+                f"aprovechamiento energético, pero deja de ser "
+                f"económicamente conveniente cuando el valor "
+                f"incremental ya no compensa su coste."
+            )
+
+        best_available = max(
+            recommendations,
+            key=lambda recommendation: (
+                recommendation.economic_npv_eur,
+                -recommendation.capacity_kwh,
+            ),
         )
 
         return (
-            f"El almacenamiento permite desplazar parte de los excedentes "
-            f"fotovoltaicos hacia momentos de mayor demanda. "
-            f"La capacidad de {highest_savings.capacity_kwh:.1f} kWh "
-            f"alcanza el mayor ahorro adicional anual, de "
-            f"{highest_savings.annual_additional_savings_eur:,.2f} €. "
-            f"Por otra parte, la capacidad de "
-            f"{highest_npv.capacity_kwh:.1f} kWh obtiene el mayor VAN "
-            f"específico de batería, de "
-            f"{highest_npv.economic_npv_eur:,.2f} €. "
-            f"En total, {viable_count} de las "
-            f"{len(recommendations)} capacidades evaluadas presentan "
-            f"un VAN de batería igual o superior a cero. "
-            f"Por tanto, el aumento de capacidad incrementa el "
-            f"aprovechamiento energético, pero su conveniencia económica "
-            f"depende del criterio utilizado y del coste incremental."
+            f"El almacenamiento permite desplazar parte de los "
+            f"excedentes fotovoltaicos hacia momentos de mayor "
+            f"demanda. Sin embargo, ninguna de las capacidades "
+            f"evaluadas alcanza un VAN de batería positivo bajo "
+            f"las hipótesis económicas utilizadas. "
+            f"La capacidad de {best_available.capacity_kwh:.1f} kWh "
+            f"obtiene el mejor resultado económico disponible, "
+            f"con un VAN de "
+            f"{best_available.economic_npv_eur:,.2f} €, pero "
+            f"no puede considerarse una inversión económicamente "
+            f"rentable bajo estas hipótesis. "
+            f"Por tanto, cualquier incremento de capacidad debería "
+            f"justificarse por criterios energéticos, operativos o "
+            f"por cambios futuros en el precio de la electricidad."
         )
 
     @staticmethod
