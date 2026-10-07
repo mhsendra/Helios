@@ -299,8 +299,10 @@ class TestEnergyRecommender:
 
         def economic_configuration_factory(
             candidate_evaluation,
+            production_profile,
         ):
             assert candidate_evaluation is evaluation
+            assert production_profile is profiles[15]
 
             return CombinedEconomicConfiguration(
                 installation_cost_eur=12000.0,
@@ -565,8 +567,16 @@ class TestEnergyRecommender:
                     combined_npv_eur=1_000.0,
                 )
 
-        def economic_configuration_factory(evaluation):
-            received_evaluations.append(evaluation)
+        def economic_configuration_factory(
+            evaluation,
+            production_profile,
+        ):
+            received_evaluations.append(
+                (
+                    evaluation,
+                    production_profile,
+                )
+            )
 
             return CombinedEconomicConfiguration(
                 installation_cost_eur=10_000.0,
@@ -593,7 +603,16 @@ class TestEnergyRecommender:
             optimization_criterion="combined_npv",
         )
 
-        assert received_evaluations == evaluations
+        assert received_evaluations == [
+            (
+                evaluations[0],
+                production_profiles[10],
+            ),
+            (
+                evaluations[1],
+                production_profiles[15],
+            ),
+        ]
 
     def test_recommend_passes_ev_scenario_to_battery_optimizer(self):
         evaluation = _evaluation(
@@ -772,4 +791,203 @@ class TestEnergyRecommender:
                 == result.battery_recommendation.capacity_kwh
             )
             for option in result.evaluated_options
+        )
+
+    def test_recommend_passes_matching_production_profile_to_economic_configuration_factory(
+        self,
+    ):
+        evaluations = [
+            _evaluation(
+                panel_count=10,
+                installed_power_kwp=5.4,
+            ),
+            _evaluation(
+                panel_count=15,
+                installed_power_kwp=8.1,
+            ),
+        ]
+
+        production_profiles = {
+            10: _production_profile(
+                installed_power_kwp=5.4,
+                annual_production_kwh=8_000.0,
+            ),
+            15: _production_profile(
+                installed_power_kwp=8.1,
+                annual_production_kwh=12_000.0,
+            ),
+        }
+
+        received = []
+
+        class FakeBatteryOptimizer:
+            def optimize(self, *args, **kwargs):
+                return _battery_recommendation(
+                    capacity_kwh=8.3,
+                    combined_npv_eur=1_000.0,
+                )
+
+        def economic_configuration_factory(
+            evaluation,
+            production_profile,
+        ):
+            received.append(
+                (
+                    evaluation,
+                    production_profile,
+                )
+            )
+
+            return CombinedEconomicConfiguration(
+                installation_cost_eur=10_000.0,
+                battery_cost_eur=0.0,
+                annual_pv_savings_eur=2_000.0,
+                annual_battery_additional_savings_eur=0.0,
+            )
+
+        recommender = EnergyRecommender(
+            battery_optimizer=FakeBatteryOptimizer()
+        )
+
+        recommender.recommend(
+            evaluations=evaluations,
+            annual_consumption_kwh=10_000.0,
+            consumption_scenario=_consumption_scenario(),
+            production_profiles=production_profiles,
+            candidate_capacities_kwh=[
+                5.0,
+                8.3,
+            ],
+            max_charge_power_kw=8.0,
+            max_discharge_power_kw=8.0,
+            economic_configuration_factory=(
+                economic_configuration_factory
+            ),
+            optimization_criterion="combined_npv",
+        )
+
+        assert len(received) == 2
+
+        assert received[0][0] is evaluations[0]
+        assert received[0][1] is production_profiles[10]
+
+        assert received[1][0] is evaluations[1]
+        assert received[1][1] is production_profiles[15]
+
+    def test_passes_installation_specific_economic_configuration_to_battery_optimizer(self):
+        evaluations = [
+            _evaluation(
+                panel_count=10,
+                installed_power_kwp=5.4,
+            ),
+            _evaluation(
+                panel_count=15,
+                installed_power_kwp=8.1,
+            ),
+        ]
+
+        production_profiles = {
+            10: _production_profile(
+                installed_power_kwp=5.4,
+                annual_production_kwh=8000.0,
+            ),
+            15: _production_profile(
+                installed_power_kwp=8.1,
+                annual_production_kwh=12000.0,
+            ),
+        }
+
+        battery_recommendations = {
+            5.4: BatteryRecommendation(
+                capacity_kwh=5.0,
+                max_charge_power_kw=5.0,
+                max_discharge_power_kw=5.0,
+                annual_consumption_kwh=10000.0,
+                annual_production_kwh=8000.0,
+                annual_surplus_kwh=1000.0,
+                annual_export_kwh=500.0,
+                annual_grid_import_kwh=3000.0,
+                annual_battery_charge_kwh=500.0,
+                annual_battery_discharge_kwh=450.0,
+                self_consumption_kwh=7500.0,
+                self_sufficiency_percent=75.0,
+                equivalent_cycles=90.0,
+                annual_additional_savings_eur=100.0,
+            ),
+            8.1: BatteryRecommendation(
+                capacity_kwh=8.3,
+                max_charge_power_kw=5.0,
+                max_discharge_power_kw=5.0,
+                annual_consumption_kwh=10000.0,
+                annual_production_kwh=12000.0,
+                annual_surplus_kwh=2000.0,
+                annual_export_kwh=1000.0,
+                annual_grid_import_kwh=2000.0,
+                annual_battery_charge_kwh=1000.0,
+                annual_battery_discharge_kwh=900.0,
+                self_consumption_kwh=11000.0,
+                self_sufficiency_percent=90.0,
+                equivalent_cycles=108.4,
+                annual_additional_savings_eur=200.0,
+            ),
+        }
+
+        battery_optimizer = FakeBatteryOptimizer(
+            battery_recommendations
+        )
+
+        economic_configurations = {
+            5.4: CombinedEconomicConfiguration(
+                installation_cost_eur=10000.0,
+                battery_cost_eur=0.0,
+                annual_pv_savings_eur=1000.0,
+                annual_battery_additional_savings_eur=0.0,
+            ),
+            8.1: CombinedEconomicConfiguration(
+                installation_cost_eur=14000.0,
+                battery_cost_eur=0.0,
+                annual_pv_savings_eur=1800.0,
+                annual_battery_additional_savings_eur=0.0,
+            ),
+        }
+
+        def economic_configuration_factory(
+            evaluation,
+            production_profile,
+        ):
+            return economic_configurations[
+                production_profile.installed_power_kwp
+            ]
+
+        recommender = EnergyRecommender(
+            battery_optimizer=battery_optimizer,
+        )
+
+        recommender.recommend(
+            evaluations=evaluations,
+            annual_consumption_kwh=10000.0,
+            consumption_scenario=_consumption_scenario(),
+            production_profiles=production_profiles,
+            candidate_capacities_kwh=[5.0, 8.3],
+            max_charge_power_kw=5.0,
+            max_discharge_power_kw=5.0,
+            economic_configuration_factory=(
+                economic_configuration_factory
+            ),
+        )
+
+        assert len(battery_optimizer.calls) == 2
+
+        assert (
+            battery_optimizer.calls[0]["kwargs"][
+                "combined_economic_configuration"
+            ]
+            == economic_configurations[5.4]
+        )
+
+        assert (
+            battery_optimizer.calls[1]["kwargs"][
+                "combined_economic_configuration"
+            ]
+            == economic_configurations[8.1]
         )

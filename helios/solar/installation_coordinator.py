@@ -46,6 +46,10 @@ from helios.solar.installation_recommendation import (
     InstallationRecommender,
 )
 
+from helios.solar.installation_costs import (
+    InstallationCostConfiguration,
+)
+
 from helios.solar.production_profile import (
     SolarProductionProfile,
 )
@@ -207,10 +211,16 @@ class InstallationCoordinator:
         battery_cost_per_kwh_eur: float = 249.70,
         economic_configuration_factory: (
             Callable[
-                [InstallationEvaluation],
+                [
+                    InstallationEvaluation,
+                    SolarProductionProfile,
+                ],
                 CombinedEconomicConfiguration,
             ]
             | None
+        ) = None,
+        installation_cost_configuration: (
+            InstallationCostConfiguration | None
         ) = None,
         ev_scenario: EVScenario | None = None,
         optimization_criterion: str = "combined_npv",
@@ -283,6 +293,35 @@ class InstallationCoordinator:
         ):
             raise TypeError(
                 "ev_scenario must be an EVScenario."
+            )
+
+        if (
+            installation_cost_configuration is not None
+            and not isinstance(
+                installation_cost_configuration,
+                InstallationCostConfiguration,
+            )
+        ):
+            raise TypeError(
+                "installation_cost_configuration must be "
+                "an InstallationCostConfiguration."
+            )
+
+        if (
+            installation_cost_configuration is not None
+            and economic_configuration_factory is not None
+        ):
+            raise ValueError(
+                "installation_cost_configuration and "
+                "economic_configuration_factory are mutually exclusive."
+            )
+
+        if installation_cost_configuration is not None:
+            economic_configuration_factory = (
+                lambda evaluation, production_profile:
+                    installation_cost_configuration.build_economic_configuration(
+                        evaluation.panel_count
+                    )
             )
 
         constraints = configuration.to_constraints()

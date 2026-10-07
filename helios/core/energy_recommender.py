@@ -48,7 +48,10 @@ class EnergyRecommender:
         battery_cost_per_kwh_eur: float = 249.70,
         economic_configuration_factory: (
             Callable[
-                [InstallationEvaluation],
+                [
+                    InstallationEvaluation,
+                    SolarProductionProfile,
+                ],
                 CombinedEconomicConfiguration,
             ]
             | None
@@ -81,7 +84,10 @@ class EnergyRecommender:
 
             if economic_configuration_factory is not None:
                 combined_economic_configuration = (
-                    economic_configuration_factory(evaluation)
+                    economic_configuration_factory(
+                        evaluation,
+                        production_profile,
+                    )
                 )
 
                 if not isinstance(

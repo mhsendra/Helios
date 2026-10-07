@@ -27,6 +27,8 @@ from helios.solar.production_profile import SolarProductionProfile
 
 from helios.solar.battery_economic_configuration import BatteryEconomicParameters
 
+from helios.core.energy_recommendation import EnergyRecommendation
+
 class TestSolarController:
 
     def setup_method(self):
@@ -2392,3 +2394,84 @@ class TestSolarController:
             self.controller.battery_recommendations
             == []
         )
+
+    def test_recommend_energy_delegates_to_installation_coordinator(
+        self,
+        monkeypatch,
+    ):
+
+        configuration = self._installation_configuration()
+        consumption_scenario = self._consumption_scenario()
+
+        expected_result = MagicMock(
+            spec=EnergyRecommendation
+        )
+
+        coordinator = MagicMock()
+        coordinator.recommend_energy.return_value = (
+            expected_result
+        )
+
+        monkeypatch.setattr(
+            "helios.core.controllers.solar_controller."
+            "InstallationCoordinator",
+            MagicMock(return_value=coordinator),
+        )
+
+        self.analyzer.solar_engine.configuration = (
+            self._solar_configuration()
+        )
+
+        result = self.controller.recommend_energy(
+            configuration=configuration,
+            consumption_scenario=consumption_scenario,
+            candidate_capacities_kwh=[5.0, 8.3, 16.6],
+            max_charge_power_kw=8.0,
+            max_discharge_power_kw=8.0,
+        )
+
+        assert result is expected_result
+
+        assert (
+            self.controller.energy_recommendation
+            is expected_result
+        )
+
+        coordinator.recommend_energy.assert_called_once()
+
+    def test_set_configuration_invalidates_energy_recommendation(
+        self,
+    ):
+
+        configuration = self._solar_configuration()
+
+        self.controller.energy_recommendation = MagicMock()
+
+        self.controller.set_configuration(
+            configuration
+        )
+
+        assert (
+            self.controller.energy_recommendation
+            is None
+        )
+
+        self.analyzer.solar_engine.set_configuration.assert_called_once_with(
+            configuration
+        )
+
+
+    def test_reset_clears_energy_recommendation(
+        self,
+    ):
+
+        self.controller.energy_recommendation = MagicMock()
+
+        self.controller.reset()
+
+        assert (
+            self.controller.energy_recommendation
+            is None
+        )
+
+        self.analyzer.solar_engine.reset.assert_called_once_with()

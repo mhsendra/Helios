@@ -10,7 +10,8 @@ from helios.solar.installation_coordinator import (
 
 from helios.solar.installation_evaluation import (
     InstallationEvaluator,
-)
+    InstallationEvaluation, 
+    )
 
 from helios.solar.installation_optimizer import (
     InstallationOptimizer,
@@ -23,6 +24,10 @@ from helios.solar.installation_recommendation import (
 
 from helios.core.consumption_scenario import (
     ConsumptionScenario,
+)
+
+from helios.core.energy_recommendation import (
+    EnergyRecommendation,
 )
 
 from helios.solar.production_calculator import (
@@ -66,6 +71,12 @@ from helios.core.diagnostics import (
 from helios.core.diagnostics.battery_economics import (
     BatteryEconomicAnalyzer,
     BatteryEconomicRecommendation,)
+
+from helios.ev.scenario import (
+    EVScenario,
+)
+
+
 class SolarController:
 
     def __init__(self, analyzer):
@@ -84,6 +95,9 @@ class SolarController:
         self._battery_recommendations: list[
             BatteryRecommendation
         ] = []
+
+        # Recomendación energética integral FV + batería + EV.
+        self.energy_recommendation: EnergyRecommendation | None = None
 
     # ==================================================
     # Propiedades de producción
@@ -404,6 +418,7 @@ class SolarController:
             self.sizing_result = None
             self.installation_configuration = None
             self._battery_recommendations = []
+            self.energy_recommendation = None
             
     def invalidate_energy_balance(self) -> None:
         """
@@ -933,6 +948,251 @@ class SolarController:
 
         return result
 
+    def recommend_energy(
+        self,
+        configuration,
+        consumption_scenario,
+        candidate_capacities_kwh: list[float],
+        *,
+        max_charge_power_kw: float,
+        max_discharge_power_kw: float,
+        battery_cost_per_kwh_eur: float = 249.70,
+        ev_scenario: EVScenario | None = None,
+        optimization_criterion: str = "combined_npv",
+        charge_efficiency: float = 0.95,
+        discharge_efficiency: float = 0.95,
+        min_soc: float = 0.10,
+        max_soc: float = 0.90,
+        initial_soc: float = 0.10,
+    ) -> EnergyRecommendation:
+        """
+        Ejecuta la recomendación energética integral
+        FV + batería + EV.
+
+        Reutiliza el mismo flujo de candidatos, evaluaciones
+        geométricas y perfiles de producción empleado por
+        recommend_installation().
+
+        La decisión integral se delega en
+        InstallationCoordinator.recommend_energy().
+        """
+
+        if not isinstance(
+            configuration,
+            InstallationConfiguration,
+        ):
+            raise TypeError(
+                "configuration must be an "
+                "InstallationConfiguration."
+            )
+
+        if not isinstance(
+            consumption_scenario,
+            ConsumptionScenario,
+        ):
+            raise TypeError(
+                "consumption_scenario must be a "
+                "ConsumptionScenario."
+            )
+
+        solar_configuration = self.configuration
+
+        if solar_configuration is None:
+            raise ValueError(
+                "A solar configuration is required "
+                "before recommending an energy system."
+            )
+
+        # --------------------------------------------------
+        # Perfil solar base de 1 kWp.
+        # --------------------------------------------------
+
+        production_service = PVGISProductionProfileService()
+
+        base_profile = (
+            production_service.get_production_profile(
+                solar_configuration
+            )
+        )
+
+        production_calculator = SolarProductionCalculator(
+            base_profile
+        )
+
+        # --------------------------------------------------
+        # EV
+        # --------------------------------------------------
+
+        if ev_scenario is None:
+            project = self.analyzer.project
+
+            if getattr(
+                project,
+                "ev_configuration",
+                None,
+            ) is not None:
+                ev_scenario = project.build_ev_scenario()
+
+        # --------------------------------------------------
+        # Factory económica específica para cada instalación.
+        # --------------------------------------------------
+
+        def economic_configuration_factory(
+            evaluation: InstallationEvaluation,
+            production_profile: SolarProductionProfile,
+        ) -> CombinedEconomicConfiguration:
+
+            economics_controller = self.analyzer.economics
+            economics_configuration = (
+                economics_controller.configuration
+            )
+
+            # Balance de la instalación FV candidata
+            # sin batería.
+            baseline_balance = (
+                SolarBalanceEngine.calculate(
+                    consumption_scenario,
+                    production_profile,
+                    None,
+                    ev_scenario,
+                )
+            )
+
+            annual_cost_with_pv = (
+                economics_controller
+                .calculate_cost_with_balance(
+                    baseline_balance
+                )
+            )
+
+            annual_cost_without_pv = (
+                economics_controller
+                .calculate_cost_without_pv()
+            )
+
+            annual_pv_savings = (
+                annual_cost_without_pv
+                - annual_cost_with_pv
+            )
+
+            battery_economic_parameters = (
+                BatteryEconomicParameters()
+            )
+
+            net_installation_cost = (
+                self.analyzer.economics_engine
+                .calculate_net_investment(
+                    economics_configuration
+                )
+            )
+
+            return CombinedEconomicConfiguration(
+                installation_cost_eur=(
+                    net_installation_cost
+                ),
+                battery_cost_eur=0.0,
+                annual_pv_savings_eur=(
+                    annual_pv_savings
+                ),
+                annual_battery_additional_savings_eur=0.0,
+                years=(
+                    battery_economic_parameters
+                    .lifetime_years
+                ),
+                electricity_price_growth=(
+                    economics_configuration
+                    .annual_electricity_price_growth
+                ),
+                pv_initial_degradation=(
+                    economics_configuration
+                    .first_year_degradation
+                ),
+                pv_degradation=(
+                    economics_configuration
+                    .annual_degradation
+                ),
+                battery_degradation=(
+                    battery_economic_parameters
+                    .annual_degradation
+                ),
+                annual_pv_maintenance_eur=(
+                    economics_configuration
+                    .annual_maintenance_cost
+                ),
+                annual_battery_maintenance_eur=(
+                    battery_economic_parameters
+                    .annual_maintenance_eur
+                ),
+                maintenance_growth=(
+                    economics_configuration
+                    .annual_maintenance_growth
+                ),
+                discount_rate=(
+                    economics_configuration
+                    .discount_rate
+                ),
+            )
+
+        # --------------------------------------------------
+        # Coordinador de instalación.
+        # --------------------------------------------------
+
+        constraints = configuration.to_constraints()
+
+        coordinator = InstallationCoordinator(
+            optimizer=InstallationOptimizer(
+                constraints
+            ),
+            evaluator=InstallationEvaluator(
+                constraints
+            ),
+            recommender=InstallationRecommender(),
+            production_calculator=(
+                production_calculator.calculate
+            ),
+        )
+
+        result = coordinator.recommend_energy(
+            configuration=configuration,
+            annual_consumption_kwh=(
+                consumption_scenario.annual_consumption
+            ),
+            consumption_scenario=consumption_scenario,
+            candidate_capacities_kwh=(
+                candidate_capacities_kwh
+            ),
+            max_charge_power_kw=(
+                max_charge_power_kw
+            ),
+            max_discharge_power_kw=(
+                max_discharge_power_kw
+            ),
+            battery_cost_per_kwh_eur=(
+                battery_cost_per_kwh_eur
+            ),
+            economic_configuration_factory=(
+                economic_configuration_factory
+            ),
+            ev_scenario=ev_scenario,
+            optimization_criterion=(
+                optimization_criterion
+            ),
+            charge_efficiency=(
+                charge_efficiency
+            ),
+            discharge_efficiency=(
+                discharge_efficiency
+            ),
+            min_soc=min_soc,
+            max_soc=max_soc,
+            initial_soc=initial_soc,
+        )
+
+        self.energy_recommendation = result
+        self.installation_configuration = configuration
+
+        return result
+
     # ==================================================
     # Informes
     # ==================================================
@@ -998,3 +1258,4 @@ class SolarController:
         self.sizing_result = None
         self.installation_configuration = None
         self._battery_recommendations = []
+        self.energy_recommendation = None

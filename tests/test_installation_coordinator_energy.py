@@ -36,6 +36,9 @@ from helios.solar.production_profile import (
     SolarProductionProfile,
 )
 
+from helios.solar.installation_costs import (
+    InstallationCostConfiguration,
+)
 
 def _configuration() -> InstallationConfiguration:
     return InstallationConfiguration(
@@ -295,8 +298,13 @@ def test_recommend_energy_passes_economic_configuration_factory():
     production_calls = []
     factory_calls = []
 
-    def factory(evaluation):
-        factory_calls.append(evaluation.panel_count)
+    def factory(evaluation, production_profile):
+        factory_calls.append(
+            (
+                evaluation.panel_count,
+                production_profile.installed_power_kwp,
+            )
+        )
 
         return CombinedEconomicConfiguration(
             installation_cost_eur=12000.0,
@@ -424,3 +432,136 @@ def test_recommend_energy_rejects_invalid_soc_configuration(
             min_soc=min_soc,
             max_soc=max_soc,
         )
+
+def test_recommend_energy_accepts_installation_cost_configuration():
+    production_calls = []
+
+    coordinator = _coordinator(
+        _production_calculator_factory(production_calls),
+    )
+
+    cost_configuration = InstallationCostConfiguration(
+        panel_unit_cost_eur=100.0,
+    )
+
+    result = coordinator.recommend_energy(
+        configuration=_configuration(),
+        annual_consumption_kwh=8760.0,
+        consumption_scenario=_consumption_scenario(),
+        candidate_capacities_kwh=[5.0],
+        max_charge_power_kw=5.0,
+        max_discharge_power_kw=5.0,
+        installation_cost_configuration=cost_configuration,
+    )
+
+    assert isinstance(
+        result,
+        EnergyRecommendation,
+    )
+
+def test_recommend_energy_rejects_invalid_installation_cost_configuration():
+    production_calls = []
+
+    coordinator = _coordinator(
+        _production_calculator_factory(production_calls),
+    )
+
+    with pytest.raises(
+        TypeError,
+        match="InstallationCostConfiguration",
+    ):
+        coordinator.recommend_energy(
+            configuration=_configuration(),
+            annual_consumption_kwh=8760.0,
+            consumption_scenario=_consumption_scenario(),
+            candidate_capacities_kwh=[5.0],
+            max_charge_power_kw=5.0,
+            max_discharge_power_kw=5.0,
+            installation_cost_configuration=100.0,
+        )
+
+
+def test_recommend_energy_rejects_both_cost_configuration_and_factory():
+    production_calls = []
+
+    coordinator = _coordinator(
+        _production_calculator_factory(production_calls),
+    )
+
+    cost_configuration = InstallationCostConfiguration(
+        panel_unit_cost_eur=100.0,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="mutually exclusive",
+    ):
+        coordinator.recommend_energy(
+            configuration=_configuration(),
+            annual_consumption_kwh=8760.0,
+            consumption_scenario=_consumption_scenario(),
+            candidate_capacities_kwh=[5.0],
+            max_charge_power_kw=5.0,
+            max_discharge_power_kw=5.0,
+            installation_cost_configuration=cost_configuration,
+            economic_configuration_factory=(
+                _economic_configuration_factory()
+            ),
+        )
+
+def test_recommend_energy_uses_panel_count_for_installation_cost():
+    production_calls = []
+    captured_configurations = []
+
+    class CapturingEnergyRecommender(EnergyRecommender):
+        def recommend(self, **kwargs):
+            economic_factory = kwargs[
+                "economic_configuration_factory"
+            ]
+
+            for evaluation in kwargs["evaluations"]:
+                production_profile = kwargs[
+                    "production_profiles"
+                ][evaluation.panel_count]
+
+                configuration = economic_factory(
+                    evaluation,
+                    production_profile,
+                )
+
+                captured_configurations.append(
+                    (
+                        evaluation.panel_count,
+                        configuration.installation_cost_eur,
+                    )
+                )
+
+            return super().recommend(
+                **kwargs,
+            )
+
+    coordinator = _coordinator(
+        _production_calculator_factory(
+            production_calls,
+        ),
+        energy_recommender=CapturingEnergyRecommender(),
+    )
+
+    cost_configuration = InstallationCostConfiguration(
+        panel_unit_cost_eur=100.0,
+    )
+
+    coordinator.recommend_energy(
+        configuration=_configuration(),
+        annual_consumption_kwh=8760.0,
+        consumption_scenario=_consumption_scenario(),
+        candidate_capacities_kwh=[5.0],
+        max_charge_power_kw=5.0,
+        max_discharge_power_kw=5.0,
+        installation_cost_configuration=cost_configuration,
+    )
+
+    assert captured_configurations == [
+        (panel_count, panel_count * 100.0)
+        for panel_count in range(5, 11)
+    ]
