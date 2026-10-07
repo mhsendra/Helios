@@ -29,6 +29,8 @@ class InstallationCostConfiguration:
 
     installation_cost_eur: float = 0.0
 
+    inverter_unit_cost_eur: float = 0.0
+
     def __post_init__(self) -> None:
 
         if isinstance(self.panel_unit_cost_eur, bool):
@@ -83,6 +85,24 @@ class InstallationCostConfiguration:
         if self.installation_cost_eur < 0:
             raise ValueError(
                 "installation_cost_eur cannot be negative."
+            )
+
+        if isinstance(self.inverter_unit_cost_eur, bool):
+            raise TypeError(
+                "inverter_unit_cost_eur must be numeric."
+            )
+
+        if not isinstance(
+            self.inverter_unit_cost_eur,
+            (int, float),
+        ):
+            raise TypeError(
+                "inverter_unit_cost_eur must be numeric."
+            )
+
+        if self.inverter_unit_cost_eur < 0:
+            raise ValueError(
+                "inverter_unit_cost_eur cannot be negative."
             )
 
     def calculate_panel_cost(
@@ -160,6 +180,22 @@ class InstallationCostConfiguration:
             self.installation_cost_eur
         )
 
+    def calculate_inverter_cost(
+        self,
+        evaluation: InstallationEvaluation,
+    ) -> float:
+        if not isinstance(
+            evaluation,
+            InstallationEvaluation,
+        ):
+            raise TypeError(
+                "evaluation must be an InstallationEvaluation."
+            )
+
+        return float(
+            self.inverter_unit_cost_eur
+        )
+
     def calculate_installation_cost(
         self,
         evaluation: InstallationEvaluation,
@@ -183,6 +219,9 @@ class InstallationCostConfiguration:
                 evaluation
             )
             + self.calculate_installation_service_cost(
+                evaluation
+            )
+            + self.calculate_inverter_cost(
                 evaluation
             )
         )

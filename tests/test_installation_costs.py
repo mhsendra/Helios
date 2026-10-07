@@ -270,3 +270,32 @@ def test_structure_cost_rejects_invalid_evaluation(
         configuration.calculate_structure_cost(
             evaluation
         )
+
+def test_inverter_cost_is_fixed():
+    evaluation_15 = _evaluation(panel_count=15)
+    evaluation_10 = _evaluation(
+        panel_count=10,
+        rows=2,
+        columns=5,
+    )
+
+    configuration = InstallationCostConfiguration(
+        panel_unit_cost_eur=100.0,
+        structure_unit_cost_eur=20.0,
+        installation_cost_eur=2950.0,
+        inverter_unit_cost_eur=1200.0,
+    )
+
+    assert (
+        configuration.calculate_inverter_cost(
+            evaluation_15
+        )
+        == 1200.0
+    )
+
+    assert (
+        configuration.calculate_inverter_cost(
+            evaluation_10
+        )
+        == 1200.0
+    )
