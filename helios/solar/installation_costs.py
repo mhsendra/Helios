@@ -7,7 +7,6 @@ from helios.solar.installation_evaluation import (
     InstallationEvaluation,
 )
 
-
 @dataclass(frozen=True)
 class InstallationCostConfiguration:
     """
@@ -27,6 +26,8 @@ class InstallationCostConfiguration:
     panel_unit_cost_eur: float
 
     structure_unit_cost_eur: float = 0.0
+
+    installation_cost_eur: float = 0.0
 
     def __post_init__(self) -> None:
 
@@ -64,6 +65,24 @@ class InstallationCostConfiguration:
         if self.structure_unit_cost_eur < 0:
             raise ValueError(
                 "structure_unit_cost_eur cannot be negative."
+            )
+
+        if isinstance(self.installation_cost_eur, bool):
+            raise TypeError(
+                "installation_cost_eur must be numeric."
+            )
+
+        if not isinstance(
+            self.installation_cost_eur,
+            (int, float),
+        ):
+            raise TypeError(
+                "installation_cost_eur must be numeric."
+            )
+
+        if self.installation_cost_eur < 0:
+            raise ValueError(
+                "installation_cost_eur cannot be negative."
             )
 
     def calculate_panel_cost(
@@ -125,6 +144,22 @@ class InstallationCostConfiguration:
             * self.structure_unit_cost_eur
         )
 
+    def calculate_installation_service_cost(
+        self,
+        evaluation: InstallationEvaluation,
+    ) -> float:
+        if not isinstance(
+            evaluation,
+            InstallationEvaluation,
+        ):
+            raise TypeError(
+                "evaluation must be an InstallationEvaluation."
+            )
+
+        return float(
+            self.installation_cost_eur
+        )
+
     def calculate_installation_cost(
         self,
         evaluation: InstallationEvaluation,
@@ -145,6 +180,9 @@ class InstallationCostConfiguration:
                 evaluation.panel_count
             )
             + self.calculate_structure_cost(
+                evaluation
+            )
+            + self.calculate_installation_service_cost(
                 evaluation
             )
         )
