@@ -641,6 +641,7 @@ class TestSolarController:
             consumption_scenario_arg,
             production_profile_arg,
             battery_configuration_arg,
+            ev_scenario_arg,
         ):
             captured["consumption_scenario"] = (
                 consumption_scenario_arg
@@ -648,10 +649,10 @@ class TestSolarController:
             captured["production_profile"] = (
                 production_profile_arg
             )
-
             captured["battery_configuration"] = (
                 battery_configuration_arg
             )
+            captured["ev_scenario"] = ev_scenario_arg
 
             return pd.DataFrame(
                 {
@@ -668,6 +669,8 @@ class TestSolarController:
             "SolarBalanceEngine.calculate",
             staticmethod(calculate),
         )
+
+        self.analyzer.project.ev_configuration = None
 
         self.analyzer.project.battery_configuration = None
 
@@ -710,6 +713,8 @@ class TestSolarController:
         )
 
         assert captured["battery_configuration"] is None
+
+        assert captured["ev_scenario"] is None
 
     def test_calculate_statistics_delegates_to_engine(
         self,

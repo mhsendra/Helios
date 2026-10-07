@@ -1,5 +1,25 @@
 from collections.abc import Callable
 
+from helios.core.consumption_scenario import (
+    ConsumptionScenario,
+)
+
+from helios.core.energy_recommendation import (
+    EnergyRecommendation,
+)
+
+from helios.core.energy_recommender import (
+    EnergyRecommender,
+)
+
+from helios.ev.scenario import (
+    EVScenario,
+)
+
+from helios.solar.battery_economic_model import (
+    CombinedEconomicConfiguration,
+)
+
 from helios.solar.installation_candidate import (
     InstallationCandidate,
 )
@@ -30,7 +50,6 @@ from helios.solar.production_profile import (
     SolarProductionProfile,
 )
 
-from helios.core.consumption_scenario import ConsumptionScenario
 
 class InstallationCoordinator:
     """
@@ -51,6 +70,10 @@ class InstallationCoordinator:
         production simulation
             ↓
         recommendation
+
+    Para la recomendación energética integral, reutiliza los
+    mismos candidatos, evaluaciones y perfiles de producción
+    y delega la decisión FV + batería + EV a EnergyRecommender.
     """
 
     def __init__(
@@ -62,6 +85,7 @@ class InstallationCoordinator:
             [InstallationCandidate],
             SolarProductionProfile,
         ],
+        energy_recommender: EnergyRecommender | None = None,
     ):
 
         if not isinstance(
@@ -93,10 +117,24 @@ class InstallationCoordinator:
                 "production_calculator must be callable."
             )
 
+        if energy_recommender is not None and not isinstance(
+            energy_recommender,
+            EnergyRecommender,
+        ):
+            raise TypeError(
+                "energy_recommender must be an EnergyRecommender."
+            )
+
         self.optimizer = optimizer
         self.evaluator = evaluator
         self.recommender = recommender
         self.production_calculator = production_calculator
+
+        self.energy_recommender = (
+            energy_recommender
+            if energy_recommender is not None
+            else EnergyRecommender()
+        )
 
     # ==================================================
     # Public API
@@ -110,7 +148,7 @@ class InstallationCoordinator:
     ) -> InstallationRecommendation:
         """
         Ejecuta el proceso completo de dimensionamiento
-        y devuelve la instalación recomendada.
+        y devuelve la instalación fotovoltaica recomendada.
         """
 
         self._validate_configuration(
@@ -155,6 +193,146 @@ class InstallationCoordinator:
             annual_productions_kwh=annual_productions_kwh,
             consumption_scenario=consumption_scenario,
             production_profiles=production_profiles,
+        )
+
+    def recommend_energy(
+        self,
+        configuration: InstallationConfiguration,
+        annual_consumption_kwh: float,
+        consumption_scenario: ConsumptionScenario,
+        candidate_capacities_kwh: list[float],
+        *,
+        max_charge_power_kw: float,
+        max_discharge_power_kw: float,
+        battery_cost_per_kwh_eur: float = 249.70,
+        economic_configuration_factory: (
+            Callable[
+                [InstallationEvaluation],
+                CombinedEconomicConfiguration,
+            ]
+            | None
+        ) = None,
+        ev_scenario: EVScenario | None = None,
+        optimization_criterion: str = "combined_npv",
+        charge_efficiency: float = 0.95,
+        discharge_efficiency: float = 0.95,
+        min_soc: float = 0.10,
+        max_soc: float = 0.90,
+        initial_soc: float = 0.10,
+    ) -> EnergyRecommendation:
+        """
+        Ejecuta la recomendación energética integral.
+
+        El proceso compara globalmente las combinaciones:
+
+            instalación FV × capacidad batería × EV
+
+        La generación FV y las evaluaciones geométricas se obtienen
+        exactamente mediante el mismo flujo utilizado por recommend().
+
+        La simulación energética y la optimización de batería se
+        delegan completamente a EnergyRecommender.
+        """
+
+        self._validate_configuration(
+            configuration
+        )
+
+        self._validate_consumption(
+            annual_consumption_kwh
+        )
+
+        if not isinstance(
+            consumption_scenario,
+            ConsumptionScenario,
+        ):
+            raise TypeError(
+                "consumption_scenario must be a ConsumptionScenario."
+            )
+
+        self._validate_energy_parameters(
+            candidate_capacities_kwh=(
+                candidate_capacities_kwh
+            ),
+            max_charge_power_kw=(
+                max_charge_power_kw
+            ),
+            max_discharge_power_kw=(
+                max_discharge_power_kw
+            ),
+            battery_cost_per_kwh_eur=(
+                battery_cost_per_kwh_eur
+            ),
+            charge_efficiency=(
+                charge_efficiency
+            ),
+            discharge_efficiency=(
+                discharge_efficiency
+            ),
+            min_soc=min_soc,
+            max_soc=max_soc,
+            initial_soc=initial_soc,
+            optimization_criterion=(
+                optimization_criterion
+            ),
+        )
+
+        if ev_scenario is not None and not isinstance(
+            ev_scenario,
+            EVScenario,
+        ):
+            raise TypeError(
+                "ev_scenario must be an EVScenario."
+            )
+
+        constraints = configuration.to_constraints()
+
+        self._validate_constraints(constraints)
+
+        if self.optimizer.constraints != constraints:
+            raise ValueError(
+                "Optimizer constraints do not match installation configuration."
+            )
+
+        evaluations = self._generate_evaluations()
+
+        production_profiles = self._calculate_productions(
+            evaluations
+        )
+
+        return self.energy_recommender.recommend(
+            evaluations=evaluations,
+            annual_consumption_kwh=annual_consumption_kwh,
+            consumption_scenario=consumption_scenario,
+            production_profiles=production_profiles,
+            candidate_capacities_kwh=(
+                candidate_capacities_kwh
+            ),
+            max_charge_power_kw=(
+                max_charge_power_kw
+            ),
+            max_discharge_power_kw=(
+                max_discharge_power_kw
+            ),
+            battery_cost_per_kwh_eur=(
+                battery_cost_per_kwh_eur
+            ),
+            economic_configuration_factory=(
+                economic_configuration_factory
+            ),
+            ev_scenario=ev_scenario,
+            optimization_criterion=(
+                optimization_criterion
+            ),
+            charge_efficiency=(
+                charge_efficiency
+            ),
+            discharge_efficiency=(
+                discharge_efficiency
+            ),
+            min_soc=min_soc,
+            max_soc=max_soc,
+            initial_soc=initial_soc,
         )
 
     # ==================================================
@@ -357,4 +535,114 @@ class InstallationCoordinator:
             raise TypeError(
                 "Generated constraints must be an "
                 "InstallationConstraints."
+            )
+
+    @staticmethod
+    def _validate_energy_parameters(
+        candidate_capacities_kwh: list[float],
+        max_charge_power_kw: float,
+        max_discharge_power_kw: float,
+        battery_cost_per_kwh_eur: float,
+        charge_efficiency: float,
+        discharge_efficiency: float,
+        min_soc: float,
+        max_soc: float,
+        initial_soc: float,
+        optimization_criterion: str,
+    ) -> None:
+
+        if not isinstance(
+            candidate_capacities_kwh,
+            list,
+        ):
+            raise TypeError(
+                "candidate_capacities_kwh must be a list."
+            )
+
+        if not candidate_capacities_kwh:
+            raise ValueError(
+                "candidate_capacities_kwh must not be empty."
+            )
+
+        for capacity in candidate_capacities_kwh:
+            if (
+                isinstance(capacity, bool)
+                or not isinstance(capacity, (int, float))
+            ):
+                raise TypeError(
+                    "Battery capacities must be numeric."
+                )
+
+            if capacity <= 0:
+                raise ValueError(
+                    "Battery capacities must be greater than zero."
+                )
+
+        numeric_parameters = {
+            "max_charge_power_kw": max_charge_power_kw,
+            "max_discharge_power_kw": max_discharge_power_kw,
+            "battery_cost_per_kwh_eur": battery_cost_per_kwh_eur,
+            "charge_efficiency": charge_efficiency,
+            "discharge_efficiency": discharge_efficiency,
+            "min_soc": min_soc,
+            "max_soc": max_soc,
+            "initial_soc": initial_soc,
+        }
+
+        for name, value in numeric_parameters.items():
+            if (
+                isinstance(value, bool)
+                or not isinstance(value, (int, float))
+            ):
+                raise TypeError(
+                    f"{name} must be numeric."
+                )
+
+        if max_charge_power_kw <= 0:
+            raise ValueError(
+                "max_charge_power_kw must be greater than zero."
+            )
+
+        if max_discharge_power_kw <= 0:
+            raise ValueError(
+                "max_discharge_power_kw must be greater than zero."
+            )
+
+        if battery_cost_per_kwh_eur < 0:
+            raise ValueError(
+                "battery_cost_per_kwh_eur cannot be negative."
+            )
+
+        if not 0 < charge_efficiency <= 1:
+            raise ValueError(
+                "charge_efficiency must be in (0, 1]."
+            )
+
+        if not 0 < discharge_efficiency <= 1:
+            raise ValueError(
+                "discharge_efficiency must be in (0, 1]."
+            )
+
+        if not 0 <= min_soc < max_soc <= 1:
+            raise ValueError(
+                "SOC limits must satisfy "
+                "0 <= min_soc < max_soc <= 1."
+            )
+
+        if not min_soc <= initial_soc <= max_soc:
+            raise ValueError(
+                "initial_soc must be between min_soc and max_soc."
+            )
+
+        if optimization_criterion not in {
+            "energy",
+            "npv",
+            "combined_npv",
+            "payback",
+            "combined_payback",
+        }:
+            raise ValueError(
+                "optimization_criterion must be one of: "
+                "'energy', 'npv', 'combined_npv', "
+                "'payback', 'combined_payback'."
             )
