@@ -320,7 +320,7 @@ class InstallationCoordinator:
             economic_configuration_factory = (
                 lambda evaluation, production_profile:
                     installation_cost_configuration.build_economic_configuration(
-                        evaluation.panel_count
+                        evaluation
                     )
             )
 

@@ -3,6 +3,9 @@ from dataclasses import dataclass
 from helios.solar.battery_economic_model import (
     CombinedEconomicConfiguration,
 )
+from helios.solar.installation_evaluation import (
+    InstallationEvaluation,
+)
 
 
 @dataclass(frozen=True)
@@ -10,17 +13,23 @@ class InstallationCostConfiguration:
     """
     Configuración de costes unitarios de una instalación FV.
 
-    Esta clase no conoce ninguna instalación concreta ni ningún
-    número de paneles de referencia.
+    Los costes se calculan a partir de la evaluación física del
+    candidato optimizado.
 
-    Los costes adicionales se incorporarán posteriormente a medida
-    que el modelo geométrico proporcione la información necesaria
-    para calcularlos.
+    En esta fase se modelan:
+
+    - paneles;
+    - estructura/soportes.
+
+    Los demás componentes se incorporarán posteriormente.
     """
 
     panel_unit_cost_eur: float
 
+    structure_unit_cost_eur: float = 0.0
+
     def __post_init__(self) -> None:
+
         if isinstance(self.panel_unit_cost_eur, bool):
             raise TypeError(
                 "panel_unit_cost_eur must be numeric."
@@ -39,12 +48,30 @@ class InstallationCostConfiguration:
                 "panel_unit_cost_eur cannot be negative."
             )
 
+        if isinstance(self.structure_unit_cost_eur, bool):
+            raise TypeError(
+                "structure_unit_cost_eur must be numeric."
+            )
+
+        if not isinstance(
+            self.structure_unit_cost_eur,
+            (int, float),
+        ):
+            raise TypeError(
+                "structure_unit_cost_eur must be numeric."
+            )
+
+        if self.structure_unit_cost_eur < 0:
+            raise ValueError(
+                "structure_unit_cost_eur cannot be negative."
+            )
+
     def calculate_panel_cost(
         self,
         panel_count: int,
     ) -> float:
         """
-        Calcula el coste de los paneles de un candidato.
+        Calcula el coste de los paneles.
 
         El coste depende exclusivamente del número de paneles
         y del precio unitario configurado.
@@ -69,39 +96,82 @@ class InstallationCostConfiguration:
             panel_count * self.panel_unit_cost_eur
         )
 
+    def calculate_structure_cost(
+        self,
+        evaluation: InstallationEvaluation,
+    ) -> float:
+        """
+        Calcula el coste de estructura/soportes.
+
+        La evaluación física completa se recibe deliberadamente
+        aunque la fórmula actual utilice únicamente el número de
+        paneles.
+
+        Esto permite sustituir posteriormente el modelo unitario
+        por un modelo basado en la geometría real del layout
+        sin modificar la interfaz económica.
+        """
+
+        if not isinstance(
+            evaluation,
+            InstallationEvaluation,
+        ):
+            raise TypeError(
+                "evaluation must be an InstallationEvaluation."
+            )
+
+        return float(
+            evaluation.panel_count
+            * self.structure_unit_cost_eur
+        )
+
     def calculate_installation_cost(
         self,
-        panel_count: int,
+        evaluation: InstallationEvaluation,
     ) -> float:
         """
         Calcula el coste actualmente modelado de la instalación.
 
-        En esta fase el único componente disponible es el coste
-        de los paneles.
+        Incluye:
 
-        Los demás componentes se añadirán posteriormente sin
-        modificar la responsabilidad del candidato físico.
+        - paneles;
+        - estructura/soportes.
+
+        Los demás componentes se añadirán posteriormente.
         """
 
-        return self.calculate_panel_cost(
-            panel_count
+        return (
+            self.calculate_panel_cost(
+                evaluation.panel_count
+            )
+            + self.calculate_structure_cost(
+                evaluation
+            )
         )
 
     def build_economic_configuration(
         self,
-        panel_count: int,
+        evaluation: InstallationEvaluation,
     ) -> CombinedEconomicConfiguration:
         """
         Construye la configuración económica base para un candidato.
 
-        La batería se mantiene fuera de esta configuración porque
-        su coste es añadido posteriormente por BatteryOptimizer.
+        El coste de batería se mantiene fuera de esta configuración
+        porque BatteryOptimizer lo añade posteriormente.
         """
+
+        if not isinstance(
+            evaluation,
+            InstallationEvaluation,
+        ):
+            raise TypeError(
+                "evaluation must be an InstallationEvaluation."
+            )
 
         return CombinedEconomicConfiguration(
             installation_cost_eur=(
                 self.calculate_installation_cost(
-                    panel_count
+                    evaluation
                 )
             ),
             battery_cost_eur=0.0,
