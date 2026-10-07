@@ -299,3 +299,33 @@ def test_inverter_cost_is_fixed():
         )
         == 1200.0
     )
+
+def test_electrical_protection_cost_is_fixed():
+    evaluation = _evaluation(panel_count=15)
+
+    configuration = InstallationCostConfiguration(
+        panel_unit_cost_eur=100.0,
+        electrical_protection_cost_eur=450.0,
+    )
+
+    assert (
+        configuration.calculate_electrical_protection_cost(
+            evaluation
+        )
+        == 450.0
+    )
+
+def test_cabling_cost_is_fixed():
+    evaluation = _evaluation(panel_count=15)
+
+    configuration = InstallationCostConfiguration(
+        panel_unit_cost_eur=100.0,
+        cabling_cost_eur=600.0,
+    )
+
+    assert (
+        configuration.calculate_cabling_cost(
+            evaluation
+        )
+        == 600.0
+    )

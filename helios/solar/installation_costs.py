@@ -31,6 +31,10 @@ class InstallationCostConfiguration:
 
     inverter_unit_cost_eur: float = 0.0
 
+    electrical_protection_cost_eur: float = 0.0
+
+    cabling_cost_eur: float = 0.0
+
     def __post_init__(self) -> None:
 
         if isinstance(self.panel_unit_cost_eur, bool):
@@ -103,6 +107,42 @@ class InstallationCostConfiguration:
         if self.inverter_unit_cost_eur < 0:
             raise ValueError(
                 "inverter_unit_cost_eur cannot be negative."
+            )
+
+        if isinstance(self.electrical_protection_cost_eur, bool):
+            raise TypeError(
+                "electrical_protection_cost_eur must be numeric."
+            )
+
+        if not isinstance(
+            self.electrical_protection_cost_eur,
+            (int, float),
+        ):
+            raise TypeError(
+                "electrical_protection_cost_eur must be numeric."
+            )
+
+        if self.electrical_protection_cost_eur < 0:
+            raise ValueError(
+                "electrical_protection_cost_eur cannot be negative."
+            )
+
+        if isinstance(self.cabling_cost_eur, bool):
+            raise TypeError(
+                "cabling_cost_eur must be numeric."
+            )
+
+        if not isinstance(
+            self.cabling_cost_eur,
+            (int, float),
+        ):
+            raise TypeError(
+                "cabling_cost_eur must be numeric."
+            )
+
+        if self.cabling_cost_eur < 0:
+            raise ValueError(
+                "cabling_cost_eur cannot be negative."
             )
 
     def calculate_panel_cost(
@@ -196,6 +236,38 @@ class InstallationCostConfiguration:
             self.inverter_unit_cost_eur
         )
 
+    def calculate_electrical_protection_cost(
+        self,
+        evaluation: InstallationEvaluation,
+    ) -> float:
+        if not isinstance(
+            evaluation,
+            InstallationEvaluation,
+        ):
+            raise TypeError(
+                "evaluation must be an InstallationEvaluation."
+            )
+
+        return float(
+            self.electrical_protection_cost_eur
+        )
+
+    def calculate_cabling_cost(
+        self,
+        evaluation: InstallationEvaluation,
+    ) -> float:
+        if not isinstance(
+            evaluation,
+            InstallationEvaluation,
+        ):
+            raise TypeError(
+                "evaluation must be an InstallationEvaluation."
+            )
+
+        return float(
+            self.cabling_cost_eur
+        )
+
     def calculate_installation_cost(
         self,
         evaluation: InstallationEvaluation,
@@ -222,6 +294,12 @@ class InstallationCostConfiguration:
                 evaluation
             )
             + self.calculate_inverter_cost(
+                evaluation
+            )
+            + self.calculate_electrical_protection_cost(
+                evaluation
+            )
+            + self.calculate_cabling_cost(
                 evaluation
             )
         )
