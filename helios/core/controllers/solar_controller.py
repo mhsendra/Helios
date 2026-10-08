@@ -76,6 +76,7 @@ from helios.ev.scenario import (
     EVScenario,
 )
 
+from helios.solar.installation_costs import InstallationCostConfiguration
 
 class SolarController:
 
@@ -713,61 +714,83 @@ class SolarController:
         # Combined PV + battery economics
         # ---------------------------------------------------------
 
-        net_installation_cost = (
-            self.analyzer.economics_engine
-            .calculate_net_investment(
-                economics_configuration
-            )
+        combined_economic_configuration = None
+
+        installation_cost_configuration = getattr(
+            self.analyzer.project,
+            "installation_cost_configuration",
+            None,
         )
 
-        combined_economic_configuration = (
-            CombinedEconomicConfiguration(
-                installation_cost_eur=(
-                    net_installation_cost
-                ),
-                battery_cost_eur=0.0,
-                annual_pv_savings_eur=(
-                    annual_pv_savings
-                ),
-                annual_battery_additional_savings_eur=0.0,
-                years=(
-                    battery_economic_parameters
-                    .lifetime_years
-                ),
-                electricity_price_growth=(
-                    economics_configuration
-                    .annual_electricity_price_growth
-                ),
-                pv_initial_degradation=(
-                    economics_configuration
-                    .first_year_degradation
-                ),
-                pv_degradation=(
-                    economics_configuration
-                    .annual_degradation
-                ),
-                battery_degradation=(
-                    battery_economic_parameters
-                    .annual_degradation
-                ),
-                annual_pv_maintenance_eur=(
-                    economics_configuration
-                    .annual_maintenance_cost
-                ),
-                annual_battery_maintenance_eur=(
-                    battery_economic_parameters
-                    .annual_maintenance_eur
-                ),
-                maintenance_growth=(
-                    economics_configuration
-                    .annual_maintenance_growth
-                ),
-                discount_rate=(
-                    economics_configuration
-                    .discount_rate
-                ),
+        if (
+            installation_cost_configuration is not None
+            and self.sizing_result is not None
+        ):
+            evaluation = self.sizing_result.evaluation
+
+            gross_installation_cost = (
+                installation_cost_configuration.calculate_installation_cost(
+                    evaluation
+                )
+                + installation_cost_configuration.calculate_legalization_cost(
+                    evaluation
+                )
             )
-        )
+
+            net_installation_cost = (
+                gross_installation_cost
+                - economics_configuration.subsidies
+                - economics_configuration.tax_deductions
+            )
+
+            combined_economic_configuration = (
+                CombinedEconomicConfiguration(
+                    installation_cost_eur=(
+                        net_installation_cost
+                    ),
+                    battery_cost_eur=0.0,
+                    annual_pv_savings_eur=(
+                        annual_pv_savings
+                    ),
+                    annual_battery_additional_savings_eur=0.0,
+                    years=(
+                        battery_economic_parameters
+                        .lifetime_years
+                    ),
+                    electricity_price_growth=(
+                        economics_configuration
+                        .annual_electricity_price_growth
+                    ),
+                    pv_initial_degradation=(
+                        economics_configuration
+                        .first_year_degradation
+                    ),
+                    pv_degradation=(
+                        economics_configuration
+                        .annual_degradation
+                    ),
+                    battery_degradation=(
+                        battery_economic_parameters
+                        .annual_degradation
+                    ),
+                    annual_pv_maintenance_eur=(
+                        economics_configuration
+                        .annual_maintenance_cost
+                    ),
+                    annual_battery_maintenance_eur=(
+                        battery_economic_parameters
+                        .annual_maintenance_eur
+                    ),
+                    maintenance_growth=(
+                        economics_configuration
+                        .annual_maintenance_growth
+                    ),
+                    discount_rate=(
+                        economics_configuration
+                        .discount_rate
+                    ),
+                )
+            )
 
         # ---------------------------------------------------------
         # Battery evaluation
@@ -957,6 +980,7 @@ class SolarController:
         max_charge_power_kw: float,
         max_discharge_power_kw: float,
         battery_cost_per_kwh_eur: float = 249.70,
+        installation_cost_configuration: InstallationCostConfiguration | None = None,
         ev_scenario: EVScenario | None = None,
         optimization_criterion: str = "combined_npv",
         charge_efficiency: float = 0.95,
@@ -993,6 +1017,37 @@ class SolarController:
             raise TypeError(
                 "consumption_scenario must be a "
                 "ConsumptionScenario."
+            )
+
+        # --------------------------------------------------
+        # Configuración económica de la instalación.
+        #
+        # Si no se proporciona explícitamente, se utiliza
+        # la configuración almacenada en el proyecto.
+        # --------------------------------------------------
+
+        if installation_cost_configuration is None:
+            project = self.analyzer.project
+
+            installation_cost_configuration = getattr(
+                project,
+                "installation_cost_configuration",
+                None,
+            )
+
+        if installation_cost_configuration is None:
+            raise ValueError(
+                "An installation cost configuration is required "
+                "before recommending an energy system."
+            )
+
+        if not isinstance(
+            installation_cost_configuration,
+            InstallationCostConfiguration,
+        ):
+            raise TypeError(
+                "installation_cost_configuration must be an "
+                "InstallationCostConfiguration."
             )
 
         solar_configuration = self.configuration
@@ -1079,11 +1134,19 @@ class SolarController:
                 BatteryEconomicParameters()
             )
 
-            net_installation_cost = (
-                self.analyzer.economics_engine
-                .calculate_net_investment(
-                    economics_configuration
+            gross_installation_cost = (
+                installation_cost_configuration.calculate_installation_cost(
+                    evaluation
                 )
+                + installation_cost_configuration.calculate_legalization_cost(
+                    evaluation
+                )
+            )
+
+            net_installation_cost = (
+                gross_installation_cost
+                - economics_configuration.subsidies
+                - economics_configuration.tax_deductions
             )
 
             return CombinedEconomicConfiguration(

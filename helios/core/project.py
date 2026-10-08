@@ -4,10 +4,13 @@ from helios.core.tariffs_model import TariffPrices
 
 from helios.solar.configuration import SolarConfiguration
 from helios.solar.battery_configuration import BatteryConfiguration
+from helios.solar.installation_costs import InstallationCostConfiguration
 
 from helios.ev.configuration import EVConfiguration
 from helios.ev.builder import EVScenarioBuilder
 from helios.ev.scenario import EVScenario
+
+
 
 
 class HeliosProject:
@@ -28,6 +31,8 @@ class HeliosProject:
         self.solar_configuration: SolarConfiguration | None = None
 
         self.battery_configuration: BatteryConfiguration | None = None
+
+        self.installation_cost_configuration: InstallationCostConfiguration | None = None
 
         self.ev_configuration: EVConfiguration | None = None
 
@@ -86,6 +91,21 @@ class HeliosProject:
         
         self.solar_configuration = configuration
         self.solar.set_configuration(configuration)
+
+    def set_installation_cost_configuration(
+        self,
+        configuration: InstallationCostConfiguration,
+    ) -> None:
+
+        if not isinstance(
+            configuration,
+            InstallationCostConfiguration,
+        ):
+            raise TypeError(
+                "configuration must be an InstallationCostConfiguration."
+            )
+
+        self.installation_cost_configuration = configuration
 
     def set_battery_configuration(
         self,

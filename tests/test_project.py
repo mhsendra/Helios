@@ -6,6 +6,7 @@ from helios.core.project import HeliosProject
 from helios.core.economics_configuration import EconomicsConfiguration
 from helios.solar.configuration import SolarConfiguration
 from helios.solar.battery_configuration import BatteryConfiguration
+from helios.solar.installation_costs import InstallationCostConfiguration
 from helios.ev.configuration import EVConfiguration
 
 def create_project():
@@ -339,3 +340,33 @@ def test_project_set_ev_configuration_replaces_previous_configuration():
     assert project.ev_configuration is configuration_2
 
     assert project.ev_configuration is not configuration_1
+
+def test_set_installation_cost_configuration():
+    project = HeliosProject(
+        EconomicsConfiguration(
+            installation_cost=0.0,
+        )
+    )
+
+    configuration = InstallationCostConfiguration(
+        panel_unit_cost_eur=100.0,
+        structure_unit_cost_eur=50.0,
+    )
+
+    project.set_installation_cost_configuration(
+        configuration
+    )
+
+    assert project.installation_cost_configuration == configuration
+
+def test_set_installation_cost_configuration_rejects_invalid_type():
+    project = HeliosProject(
+        EconomicsConfiguration(
+            installation_cost=0.0,
+        )
+    )
+
+    with pytest.raises(TypeError):
+        project.set_installation_cost_configuration(
+            object()
+        )

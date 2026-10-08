@@ -6,6 +6,7 @@ from helios.solar.battery_optimizer import BatteryOptimizer
 from helios.solar.battery_recommendation import BatteryRecommendation
 from helios.solar.battery_economic_model import BatteryEconomicConfiguration
 from helios.solar.production_profile import SolarProductionProfile
+from helios.solar.battery_economic_model import CombinedEconomicConfiguration
 
 
 REFERENCE_YEAR = 2025
@@ -841,3 +842,59 @@ class TestBatteryOptimizer:
         )
         assert result.capacity_kwh == pytest.approx(5.0)
         assert result.combined_economic_npv_eur == pytest.approx(3500.0)
+
+    def test_evaluate_calculates_combined_economics_with_battery_cost(
+        self,
+    ):
+        consumption = make_scenario([1.0] * 8760)
+        production = make_profile([1.0] * 8760)
+
+        combined_configuration = CombinedEconomicConfiguration(
+            installation_cost_eur=10000.0,
+            battery_cost_eur=0.0,
+            annual_pv_savings_eur=1000.0,
+            annual_battery_additional_savings_eur=600.0,
+            years=2,
+            electricity_price_growth=0.0,
+            pv_initial_degradation=0.0,
+            pv_degradation=0.0,
+            battery_degradation=0.0,
+            annual_pv_maintenance_eur=0.0,
+            annual_battery_maintenance_eur=0.0,
+            maintenance_growth=0.0,
+            discount_rate=0.0,
+        )
+
+        recommendations = make_optimizer().evaluate(
+            consumption,
+            production,
+            [5.0],
+            max_charge_power_kw=5.0,
+            max_discharge_power_kw=5.0,
+            annual_cost_without_battery_eur=1000.0,
+            cost_calculator=lambda result: 400.0,
+            combined_economic_configuration=combined_configuration,
+        )
+
+        recommendation = recommendations[0]
+
+        expected_battery_cost = 5.0 * 249.70
+
+        expected_npv = (
+            -10000.0
+            - expected_battery_cost
+            + 1600.0
+            + 1600.0
+        )
+
+        assert recommendation.combined_economic_npv_eur == pytest.approx(
+            expected_npv
+        )
+
+        assert combined_configuration.installation_cost_eur == pytest.approx(
+            10000.0
+        )
+
+        assert combined_configuration.battery_cost_eur == pytest.approx(
+            0.0
+        )

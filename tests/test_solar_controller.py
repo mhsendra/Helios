@@ -2,7 +2,7 @@ import pandas as pd
 
 import pytest
 
-from unittest.mock import MagicMock, call
+from unittest.mock import MagicMock, call, patch
 
 from helios.core.controllers.solar_controller import (
     SolarController,
@@ -14,6 +14,10 @@ from helios.solar.configuration import (
 
 from helios.solar.installation_configuration import (
     InstallationConfiguration,
+)
+
+from helios.solar.installation_candidate import (
+    InstallationCandidate,
 )
 
 from helios.core.consumption_scenario import ConsumptionScenario
@@ -28,6 +32,10 @@ from helios.solar.production_profile import SolarProductionProfile
 from helios.solar.battery_economic_configuration import BatteryEconomicParameters
 
 from helios.core.energy_recommendation import EnergyRecommendation
+
+from helios.solar.installation_costs import InstallationCostConfiguration
+
+from helios.solar.installation_evaluation import InstallationEvaluation
 
 class TestSolarController:
 
@@ -2088,6 +2096,126 @@ class TestSolarController:
                 max_discharge_power_kw=8.0,
             )
 
+    def test_evaluate_batteries_builds_combined_economic_configuration_when_sizing_result_exists(
+        self,
+    ):
+        installation_cost_configuration = (
+            InstallationCostConfiguration(
+                panel_unit_cost_eur=100.0,
+                structure_unit_cost_eur=20.0,
+                installation_cost_eur=500.0,
+                legalization_cost_eur=300.0,
+            )
+        )
+
+        self.analyzer.project.installation_cost_configuration = (
+            installation_cost_configuration
+        )
+
+        consumption_index = pd.date_range(
+            start="2023-01-01",
+            periods=8760,
+            freq="h",
+        )
+
+        consumption_hourly = pd.Series(
+            1.0,
+            index=consumption_index,
+            name="consumption_kwh",
+        )
+
+        consumption_scenario = ConsumptionScenario(
+            hourly_consumption=consumption_hourly,
+            reference_year=2023,
+        )
+
+        self.analyzer.calculate_representative_consumption_scenario.return_value = (
+            consumption_scenario
+        )
+
+        hourly_production = consumption_hourly * 0.5
+
+        self.analyzer.solar_engine.configuration = SolarConfiguration(
+            latitude=41.62,
+            longitude=2.09,
+            tilt=30,
+            azimuth=0,
+            reference_year=2023,
+        )
+
+        self.analyzer.solar_engine.hourly_production = pd.DataFrame(
+            {
+                "production_kwh": hourly_production,
+            },
+            index=consumption_index,
+        )
+        
+        self.analyzer.solar_engine.installed_power_kwp = 5.0
+
+        candidate = InstallationCandidate(
+            panel_count=10,
+            panel_power_wp=540.0,
+            panel_area_m2=1.95,
+        )
+
+        evaluation = InstallationEvaluation(
+            candidate=candidate,
+            available_area_m2=50.0,
+        )
+
+        self.controller.sizing_result = InstallationRecommendation(
+            evaluation=evaluation,
+            annual_consumption_kwh=(
+                consumption_scenario.hourly_consumption.sum()
+            ),
+            annual_production_kwh=(
+                hourly_production.sum()
+            ),
+        )
+
+        battery_optimizer_result = [
+            MagicMock(),
+        ]
+
+        with patch(
+            "helios.core.controllers.solar_controller.BatteryOptimizer"
+        ) as optimizer_class:
+            optimizer_class.return_value.evaluate.return_value = (
+                battery_optimizer_result
+            )
+
+            result = self.controller.evaluate_batteries(
+                [5.0],
+                max_charge_power_kw=5.0,
+                max_discharge_power_kw=5.0,
+            )
+
+        optimizer_call = (
+            optimizer_class.return_value.evaluate.call_args
+        )
+
+        combined_configuration = optimizer_call.kwargs[
+            "combined_economic_configuration"
+        ]
+
+        expected_cost = (
+            installation_cost_configuration.calculate_installation_cost(
+                evaluation
+            )
+            + installation_cost_configuration.calculate_legalization_cost(
+                evaluation
+            )
+            - self.analyzer.economics.configuration.subsidies
+            - self.analyzer.economics.configuration.tax_deductions
+        )
+
+        assert result == battery_optimizer_result
+        assert combined_configuration is not None
+        assert (
+            combined_configuration.installation_cost_eur
+            == expected_cost
+        )
+
     # ==================================================
     # Reset
     # ==================================================
@@ -2421,13 +2549,18 @@ class TestSolarController:
         self.analyzer.solar_engine.configuration = (
             self._solar_configuration()
         )
-
+        installation_cost_configuration = InstallationCostConfiguration(
+            panel_unit_cost_eur=100.0,
+        )
         result = self.controller.recommend_energy(
             configuration=configuration,
             consumption_scenario=consumption_scenario,
             candidate_capacities_kwh=[5.0, 8.3, 16.6],
             max_charge_power_kw=8.0,
             max_discharge_power_kw=8.0,
+            installation_cost_configuration=(
+                installation_cost_configuration
+            ),
         )
 
         assert result is expected_result
@@ -2475,3 +2608,145 @@ class TestSolarController:
         )
 
         self.analyzer.solar_engine.reset.assert_called_once_with()
+
+    def test_recommend_energy_uses_project_installation_cost_configuration(
+        self,
+        monkeypatch,
+    ):
+        configuration = self._installation_configuration()
+        consumption_scenario = self._consumption_scenario()
+
+        installation_cost_configuration = (
+            InstallationCostConfiguration(
+                panel_unit_cost_eur=100.0,
+            )
+        )
+
+        self.analyzer.project.installation_cost_configuration = (
+            installation_cost_configuration
+        )
+
+        expected_result = MagicMock(
+            spec=EnergyRecommendation
+        )
+
+        coordinator = MagicMock()
+        coordinator.recommend_energy.return_value = (
+            expected_result
+        )
+
+        monkeypatch.setattr(
+            "helios.core.controllers.solar_controller."
+            "InstallationCoordinator",
+            MagicMock(return_value=coordinator),
+        )
+
+        self.analyzer.solar_engine.configuration = (
+            self._solar_configuration()
+        )
+
+        result = self.controller.recommend_energy(
+            configuration=configuration,
+            consumption_scenario=consumption_scenario,
+            candidate_capacities_kwh=[5.0, 8.3, 16.6],
+            max_charge_power_kw=8.0,
+            max_discharge_power_kw=8.0,
+        )
+
+        assert result is expected_result
+
+    def test_recommend_energy_uses_installation_cost_configuration_for_economics(
+        self,
+        monkeypatch,
+    ):
+        configuration = self._installation_configuration()
+        consumption_scenario = self._consumption_scenario()
+
+        installation_cost_configuration = (
+            InstallationCostConfiguration(
+                panel_unit_cost_eur=100.0,
+                structure_unit_cost_eur=20.0,
+                installation_cost_eur=500.0,
+                legalization_cost_eur=300.0,
+            )
+        )
+
+        expected_result = MagicMock(
+            spec=EnergyRecommendation
+        )
+
+        coordinator = MagicMock()
+        coordinator.recommend_energy.return_value = (
+            expected_result
+        )
+
+        monkeypatch.setattr(
+            "helios.core.controllers.solar_controller."
+            "InstallationCoordinator",
+            MagicMock(return_value=coordinator),
+        )
+
+        self.analyzer.solar_engine.configuration = (
+            self._solar_configuration()
+        )
+
+        self.analyzer.project.ev_configuration = None
+
+        self.controller.recommend_energy(
+            configuration=configuration,
+            consumption_scenario=consumption_scenario,
+            candidate_capacities_kwh=[5.0],
+            max_charge_power_kw=8.0,
+            max_discharge_power_kw=8.0,
+            installation_cost_configuration=(
+                installation_cost_configuration
+            ),
+        )
+
+        call_kwargs = (
+            coordinator.recommend_energy.call_args.kwargs
+        )
+
+        economic_configuration_factory = (
+            call_kwargs["economic_configuration_factory"]
+        )
+
+        candidate = InstallationCandidate(
+            panel_count=10,
+            panel_power_wp=540.0,
+            panel_area_m2=1.95,
+        )
+
+        evaluation = InstallationEvaluation(
+            candidate=candidate,
+            available_area_m2=50.0,
+        )
+
+        production_profile = SolarProductionProfile(
+            hourly_production=(
+                consumption_scenario.hourly_consumption * 0.5
+            ),
+            reference_year=consumption_scenario.reference_year,
+            installed_power_kwp=5.0,
+        )
+
+        economic_configuration = (
+            economic_configuration_factory(
+                evaluation,
+                production_profile,
+            )
+        )
+
+        expected_cost = (
+            installation_cost_configuration
+            .calculate_installation_cost(evaluation)
+            + installation_cost_configuration
+            .calculate_legalization_cost(evaluation)
+            - self.analyzer.economics.configuration.subsidies
+            - self.analyzer.economics.configuration.tax_deductions
+        )
+
+        assert (
+            economic_configuration.installation_cost_eur
+            == expected_cost
+        )
