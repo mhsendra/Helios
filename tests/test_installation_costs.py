@@ -329,3 +329,64 @@ def test_cabling_cost_is_fixed():
         )
         == 600.0
     )
+
+def test_legalization_cost_is_fixed():
+    evaluation = _evaluation(panel_count=15)
+
+    configuration = InstallationCostConfiguration(
+        panel_unit_cost_eur=100.0,
+        legalization_cost_eur=650.0,
+    )
+
+    assert (
+        configuration.calculate_legalization_cost(
+            evaluation
+        )
+        == 650.0
+    )
+
+def test_legalization_cost_is_not_part_of_installation_cost():
+    evaluation = _evaluation(panel_count=15)
+
+    configuration = InstallationCostConfiguration(
+        panel_unit_cost_eur=100.0,
+        structure_unit_cost_eur=20.0,
+        installation_cost_eur=2950.0,
+        inverter_unit_cost_eur=1200.0,
+        electrical_protection_cost_eur=450.0,
+        cabling_cost_eur=600.0,
+        legalization_cost_eur=650.0,
+    )
+
+    installation_cost = (
+        configuration.calculate_installation_cost(
+            evaluation
+        )
+    )
+
+    assert installation_cost == (
+        1500.0
+        + 300.0
+        + 2950.0
+        + 1200.0
+        + 450.0
+        + 600.0
+    )
+
+def test_legalization_cost_is_included_in_economic_configuration():
+    evaluation = _evaluation(panel_count=15)
+
+    configuration = InstallationCostConfiguration(
+        panel_unit_cost_eur=100.0,
+        legalization_cost_eur=650.0,
+    )
+
+    economic = (
+        configuration.build_economic_configuration(
+            evaluation
+        )
+    )
+
+    assert economic.installation_cost_eur == (
+        1500.0 + 650.0
+    )
