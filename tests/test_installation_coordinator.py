@@ -5,6 +5,10 @@ from helios.core.energy_recommender import (
     EnergyRecommender,
 )
 
+from helios.core.economics_configuration import (
+    EconomicsConfiguration,
+)
+
 from helios.core.consumption_scenario import (
     ConsumptionScenario,
 )
@@ -50,6 +54,10 @@ from helios.solar.installation_recommendation import (
 )
 from helios.solar.installation_coordinator import (
     InstallationCoordinator,
+)
+
+from helios.solar.installation_costs import (
+    InstallationCostConfiguration,
 )
 
 class TestInstallationCoordinator:
@@ -2017,4 +2025,438 @@ class TestInstallationCoordinator:
         assert (
             calls[0]["economic_configuration_factory"]
             is factory
+        )
+
+    def test_recommend_energy_builds_economic_configuration_from_installation_cost_configuration(
+        self,
+        monkeypatch,
+    ):
+        configuration = self.configuration()
+
+        optimizer = InstallationOptimizer(
+            configuration.to_constraints()
+        )
+
+        evaluator = InstallationEvaluator(
+            configuration.to_constraints()
+        )
+
+        energy_recommender = EnergyRecommender()
+
+        calls = []
+
+        def recommend(**kwargs):
+            calls.append(kwargs)
+            return object()
+
+        monkeypatch.setattr(
+            energy_recommender,
+            "recommend",
+            recommend,
+        )
+
+        coordinator = InstallationCoordinator(
+            optimizer=optimizer,
+            evaluator=evaluator,
+            recommender=InstallationRecommender(),
+            production_calculator=(
+                lambda candidate: self.make_production_profile(
+                    value=1.0,
+                )
+            ),
+            energy_recommender=energy_recommender,
+        )
+
+        evaluation = InstallationEvaluation(
+            candidate=self.candidate(10),
+            available_area_m2=42.25,
+        )
+
+        production_profile = self.make_production_profile(
+            value=1.0,
+        )
+
+        monkeypatch.setattr(
+            coordinator,
+            "_generate_evaluations",
+            lambda: [evaluation],
+        )
+
+        monkeypatch.setattr(
+            coordinator,
+            "_calculate_productions",
+            lambda evaluations: {
+                10: production_profile,
+            },
+        )
+
+        consumption_scenario = object.__new__(
+            ConsumptionScenario
+        )
+
+        installation_cost_configuration = (
+            InstallationCostConfiguration(
+                panel_unit_cost_eur=100.0,
+                structure_unit_cost_eur=50.0,
+                installation_cost_eur=2000.0,
+                inverter_unit_cost_eur=1500.0,
+                electrical_protection_cost_eur=300.0,
+                cabling_cost_eur=200.0,
+                legalization_cost_eur=500.0,
+            )
+        )
+
+        coordinator.recommend_energy(
+            configuration=configuration,
+            annual_consumption_kwh=8760.0,
+            consumption_scenario=consumption_scenario,
+            candidate_capacities_kwh=[5.0, 8.3],
+            max_charge_power_kw=5.0,
+            max_discharge_power_kw=5.0,
+            installation_cost_configuration=(
+                installation_cost_configuration
+            ),
+        )
+
+        assert len(calls) == 1
+
+        economic_factory = (
+            calls[0]["economic_configuration_factory"]
+        )
+
+        assert callable(economic_factory)
+
+        economic_configuration = economic_factory(
+            evaluation,
+            production_profile,
+        )
+
+        assert (
+            economic_configuration.installation_cost_eur
+            == pytest.approx(
+                10 * 100.0
+                + 10 * 50.0
+                + 2000.0
+                + 1500.0
+                + 300.0
+                + 200.0
+                + 500.0
+            )
+        )
+
+        assert (
+            economic_configuration.battery_cost_eur
+            == pytest.approx(0.0)
+        )
+
+        assert (
+            economic_configuration.annual_pv_savings_eur
+            == pytest.approx(0.0)
+        )
+
+    def test_recommend_energy_adds_annual_pv_savings_to_installation_cost_configuration(
+        self,
+        monkeypatch,
+    ):
+        configuration = self.configuration()
+
+        optimizer = InstallationOptimizer(
+            configuration.to_constraints()
+        )
+
+        evaluator = InstallationEvaluator(
+            configuration.to_constraints()
+        )
+
+        energy_recommender = EnergyRecommender()
+
+        calls = []
+
+        def recommend(**kwargs):
+            calls.append(kwargs)
+            return object()
+
+        monkeypatch.setattr(
+            energy_recommender,
+            "recommend",
+            recommend,
+        )
+
+        coordinator = InstallationCoordinator(
+            optimizer=optimizer,
+            evaluator=evaluator,
+            recommender=InstallationRecommender(),
+            production_calculator=(
+                lambda candidate: self.make_production_profile(
+                    value=1.0,
+                )
+            ),
+            energy_recommender=energy_recommender,
+        )
+
+        evaluation = InstallationEvaluation(
+            candidate=self.candidate(10),
+            available_area_m2=42.25,
+        )
+
+        production_profile = self.make_production_profile(
+            value=1.0,
+        )
+
+        monkeypatch.setattr(
+            coordinator,
+            "_generate_evaluations",
+            lambda: [evaluation],
+        )
+
+        monkeypatch.setattr(
+            coordinator,
+            "_calculate_productions",
+            lambda evaluations: {
+                10: production_profile,
+            },
+        )
+
+        consumption_scenario = object.__new__(
+            ConsumptionScenario
+        )
+
+        installation_cost_configuration = (
+            InstallationCostConfiguration(
+                panel_unit_cost_eur=100.0,
+                structure_unit_cost_eur=50.0,
+                installation_cost_eur=2000.0,
+                inverter_unit_cost_eur=1500.0,
+                electrical_protection_cost_eur=300.0,
+                cabling_cost_eur=200.0,
+                legalization_cost_eur=500.0,
+            )
+        )
+
+        coordinator.recommend_energy(
+            configuration=configuration,
+            annual_consumption_kwh=8760.0,
+            consumption_scenario=consumption_scenario,
+            candidate_capacities_kwh=[5.0, 8.3],
+            max_charge_power_kw=5.0,
+            max_discharge_power_kw=5.0,
+            installation_cost_configuration=(
+                installation_cost_configuration
+            ),
+            annual_pv_savings_calculator=(
+                lambda consumption, profile: 1234.56
+            ),
+        )
+
+        assert len(calls) == 1
+
+        economic_factory = (
+            calls[0]["economic_configuration_factory"]
+        )
+
+        economic_configuration = economic_factory(
+            evaluation,
+            production_profile,
+        )
+
+        assert (
+            economic_configuration.installation_cost_eur
+            == pytest.approx(6000.0)
+        )
+
+        assert (
+            economic_configuration.annual_pv_savings_eur
+            == pytest.approx(1234.56)
+        )
+
+        assert (
+            economic_configuration.battery_cost_eur
+            == pytest.approx(0.0)
+        )
+
+    @pytest.mark.parametrize(
+        "calculator",
+        [
+            object(),
+            "calculator",
+            123,
+            True,
+            False,
+        ],
+    )
+    def test_recommend_energy_rejects_invalid_annual_pv_savings_calculator(
+        self,
+        calculator,
+    ):
+        configuration = self.configuration()
+
+        optimizer = InstallationOptimizer(
+            configuration.to_constraints()
+        )
+
+        evaluator = InstallationEvaluator(
+            configuration.to_constraints()
+        )
+
+        coordinator = self.coordinator(
+            optimizer,
+            evaluator,
+            InstallationRecommender(),
+            lambda candidate: self.make_production_profile(
+                value=1.0,
+            ),
+        )
+
+        consumption_scenario = object.__new__(
+            ConsumptionScenario
+        )
+
+        with pytest.raises(
+            TypeError,
+            match="annual_pv_savings_calculator must be callable",
+        ):
+            coordinator.recommend_energy(
+                configuration=configuration,
+                annual_consumption_kwh=8760.0,
+                consumption_scenario=consumption_scenario,
+                candidate_capacities_kwh=[5.0],
+                max_charge_power_kw=5.0,
+                max_discharge_power_kw=5.0,
+                annual_pv_savings_calculator=calculator,
+            )
+
+    def test_recommend_energy_applies_economics_configuration(
+        self,
+        monkeypatch,
+    ):
+        configuration = self.configuration()
+
+        optimizer = InstallationOptimizer(
+            configuration.to_constraints()
+        )
+
+        evaluator = InstallationEvaluator(
+            configuration.to_constraints()
+        )
+
+        energy_recommender = EnergyRecommender()
+
+        calls = []
+
+        def recommend(**kwargs):
+            calls.append(kwargs)
+            return object()
+
+        monkeypatch.setattr(
+            energy_recommender,
+            "recommend",
+            recommend,
+        )
+
+        coordinator = InstallationCoordinator(
+            optimizer=optimizer,
+            evaluator=evaluator,
+            recommender=InstallationRecommender(),
+            production_calculator=(
+                lambda candidate: self.make_production_profile(
+                    value=1.0,
+                )
+            ),
+            energy_recommender=energy_recommender,
+        )
+
+        evaluation = InstallationEvaluation(
+            candidate=self.candidate(10),
+            available_area_m2=42.25,
+        )
+
+        production_profile = self.make_production_profile(
+            value=1.0,
+        )
+
+        monkeypatch.setattr(
+            coordinator,
+            "_generate_evaluations",
+            lambda: [evaluation],
+        )
+
+        monkeypatch.setattr(
+            coordinator,
+            "_calculate_productions",
+            lambda evaluations: {
+                10: production_profile,
+            },
+        )
+
+        installation_cost_configuration = (
+            InstallationCostConfiguration(
+                panel_unit_cost_eur=100.0,
+                installation_cost_eur=1000.0,
+                legalization_cost_eur=500.0,
+            )
+        )
+
+        economics_configuration = EconomicsConfiguration(
+            installation_cost=0.0,
+            subsidies=200.0,
+            tax_deductions=100.0,
+            first_year_degradation=0.02,
+            annual_degradation=0.004,
+            annual_electricity_price_growth=0.03,
+            annual_maintenance_cost=175.0,
+            annual_maintenance_growth=0.025,
+            discount_rate=0.06,
+            economic_horizon_years=30,
+        )
+
+        consumption_scenario = object.__new__(
+            ConsumptionScenario
+        )
+
+        coordinator.recommend_energy(
+            configuration=configuration,
+            annual_consumption_kwh=8760.0,
+            consumption_scenario=consumption_scenario,
+            candidate_capacities_kwh=[5.0],
+            max_charge_power_kw=5.0,
+            max_discharge_power_kw=5.0,
+            installation_cost_configuration=(
+                installation_cost_configuration
+            ),
+            economics_configuration=(
+                economics_configuration
+            ),
+        )
+
+        factory = calls[0][
+            "economic_configuration_factory"
+        ]
+
+        result = factory(
+            evaluation,
+            production_profile,
+        )
+
+        assert result.installation_cost_eur == pytest.approx(
+            2200.0
+        )
+
+        assert result.years == 30
+        assert result.electricity_price_growth == pytest.approx(
+            0.03
+        )
+        assert result.pv_initial_degradation == pytest.approx(
+            0.02
+        )
+        assert result.pv_degradation == pytest.approx(
+            0.004
+        )
+        assert result.annual_pv_maintenance_eur == pytest.approx(
+            175.0
+        )
+        assert result.maintenance_growth == pytest.approx(
+            0.025
+        )
+        assert result.discount_rate == pytest.approx(
+            0.06
         )

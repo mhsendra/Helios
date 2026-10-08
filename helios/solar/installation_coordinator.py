@@ -1,4 +1,5 @@
 from collections.abc import Callable
+from dataclasses import replace
 
 from helios.core.consumption_scenario import (
     ConsumptionScenario,
@@ -10,6 +11,10 @@ from helios.core.energy_recommendation import (
 
 from helios.core.energy_recommender import (
     EnergyRecommender,
+)
+
+from helios.core.economics_configuration import (
+    EconomicsConfiguration,
 )
 
 from helios.ev.scenario import (
@@ -222,6 +227,19 @@ class InstallationCoordinator:
         installation_cost_configuration: (
             InstallationCostConfiguration | None
         ) = None,
+        economics_configuration: (
+            EconomicsConfiguration | None
+        ) = None,
+        annual_pv_savings_calculator: (
+            Callable[
+                [
+                    ConsumptionScenario,
+                    SolarProductionProfile,
+                ],
+                float,
+            ]
+            | None
+        ) = None,
         ev_scenario: EVScenario | None = None,
         optimization_criterion: str = "combined_npv",
         charge_efficiency: float = 0.95,
@@ -308,6 +326,16 @@ class InstallationCoordinator:
             )
 
         if (
+            annual_pv_savings_calculator is not None
+            and not callable(
+                annual_pv_savings_calculator
+            )
+        ):
+            raise TypeError(
+                "annual_pv_savings_calculator must be callable."
+            )
+
+        if (
             installation_cost_configuration is not None
             and economic_configuration_factory is not None
         ):
@@ -317,11 +345,117 @@ class InstallationCoordinator:
             )
 
         if installation_cost_configuration is not None:
-            economic_configuration_factory = (
-                lambda evaluation, production_profile:
-                    installation_cost_configuration.build_economic_configuration(
+
+            def build_economic_configuration(
+                evaluation: InstallationEvaluation,
+                production_profile: SolarProductionProfile,
+            ) -> CombinedEconomicConfiguration:
+
+                economic_configuration = (
+                    installation_cost_configuration
+                    .build_economic_configuration(
                         evaluation
                     )
+                )
+
+                if economics_configuration is not None:
+                    economic_configuration = replace(
+                        economic_configuration,
+                        installation_cost_eur=(
+                            economic_configuration.installation_cost_eur
+                            - economics_configuration.subsidies
+                            - economics_configuration.tax_deductions
+                        ),
+                        years=(
+                            economics_configuration.economic_horizon_years
+                        ),
+                        electricity_price_growth=(
+                            economics_configuration
+                            .annual_electricity_price_growth
+                        ),
+                        pv_initial_degradation=(
+                            economics_configuration
+                            .first_year_degradation
+                        ),
+                        pv_degradation=(
+                            economics_configuration
+                            .annual_degradation
+                        ),
+                        annual_pv_maintenance_eur=(
+                            economics_configuration
+                            .annual_maintenance_cost
+                        ),
+                        maintenance_growth=(
+                            economics_configuration
+                            .annual_maintenance_growth
+                        ),
+                        discount_rate=(
+                            economics_configuration
+                            .discount_rate
+                        ),
+                    )
+
+                if annual_pv_savings_calculator is None:
+                    return economic_configuration
+
+                annual_pv_savings = (
+                    annual_pv_savings_calculator(
+                        consumption_scenario,
+                        production_profile,
+                    )
+                )
+
+                if (
+                    isinstance(annual_pv_savings, bool)
+                    or not isinstance(
+                        annual_pv_savings,
+                        (int, float),
+                    )
+                ):
+                    raise TypeError(
+                        "annual_pv_savings_calculator must return "
+                        "a numeric value."
+                    )
+
+                return replace(
+                    economic_configuration,
+                    annual_pv_savings_eur=float(
+                        annual_pv_savings
+                    ),
+                )
+
+            economic_configuration_factory = (
+                build_economic_configuration
+            )
+
+        if (
+            economics_configuration is not None
+            and not isinstance(
+                economics_configuration,
+                EconomicsConfiguration,
+            )
+        ):
+            raise TypeError(
+                "economics_configuration must be an "
+                "EconomicsConfiguration."
+            )
+
+        if (
+            annual_pv_savings_calculator is not None
+            and not callable(
+                annual_pv_savings_calculator
+            )
+        ):
+            raise TypeError(
+                "annual_pv_savings_calculator must be callable."
+            )
+        
+        if (
+            annual_pv_savings_calculator is not None
+            and not callable(annual_pv_savings_calculator)
+        ):
+            raise TypeError(
+                "annual_pv_savings_calculator must be callable."
             )
 
         constraints = configuration.to_constraints()
