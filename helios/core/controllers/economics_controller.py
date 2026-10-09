@@ -62,6 +62,27 @@ class EconomicsController:
             )
         )
 
+    def calculate_export_income_for_balance(
+        self,
+        energy_balance,
+    ) -> float:
+        """
+        Calcula la compensación efectiva de excedentes para un
+        balance arbitrario sin modificar el estado económico.
+        """
+        if self._economic_data is None:
+            self._economic_data = self._get_economic_data()
+
+        _, tariff_data = self._economic_data
+
+        return (
+            self.analyzer.economics_engine
+            .calculate_export_income_for_balance(
+                energy_balance,
+                tariff_data,
+            )
+        )
+
     def calculate_cost_with_pv(self):
         if self._economic_data is None:
             self._economic_data = self._get_economic_data()

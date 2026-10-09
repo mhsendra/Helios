@@ -503,3 +503,38 @@ class TestBatteryEconomicModel:
                 835.0,
             ]
         )
+
+    def test_combined_economics_separates_import_and_export_growth(
+        self,
+    ):
+        configuration = CombinedEconomicConfiguration(
+            installation_cost_eur=0.0,
+            battery_cost_eur=0.0,
+            annual_pv_savings_eur=1200.0,
+            annual_battery_additional_savings_eur=0.0,
+            years=3,
+            electricity_price_growth=0.10,
+            export_price_growth=0.02,
+            annual_pv_self_consumption_savings_eur=1000.0,
+            annual_export_compensation_eur=200.0,
+            pv_initial_degradation=0.0,
+            pv_degradation=0.0,
+            battery_degradation=0.0,
+            annual_pv_maintenance_eur=0.0,
+            annual_battery_maintenance_eur=0.0,
+            maintenance_growth=0.0,
+            discount_rate=0.0,
+        )
+
+        result = BatteryEconomicModel().calculate_combined(
+            configuration
+        )
+
+        assert result.cash_flows == pytest.approx(
+            [
+                0.0,
+                1200.0,
+                1304.0,
+                1418.08,
+            ]
+        )

@@ -85,18 +85,33 @@ class EconomicsEngine:
         tariff_data,
     ) -> float:
         """
-        Calculate effective annual income from photovoltaic
-        energy exported to the grid.
+        Calcula los ingresos anuales efectivos por excedentes.
 
-        Export compensation is limited independently for each
-        monthly billing period. For each month, the economic
-        value of exported energy cannot exceed the economic value
-        of energy imported from the grid during that same month.
-
-        This models the simplified surplus-compensation mechanism
-        used for self-consumption in Spain.
+        La compensación queda limitada mensualmente por el coste
+        de la energía importada durante cada periodo de facturación.
         """
+        self.export_income = (
+            self.calculate_export_income_for_balance(
+                energy_balance,
+                tariff_data,
+            )
+        )
 
+        return self.export_income
+
+    def calculate_export_income_for_balance(
+        self,
+        energy_balance,
+        tariff_data,
+    ) -> float:
+        """
+        Calcula la compensación efectiva de excedentes sin alterar
+        el estado del motor económico.
+
+        La compensación máxima de cada mes es el menor importe entre
+        el coste de la energía importada y el valor de la energía
+        exportada durante ese mes.
+        """
         required_balance_columns = {
             "grid_import_kwh",
             "grid_export_kwh",
@@ -167,19 +182,15 @@ class EconomicsEngine:
         )
 
         monthly_import_cost = (
-            data
-            .groupby("billing_period")[
+            data.groupby("billing_period")[
                 "grid_import_cost_eur"
-            ]
-            .sum()
+            ].sum()
         )
 
         monthly_export_value = (
-            data
-            .groupby("billing_period")[
+            data.groupby("billing_period")[
                 "grid_export_value_eur"
-            ]
-            .sum()
+            ].sum()
         )
 
         monthly_compensation = (
@@ -189,29 +200,21 @@ class EconomicsEngine:
                     monthly_export_value,
                 ],
                 axis=1,
-            )
-            .fillna(0.0)
+            ).fillna(0.0)
         )
 
-        monthly_compensation[
-            "effective_export_income"
-        ] = (
+        effective_monthly_compensation = (
             monthly_compensation[
                 [
                     "grid_import_cost_eur",
                     "grid_export_value_eur",
                 ]
-            ]
-            .min(axis=1)
+            ].min(axis=1)
         )
 
-        self.export_income = float(
-            monthly_compensation[
-                "effective_export_income"
-            ].sum()
+        return float(
+            effective_monthly_compensation.sum()
         )
-
-        return self.export_income
 
     def calculate_cost_with_pv(
         self,

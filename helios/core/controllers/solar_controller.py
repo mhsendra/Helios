@@ -619,6 +619,18 @@ class SolarController:
             - annual_cost_with_pv
         )
 
+        annual_export_compensation = (
+            economics_controller
+            .calculate_export_income_for_balance(
+                baseline_balance
+            )
+        )
+
+        annual_self_consumption_savings = (
+            annual_pv_savings
+            - annual_export_compensation
+        )
+
         gross_installation_cost = (
             installation_cost_configuration
             .calculate_installation_cost(
@@ -680,6 +692,16 @@ class SolarController:
             discount_rate=(
                 economics_configuration
                 .discount_rate
+            ),
+            annual_pv_self_consumption_savings_eur=(
+                annual_self_consumption_savings
+            ),
+            annual_export_compensation_eur=(
+                annual_export_compensation
+            ),
+            export_price_growth=(
+                economics_configuration
+                .annual_export_price_growth
             ),
         )
 

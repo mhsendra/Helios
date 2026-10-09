@@ -10,6 +10,14 @@ class BatteryEconomicConfiguration:
 
     electricity_price_growth: float = 0.02
 
+    # Desglose opcional del ahorro FV.
+    # None conserva el comportamiento de los llamadores antiguos.
+    annual_pv_self_consumption_savings_eur: float | None = None
+    annual_export_compensation_eur: float | None = None
+
+    # Crecimiento anual del precio de compensación de excedentes.
+    export_price_growth: float = 0.0
+
     # Degradación FV:
     # 1 % durante el primer año y 0.35 % anual posteriormente.
     pv_initial_degradation: float = 0.0
@@ -40,8 +48,15 @@ class CombinedEconomicConfiguration:
     annual_battery_additional_savings_eur: float
 
     years: int = 25
-
     electricity_price_growth: float = 0.02
+
+    # Desglose opcional del ahorro fotovoltaico.
+    # None mantiene la compatibilidad con configuraciones anteriores.
+    annual_pv_self_consumption_savings_eur: float | None = None
+    annual_export_compensation_eur: float | None = None
+
+    # Crecimiento anual del precio de compensación de excedentes.
+    export_price_growth: float = 0.0
 
     pv_initial_degradation: float = 0.01
     pv_degradation: float = 0.0035
@@ -52,7 +67,6 @@ class CombinedEconomicConfiguration:
     maintenance_growth: float = 0.02
 
     discount_rate: float = 0.05
-
 
 @dataclass(frozen=True)
 class CombinedEconomicResult:
@@ -276,11 +290,39 @@ class BatteryEconomicModel:
                 ** (year - 1)
             )
 
-            pv_savings = (
-                configuration.annual_pv_savings_eur
-                * pv_factor
-                * electricity_factor
+            export_factor = (
+                (1.0 + configuration.export_price_growth)
+                ** (year - 1)
             )
+
+            self_consumption_savings = (
+                configuration
+                .annual_pv_self_consumption_savings_eur
+            )
+
+            export_compensation = (
+                configuration
+                .annual_export_compensation_eur
+            )
+
+            if (
+                self_consumption_savings is not None
+                and export_compensation is not None
+            ):
+                pv_savings = pv_factor * (
+                    self_consumption_savings
+                    * electricity_factor
+                    + export_compensation
+                    * export_factor
+                )
+            else:
+                # Compatibilidad con configuraciones existentes
+                # que solo proporcionan el ahorro FV agregado.
+                pv_savings = (
+                    configuration.annual_pv_savings_eur
+                    * pv_factor
+                    * electricity_factor
+                )
 
             battery_savings = (
                 configuration.annual_battery_additional_savings_eur

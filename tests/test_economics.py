@@ -1688,6 +1688,41 @@ class TestEconomicsFactors:
 
         assert result == pytest.approx(0.0)
 
+    def test_export_income_for_balance_respects_monthly_cap_without_mutating_state(
+        self,
+    ):
+        index = pd.date_range(
+            "2025-01-01",
+            periods=2,
+            freq="h",
+        )
+
+        energy_balance = pd.DataFrame(
+            {
+                "grid_import_kwh": [10.0, 0.0],
+                "grid_export_kwh": [0.0, 100.0],
+            },
+            index=index,
+        )
+
+        tariff_data = pd.DataFrame(
+            {
+                "buy_price_eur_kwh": [0.20, 0.20],
+                "sell_price_eur_kwh": [0.10, 0.10],
+            },
+            index=index,
+        )
+
+        engine = EconomicsEngine()
+
+        result = engine.calculate_export_income_for_balance(
+            energy_balance,
+            tariff_data,
+        )
+
+        assert result == pytest.approx(2.0)
+        assert engine.export_income is None
+
 
 # ==========================================================
 # Cash Flow
