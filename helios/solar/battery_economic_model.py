@@ -30,6 +30,12 @@ class BatteryEconomicConfiguration:
     maintenance_growth: float = 0.02
 
     discount_rate: float = 0.05
+
+    # Desglose opcional del ahorro incremental de la batería.
+    # None conserva el comportamiento de los llamadores antiguos.
+    annual_import_savings_eur: float | None = None
+    annual_export_compensation_lost_eur: float | None = None
+
 @dataclass(frozen=True)
 class BatteryEconomicResult:
     cash_flows: list[float]
@@ -67,6 +73,9 @@ class CombinedEconomicConfiguration:
     maintenance_growth: float = 0.02
 
     discount_rate: float = 0.05
+
+    annual_import_savings_eur: float | None = None
+    annual_export_compensation_lost_eur: float | None = None
 
 @dataclass(frozen=True)
 class CombinedEconomicResult:
@@ -139,12 +148,28 @@ class BatteryEconomicModel:
                 ** (year - 1)
             )
 
-            savings = (
-                configuration.annual_savings_eur
-                * pv_factor
-                * battery_factor
-                * electricity_factor
-            )
+            if (
+                configuration.annual_import_savings_eur is not None
+                and configuration.annual_export_compensation_lost_eur
+                is not None
+            ):
+                savings = pv_factor * battery_factor * (
+                    configuration.annual_import_savings_eur
+                    * electricity_factor
+                    - configuration.annual_export_compensation_lost_eur
+                    * (
+                        (1.0 + configuration.export_price_growth)
+                        ** (year - 1)
+                    )
+                )
+            else:
+                # Compatibilidad con configuraciones existentes.
+                savings = (
+                    configuration.annual_savings_eur
+                    * pv_factor
+                    * battery_factor
+                    * electricity_factor
+                )
 
             # ---------------------------------------------------------
             # Maintenance
@@ -324,12 +349,29 @@ class BatteryEconomicModel:
                     * electricity_factor
                 )
 
-            battery_savings = (
-                configuration.annual_battery_additional_savings_eur
-                * pv_factor
-                * battery_factor
-                * electricity_factor
-            )
+            if (
+                configuration.annual_import_savings_eur is not None
+                and configuration.annual_export_compensation_lost_eur
+                is not None
+            ):
+                battery_savings = (
+                    pv_factor
+                    * battery_factor
+                    * (
+                        configuration.annual_import_savings_eur
+                        * electricity_factor
+                        - configuration.annual_export_compensation_lost_eur
+                        * export_factor
+                    )
+                )
+            else:
+                # Compatibilidad con configuraciones existentes.
+                battery_savings = (
+                    configuration.annual_battery_additional_savings_eur
+                    * pv_factor
+                    * battery_factor
+                    * electricity_factor
+                )
 
             maintenance = (
                 (

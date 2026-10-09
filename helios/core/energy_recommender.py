@@ -59,6 +59,9 @@ class EnergyRecommender:
             | None
         ) = None,
         cost_calculator: Callable[[object], float] | None = None,
+        export_income_calculator: (
+            Callable[[object], float] | None
+        ) = None,
         ev_scenario: EVScenario | None = None,
         optimization_criterion: str = "combined_npv",
         charge_efficiency: float = 0.95,
@@ -103,8 +106,14 @@ class EnergyRecommender:
                     )
 
             annual_cost_without_battery_eur = None
+            annual_export_income_without_battery_eur = None
 
-            if cost_calculator is not None:
+            baseline_balance = None
+
+            if (
+                cost_calculator is not None
+                or export_income_calculator is not None
+            ):
                 baseline_balance = SolarBalanceEngine.calculate(
                     consumption_scenario,
                     production_profile,
@@ -112,8 +121,14 @@ class EnergyRecommender:
                     ev_scenario,
                 )
 
+            if cost_calculator is not None:
                 annual_cost_without_battery_eur = float(
                     cost_calculator(baseline_balance)
+                )
+
+            if export_income_calculator is not None:
+                annual_export_income_without_battery_eur = float(
+                    export_income_calculator(baseline_balance)
                 )
 
             battery_recommendation = (
@@ -138,6 +153,12 @@ class EnergyRecommender:
                     cost_calculator=cost_calculator,
                     combined_economic_configuration=(
                         combined_economic_configuration
+                    ),
+                    annual_export_income_without_battery_eur=(
+                        annual_export_income_without_battery_eur
+                    ),
+                    export_income_calculator=(
+                        export_income_calculator
                     ),
                     ev_scenario=ev_scenario,
                 )

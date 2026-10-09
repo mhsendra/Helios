@@ -3129,6 +3129,55 @@ class TestEconomicsCosts:
             555.0
         )
 
+    def test_cost_and_export_income_are_consistent(self):
+        index = pd.date_range(
+            "2025-01-01",
+            periods=2,
+            freq="h",
+        )
+
+        energy_balance = pd.DataFrame(
+            {
+                "grid_import_kwh": [2.0, 3.0],
+                "grid_export_kwh": [1.0, 4.0],
+            },
+            index=index,
+        )
+
+        tariff_data = pd.DataFrame(
+            {
+                "buy_price_eur_kwh": [0.20, 0.30],
+                "sell_price_eur_kwh": [0.10, 0.10],
+            },
+            index=index,
+        )
+
+        net_cost = self.engine.calculate_cost_with_balance(
+            energy_balance,
+            tariff_data,
+        )
+
+        export_income = (
+            self.engine.calculate_export_income_for_balance(
+                energy_balance,
+                tariff_data,
+            )
+        )
+
+        gross_import_cost = (
+            2.0 * 0.20
+            + 3.0 * 0.30
+        )
+
+        assert export_income == pytest.approx(0.50)
+
+        assert net_cost == pytest.approx(0.80)
+
+        assert (
+            net_cost + export_income
+            == pytest.approx(gross_import_cost)
+        )
+
 
 # ==========================================================
 # Inversión

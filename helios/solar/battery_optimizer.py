@@ -101,8 +101,10 @@ class BatteryOptimizer:
         combined_economic_configuration: (
             CombinedEconomicConfiguration | None
         ) = None,
+        annual_export_income_without_battery_eur: float | None = None,
+        export_income_calculator=None,
         ev_scenario: EVScenario | None = None,
-    ) -> list[BatteryRecommendation]:
+        ) -> list[BatteryRecommendation]:
 
         recommendations = []
 
@@ -144,9 +146,42 @@ class BatteryOptimizer:
                     annual_cost_without_battery_eur
                     - annual_cost_with_battery
                 )
-
             else:
                 annual_additional_savings = 0.0
+
+            annual_import_savings_eur = None
+            annual_export_compensation_lost_eur = None
+
+            if (
+                annual_cost_without_battery_eur is not None
+                and annual_export_income_without_battery_eur
+                is not None
+                and export_income_calculator is not None
+                and cost_calculator is not None
+            ):
+                annual_export_income_with_battery_eur = float(
+                    export_income_calculator(result)
+                )
+
+                import_cost_without_battery_eur = (
+                    annual_cost_without_battery_eur
+                    + annual_export_income_without_battery_eur
+                )
+
+                import_cost_with_battery_eur = (
+                    annual_cost_with_battery
+                    + annual_export_income_with_battery_eur
+                )
+
+                annual_import_savings_eur = (
+                    import_cost_without_battery_eur
+                    - import_cost_with_battery_eur
+                )
+
+                annual_export_compensation_lost_eur = (
+                    annual_export_income_without_battery_eur
+                    - annual_export_income_with_battery_eur
+                )
 
             annual_consumption = float(
                 result["consumption_kwh"].sum()
@@ -274,6 +309,12 @@ class BatteryOptimizer:
                     annual_savings_eur=(
                         annual_additional_savings
                     ),
+                    annual_import_savings_eur=(
+                        annual_import_savings_eur
+                    ),
+                    annual_export_compensation_lost_eur=(
+                        annual_export_compensation_lost_eur
+                    ),
                 )
 
                 economic_result = (
@@ -308,6 +349,12 @@ class BatteryOptimizer:
                     battery_cost_eur=battery_cost_eur,
                     annual_battery_additional_savings_eur=(
                         annual_additional_savings
+                    ),
+                    annual_import_savings_eur=(
+                        annual_import_savings_eur
+                    ),
+                    annual_export_compensation_lost_eur=(
+                        annual_export_compensation_lost_eur
                     ),
                 )
 
@@ -410,6 +457,8 @@ class BatteryOptimizer:
         combined_economic_configuration: (
             CombinedEconomicConfiguration | None
         ) = None,
+        annual_export_income_without_battery_eur: float | None = None,
+        export_income_calculator=None,
         ev_scenario: EVScenario | None = None,
     ) -> list[BatteryRecommendation]:
 
@@ -477,6 +526,10 @@ class BatteryOptimizer:
             combined_economic_configuration=(
                 combined_economic_configuration
             ),
+            annual_export_income_without_battery_eur=(
+                annual_export_income_without_battery_eur
+            ),
+            export_income_calculator=export_income_calculator,
             ev_scenario=ev_scenario,
         )
 
@@ -504,6 +557,8 @@ class BatteryOptimizer:
             CombinedEconomicConfiguration | None
         ) = None,
         ev_scenario: EVScenario | None = None,
+        annual_export_income_without_battery_eur: float | None = None,
+        export_income_calculator=None,
     ) -> BatteryRecommendation:
 
         recommendations = self.evaluate(
@@ -528,6 +583,10 @@ class BatteryOptimizer:
             combined_economic_configuration=(
                 combined_economic_configuration
             ),
+            annual_export_income_without_battery_eur=(
+                annual_export_income_without_battery_eur
+            ),
+            export_income_calculator=export_income_calculator,
             ev_scenario=ev_scenario,
         )
 
