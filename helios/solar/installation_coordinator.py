@@ -336,6 +336,18 @@ class InstallationCoordinator:
             )
 
         if (
+            economics_configuration is not None
+            and not isinstance(
+                economics_configuration,
+                EconomicsConfiguration,
+            )
+        ):
+            raise TypeError(
+                "economics_configuration must be "
+                "an EconomicsConfiguration."
+            )
+
+        if (
             installation_cost_configuration is not None
             and economic_configuration_factory is not None
         ):
@@ -346,13 +358,20 @@ class InstallationCoordinator:
 
         if (
             economics_configuration is not None
-            and not isinstance(
-                economics_configuration,
-                EconomicsConfiguration,
-            )
+            and economic_configuration_factory is not None
         ):
-            raise TypeError(
-                "economics_configuration must be an EconomicsConfiguration."
+            raise ValueError(
+                "economics_configuration and "
+                "economic_configuration_factory are mutually exclusive."
+            )
+
+        if (
+            economics_configuration is not None
+            and installation_cost_configuration is None
+        ):
+            raise ValueError(
+                "economics_configuration requires "
+                "installation_cost_configuration."
             )
 
         if installation_cost_configuration is not None:
@@ -437,29 +456,6 @@ class InstallationCoordinator:
 
             economic_configuration_factory = (
                 build_economic_configuration
-            )
-
-        if (
-            economics_configuration is not None
-            and not isinstance(
-                economics_configuration,
-                EconomicsConfiguration,
-            )
-        ):
-            raise TypeError(
-                "economics_configuration must be an "
-                "EconomicsConfiguration."
-            )
-
-        if (
-            economics_configuration is not None
-            and not isinstance(
-                economics_configuration,
-                EconomicsConfiguration,
-            )
-        ):
-            raise TypeError(
-                "economics_configuration must be an EconomicsConfiguration."
             )
 
         constraints = configuration.to_constraints()

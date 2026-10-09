@@ -207,15 +207,22 @@ class InstallationCostConfiguration:
         evaluation: InstallationEvaluation,
     ) -> float:
         """
-        Calcula el coste de estructura/soportes.
+        Calcula el coste total modelado de la instalación.
 
-        La evaluación física completa se recibe deliberadamente
-        aunque la fórmula actual utilice únicamente el número de
-        paneles.
+        Incluye:
+        - paneles;
+        - estructura y soportes;
+        - mano de obra e instalación;
+        - inversor;
+        - protecciones eléctricas;
+        - cableado.
 
-        Esto permite sustituir posteriormente el modelo unitario
-        por un modelo basado en la geometría real del layout
-        sin modificar la interfaz económica.
+        El coste de legalización se calcula por separado mediante
+        calculate_legalization_cost() y se añade al construir
+        la configuración económica.
+
+        Los importes dependen de los valores definidos en
+        InstallationCostConfiguration.
         """
 
         if not isinstance(
