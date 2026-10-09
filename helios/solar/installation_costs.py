@@ -7,6 +7,8 @@ from helios.solar.installation_evaluation import (
     InstallationEvaluation,
 )
 
+import math
+
 @dataclass(frozen=True)
 class InstallationCostConfiguration:
     """
@@ -45,132 +47,37 @@ class InstallationCostConfiguration:
     legalization_cost_eur: float = 0.0
 
     def __post_init__(self) -> None:
+        fields = (
+            ("panel_unit_cost_eur", self.panel_unit_cost_eur),
+            ("structure_unit_cost_eur", self.structure_unit_cost_eur),
+            ("installation_cost_eur", self.installation_cost_eur),
+            ("inverter_unit_cost_eur", self.inverter_unit_cost_eur),
+            (
+                "electrical_protection_cost_eur",
+                self.electrical_protection_cost_eur,
+            ),
+            ("cabling_cost_eur", self.cabling_cost_eur),
+            ("legalization_cost_eur", self.legalization_cost_eur),
+        )
 
-        if isinstance(self.panel_unit_cost_eur, bool):
-            raise TypeError(
-                "panel_unit_cost_eur must be numeric."
-            )
+        for name, value in fields:
+            if isinstance(value, bool) or not isinstance(
+                value,
+                (int, float),
+            ):
+                raise TypeError(
+                    f"{name} must be numeric."
+                )
 
-        if not isinstance(
-            self.panel_unit_cost_eur,
-            (int, float),
-        ):
-            raise TypeError(
-                "panel_unit_cost_eur must be numeric."
-            )
+            if not math.isfinite(value):
+                raise ValueError(
+                    f"{name} must be finite."
+                )
 
-        if self.panel_unit_cost_eur < 0:
-            raise ValueError(
-                "panel_unit_cost_eur cannot be negative."
-            )
-
-        if isinstance(self.structure_unit_cost_eur, bool):
-            raise TypeError(
-                "structure_unit_cost_eur must be numeric."
-            )
-
-        if not isinstance(
-            self.structure_unit_cost_eur,
-            (int, float),
-        ):
-            raise TypeError(
-                "structure_unit_cost_eur must be numeric."
-            )
-
-        if self.structure_unit_cost_eur < 0:
-            raise ValueError(
-                "structure_unit_cost_eur cannot be negative."
-            )
-
-        if isinstance(self.installation_cost_eur, bool):
-            raise TypeError(
-                "installation_cost_eur must be numeric."
-            )
-
-        if not isinstance(
-            self.installation_cost_eur,
-            (int, float),
-        ):
-            raise TypeError(
-                "installation_cost_eur must be numeric."
-            )
-
-        if self.installation_cost_eur < 0:
-            raise ValueError(
-                "installation_cost_eur cannot be negative."
-            )
-
-        if isinstance(self.inverter_unit_cost_eur, bool):
-            raise TypeError(
-                "inverter_unit_cost_eur must be numeric."
-            )
-
-        if not isinstance(
-            self.inverter_unit_cost_eur,
-            (int, float),
-        ):
-            raise TypeError(
-                "inverter_unit_cost_eur must be numeric."
-            )
-
-        if self.inverter_unit_cost_eur < 0:
-            raise ValueError(
-                "inverter_unit_cost_eur cannot be negative."
-            )
-
-        if isinstance(self.electrical_protection_cost_eur, bool):
-            raise TypeError(
-                "electrical_protection_cost_eur must be numeric."
-            )
-
-        if not isinstance(
-            self.electrical_protection_cost_eur,
-            (int, float),
-        ):
-            raise TypeError(
-                "electrical_protection_cost_eur must be numeric."
-            )
-
-        if self.electrical_protection_cost_eur < 0:
-            raise ValueError(
-                "electrical_protection_cost_eur cannot be negative."
-            )
-
-        if isinstance(self.cabling_cost_eur, bool):
-            raise TypeError(
-                "cabling_cost_eur must be numeric."
-            )
-
-        if not isinstance(
-            self.cabling_cost_eur,
-            (int, float),
-        ):
-            raise TypeError(
-                "cabling_cost_eur must be numeric."
-            )
-
-        if self.cabling_cost_eur < 0:
-            raise ValueError(
-                "cabling_cost_eur cannot be negative."
-            )
-
-        if isinstance(self.legalization_cost_eur, bool):
-            raise TypeError(
-                "legalization_cost_eur must be numeric."
-            )
-
-        if not isinstance(
-            self.legalization_cost_eur,
-            (int, float),
-        ):
-            raise TypeError(
-                "legalization_cost_eur must be numeric."
-            )
-
-        if self.legalization_cost_eur < 0:
-            raise ValueError(
-                "legalization_cost_eur cannot be negative."
-            )
+            if value < 0:
+                raise ValueError(
+                    f"{name} cannot be negative."
+                )
 
     def calculate_panel_cost(
         self,
@@ -207,22 +114,13 @@ class InstallationCostConfiguration:
         evaluation: InstallationEvaluation,
     ) -> float:
         """
-        Calcula el coste total modelado de la instalación.
+        Calcula el coste de la estructura y los soportes.
 
-        Incluye:
-        - paneles;
-        - estructura y soportes;
-        - mano de obra e instalación;
-        - inversor;
-        - protecciones eléctricas;
-        - cableado.
+        El importe se obtiene multiplicando el número de paneles
+        de la evaluación por el coste unitario de estructura.
 
-        El coste de legalización se calcula por separado mediante
-        calculate_legalization_cost() y se añade al construir
-        la configuración económica.
-
-        Los importes dependen de los valores definidos en
-        InstallationCostConfiguration.
+        No incluye paneles, mano de obra, inversor, protecciones,
+        cableado ni legalización.
         """
 
         if not isinstance(
@@ -323,14 +221,21 @@ class InstallationCostConfiguration:
         evaluation: InstallationEvaluation,
     ) -> float:
         """
-        Calcula el coste actualmente modelado de la instalación.
+        Calcula el coste total modelado de la instalación.
 
         Incluye:
-
         - paneles;
-        - estructura/soportes.
+        - estructura y soportes;
+        - mano de obra e instalación;
+        - inversor;
+        - protecciones eléctricas;
+        - cableado.
 
-        Los demás componentes se añadirán posteriormente.
+        Excluye la legalización, que se calcula por separado
+        mediante calculate_legalization_cost() y se añade al
+        construir la configuración económica.
+
+        Los importes dependen de InstallationCostConfiguration.
         """
 
         return (

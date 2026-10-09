@@ -390,3 +390,38 @@ def test_legalization_cost_is_included_in_economic_configuration():
     assert economic.installation_cost_eur == (
         1500.0 + 650.0
     )
+
+@pytest.mark.parametrize(
+    "field_name",
+    [
+        "panel_unit_cost_eur",
+        "structure_unit_cost_eur",
+        "installation_cost_eur",
+        "inverter_unit_cost_eur",
+        "electrical_protection_cost_eur",
+        "cabling_cost_eur",
+        "legalization_cost_eur",
+    ],
+)
+@pytest.mark.parametrize(
+    "invalid_value",
+    [
+        float("nan"),
+        float("inf"),
+        float("-inf"),
+    ],
+)
+def test_configuration_rejects_non_finite_costs(
+    field_name,
+    invalid_value,
+):
+    values = {
+        "panel_unit_cost_eur": 100.0,
+    }
+    values[field_name] = invalid_value
+
+    with pytest.raises(
+        ValueError,
+        match="must be finite",
+    ):
+        InstallationCostConfiguration(**values)
