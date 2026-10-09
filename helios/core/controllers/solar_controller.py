@@ -1240,6 +1240,9 @@ class SolarController:
             economic_configuration_factory=(
                 economic_configuration_factory
             ),
+            cost_calculator=(
+                self.analyzer.economics.calculate_cost_with_balance
+            ),
             ev_scenario=ev_scenario,
             optimization_criterion=(
                 optimization_criterion

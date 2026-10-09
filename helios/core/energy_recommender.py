@@ -10,6 +10,7 @@ from helios.solar.battery_optimizer import BatteryOptimizer
 from helios.solar.installation_evaluation import InstallationEvaluation
 from helios.solar.installation_recommendation import InstallationRecommendation
 from helios.solar.production_profile import SolarProductionProfile
+from helios.solar.balance import SolarBalanceEngine
 
 
 class EnergyRecommender:
@@ -57,6 +58,7 @@ class EnergyRecommender:
             ]
             | None
         ) = None,
+        cost_calculator: Callable[[object], float] | None = None,
         ev_scenario: EVScenario | None = None,
         optimization_criterion: str = "combined_npv",
         charge_efficiency: float = 0.95,
@@ -100,6 +102,20 @@ class EnergyRecommender:
                         "a CombinedEconomicConfiguration."
                     )
 
+            annual_cost_without_battery_eur = None
+
+            if cost_calculator is not None:
+                baseline_balance = SolarBalanceEngine.calculate(
+                    consumption_scenario,
+                    production_profile,
+                    None,
+                    ev_scenario,
+                )
+
+                annual_cost_without_battery_eur = float(
+                    cost_calculator(baseline_balance)
+                )
+
             battery_recommendation = (
                 self.battery_optimizer.optimize(
                     consumption_scenario,
@@ -113,7 +129,13 @@ class EnergyRecommender:
                     min_soc=min_soc,
                     max_soc=max_soc,
                     initial_soc=initial_soc,
-                    battery_cost_per_kwh_eur=battery_cost_per_kwh_eur,
+                    battery_cost_per_kwh_eur=(
+                        battery_cost_per_kwh_eur
+                    ),
+                    annual_cost_without_battery_eur=(
+                        annual_cost_without_battery_eur
+                    ),
+                    cost_calculator=cost_calculator,
                     combined_economic_configuration=(
                         combined_economic_configuration
                     ),

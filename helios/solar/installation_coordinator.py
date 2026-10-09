@@ -214,6 +214,7 @@ class InstallationCoordinator:
         max_charge_power_kw: float,
         max_discharge_power_kw: float,
         battery_cost_per_kwh_eur: float = 249.70,
+        cost_calculator: Callable[[object], float] | None = None,
         economic_configuration_factory: (
             Callable[
                 [
@@ -493,6 +494,7 @@ class InstallationCoordinator:
             economic_configuration_factory=(
                 economic_configuration_factory
             ),
+            cost_calculator=cost_calculator,
             ev_scenario=ev_scenario,
             optimization_criterion=(
                 optimization_criterion

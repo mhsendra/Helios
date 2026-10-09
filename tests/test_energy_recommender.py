@@ -9,6 +9,7 @@ from helios.core.energy_recommender import EnergyRecommender
 
 from helios.ev.scenario import EVScenario
 
+from helios.solar.balance import SolarBalanceEngine
 from helios.solar.battery_economic_model import (
     CombinedEconomicConfiguration,
 )
@@ -1089,3 +1090,108 @@ class TestEnergyRecommender:
                 max_charge_power_kw=5.0,
                 max_discharge_power_kw=5.0,
             )
+
+    def test_passes_baseline_cost_and_cost_calculator_to_optimizer(
+        self,
+        monkeypatch,
+    ):
+        consumption = _consumption_scenario()
+
+        evaluation = _evaluation(
+            panel_count=15,
+            installed_power_kwp=8.1,
+        )
+
+        profile = _production_profile(
+            installed_power_kwp=8.1,
+            annual_production_kwh=12000.0,
+        )
+
+        baseline_marker = object()
+        balance_calls = []
+
+        def fake_calculate(
+            consumption_scenario,
+            production_profile,
+            battery_configuration=None,
+            ev_scenario=None,
+        ):
+            balance_calls.append(
+                {
+                    "consumption_scenario": consumption_scenario,
+                    "production_profile": production_profile,
+                    "battery_configuration": battery_configuration,
+                    "ev_scenario": ev_scenario,
+                }
+            )
+
+            if battery_configuration is None:
+                return baseline_marker
+
+            raise AssertionError(
+                "The recommender should only calculate "
+                "the baseline balance without a battery."
+            )
+
+        monkeypatch.setattr(
+            SolarBalanceEngine,
+            "calculate",
+            staticmethod(fake_calculate),
+        )
+
+        def cost_calculator(balance):
+            assert balance is baseline_marker
+            return 987.65
+
+        optimizer = FakeBatteryOptimizer(
+            {
+                8.1: _battery_recommendation(
+                    8.3,
+                    4200.0,
+                )
+            }
+        )
+
+        recommender = EnergyRecommender(
+            battery_optimizer=optimizer,
+        )
+
+        recommender.recommend(
+            evaluations=[evaluation],
+            annual_consumption_kwh=8760.0,
+            consumption_scenario=consumption,
+            production_profiles={15: profile},
+            candidate_capacities_kwh=[8.3],
+            max_charge_power_kw=5.0,
+            max_discharge_power_kw=5.0,
+            cost_calculator=cost_calculator,
+        )
+
+        optimizer_kwargs = optimizer.calls[0]["kwargs"]
+
+        assert (
+            optimizer_kwargs["annual_cost_without_battery_eur"]
+            == pytest.approx(987.65)
+        )
+
+        assert (
+            optimizer_kwargs["cost_calculator"]
+            is cost_calculator
+        )
+
+        assert len(balance_calls) == 1
+
+        assert (
+            balance_calls[0]["consumption_scenario"]
+            is consumption
+        )
+
+        assert (
+            balance_calls[0]["production_profile"]
+            is profile
+        )
+
+        assert (
+            balance_calls[0]["battery_configuration"]
+            is None
+        )
