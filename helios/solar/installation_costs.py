@@ -10,17 +10,24 @@ from helios.solar.installation_evaluation import (
 @dataclass(frozen=True)
 class InstallationCostConfiguration:
     """
-    Configuración de costes unitarios de una instalación FV.
+    Configuración de costes de una instalación fotovoltaica.
 
-    Los costes se calculan a partir de la evaluación física del
-    candidato optimizado.
+    Permite definir los costes unitarios de los paneles y la
+    estructura, así como los costes fijos de instalación,
+    inversor, protecciones eléctricas, cableado y legalización.
 
-    En esta fase se modelan:
+    La configuración permite calcular el coste de la instalación
+    a partir de una InstallationEvaluation y construir la
+    configuración económica inicial para evaluar su rentabilidad.
 
-    - paneles;
-    - estructura/soportes.
+    Los costes de instalación incluyen paneles, estructura,
+    mano de obra, inversor, protecciones eléctricas y cableado.
+    El coste de legalización se calcula por separado y se añade
+    al construir la configuración económica.
 
-    Los demás componentes se incorporarán posteriormente.
+    Esta clase no calcula el ahorro energético ni el retorno
+    económico: esos cálculos corresponden a las capas de
+    análisis económico.
     """
 
     panel_unit_cost_eur: float

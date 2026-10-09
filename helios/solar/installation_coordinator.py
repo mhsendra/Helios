@@ -344,6 +344,17 @@ class InstallationCoordinator:
                 "economic_configuration_factory are mutually exclusive."
             )
 
+        if (
+            economics_configuration is not None
+            and not isinstance(
+                economics_configuration,
+                EconomicsConfiguration,
+            )
+        ):
+            raise TypeError(
+                "economics_configuration must be an EconomicsConfiguration."
+            )
+
         if installation_cost_configuration is not None:
 
             def build_economic_configuration(
@@ -441,21 +452,14 @@ class InstallationCoordinator:
             )
 
         if (
-            annual_pv_savings_calculator is not None
-            and not callable(
-                annual_pv_savings_calculator
+            economics_configuration is not None
+            and not isinstance(
+                economics_configuration,
+                EconomicsConfiguration,
             )
         ):
             raise TypeError(
-                "annual_pv_savings_calculator must be callable."
-            )
-        
-        if (
-            annual_pv_savings_calculator is not None
-            and not callable(annual_pv_savings_calculator)
-        ):
-            raise TypeError(
-                "annual_pv_savings_calculator must be callable."
+                "economics_configuration must be an EconomicsConfiguration."
             )
 
         constraints = configuration.to_constraints()
