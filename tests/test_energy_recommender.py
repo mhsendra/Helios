@@ -991,3 +991,101 @@ class TestEnergyRecommender:
             ]
             == economic_configurations[8.1]
         )
+
+    @pytest.mark.parametrize(
+        "annual_consumption",
+        [
+            float("nan"),
+            float("inf"),
+            float("-inf"),
+        ],
+    )
+    def test_rejects_non_finite_annual_consumption(
+        self,
+        annual_consumption,
+    ):
+        evaluation = _evaluation(
+            panel_count=15,
+            installed_power_kwp=8.1,
+        )
+        recommender = EnergyRecommender(
+            battery_optimizer=FakeBatteryOptimizer({})
+        )
+
+        with pytest.raises(
+            ValueError,
+            match="finite non-negative number",
+        ):
+            recommender.recommend(
+                evaluations=[evaluation],
+                annual_consumption_kwh=annual_consumption,
+                consumption_scenario=_consumption_scenario(),
+                production_profiles={
+                    15: _production_profile(8.1, 12000.0),
+                },
+                candidate_capacities_kwh=[8.3],
+                max_charge_power_kw=5.0,
+                max_discharge_power_kw=5.0,
+            )
+
+    @pytest.mark.parametrize(
+        "capacities",
+        [
+            [0],
+            [-5.0],
+            [float("nan")],
+            [float("inf")],
+        ],
+    )
+    def test_rejects_invalid_battery_capacities(
+        self,
+        capacities,
+    ):
+        evaluation = _evaluation(
+            panel_count=15,
+            installed_power_kwp=8.1,
+        )
+        recommender = EnergyRecommender(
+            battery_optimizer=FakeBatteryOptimizer({})
+        )
+
+        with pytest.raises(
+            ValueError,
+            match="finite and greater than zero",
+        ):
+            recommender.recommend(
+                evaluations=[evaluation],
+                annual_consumption_kwh=8760.0,
+                consumption_scenario=_consumption_scenario(),
+                production_profiles={
+                    15: _production_profile(8.1, 12000.0),
+                },
+                candidate_capacities_kwh=capacities,
+                max_charge_power_kw=5.0,
+                max_discharge_power_kw=5.0,
+            )
+
+    def test_rejects_non_numeric_battery_capacity(self):
+        evaluation = _evaluation(
+            panel_count=15,
+            installed_power_kwp=8.1,
+        )
+        recommender = EnergyRecommender(
+            battery_optimizer=FakeBatteryOptimizer({})
+        )
+
+        with pytest.raises(
+            TypeError,
+            match="Battery capacities must be numeric",
+        ):
+            recommender.recommend(
+                evaluations=[evaluation],
+                annual_consumption_kwh=8760.0,
+                consumption_scenario=_consumption_scenario(),
+                production_profiles={
+                    15: _production_profile(8.1, 12000.0),
+                },
+                candidate_capacities_kwh=["8.3"],
+                max_charge_power_kw=5.0,
+                max_discharge_power_kw=5.0,
+            )

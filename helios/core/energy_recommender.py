@@ -1,5 +1,6 @@
 from collections.abc import Callable
 from dataclasses import replace
+import math
 
 from helios.core.consumption_scenario import ConsumptionScenario
 from helios.core.energy_recommendation import EnergyRecommendation
@@ -277,11 +278,18 @@ class EnergyRecommender:
                 annual_consumption_kwh,
                 (int, float),
             )
+        ):
+            raise TypeError(
+                "annual_consumption_kwh must be a number."
+            )
+
+        if (
+            not math.isfinite(annual_consumption_kwh)
             or annual_consumption_kwh < 0
         ):
             raise ValueError(
                 "annual_consumption_kwh must be a "
-                "non-negative number."
+                "finite non-negative number."
             )
 
         if not isinstance(
@@ -308,10 +316,33 @@ class EnergyRecommender:
                     "SolarProductionProfile instances."
                 )
 
+        if not isinstance(candidate_capacities_kwh, list):
+            raise TypeError(
+                "candidate_capacities_kwh must be a list."
+            )
+
         if not candidate_capacities_kwh:
             raise ValueError(
                 "candidate_capacities_kwh must not be empty."
             )
+
+        for capacity in candidate_capacities_kwh:
+            if (
+                isinstance(capacity, bool)
+                or not isinstance(capacity, (int, float))
+            ):
+                raise TypeError(
+                    "Battery capacities must be numeric."
+                )
+
+            if (
+                not math.isfinite(capacity)
+                or capacity <= 0
+            ):
+                raise ValueError(
+                    "Battery capacities must be finite "
+                    "and greater than zero."
+                )
 
         if ev_scenario is not None and not isinstance(
             ev_scenario,
