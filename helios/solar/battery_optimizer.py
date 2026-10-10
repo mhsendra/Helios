@@ -397,6 +397,12 @@ class BatteryOptimizer:
                     annual_additional_savings_eur=(
                         annual_additional_savings
                     ),
+                    annual_import_savings_eur=(
+                        annual_import_savings_eur
+                    ),
+                    annual_export_compensation_lost_eur=(
+                        annual_export_compensation_lost_eur
+                    ),
                     marginal_recovered_kwh_per_kwh=(
                         marginal_recovered_kwh_per_kwh
                     ),

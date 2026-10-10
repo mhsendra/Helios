@@ -68,3 +68,10 @@ class BatteryReportData:
     combined_economic_npv_eur: float
     combined_economic_irr_percent: float
     combined_economic_payback_years: float
+
+    # ==================================================
+    # Desglose del ahorro incremental de la batería
+    # ==================================================
+
+    annual_import_savings_eur: float | None = None
+    annual_export_compensation_lost_eur: float | None = None

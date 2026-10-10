@@ -1195,3 +1195,82 @@ class TestEnergyRecommender:
             balance_calls[0]["battery_configuration"]
             is None
         )
+
+    def test_passes_baseline_export_income_to_optimizer(
+        self,
+        monkeypatch,
+    ):
+        consumption = _consumption_scenario()
+        evaluation = _evaluation(
+            panel_count=15,
+            installed_power_kwp=8.1,
+        )
+        profile = _production_profile(
+            installed_power_kwp=8.1,
+            annual_production_kwh=12000.0,
+        )
+
+        baseline_marker = object()
+        balance_calls = []
+
+        def fake_calculate(
+            consumption_scenario,
+            production_profile,
+            battery_configuration=None,
+            ev_scenario=None,
+        ):
+            balance_calls.append(battery_configuration)
+
+            assert consumption_scenario is consumption
+            assert production_profile is profile
+            assert battery_configuration is None
+
+            return baseline_marker
+
+        monkeypatch.setattr(
+            SolarBalanceEngine,
+            "calculate",
+            staticmethod(fake_calculate),
+        )
+
+        def export_income_calculator(balance):
+            assert balance is baseline_marker
+            return 200.0
+
+        optimizer = FakeBatteryOptimizer(
+            {
+                8.1: _battery_recommendation(
+                    8.3,
+                    4200.0,
+                )
+            }
+        )
+
+        recommender = EnergyRecommender(
+            battery_optimizer=optimizer,
+        )
+
+        recommender.recommend(
+            evaluations=[evaluation],
+            annual_consumption_kwh=8760.0,
+            consumption_scenario=consumption,
+            production_profiles={15: profile},
+            candidate_capacities_kwh=[8.3],
+            max_charge_power_kw=5.0,
+            max_discharge_power_kw=5.0,
+            export_income_calculator=export_income_calculator,
+        )
+
+        optimizer_kwargs = optimizer.calls[0]["kwargs"]
+
+        assert (
+            optimizer_kwargs[
+                "annual_export_income_without_battery_eur"
+            ]
+            == pytest.approx(200.0)
+        )
+        assert (
+            optimizer_kwargs["export_income_calculator"]
+            is export_income_calculator
+        )
+        assert balance_calls == [None]

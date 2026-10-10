@@ -2,6 +2,8 @@ from types import SimpleNamespace
 
 import pandas as pd
 
+import pytest
+
 from helios.reports.solar_report_data import SolarReportData
 from helios.reports.solar_report_data_builder import (
     SolarReportDataBuilder,
@@ -82,6 +84,8 @@ class TestSolarReportDataBuilder:
                 equivalent_cycles=357.47,
                 annual_cost_with_battery_eur=320.86,
                 annual_additional_savings_eur=102.38,
+                annual_import_savings_eur=150.0,
+                annual_export_compensation_lost_eur=47.62,
                 marginal_recovered_kwh_per_kwh=0.0,
                 incremental_battery_cost_eur=0.0,
                 incremental_savings_eur=0.0,
@@ -415,6 +419,12 @@ class TestSolarReportDataBuilder:
             )
             assert result_item.annual_additional_savings_eur == (
                 source_item.annual_additional_savings_eur
+            )
+            assert result_item.annual_import_savings_eur == pytest.approx(
+                150.0
+            )
+            assert result_item.annual_export_compensation_lost_eur == pytest.approx(
+                47.62
             )
             assert result_item.marginal_recovered_kwh_per_kwh == (
                 source_item.marginal_recovered_kwh_per_kwh

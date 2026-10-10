@@ -25,6 +25,10 @@ class BatteryRecommendation:
     annual_cost_with_battery_eur: float = 0.0
     annual_additional_savings_eur: float = 0.0
 
+    # Desglose del ahorro incremental de la batería.
+    annual_import_savings_eur: float | None = None
+    annual_export_compensation_lost_eur: float | None = None
+
     marginal_recovered_kwh_per_kwh: float = 0.0
 
     incremental_battery_cost_eur: float = 0.0

@@ -2,6 +2,8 @@ import pandas as pd
 
 import pytest
 
+from dataclasses import replace
+
 from helios.reports.solar_report_data import SolarReportData
 from helios.reports.solar_report_text import SolarReportText
 from helios.reports.battery_report_data import BatteryReportData
@@ -555,6 +557,37 @@ class TestSolarReportText:
         assert "ahorro marginal por kWh" in text
         assert "periodo de recuperación marginal" in text
         assert "Economía conjunta FV + batería" not in text
+
+    def test_battery_analysis_includes_savings_breakdown(self):
+        data = self._report_data()
+
+        recommendations = list(data.battery_recommendations)
+
+        # La batería de 30 kWh es la que tiene mayor ahorro neto.
+        best_index = max(
+            range(len(recommendations)),
+            key=lambda index: (
+                recommendations[index].annual_additional_savings_eur
+            ),
+        )
+
+        recommendations[best_index] = replace(
+            recommendations[best_index],
+            annual_import_savings_eur=220.0,
+            annual_export_compensation_lost_eur=41.03,
+        )
+
+        data = replace(
+            data,
+            battery_recommendations=recommendations,
+        )
+
+        text = SolarReportText.battery_analysis(data)
+
+        assert "220.00 €" in text
+        assert "41.03 €" in text
+        assert "ahorro neto" in text
+        assert "compensación de excedentes no percibida" in text
 
     def test_battery_analysis_handles_empty_results(self):
 

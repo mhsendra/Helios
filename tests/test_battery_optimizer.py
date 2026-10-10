@@ -239,6 +239,35 @@ class TestBatteryOptimizer:
             600.0
         )
 
+    def test_evaluate_preserves_battery_savings_breakdown(self):
+        consumption = make_scenario([1.0] * 8760)
+        production = make_profile([1.0] * 8760)
+
+        recommendation = make_optimizer().evaluate(
+            consumption,
+            production,
+            [5.0],
+            max_charge_power_kw=5.0,
+            max_discharge_power_kw=5.0,
+            annual_cost_without_battery_eur=1000.0,
+            annual_export_income_without_battery_eur=100.0,
+            cost_calculator=lambda result: 400.0,
+            export_income_calculator=lambda result: 50.0,
+        )[0]
+
+        assert recommendation.annual_additional_savings_eur == pytest.approx(
+            600.0
+        )
+
+        assert recommendation.annual_import_savings_eur == pytest.approx(
+            650.0
+        )
+
+        assert (
+            recommendation.annual_export_compensation_lost_eur
+            == pytest.approx(50.0)
+        )
+
     def test_evaluate_calculates_incremental_battery_cost(self):
         consumption = make_scenario([1.0] * 8760)
         production = make_profile([1.0] * 8760)

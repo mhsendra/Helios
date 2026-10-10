@@ -439,6 +439,23 @@ class SolarReportText:
             f"respecto a la instalación fotovoltaica sin batería."
         )
 
+        if (
+            best_additional_savings.annual_import_savings_eur
+            is not None
+            and best_additional_savings.annual_export_compensation_lost_eur
+            is not None
+        ):
+            text += (
+                f" De ese resultado, "
+                f"{best_additional_savings.annual_import_savings_eur:,.2f} € "
+                f"corresponden al ahorro por menor importación de red, "
+                f"mientras que "
+                f"{best_additional_savings.annual_export_compensation_lost_eur:,.2f} € "
+                f"representan la compensación de excedentes no percibida "
+                f"por almacenar esa energía. El ahorro neto ya indicado "
+                f"descuenta este último importe."
+            )
+
         if viable:
             best_economic = max(
                 viable,

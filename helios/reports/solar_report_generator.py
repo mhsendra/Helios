@@ -1294,8 +1294,32 @@ class SolarReportGenerator:
                     (
                         f"{recommendation.annual_cost_with_battery_eur:,.2f} €"
                     ),
-                    (
-                        f"{recommendation.annual_additional_savings_eur:,.2f} €"
+                    Paragraph(
+                        (
+                            f"<b>{recommendation.annual_additional_savings_eur:,.2f} €</b>"
+                            "<br/>"
+                            f"<font size='6'>"
+                            f"Menor importación: "
+                            f"{recommendation.annual_import_savings_eur:,.2f} €"
+                            "<br/>"
+                            f"Compensación perdida: "
+                            f"{recommendation.annual_export_compensation_lost_eur:,.2f} €"
+                            f"</font>"
+                        )
+                        if (
+                            recommendation.annual_import_savings_eur is not None
+                            and recommendation.annual_export_compensation_lost_eur is not None
+                        )
+                        else (
+                            f"{recommendation.annual_additional_savings_eur:,.2f} €"
+                        ),
+                        ParagraphStyle(
+                            name="BatterySavingsBreakdown",
+                            parent=styles["Normal"],
+                            fontSize=7,
+                            leading=8,
+                            alignment=TA_CENTER,
+                        ),
                     ),
                     (
                         f"{recommendation.incremental_battery_cost_eur:,.2f} €"

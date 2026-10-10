@@ -2027,6 +2027,92 @@ class TestInstallationCoordinator:
             is factory
         )
 
+    def test_recommend_energy_propagates_export_income_calculator(
+        self,
+        monkeypatch,
+    ):
+        configuration = self.configuration()
+
+        optimizer = InstallationOptimizer(
+            configuration.to_constraints()
+        )
+
+        evaluator = InstallationEvaluator(
+            configuration.to_constraints()
+        )
+
+        energy_recommender = EnergyRecommender()
+        calls = []
+
+        def recommend(**kwargs):
+            calls.append(kwargs)
+            return object()
+
+        monkeypatch.setattr(
+            energy_recommender,
+            "recommend",
+            recommend,
+        )
+
+        coordinator = InstallationCoordinator(
+            optimizer=optimizer,
+            evaluator=evaluator,
+            recommender=InstallationRecommender(),
+            production_calculator=(
+                lambda candidate: self.make_production_profile(
+                    value=1.0,
+                )
+            ),
+            energy_recommender=energy_recommender,
+        )
+
+        evaluation = InstallationEvaluation(
+            candidate=self.candidate(10),
+            available_area_m2=42.25,
+        )
+
+        production_profile = self.make_production_profile(
+            value=1.0,
+        )
+
+        monkeypatch.setattr(
+            coordinator,
+            "_generate_evaluations",
+            lambda: [evaluation],
+        )
+
+        monkeypatch.setattr(
+            coordinator,
+            "_calculate_productions",
+            lambda evaluations: {
+                10: production_profile,
+            },
+        )
+
+        consumption_scenario = object.__new__(
+            ConsumptionScenario
+        )
+
+        def export_income_calculator(balance):
+            return 200.0
+
+        coordinator.recommend_energy(
+            configuration=configuration,
+            annual_consumption_kwh=8760.0,
+            consumption_scenario=consumption_scenario,
+            candidate_capacities_kwh=[5.0, 8.3],
+            max_charge_power_kw=5.0,
+            max_discharge_power_kw=5.0,
+            export_income_calculator=export_income_calculator,
+        )
+
+        assert len(calls) == 1
+
+        assert (
+            calls[0]["export_income_calculator"]
+            is export_income_calculator
+        )
+
     def test_recommend_energy_builds_economic_configuration_from_installation_cost_configuration(
         self,
         monkeypatch,
