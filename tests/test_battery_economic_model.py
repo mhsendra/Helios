@@ -226,6 +226,29 @@ class TestBatteryEconomicModel:
         assert result.cash_flows[2] == pytest.approx(1020.0)
         assert result.cash_flows[3] == pytest.approx(1040.4)
 
+    def test_split_battery_savings_use_separate_growth_rates(self):
+        configuration = BatteryEconomicConfiguration(
+            battery_cost_eur=0.0,
+            annual_savings_eur=800.0,
+            years=3,
+            electricity_price_growth=0.10,
+            export_price_growth=0.02,
+            pv_initial_degradation=0.0,
+            pv_degradation=0.0,
+            battery_degradation=0.0,
+            annual_maintenance_eur=0.0,
+            maintenance_growth=0.0,
+            discount_rate=0.0,
+            annual_import_savings_eur=1000.0,
+            annual_export_compensation_lost_eur=200.0,
+        )
+
+        result = BatteryEconomicModel().calculate(configuration)
+
+        assert result.cash_flows[1] == pytest.approx(800.0)
+        assert result.cash_flows[2] == pytest.approx(896.0)
+        assert result.cash_flows[3] == pytest.approx(1001.92)
+
     def test_battery_degradation_is_compounded(self):
         configuration = BatteryEconomicConfiguration(
             battery_cost_eur=0.0,
@@ -538,3 +561,78 @@ class TestBatteryEconomicModel:
                 1418.08,
             ]
         )
+
+    def test_combined_battery_savings_use_separate_growth_rates(self):
+        configuration = CombinedEconomicConfiguration(
+            installation_cost_eur=0.0,
+            battery_cost_eur=0.0,
+            annual_pv_savings_eur=0.0,
+            annual_battery_additional_savings_eur=800.0,
+            years=3,
+            electricity_price_growth=0.10,
+            export_price_growth=0.02,
+            pv_initial_degradation=0.0,
+            pv_degradation=0.0,
+            battery_degradation=0.0,
+            annual_pv_maintenance_eur=0.0,
+            annual_battery_maintenance_eur=0.0,
+            maintenance_growth=0.0,
+            discount_rate=0.0,
+            annual_import_savings_eur=1000.0,
+            annual_export_compensation_lost_eur=200.0,
+        )
+
+        result = BatteryEconomicModel().calculate_combined(
+            configuration
+        )
+
+        assert result.cash_flows[1] == pytest.approx(800.0)
+        assert result.cash_flows[2] == pytest.approx(896.0)
+        assert result.cash_flows[3] == pytest.approx(1001.92)
+
+    def test_legacy_battery_savings_work_without_split(self):
+        configuration = BatteryEconomicConfiguration(
+            battery_cost_eur=0.0,
+            annual_savings_eur=800.0,
+            years=3,
+            electricity_price_growth=0.10,
+            export_price_growth=0.02,
+            pv_initial_degradation=0.0,
+            pv_degradation=0.0,
+            battery_degradation=0.0,
+            annual_maintenance_eur=0.0,
+            maintenance_growth=0.0,
+            discount_rate=0.0,
+        )
+
+        result = BatteryEconomicModel().calculate(configuration)
+
+        assert result.cash_flows[1] == pytest.approx(800.0)
+        assert result.cash_flows[2] == pytest.approx(880.0)
+        assert result.cash_flows[3] == pytest.approx(968.0)
+
+    def test_legacy_combined_battery_savings_work_without_split(self):
+        configuration = CombinedEconomicConfiguration(
+            installation_cost_eur=0.0,
+            battery_cost_eur=0.0,
+            annual_pv_savings_eur=0.0,
+            annual_battery_additional_savings_eur=800.0,
+            years=3,
+            electricity_price_growth=0.10,
+            export_price_growth=0.02,
+            pv_initial_degradation=0.0,
+            pv_degradation=0.0,
+            battery_degradation=0.0,
+            annual_pv_maintenance_eur=0.0,
+            annual_battery_maintenance_eur=0.0,
+            maintenance_growth=0.0,
+            discount_rate=0.0,
+        )
+
+        result = BatteryEconomicModel().calculate_combined(
+            configuration
+        )
+
+        assert result.cash_flows[1] == pytest.approx(800.0)
+        assert result.cash_flows[2] == pytest.approx(880.0)
+        assert result.cash_flows[3] == pytest.approx(968.0)

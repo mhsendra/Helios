@@ -898,3 +898,47 @@ class TestBatteryOptimizer:
         assert combined_configuration.battery_cost_eur == pytest.approx(
             0.0
         )
+
+    def test_evaluate_separates_import_savings_and_export_compensation(
+        self,
+    ):
+        consumption = make_scenario([1.0] * 8760)
+        production = make_profile([1.0] * 8760)
+
+        economic_configuration = BatteryEconomicConfiguration(
+            battery_cost_eur=0.0,
+            annual_savings_eur=0.0,
+            years=2,
+            electricity_price_growth=0.10,
+            export_price_growth=0.02,
+            pv_initial_degradation=0.0,
+            pv_degradation=0.0,
+            battery_degradation=0.0,
+            annual_maintenance_eur=0.0,
+            maintenance_growth=0.0,
+            discount_rate=0.0,
+        )
+
+        recommendation = make_optimizer().evaluate(
+            consumption,
+            production,
+            [1.0],
+            max_charge_power_kw=5.0,
+            max_discharge_power_kw=5.0,
+            annual_cost_without_battery_eur=1000.0,
+            cost_calculator=lambda result: 400.0,
+            annual_export_income_without_battery_eur=200.0,
+            export_income_calculator=lambda result: 100.0,
+            economic_configuration=economic_configuration,
+        )[0]
+
+        # Ahorro anual inicial:
+        # Importación: (1000 + 200) - (400 + 100) = 700 €
+        # Compensación perdida: 200 - 100 = 100 €
+        # Ahorro neto inicial: 700 - 100 = 600 €
+        #
+        # Año 2: 700 * 1.10 - 100 * 1.02 = 668 €
+        # NPV: -249.70 + 600 + 668 = 1018.30 €
+        assert recommendation.economic_npv_eur == pytest.approx(
+            1018.30
+        )
