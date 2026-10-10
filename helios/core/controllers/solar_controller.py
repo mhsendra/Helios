@@ -852,16 +852,32 @@ class SolarController:
 
         combined_economic_configuration = None
 
+        project = self.analyzer.project
+
         installation_cost_configuration = getattr(
-            self.analyzer.project,
+            project,
             "installation_cost_configuration",
             None,
         )
 
-        if (
-            installation_cost_configuration is not None
-            and self.sizing_result is not None
-        ):
+        # Si no existe un desglose detallado de costes,
+        # reutilizar el coste total configurado en EconomicsConfiguration.
+        # No se estima ni se inventa ningún coste unitario.
+        if installation_cost_configuration is None:
+            configured_installation_cost = (
+                economics_configuration.installation_cost
+            )
+
+            installation_cost_configuration = (
+                InstallationCostConfiguration(
+                    panel_unit_cost_eur=0.0,
+                    installation_cost_eur=(
+                        configured_installation_cost
+                    ),
+                )
+            )
+
+        if self.sizing_result is not None:
             combined_economic_configuration = (
                 self._build_combined_economic_configuration(
                     evaluation=self.sizing_result.evaluation,

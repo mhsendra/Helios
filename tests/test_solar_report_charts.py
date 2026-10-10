@@ -425,27 +425,40 @@ class TestSolarReportCharts:
         ):
             SolarReportCharts.battery_marginal_savings([])
 
-
-    def test_battery_marginal_savings_rejects_negative_values(self):
-
+    def test_battery_marginal_savings_accepts_negative_values(self):
         recommendations = [
             type(
                 "BatteryRecommendation",
                 (),
                 {
                     "capacity_kwh": 5.0,
-                    "marginal_savings_per_kwh": -1.0,
+                    "marginal_savings_per_kwh": -12.0,
+                },
+            )(),
+            type(
+                "BatteryRecommendation",
+                (),
+                {
+                    "capacity_kwh": 8.3,
+                    "marginal_savings_per_kwh": 20.0,
                 },
             )(),
         ]
 
-        with pytest.raises(
-            ValueError,
-            match="marginal savings cannot be negative",
-        ):
-            SolarReportCharts.battery_marginal_savings(
-                recommendations,
-            )
+        drawing = SolarReportCharts.battery_marginal_savings(
+            recommendations
+        )
+
+        chart = next(
+            item
+            for item in drawing.contents
+            if isinstance(item, VerticalBarChart)
+        )
+
+        assert chart.data == [[-12.0, 20.0]]
+        assert chart.valueAxis.valueMin < 0
+        assert chart.valueAxis.valueMax > 0
+
 
     def test_energy_balance_creates_drawing(self):
         result = SolarReportCharts.energy_balance(
@@ -610,4 +623,91 @@ class TestSolarReportCharts:
         ):
             SolarReportCharts.economic_scenarios(
                 scenarios
+            )
+
+    def test_monthly_consumption_vs_production_accepts_matching_months_different_years(
+        self,
+    ):
+        monthly_consumption = pd.Series(
+            [1000.0, 1100.0, 1200.0],
+            index=pd.date_range(
+                "2025-01-31",
+                periods=3,
+                freq="ME",
+            ),
+        )
+
+        monthly_production = pd.Series(
+            [800.0, 900.0, 1000.0],
+            index=pd.date_range(
+                "2026-01-31",
+                periods=3,
+                freq="ME",
+            ),
+        )
+
+        drawing = SolarReportCharts.monthly_consumption_vs_production(
+            monthly_consumption,
+            monthly_production,
+        )
+
+        assert drawing is not None
+
+    def test_monthly_consumption_vs_production_accepts_different_years(self):
+        consumption_index = pd.date_range(
+            "2025-01-01",
+            periods=12,
+            freq="MS",
+        )
+        production_index = pd.date_range(
+            "2023-01-01",
+            periods=12,
+            freq="MS",
+        )
+
+        monthly_consumption = pd.Series(
+            [100.0] * 12,
+            index=consumption_index,
+        )
+        monthly_production = pd.Series(
+            [80.0] * 12,
+            index=production_index,
+        )
+
+        drawing = SolarReportCharts.monthly_consumption_vs_production(
+            monthly_consumption,
+            monthly_production,
+        )
+
+        assert drawing is not None
+
+
+    def test_monthly_consumption_vs_production_rejects_different_months(self):
+        consumption_index = pd.date_range(
+            "2025-01-01",
+            periods=12,
+            freq="MS",
+        )
+        production_index = pd.date_range(
+            "2023-02-01",
+            periods=12,
+            freq="MS",
+        )
+
+        monthly_consumption = pd.Series(
+            [100.0] * 12,
+            index=consumption_index,
+        )
+        monthly_production = pd.Series(
+            [80.0] * 12,
+            index=production_index,
+        )
+
+        with pytest.raises(
+            ValueError,
+            match="same calendar months",
+        ):
+            SolarReportCharts.monthly_consumption_vs_production(
+                monthly_consumption,
+                monthly_production,
             )

@@ -730,7 +730,11 @@ class TestSolarReportGenerator:
         generator = SolarReportGenerator()
 
         generator.generate(
-            self._report_data(),
+            replace(
+                self._report_data(),
+                pv_technology="crystSi",
+                mounting_place="building",
+            ),
             tmp_path / "report.pdf",
         )
 
@@ -760,7 +764,7 @@ class TestSolarReportGenerator:
             ],
             [
                 "Tipo de montaje",
-                "Coplanar a cubierta",
+                "Sobre edificio",
             ],
         ]
 
@@ -1428,7 +1432,7 @@ class TestSolarReportGenerator:
             ],
             [
                 "Tipo de montaje",
-                "Coplanar a cubierta",
+                "Sobre edificio",
             ],
         ]
 
@@ -1516,7 +1520,7 @@ class TestSolarReportGenerator:
             "2023",
             "14.0 %",
             "Silicio cristalino",
-            "Coplanar a cubierta",
+            "Sobre edificio",
         ]
 
         for value in expected_values:
@@ -1836,3 +1840,46 @@ class TestSolarReportGenerator:
 
         for value in expected_conclusions:
             assert value in text
+
+    
+    def test_generate_without_energy_balance_skips_consumption_chart(
+        self,
+        tmp_path,
+        monkeypatch,
+    ):
+        from unittest.mock import patch
+
+        from helios.reports.solar_report_charts import SolarReportCharts
+
+        report_data = replace(
+            self._report_data(),
+            consumption_reference_year=None,
+            monthly_consumption=pd.Series(dtype=float),
+        )
+
+        chart_called = False
+
+        def fail_if_chart_called(*args, **kwargs):
+            nonlocal chart_called
+            chart_called = True
+            raise AssertionError(
+                "No debe generarse el gráfico comparativo "
+                "sin consumo mensual"
+            )
+
+        monkeypatch.setattr(
+            SolarReportCharts,
+            "monthly_consumption_vs_production",
+            fail_if_chart_called,
+        )
+
+        output_path = tmp_path / "report_without_energy_balance.pdf"
+
+        SolarReportGenerator().generate(
+            report_data,
+            output_path,
+        )
+
+        assert not chart_called
+        assert output_path.exists()
+        assert output_path.stat().st_size > 0

@@ -48,7 +48,7 @@ class SolarReportData:
     # consumo representativo/sintético. No debe confundirse
     # con SolarConfiguration.reference_year, que identifica
     # el año meteorológico solicitado a PVGIS.
-    consumption_reference_year: int
+    consumption_reference_year: int | None
     monthly_consumption: pd.Series
     self_consumption_kwh: float
     grid_export_kwh: float

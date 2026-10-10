@@ -33,6 +33,10 @@ from helios.solar.battery_economic_configuration import BatteryEconomicParameter
 
 from helios.core.energy_recommendation import EnergyRecommendation
 
+from helios.core.economics_configuration import (
+    EconomicsConfiguration,
+)
+
 from helios.solar.installation_costs import InstallationCostConfiguration
 
 from helios.solar.installation_evaluation import InstallationEvaluation
@@ -2749,4 +2753,102 @@ class TestSolarController:
         assert (
             economic_configuration.installation_cost_eur
             == expected_cost
+        )
+
+    def test_evaluate_batteries_uses_economics_installation_cost_when_detailed_configuration_is_missing(
+        self,
+    ):
+        installation_cost_eur = 12490.0
+
+        self.analyzer.economics.configuration = (
+            EconomicsConfiguration(
+                installation_cost=installation_cost_eur,
+                subsidies=500.0,
+                tax_deductions=250.0,
+            )
+        )
+
+        self.analyzer.project.installation_cost_configuration = None
+
+        consumption_scenario = self._consumption_scenario()
+
+        self.analyzer.calculate_representative_consumption_scenario.return_value = (
+            consumption_scenario
+        )
+
+        self.analyzer.economics.calculate_cost_with_balance.return_value = (
+            1000.0
+        )
+        self.analyzer.economics.calculate_cost_without_pv.return_value = (
+            3000.0
+        )
+
+        solar_configuration = self._solar_configuration()
+
+        production_index = pd.date_range(
+            start=f"{solar_configuration.reference_year}-01-01 00:00:00",
+            periods=8760,
+            freq="h",
+        )
+
+        production = pd.Series(
+            0.5,
+            index=production_index,
+            name="production_kwh",
+        )
+
+        self.analyzer.solar_engine.configuration = solar_configuration
+
+        self.analyzer.solar_engine.configuration = (
+            self._solar_configuration()
+        )
+        self.analyzer.solar_engine.hourly_production = pd.DataFrame(
+            {"production_kwh": production}
+        )
+        self.analyzer.solar_engine.installed_power_kwp = 5.0
+
+        candidate = InstallationCandidate(
+            panel_count=10,
+            panel_power_wp=540.0,
+            panel_area_m2=1.95,
+        )
+        evaluation = InstallationEvaluation(
+            candidate=candidate,
+            available_area_m2=50.0,
+        )
+
+        self.controller.sizing_result = InstallationRecommendation(
+            evaluation=evaluation,
+            annual_consumption_kwh=(
+                consumption_scenario.hourly_consumption.sum()
+            ),
+            annual_production_kwh=production.sum(),
+        )
+
+        expected_result = [MagicMock()]
+
+        with patch(
+            "helios.core.controllers.solar_controller.BatteryOptimizer"
+        ) as optimizer_class:
+            optimizer_class.return_value.evaluate.return_value = (
+                expected_result
+            )
+
+            result = self.controller.evaluate_batteries(
+                [5.0, 8.3],
+                max_charge_power_kw=5.0,
+                max_discharge_power_kw=5.0,
+            )
+
+        optimizer_kwargs = (
+            optimizer_class.return_value.evaluate.call_args.kwargs
+        )
+        combined_configuration = optimizer_kwargs[
+            "combined_economic_configuration"
+        ]
+
+        assert result == expected_result
+        assert combined_configuration is not None
+        assert combined_configuration.installation_cost_eur == pytest.approx(
+            installation_cost_eur - 500.0 - 250.0
         )

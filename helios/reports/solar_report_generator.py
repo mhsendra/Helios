@@ -735,6 +735,35 @@ class SolarReportGenerator:
         data: SolarReportData,
         styles,
     ) -> list:
+        technology_labels = {
+            "crystSi": "Silicio cristalino",
+            "CIS": "CIS (cobre, indio y selenio)",
+            "CdTe": "Telururo de cadmio",
+        }
+
+        mounting_labels = {
+            "building": "Sobre edificio",
+            "free": "Estructura independiente",
+        }
+
+        technology = (
+            technology_labels.get(
+                data.pv_technology,
+                data.pv_technology,
+            )
+            if data.pv_technology
+            else "No especificada"
+        )
+
+        mounting = (
+            mounting_labels.get(
+                data.mounting_place,
+                data.mounting_place,
+            )
+            if data.mounting_place
+            else "No especificado"
+        )
+
         if data.calculation_mode == "automatic":
             installation_data = [
                 ["Concepto", "Valor"],
@@ -752,11 +781,11 @@ class SolarReportGenerator:
                 ],
                 [
                     "Tecnología fotovoltaica",
-                    "Silicio cristalino",
+                    technology,
                 ],
                 [
                     "Tipo de montaje",
-                    "Coplanar a cubierta",
+                    mounting,
                 ],
             ]
 
@@ -796,11 +825,11 @@ class SolarReportGenerator:
                 ],
                 [
                     "Tecnología fotovoltaica",
-                    "Silicio cristalino",
+                    technology,
                 ],
                 [
                     "Tipo de montaje",
-                    "Coplanar a cubierta",
+                    mounting,
                 ],
             ]
 
@@ -915,9 +944,19 @@ class SolarReportGenerator:
 
             Spacer(1, 15),
 
-            SolarReportCharts.monthly_consumption_vs_production(
-                data.monthly_consumption,
-                data.monthly_production,
+            *(
+                [
+                    SolarReportCharts.monthly_consumption_vs_production(
+                        data.monthly_consumption,
+                        data.monthly_production,
+                    ),
+                    Spacer(1, 15),
+                ]
+                if (
+                    data.monthly_consumption is not None
+                    and not data.monthly_consumption.empty
+                )
+                else []
             ),
 
             Spacer(1, 15),
@@ -929,7 +968,7 @@ class SolarReportGenerator:
 
             Spacer(1, 15),
 
-            solar_statistics_table,
+            self._keep_table(solar_statistics_table),
 
             self._keep_section_content(
                 Spacer(1, 12),

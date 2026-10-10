@@ -359,6 +359,15 @@ class SolarReportCharts:
                 "must have the same length"
             )
 
+        if not monthly_consumption.index.month.equals(
+            monthly_production.index.month
+        ):
+            raise ValueError(
+                "monthly consumption and production "
+                "must represent the same calendar months "
+                "in the same order"
+            )
+
         if (
             monthly_consumption < 0
         ).any():
@@ -599,8 +608,8 @@ class SolarReportCharts:
         """
         Representa el ahorro marginal por kWh de capacidad instalada.
 
-        Cada barra corresponde directamente a una recomendación de
-        capacidad de batería.
+        Los valores negativos son válidos y representan un resultado
+        marginal desfavorable. El eje vertical incluye el cero.
         """
 
         if (
@@ -618,15 +627,10 @@ class SolarReportCharts:
         ]
 
         values = [
-            recommendation.marginal_savings_per_kwh
+            float(recommendation.marginal_savings_per_kwh)
             for recommendation
             in battery_recommendations
         ]
-
-        if any(value < 0 for value in values):
-            raise ValueError(
-                "marginal savings cannot be negative"
-            )
 
         drawing = cls._create_drawing()
 
@@ -642,17 +646,25 @@ class SolarReportCharts:
         chart.height = cls.CHART_AREA_HEIGHT
         chart.width = 400
 
-        chart.data = [
-            values,
-        ]
-
+        chart.data = [values]
         chart.categoryAxis.categoryNames = names
 
+        minimum = min(values)
         maximum = max(values)
 
-        cls._configure_value_axis(
-            chart,
-            maximum,
+        # Incluye el cero y deja margen visual a ambos extremos.
+        axis_min = min(minimum * 1.2, 0)
+        axis_max = max(maximum * 1.2, 0)
+
+        if axis_min == axis_max:
+            axis_min = -1
+            axis_max = 1
+
+        chart.valueAxis.valueMin = axis_min
+        chart.valueAxis.valueMax = axis_max
+        chart.valueAxis.valueStep = max(
+            (axis_max - axis_min) / 5,
+            0.1,
         )
 
         cls._style_chart(
