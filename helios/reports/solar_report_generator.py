@@ -356,6 +356,184 @@ class ExecutiveKpiGrid(Flowable):
                 value,
             )
 
+class BatteryRecommendationBlock(Flowable):
+    """Bloque visual con la recomendación económica de almacenamiento."""
+
+    def __init__(
+        self,
+        recommendation,
+        width: float,
+    ):
+        super().__init__()
+
+        self.recommendation = recommendation
+        self.width = width
+        self.height = 36 * mm
+
+        if recommendation is None:
+            self.text = (
+                "RECOMENDACIÓN DE ALMACENAMIENTO\n"
+                "No se identifica una capacidad de batería "
+                "económicamente recomendable bajo las hipótesis actuales."
+            )
+        else:
+            payback = (
+                "N/D"
+                if recommendation.economic_payback_years == float("inf")
+                else (
+                    f"{recommendation.economic_payback_years:.2f} años"
+                )
+            )
+
+            self.text = (
+                "RECOMENDACIÓN DE ALMACENAMIENTO\n"
+                f"Capacidad recomendada: "
+                f"{recommendation.capacity_kwh:.1f} kWh\n"
+                f"VAN batería: {recommendation.economic_npv_eur:,.2f} €\n"
+                f"TIR batería: {recommendation.economic_irr_percent:.2f} %\n"
+                f"Ahorro adicional: "
+                f"{recommendation.annual_additional_savings_eur:,.2f} €/año\n"
+                f"Recuperación: {payback}"
+            )
+
+    def wrap(self, availWidth, availHeight):
+        return self.width, self.height
+
+    def draw(self):
+        canvas = self.canv
+
+        canvas.setFillColor(
+            colors.HexColor(HELIOS_BACKGROUND)
+        )
+        canvas.setStrokeColor(
+            colors.HexColor(HELIOS_BORDER)
+        )
+        canvas.setLineWidth(0.8)
+
+        canvas.roundRect(
+            0,
+            0,
+            self.width,
+            self.height,
+            2 * mm,
+            stroke=1,
+            fill=1,
+        )
+
+        canvas.setFillColor(
+            colors.HexColor(HELIOS_PURPLE)
+        )
+        canvas.roundRect(
+            0,
+            0,
+            4,
+            self.height,
+            2,
+            stroke=0,
+            fill=1,
+        )
+
+        canvas.setFillColor(
+            colors.HexColor(HELIOS_PURPLE)
+        )
+        canvas.setFont("Montserrat-Bold", 9)
+
+        canvas.drawString(
+            8 * mm,
+            self.height - 7 * mm,
+            "RECOMENDACIÓN DE ALMACENAMIENTO",
+        )
+
+        recommendation = self.recommendation
+
+        if recommendation is None:
+            message = Paragraph(
+                "Ninguna de las capacidades evaluadas presenta "
+                "un VAN de batería positivo bajo las hipótesis "
+                "económicas utilizadas.",
+                ParagraphStyle(
+                    "BatteryRecommendationUnavailable",
+                    fontName="Lato",
+                    fontSize=9,
+                    leading=12,
+                    textColor=colors.HexColor(HELIOS_TEXT),
+                ),
+            )
+
+            message.wrapOn(
+                canvas,
+                self.width - 16 * mm,
+                self.height - 12 * mm,
+            )
+            message.drawOn(
+                canvas,
+                8 * mm,
+                5 * mm,
+            )
+            return
+
+        metrics = [
+            (
+                "Capacidad",
+                f"{recommendation.capacity_kwh:.1f} kWh",
+            ),
+            (
+                "VAN batería",
+                f"{recommendation.economic_npv_eur:,.2f} €",
+            ),
+            (
+                "TIR batería",
+                f"{recommendation.economic_irr_percent:.2f} %",
+            ),
+            (
+                "Ahorro adicional",
+                f"{recommendation.annual_additional_savings_eur:,.2f} €/año",
+            ),
+            (
+                "Recuperación",
+                (
+                    "N/D"
+                    if recommendation.economic_payback_years
+                    == float("inf")
+                    else (
+                        f"{recommendation.economic_payback_years:.2f} años"
+                    )
+                ),
+            ),
+        ]
+
+        gap = 2 * mm
+        left = 8 * mm
+        usable_width = self.width - left - 4 * mm
+        metric_width = (
+            usable_width - gap * (len(metrics) - 1)
+        ) / len(metrics)
+
+        for index, (label, value) in enumerate(metrics):
+            x = left + index * (metric_width + gap)
+
+            canvas.setFillColor(
+                colors.HexColor(HELIOS_MUTED)
+            )
+            canvas.setFont("Lato", 7)
+
+            canvas.drawCentredString(
+                x + metric_width / 2,
+                self.height - 16 * mm,
+                label,
+            )
+
+            canvas.setFillColor(
+                colors.HexColor(HELIOS_BLUE)
+            )
+            canvas.setFont("Lato-Bold", 8)
+
+            canvas.drawCentredString(
+                x + metric_width / 2,
+                self.height - 23 * mm,
+                value,
+            )
+
 class ConclusionBlock(Flowable):
     """Dibuja un bloque visual destacado para la conclusión del informe."""
 
@@ -698,6 +876,11 @@ class SolarReportGenerator:
             Paragraph(
                 SolarReportText.executive_summary(data),
                 styles["BodyText"],
+            ),
+            Spacer(1, 5 * mm),
+            Paragraph(
+                SolarReportText.executive_recommendation(data),
+                styles["HeliosBodyText"],
             ),
         ]
 
@@ -1526,6 +1709,10 @@ class SolarReportGenerator:
                 )
             )
 
+        recommended_battery = SolarReportText.recommended_battery(
+            data
+        )
+
         return [
             Spacer(1, 25),
 
@@ -1537,6 +1724,15 @@ class SolarReportGenerator:
                     0,
                 ),
                 Spacer(1, 10),
+                BatteryRecommendationBlock(
+                    recommended_battery,
+                    width=174 * mm,
+                ),
+            ),
+
+            Spacer(1, 10),
+
+            self._keep_section_content(
                 Paragraph(
                     battery_analysis_text,
                     styles["HeliosBodyText"],

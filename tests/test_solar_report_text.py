@@ -557,6 +557,9 @@ class TestSolarReportText:
         assert "ahorro marginal por kWh" in text
         assert "periodo de recuperación marginal" in text
         assert "Economía conjunta FV + batería" not in text
+        assert "mayor VAN de batería" in text
+        assert "mayor VAN conjunto del sistema FV + batería" in text
+        assert "208.28 €" in text
 
     def test_battery_analysis_includes_savings_breakdown(self):
         data = self._report_data()
@@ -929,3 +932,47 @@ class TestSolarReportText:
             match="report data is required",
         ):
             SolarReportText.energy_flow_summary(None)
+
+    def test_battery_analysis_handles_different_economic_optima(self):
+        data = self._report_data()
+        recommendations = list(data.battery_recommendations)
+
+        recommendations[-1] = replace(
+            recommendations[-1],
+            combined_economic_npv_eur=3000.0,
+        )
+
+        data = replace(
+            data,
+            battery_recommendations=recommendations,
+        )
+
+        text = SolarReportText.battery_analysis(data)
+
+        assert "mayor VAN de batería" in text
+        assert "30.0 kWh" in text
+        assert "mayor VAN conjunto del sistema FV + batería" in text
+        assert "3,000.00 €" in text
+        assert "Ambos indicadores deben considerarse conjuntamente" in text
+
+    def test_battery_analysis_handles_different_economic_optima(self):
+        data = self._report_data()
+        recommendations = list(data.battery_recommendations)
+
+        recommendations[-1] = replace(
+            recommendations[-1],
+            combined_economic_npv_eur=3000.0,
+        )
+
+        data = replace(
+            data,
+            battery_recommendations=recommendations,
+        )
+
+        text = SolarReportText.battery_analysis(data)
+
+        assert "mayor VAN de batería" in text
+        assert "30.0 kWh" in text
+        assert "mayor VAN conjunto del sistema FV + batería" in text
+        assert "3,000.00 €" in text
+        assert "Ambos indicadores deben considerarse conjuntamente" in text

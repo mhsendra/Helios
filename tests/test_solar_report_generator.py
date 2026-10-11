@@ -10,6 +10,8 @@ from helios.reports.solar_report_generator import (
 )
 from helios.reports.solar_report_charts import SolarReportCharts
 
+from helios.reports.solar_report_text import SolarReportText
+
 from reportlab.platypus import KeepTogether
 
 from helios.solar.battery_recommendation import (
@@ -1883,3 +1885,190 @@ class TestSolarReportGenerator:
         assert not chart_called
         assert output_path.exists()
         assert output_path.stat().st_size > 0
+
+    def test_executive_summary_contains_dynamic_recommendation(
+        self,
+        monkeypatch,
+        tmp_path,
+    ):
+        captured = self._capture_story(monkeypatch)
+
+        SolarReportGenerator().generate(
+            self._report_data(),
+            tmp_path / "report.pdf",
+        )
+
+        text = self._story_text(captured["story"])
+
+        assert "Recomendación general" in text
+        assert "instalación fotovoltaica es recomendable" in text
+        assert "8.3 kWh" in text
+
+    def test_battery_recommendation_block_uses_best_viable_capacity(
+        self,
+        monkeypatch,
+        tmp_path,
+    ):
+        captured = self._capture_story(monkeypatch)
+
+        SolarReportGenerator().generate(
+            self._report_data(),
+            tmp_path / "report.pdf",
+        )
+
+        text = self._story_text(captured["story"])
+
+        assert "RECOMENDACIÓN DE ALMACENAMIENTO" in text
+        assert "Capacidad recomendada: 8.3 kWh" in text
+        assert "VAN batería: 429.40 €" in text
+        assert "TIR batería: 6.79 %" in text
+        assert "Ahorro adicional: 169.79 €/año" in text
+        assert "Recuperación: 12.48 años" in text
+
+    def test_battery_recommendation_is_unavailable_when_all_npvs_are_negative(
+        self,
+        monkeypatch,
+        tmp_path,
+    ):
+        data = self._report_data()
+
+        data = replace(
+            data,
+            battery_recommendations=[
+                replace(
+                    recommendation,
+                    economic_npv_eur=-1.0,
+                )
+                for recommendation in data.battery_recommendations
+            ],
+        )
+
+        captured = self._capture_story(monkeypatch)
+
+        SolarReportGenerator().generate(
+            data,
+            tmp_path / "report.pdf",
+        )
+
+        text = self._story_text(captured["story"])
+
+        assert (
+            "No se identifica una capacidad de batería "
+            "económicamente recomendable"
+        ) in text
+
+        assert (
+            "no se recomienda añadir almacenamiento"
+            in text
+        )
+
+    def test_combined_economics_recommends_best_positive_npv(
+        self,
+    ):
+        data = self._report_data()
+        recommendations = [
+            replace(
+                recommendation,
+                combined_economic_npv_eur=npv,
+            )
+            for recommendation, npv in zip(
+                data.battery_recommendations,
+                [904.0, 986.0, 0.0, -1716.0, -2929.0],
+            )
+        ]
+        data = replace(
+            data,
+            battery_recommendations=recommendations,
+        )
+
+        result = SolarReportText.combined_economic_interpretation(
+            data,
+        )
+
+        assert "8.3 kWh" in result
+        assert "986,00 €" in result
+        assert "VAN conjunto" in result
+        assert "VAN incremental" in result
+
+    def test_combined_economics_does_not_recommend_negative_npv(
+        self,
+    ):
+        data = self._report_data()
+        recommendations = [
+            replace(
+                recommendation,
+                combined_economic_npv_eur=npv,
+            )
+            for recommendation, npv in zip(
+                data.battery_recommendations,
+                [-100.0, -250.0, -400.0, -900.0, -1500.0],
+            )
+        ]
+        data = replace(
+            data,
+            battery_recommendations=recommendations,
+        )
+
+        result = SolarReportText.combined_economic_interpretation(
+            data,
+        )
+
+        assert "Ninguna" in result
+        assert "VAN conjunto positivo" in result
+        assert "5.0 kWh" in result
+        assert "-100,00 €" in result
+
+    def test_combined_economics_handles_break_even(
+        self,
+    ):
+        data = self._report_data()
+        recommendations = [
+            replace(
+                recommendation,
+                combined_economic_npv_eur=0.0,
+            )
+            for recommendation in data.battery_recommendations
+        ]
+        data = replace(
+            data,
+            battery_recommendations=recommendations,
+        )
+
+        result = SolarReportText.combined_economic_interpretation(
+            data,
+        )
+
+        assert "aproximadamente nulo" in result
+        assert "umbral de rentabilidad" in result
+
+    def test_combined_economics_handles_no_battery_results(
+        self,
+    ):
+        data = replace(
+            self._report_data(),
+            battery_recommendations=[],
+        )
+
+        result = SolarReportText.combined_economic_interpretation(
+            data,
+        )
+
+        assert "No se dispone" in result
+        assert "batería" in result
+
+    def test_final_conclusion_explains_annual_production_vs_self_sufficiency(
+        self,
+    ):
+        data = replace(
+            self._report_data(),
+            yearly_production_kwh=22000.0,
+            yearly_consumption_kwh=19541.72,
+            self_sufficiency_rate_percent=64.0,
+        )
+
+        result = SolarReportText.conclusion(data)
+
+        assert "equivale al" in result
+        assert "no significa que la vivienda" in result
+        assert "64.0 %" in result
+        assert "VAN conjunto" in result
