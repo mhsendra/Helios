@@ -114,6 +114,7 @@ class TestSolarReportText:
             payback_years=5.34,
             net_present_value_eur=22071.16,
             internal_rate_of_return_percent=18.8,
+            economic_analysis_calculated=True,
 
             # ==================================================
             # Economic assumptions
@@ -195,6 +196,8 @@ class TestSolarReportText:
                     combined_economic_npv_eur=2239.27,
                     combined_economic_irr_percent=6.47,
                     combined_economic_payback_years=12.79,
+                    economic_analysis_calculated=True,
+                    combined_economic_analysis_calculated=True,
                 ),
                 BatteryReportData(
                     capacity_kwh=8.3,
@@ -223,6 +226,8 @@ class TestSolarReportText:
                     combined_economic_npv_eur=2320.78,
                     combined_economic_irr_percent=6.44,
                     combined_economic_payback_years=12.78,
+                    economic_analysis_calculated=True,
+                    combined_economic_analysis_calculated=True,
                 ),
                 BatteryReportData(
                     capacity_kwh=30.0,
@@ -251,6 +256,8 @@ class TestSolarReportText:
                     combined_economic_npv_eur=-1594.80,
                     combined_economic_irr_percent=4.23,
                     combined_economic_payback_years=15.74,
+                    economic_analysis_calculated=True,
+                    combined_economic_analysis_calculated=True,
                 ),
             ],
         )
@@ -976,3 +983,94 @@ class TestSolarReportText:
         assert "mayor VAN conjunto del sistema FV + batería" in text
         assert "3,000.00 €" in text
         assert "Ambos indicadores deben considerarse conjuntamente" in text
+
+    def _report_data_without_economic_analysis(self):
+        """Devuelve datos de informe con el análisis económico pendiente."""
+        from dataclasses import replace
+
+        data = self._report_data()
+
+        return replace(
+            data,
+            economic_analysis_calculated=False,
+            net_present_value_eur=5000.0,
+            internal_rate_of_return_percent=12.5,
+            payback_years=7.5,
+        )
+
+    def test_executive_recommendation_does_not_recommend_pv_without_economics(
+        self,
+    ):
+        data = self._report_data_without_economic_analysis()
+
+        text = SolarReportText.executive_recommendation(data)
+
+        assert (
+            "no puede establecerse una recomendación económica"
+            in text.lower()
+        )
+        assert "La instalación fotovoltaica es recomendable" not in text
+        assert "no resulta rentable" not in text
+
+    def test_executive_summary_does_not_present_payback_without_economics(
+        self,
+    ):
+        data = self._report_data_without_economic_analysis()
+
+        text = SolarReportText.executive_summary(data)
+
+        assert "no se ha calculado" in text
+        assert "7.50 años" not in text
+
+    def test_quick_diagnostic_does_not_interpret_npv_without_economics(
+        self,
+    ):
+        data = self._report_data_without_economic_analysis()
+
+        text = SolarReportText.quick_diagnostic(data)
+
+        assert "no se ha calculado" in text
+        assert "VAN positivo" not in text
+        assert "VAN negativo" not in text
+        assert "VAN aproximadamente nulo" not in text
+
+    def test_economic_analysis_does_not_show_indicators_without_economics(
+        self,
+    ):
+        data = self._report_data_without_economic_analysis()
+
+        text = SolarReportText.economic_analysis(data)
+
+        assert "no se ha calculado" in text
+        assert "5,000.00 €" not in text
+        assert "12.50 %" not in text
+        assert "7.50 años" not in text
+
+    def test_economic_conclusion_does_not_interpret_npv_without_economics(
+        self,
+    ):
+        data = self._report_data_without_economic_analysis()
+
+        text = SolarReportText.economic_conclusion(data)
+
+        assert "no se ha calculado" in text
+        assert "VAN resulta positivo" not in text
+        assert "VAN resulta negativo" not in text
+        assert "7.50 años" not in text
+
+    def test_scenario_conclusion_does_not_show_scenario_npvs_without_economics(
+        self,
+    ):
+        from dataclasses import replace
+
+        data = self._report_data_without_economic_analysis()
+
+        data = replace(
+            data,
+            scenario_results=(),
+        )
+
+        text = SolarReportText.scenario_conclusion(data)
+
+        assert "no se ha calculado" in text
+        assert "intervalo de VAN" not in text

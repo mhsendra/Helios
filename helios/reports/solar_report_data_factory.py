@@ -140,6 +140,14 @@ class SolarReportDataFactory:
             .economics_engine
         )
 
+        economic_analysis_calculated = bool(
+            getattr(
+                economics,
+                "economic_analysis_calculated",
+                False,
+            )
+        )
+
         scenario_results = (
             economics.scenario_results
         )
@@ -268,6 +276,12 @@ class SolarReportDataFactory:
                 ),
                 combined_economic_payback_years=(
                     recommendation.combined_economic_payback_years
+                ),
+                economic_analysis_calculated=(
+                    recommendation.economic_analysis_calculated
+                ),
+                combined_economic_analysis_calculated=(
+                    recommendation.combined_economic_analysis_calculated
                 ),
             )
             for recommendation in battery_recommendations
@@ -447,6 +461,8 @@ class SolarReportDataFactory:
                 if economics.irr is not None
                 else None
             ),
+
+            economic_analysis_calculated=economic_analysis_calculated,
 
             # ==================================================
             # Economic scenarios

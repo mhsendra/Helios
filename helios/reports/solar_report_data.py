@@ -72,6 +72,9 @@ class SolarReportData:
     net_present_value_eur: float
     internal_rate_of_return_percent: float | None
 
+    economic_analysis_calculated: bool
+
+
     # ==================================================
     # Economic assumptions
     # ==================================================

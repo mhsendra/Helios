@@ -109,6 +109,7 @@ class TestSolarReportData:
             "payback_years": 5.34,
             "net_present_value_eur": 22071.16,
             "internal_rate_of_return_percent": 18.80,
+            "economic_analysis_calculated": True,
             "battery_recommendations": [],
 
             "economic_horizon_years": 25,
@@ -318,3 +319,17 @@ class TestSolarReportData:
 
         assert data.consumption_reference_year == 2025
         assert data.reference_year == 2023
+
+    @pytest.mark.parametrize(
+        "calculated",
+        [True, False],
+    )
+    def test_economic_analysis_calculated_preserves_value(
+        self,
+        calculated,
+    ):
+        data = self._data(
+            economic_analysis_calculated=calculated,
+        )
+
+        assert data.economic_analysis_calculated is calculated

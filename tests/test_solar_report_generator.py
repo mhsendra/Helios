@@ -251,6 +251,7 @@ class TestSolarReportGenerator:
             payback_years=5.34,
             net_present_value_eur=22071.16,
             internal_rate_of_return_percent=18.8,
+            economic_analysis_calculated=True,
             economic_horizon_years=25,
             first_year_degradation_percent=1.00,
             annual_degradation_percent=0.35,
@@ -300,6 +301,37 @@ class TestSolarReportGenerator:
                 ),
             ],
             battery_recommendations=battery_recommendations,
+        )
+
+    @staticmethod
+    def _report_data_with_calculated_battery_economics():
+        data = TestSolarReportGenerator._report_data()
+
+        combined_npvs = [
+            22000.00,
+            22500.00,
+            21000.00,
+            19000.00,
+            18000.00,
+        ]
+
+        recommendations = [
+            replace(
+                recommendation,
+                economic_analysis_calculated=True,
+                combined_economic_analysis_calculated=True,
+                combined_economic_npv_eur=combined_npv,
+            )
+            for recommendation, combined_npv in zip(
+                data.battery_recommendations,
+                combined_npvs,
+                strict=True,
+            )
+        ]
+
+        return replace(
+            data,
+            battery_recommendations=recommendations,
         )
 
     @staticmethod
@@ -1909,10 +1941,11 @@ class TestSolarReportGenerator:
         monkeypatch,
         tmp_path,
     ):
+        data = self._report_data_with_calculated_battery_economics()
         captured = self._capture_story(monkeypatch)
 
         SolarReportGenerator().generate(
-            self._report_data(),
+            data,
             tmp_path / "report.pdf",
         )
 
@@ -1959,7 +1992,7 @@ class TestSolarReportGenerator:
 
         assert (
             "no se recomienda añadir almacenamiento"
-            in text
+            in text.lower()
         )
 
     def test_combined_economics_recommends_best_positive_npv(
@@ -2072,3 +2105,53 @@ class TestSolarReportGenerator:
         assert "no significa que la vivienda" in result
         assert "64.0 %" in result
         assert "VAN conjunto" in result
+
+    def test_recommended_battery_selects_best_combined_npv(self):
+        data = self._report_data_with_calculated_battery_economics()
+
+        selected = SolarReportText.recommended_battery(data)
+
+        assert selected is not None
+        assert selected.capacity_kwh == pytest.approx(8.3)
+        assert selected.economic_npv_eur == pytest.approx(429.40)
+        assert selected.combined_economic_npv_eur == pytest.approx(
+            22500.00
+        )
+
+    def test_recommended_battery_rejects_incomplete_economic_analysis(self):
+        data = self._report_data_with_calculated_battery_economics()
+        recommendations = list(data.battery_recommendations)
+
+        recommendations[0] = replace(
+            recommendations[0],
+            combined_economic_analysis_calculated=False,
+        )
+
+        data = replace(
+            data,
+            battery_recommendations=recommendations,
+        )
+
+        assert SolarReportText.recommended_battery(data) is None
+
+    def test_recommended_battery_returns_none_without_positive_incremental_npv(
+        self,
+    ):
+        data = self._report_data_with_calculated_battery_economics()
+
+        recommendations = [
+            replace(
+                recommendation,
+                economic_npv_eur=-abs(
+                    recommendation.economic_npv_eur
+                ),
+            )
+            for recommendation in data.battery_recommendations
+        ]
+
+        data = replace(
+            data,
+            battery_recommendations=recommendations,
+        )
+
+        assert SolarReportText.recommended_battery(data) is None

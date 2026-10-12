@@ -374,7 +374,8 @@ class BatteryRecommendationBlock(Flowable):
             self.text = (
                 "RECOMENDACIÓN DE ALMACENAMIENTO\n"
                 "No se identifica una capacidad de batería "
-                "económicamente recomendable bajo las hipótesis actuales."
+                "económicamente recomendable bajo las hipótesis actuales. "
+                "Por tanto, no se recomienda añadir almacenamiento."
             )
         else:
             payback = (
@@ -448,9 +449,13 @@ class BatteryRecommendationBlock(Flowable):
 
         if recommendation is None:
             message = Paragraph(
-                "Ninguna de las capacidades evaluadas presenta "
-                "un VAN de batería positivo bajo las hipótesis "
-                "económicas utilizadas.",
+                (
+                    "No se identifica una capacidad de batería "
+                    "económicamente recomendable bajo las hipótesis "
+                    "actuales.<br/><br/>"
+                    "<b>No se recomienda añadir almacenamiento</b> "
+                    "por rentabilidad económica."
+                ),
                 ParagraphStyle(
                     "BatteryRecommendationUnavailable",
                     fontName="Lato",
@@ -460,10 +465,13 @@ class BatteryRecommendationBlock(Flowable):
                 ),
             )
 
+            message_width = self.width - 16 * mm
+            message_height = self.height - 12 * mm
+
             message.wrapOn(
                 canvas,
-                self.width - 16 * mm,
-                self.height - 12 * mm,
+                message_width,
+                message_height,
             )
             message.drawOn(
                 canvas,

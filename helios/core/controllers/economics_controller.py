@@ -119,17 +119,30 @@ class EconomicsController:
         )
 
     def calculate(self):
-        self._economic_data = self._get_economic_data()
+        economics = self.analyzer.economics_engine
 
-        self.calculate_cost_without_pv()
-        self.calculate_export_income()
-        self.calculate_cost_with_pv()
-        self.calculate_annual_savings()
-        self.calculate_net_investment()
-        self.calculate_cash_flow()
-        self.calculate_economic_indicators()
+        # Invalidar primero el estado anterior. Si cualquier etapa falla,
+        # no se conservará un indicador de cálculo completado.
+        economics.economic_analysis_calculated = False
 
         self._economic_data = None
+
+        try:
+            self._economic_data = self._get_economic_data()
+
+            self.calculate_cost_without_pv()
+            self.calculate_export_income()
+            self.calculate_cost_with_pv()
+            self.calculate_annual_savings()
+            self.calculate_net_investment()
+            self.calculate_cash_flow()
+            self.calculate_economic_indicators()
+
+            # Este es el único punto donde se confirma el cálculo.
+            economics.economic_analysis_calculated = True
+
+        finally:
+            self._economic_data = None
         
     def reports(self):
 

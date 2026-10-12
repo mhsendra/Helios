@@ -1,6 +1,4 @@
-from helios.reports.battery_report_data import BatteryReportData
 from helios.reports.solar_report_data import SolarReportData
-
 
 class SolarReportText:
     """Genera textos interpretativos para el informe solar."""
@@ -13,16 +11,31 @@ class SolarReportText:
         Selecciona la batería con mejor VAN conjunto entre las
         capacidades cuyo VAN incremental de batería es positivo.
 
-        En caso de empate, prioriza el mayor VAN de batería y,
-        después, la menor capacidad.
+        Solo considera recomendaciones con ambos análisis económicos
+        calculados. En caso de empate, prioriza el mayor VAN de batería
+        y, después, la menor capacidad.
         """
 
         if data is None:
             raise ValueError("report data is required")
 
+        recommendations = data.battery_recommendations
+
+        if not recommendations:
+            return None
+
+        # No interpretar valores económicos predeterminados como
+        # resultados de cálculos que todavía no se han realizado.
+        if not all(
+            recommendation.economic_analysis_calculated
+            and recommendation.combined_economic_analysis_calculated
+            for recommendation in recommendations
+        ):
+            return None
+
         viable = [
             recommendation
-            for recommendation in data.battery_recommendations
+            for recommendation in recommendations
             if recommendation.economic_npv_eur > 0.0
         ]
 
@@ -47,20 +60,27 @@ class SolarReportText:
         if data is None:
             raise ValueError("report data is required")
 
-        if data.net_present_value_eur > 0:
-            pv_message = (
-                "La instalación fotovoltaica es recomendable "
-                "bajo las hipótesis económicas consideradas."
-            )
-        elif data.net_present_value_eur < 0:
-            pv_message = (
-                "La instalación fotovoltaica no resulta rentable "
-                "bajo las hipótesis económicas consideradas."
-            )
+        if data.economic_analysis_calculated:
+            if data.net_present_value_eur > 0:
+                pv_message = (
+                    "La instalación fotovoltaica es recomendable "
+                    "bajo las hipótesis económicas consideradas."
+                )
+            elif data.net_present_value_eur < 0:
+                pv_message = (
+                    "La instalación fotovoltaica no resulta rentable "
+                    "bajo las hipótesis económicas consideradas."
+                )
+            else:
+                pv_message = (
+                    "La instalación fotovoltaica se encuentra "
+                    "aproximadamente en el punto de equilibrio económico."
+                )
         else:
             pv_message = (
-                "La instalación fotovoltaica se encuentra "
-                "aproximadamente en el punto de equilibrio económico."
+                "No puede establecerse una recomendación económica "
+                "sobre la instalación fotovoltaica porque el análisis "
+                "económico no se ha calculado."
             )
 
         battery = SolarReportText.recommended_battery(data)
@@ -72,12 +92,22 @@ class SolarReportText:
                 f"resultado conjunto entre las capacidades con "
                 f"VAN incremental de batería positivo."
             )
-        elif data.battery_recommendations:
+        elif data.battery_recommendations and all(
+            recommendation.economic_analysis_calculated
+            and recommendation.combined_economic_analysis_calculated
+            for recommendation in data.battery_recommendations
+        ):
             battery_message = (
                 "Ninguna de las capacidades de batería evaluadas "
                 "presenta un VAN incremental positivo; no se "
                 "recomienda añadir almacenamiento por rentabilidad "
                 "económica bajo las hipótesis actuales."
+            )
+        elif data.battery_recommendations:
+            battery_message = (
+                "No puede establecerse una recomendación económica "
+                "de almacenamiento porque el análisis no se ha "
+                "completado para todas las capacidades evaluadas."
             )
         else:
             battery_message = (
@@ -95,14 +125,12 @@ class SolarReportText:
     def executive_summary(
         data: SolarReportData,
     ) -> str:
-        """
-        Genera el resumen ejecutivo del informe.
-        """
+        """Genera el resumen ejecutivo del informe."""
 
         if data is None:
             raise ValueError("report data is required")
 
-        return (
+        summary = (
             f"La instalación fotovoltaica analizada tiene una "
             f"potencia instalada de "
             f"{data.installed_power_kwp:.2f} kWp y una producción "
@@ -111,11 +139,23 @@ class SolarReportText:
             f"Esta producción permite cubrir directamente "
             f"{data.self_sufficiency_rate_percent:.1f} % del "
             f"consumo eléctrico anual mediante energía solar. "
-            f"El ahorro económico estimado alcanza "
-            f"{data.yearly_savings_eur:,.2f} € al año, con una "
-            f"inversión de {data.investment_eur:,.2f} € y un "
-            f"periodo de recuperación de la inversión de "
-            f"{data.payback_years:.2f} años."
+            f"El ahorro económico anual estimado es de "
+            f"{data.yearly_savings_eur:,.2f} €."
+        )
+
+        if not data.economic_analysis_calculated:
+            return (
+                summary
+                + " La inversión y su periodo de recuperación no "
+                "se presentan como resultados validados porque "
+                "el análisis económico no se ha calculado."
+            )
+
+        return (
+            summary
+            + f" La inversión es de {data.investment_eur:,.2f} € y "
+            f"el periodo de recuperación de la inversión estimado "
+            f"es de {data.payback_years:.2f} años."
         )
 
     @staticmethod
@@ -177,7 +217,12 @@ class SolarReportText:
                 "significativos en el escenario analizado."
             )
 
-        if data.net_present_value_eur > 0:
+        if not data.economic_analysis_calculated:
+            economic_message = (
+                "ℹ No se puede evaluar la rentabilidad de la "
+                "inversión porque el análisis económico no se ha calculado."
+            )
+        elif data.net_present_value_eur > 0:
             economic_message = (
                 "✓ La inversión presenta un VAN positivo bajo las "
                 "hipótesis económicas utilizadas."
@@ -421,15 +466,47 @@ class SolarReportText:
         )
 
     @staticmethod
-    def economic_analysis(
+    def methodology_conclusion(
         data: SolarReportData,
     ) -> str:
         """
-        Interpreta los principales indicadores económicos.
+        Resume el alcance y las limitaciones de la metodología utilizada.
         """
 
         if data is None:
             raise ValueError("report data is required")
+
+        return (
+            f"Los resultados se basan en una simulación energética "
+            f"y económica referida al año de consumo "
+            f"{data.consumption_reference_year}, calculada a partir "
+            f"de los perfiles y las hipótesis definidos para el "
+            f"proyecto. La simulación permite estimar el "
+            f"comportamiento de la instalación bajo esas condiciones, "
+            f"pero los resultados dependen de las hipótesis adoptadas "
+            f"y de las condiciones reales de funcionamiento. "
+            f"Por tanto, los resultados son estimaciones y "
+            f"no constituyen una garantía de resultados futuros."
+        )
+
+    @staticmethod
+    def economic_analysis(
+        data: SolarReportData,
+    ) -> str:
+        """Interpreta los principales indicadores económicos."""
+
+        if data is None:
+            raise ValueError("report data is required")
+
+        if not data.economic_analysis_calculated:
+            return (
+                "El análisis económico de la instalación no se ha "
+                "calculado. Por tanto, no es posible interpretar "
+                "el valor actual neto, la tasa interna de retorno "
+                "ni el periodo de recuperación de la inversión. "
+                f"El ahorro anual estimado a partir del balance "
+                f"energético es de {data.yearly_savings_eur:,.2f} €."
+            )
 
         if data.net_present_value_eur > 0:
             npv_assessment = (
@@ -480,8 +557,8 @@ class SolarReportText:
         data: SolarReportData,
     ) -> str:
         """
-        Interpreta los resultados económicos de las capacidades
-        de batería evaluadas.
+        Interpreta los resultados técnicos y económicos de las
+        capacidades de batería evaluadas.
         """
 
         if data is None:
@@ -494,12 +571,6 @@ class SolarReportText:
                 "No se han realizado evaluaciones económicas de "
                 "capacidades de batería para esta instalación."
             )
-
-        viable = [
-            recommendation
-            for recommendation in recommendations
-            if recommendation.economic_npv_eur > 0.0
-        ]
 
         best_additional_savings = max(
             recommendations,
@@ -542,19 +613,47 @@ class SolarReportText:
                 f"descuenta este último importe."
             )
 
+        economic_calculated = all(
+            recommendation.economic_analysis_calculated
+            for recommendation in recommendations
+        )
+
+        combined_calculated = all(
+            recommendation.combined_economic_analysis_calculated
+            for recommendation in recommendations
+        )
+
+        if not economic_calculated:
+            text += (
+                " No se ha realizado el cálculo de rentabilidad "
+                "del almacenamiento para todas las capacidades "
+                "evaluadas. Los valores económicos de VAN, TIR y "
+                "recuperación de la inversión no permiten establecer "
+                "una conclusión de rentabilidad. Por tanto, el mayor "
+                "ahorro anual no debe interpretarse por sí solo como "
+                "la capacidad económicamente óptima."
+            )
+
+            if not combined_calculated:
+                text += (
+                    " Tampoco se ha calculado el VAN conjunto de la "
+                    "instalación fotovoltaica y la batería para todas "
+                    "las capacidades."
+                )
+
+            return text
+
+        viable = [
+            recommendation
+            for recommendation in recommendations
+            if recommendation.economic_npv_eur > 0.0
+        ]
+
         if viable:
             best_economic = max(
                 viable,
                 key=lambda recommendation: (
                     recommendation.economic_npv_eur,
-                    -recommendation.capacity_kwh,
-                ),
-            )
-
-            best_combined = max(
-                recommendations,
-                key=lambda recommendation: (
-                    recommendation.combined_economic_npv_eur,
                     -recommendation.capacity_kwh,
                 ),
             )
@@ -575,41 +674,20 @@ class SolarReportText:
                 )
             )
 
-            if (
-                best_economic.capacity_kwh
-                == best_combined.capacity_kwh
-            ):
-                text += (
-                    f" Desde el punto de vista económico, la capacidad "
-                    f"recomendada es {best_economic.capacity_kwh:.1f} kWh, "
-                    f"ya que presenta simultáneamente el mayor VAN de "
-                    f"batería ({best_economic.economic_npv_eur:,.2f} €) "
-                    f"y el mayor VAN conjunto del sistema FV + batería "
-                    f"({best_combined.combined_economic_npv_eur:,.2f} €). "
-                    f"Esta configuración ofrece el mejor resultado "
-                    f"económico entre las alternativas evaluadas. "
-                    f"Su ahorro adicional anual es de "
-                    f"{best_economic.annual_additional_savings_eur:,.2f} € "
-                    f"y su recuperación económica estimada es de "
-                    f"{economic_payback}."
-                )
-            else:
-                text += (
-                    f" La capacidad de "
-                    f"{best_economic.capacity_kwh:.1f} kWh presenta el "
-                    f"mayor VAN de batería, con "
-                    f"{best_economic.economic_npv_eur:,.2f} €. "
-                    f"Por su parte, la capacidad de "
-                    f"{best_combined.capacity_kwh:.1f} kWh obtiene el "
-                    f"mayor VAN conjunto del sistema FV + batería, con "
-                    f"{best_combined.combined_economic_npv_eur:,.2f} €. "
-                    f"Ambos indicadores deben considerarse conjuntamente "
-                    f"antes de establecer una recomendación global."
-                )
+            text += (
+                f" La capacidad de "
+                f"{best_economic.capacity_kwh:.1f} kWh presenta el "
+                f"mayor VAN de batería, con "
+                f"{best_economic.economic_npv_eur:,.2f} €. "
+                f"Su ahorro adicional anual es de "
+                f"{best_economic.annual_additional_savings_eur:,.2f} € "
+                f"y su recuperación económica estimada es de "
+                f"{economic_payback}."
+            )
 
             text += (
-                f" Para la capacidad con mayor VAN de batería, el ahorro "
-                f"incremental respecto a la capacidad anterior es de "
+                f" Para esta capacidad, el ahorro incremental respecto "
+                f"a la capacidad anterior es de "
                 f"{best_economic.incremental_savings_eur:,.2f} €, "
                 f"equivalente a "
                 f"{best_economic.marginal_savings_per_kwh:,.2f} €/kWh "
@@ -623,22 +701,46 @@ class SolarReportText:
                 f"positivo bajo las hipótesis económicas utilizadas."
             )
         else:
-            best_economic = max(
+            text += (
+                " Ninguna de las capacidades de batería evaluadas "
+                "presenta un VAN incremental positivo; no se "
+                "recomienda añadir almacenamiento por rentabilidad "
+                "económica bajo las hipótesis actuales."
+            )
+
+        if combined_calculated:
+            best_combined = max(
                 recommendations,
                 key=lambda recommendation: (
-                    recommendation.economic_npv_eur,
+                    recommendation.combined_economic_npv_eur,
                     -recommendation.capacity_kwh,
                 ),
             )
 
+            if best_economic.capacity_kwh == best_combined.capacity_kwh:
+                text += (
+                    f" La capacidad de "
+                    f"{best_combined.capacity_kwh:.1f} kWh presenta "
+                    f"también el mayor VAN conjunto del sistema "
+                    f"FV + batería, con "
+                    f"{best_combined.combined_economic_npv_eur:,.2f} €. "
+                )
+            else:
+                text += (
+                    f" La capacidad de "
+                    f"{best_combined.capacity_kwh:.1f} kWh presenta "
+                    f"el mayor VAN conjunto del sistema FV + batería, "
+                    f"con "
+                    f"{best_combined.combined_economic_npv_eur:,.2f} €. "
+                    f"Ambos indicadores deben considerarse conjuntamente "
+                    f"antes de establecer una recomendación global."
+                )
+        else:
             text += (
-                f" Sin embargo, ninguna de las capacidades evaluadas "
-                f"alcanza un VAN positivo. La alternativa con mejor "
-                f"resultado económico es {best_economic.capacity_kwh:.1f} kWh, "
-                f"con un VAN de "
-                f"{best_economic.economic_npv_eur:,.2f} €, "
-                f"por lo que el almacenamiento no resulta "
-                f"económicamente rentable bajo las hipótesis actuales."
+                " No se ha calculado el VAN conjunto de la instalación "
+                "fotovoltaica y la batería para todas las capacidades; "
+                "por tanto, no puede establecerse una recomendación "
+                "económica conjunta."
             )
 
         text += (
@@ -860,12 +962,18 @@ class SolarReportText:
     def economic_conclusion(
         data: SolarReportData,
     ) -> str:
-        """
-        Resume la interpretación económica de la instalación FV.
-        """
+        """Resume la interpretación económica de la instalación FV."""
 
         if data is None:
             raise ValueError("report data is required")
+
+        if not data.economic_analysis_calculated:
+            return (
+                "El análisis económico de la instalación fotovoltaica "
+                "no se ha calculado. No es posible establecer una "
+                "conclusión sobre su rentabilidad ni validar el "
+                "periodo de recuperación de la inversión."
+            )
 
         if data.net_present_value_eur > 0:
             npv_text = (
@@ -903,6 +1011,13 @@ class SolarReportText:
         if data is None:
             raise ValueError("report data is required")
 
+        if not data.economic_analysis_calculated:
+            return (
+                "No se puede evaluar la sensibilidad del resultado "
+                "económico porque el análisis económico no se ha "
+                "calculado."
+            )
+
         if not data.scenario_results:
             return (
                 "No se han definido escenarios económicos alternativos "
@@ -934,118 +1049,94 @@ class SolarReportText:
         if data is None:
             raise ValueError("report data is required")
 
-        recommendations = data.battery_recommendations
-
-        if not recommendations:
+        if not data.battery_recommendations:
             return (
-                "No se dispone de una evaluación económica de baterías "
-                "para esta instalación."
+                "No se dispone de capacidades de batería evaluadas "
+                "para formular una conclusión económica."
+            )
+
+        economic_calculated = all(
+            recommendation.economic_analysis_calculated
+            for recommendation in data.battery_recommendations
+        )
+
+        combined_calculated = all(
+            recommendation.combined_economic_analysis_calculated
+            for recommendation in data.battery_recommendations
+        )
+
+        if not economic_calculated:
+            return (
+                "No puede establecerse una conclusión económica sobre "
+                "el almacenamiento porque el análisis económico "
+                "incremental de las baterías no se ha calculado."
             )
 
         viable = [
             recommendation
-            for recommendation in recommendations
-            if recommendation.economic_npv_eur > 0.0
+            for recommendation in data.battery_recommendations
+            if recommendation.economic_npv_eur > 0
         ]
 
-        if viable:
-            recommended = max(
-                viable,
-                key=lambda recommendation: (
-                    recommendation.economic_npv_eur,
-                    -recommendation.capacity_kwh,
-                ),
-            )
-
-            economic_payback = (
-                "N/D"
-                if recommended.economic_payback_years == float("inf")
-                else (
-                    f"{recommended.economic_payback_years:.2f} años"
-                )
-            )
-
-            marginal_payback = (
-                "N/D"
-                if recommended.marginal_payback_years == float("inf")
-                else (
-                    f"{recommended.marginal_payback_years:.2f} años"
-                )
-            )
-
+        if not viable:
             return (
-                f"El almacenamiento permite desplazar parte de los "
-                f"excedentes fotovoltaicos hacia momentos de mayor "
-                f"demanda. Bajo las hipótesis económicas utilizadas, "
-                f"la capacidad de {recommended.capacity_kwh:.1f} kWh "
-                f"es la recomendación económica, al obtener el mayor "
-                f"VAN positivo de las capacidades evaluadas, con "
-                f"{recommended.economic_npv_eur:,.2f} €. "
-                f"Su ahorro adicional anual es de "
-                f"{recommended.annual_additional_savings_eur:,.2f} € "
-                f"y su recuperación económica estimada es de "
-                f"{economic_payback}. "
-                f"El incremento respecto a la capacidad anterior "
-                f"aporta {recommended.incremental_savings_eur:,.2f} € "
-                f"de ahorro anual adicional, equivalente a "
-                f"{recommended.marginal_savings_per_kwh:,.2f} €/kWh "
-                f"de capacidad añadida, con una recuperación marginal "
-                f"de {marginal_payback}. "
-                f"En total, {len(viable)} de las "
-                f"{len(recommendations)} capacidades evaluadas "
-                f"presentan un VAN de batería positivo. "
-                f"El aumento de capacidad puede mejorar el "
-                f"aprovechamiento energético, pero deja de ser "
-                f"económicamente conveniente cuando el valor "
-                f"incremental ya no compensa su coste."
+                "Ninguna de las capacidades de batería evaluadas "
+                "presenta un VAN incremental positivo; no se "
+                "recomienda añadir almacenamiento por rentabilidad "
+                "económica bajo las hipótesis actuales."
             )
 
-        best_available = max(
-            recommendations,
+        best_battery = max(
+            viable,
             key=lambda recommendation: (
+                (
+                    recommendation.combined_economic_npv_eur
+                    if combined_calculated
+                    else recommendation.economic_npv_eur
+                ),
                 recommendation.economic_npv_eur,
                 -recommendation.capacity_kwh,
             ),
         )
 
-        return (
-            f"El almacenamiento permite desplazar parte de los "
-            f"excedentes fotovoltaicos hacia momentos de mayor "
-            f"demanda. Sin embargo, ninguna de las capacidades "
-            f"evaluadas alcanza un VAN de batería positivo bajo "
-            f"las hipótesis económicas utilizadas. "
-            f"La capacidad de {best_available.capacity_kwh:.1f} kWh "
-            f"obtiene el mejor resultado económico disponible, "
-            f"con un VAN de "
-            f"{best_available.economic_npv_eur:,.2f} €, pero "
-            f"no puede considerarse una inversión económicamente "
-            f"rentable bajo estas hipótesis. "
-            f"Por tanto, cualquier incremento de capacidad debería "
-            f"justificarse por criterios energéticos, operativos o "
-            f"por cambios futuros en el precio de la electricidad."
+        economic_payback = (
+            "N/D"
+            if best_battery.economic_payback_years == float("inf")
+            else (
+                f"{best_battery.economic_payback_years:.2f} años"
+            )
         )
 
-    @staticmethod
-    def methodology_conclusion(
-        data: SolarReportData,
-    ) -> str:
-        """
-        Resume cómo deben interpretarse los resultados del informe.
-        """
-
-        if data is None:
-            raise ValueError("report data is required")
-
-        return (
-            f"Los resultados deben interpretarse como una simulación "
-            f"basada en el perfil de consumo representativo de "
-            f"{data.consumption_reference_year}, la producción "
-            f"fotovoltaica simulada y las hipótesis económicas definidas "
-            f"para el proyecto. "
-            f"Su utilidad principal es comparar escenarios de forma "
-            f"coherente; no constituyen una garantía de comportamiento "
-            f"futuro."
+        annual_savings = (
+            f"{best_battery.annual_additional_savings_eur:,.2f} €"
         )
+
+        marginal_savings = (
+            f"{best_battery.marginal_savings_per_kwh:,.2f} €/kWh"
+        )
+
+        conclusion = (
+            f"La capacidad de batería de "
+            f"{best_battery.capacity_kwh:.1f} kWh presenta el mayor "
+            f"VAN positivo entre las capacidades evaluadas y "
+            f"constituye la recomendación económica bajo las "
+            f"hipótesis evaluadas. El VAN de batería positivo "
+            f"respalda esta recomendación. El ahorro adicional anual "
+            f"estimado es de {annual_savings}. "
+            f"El ahorro anual adicional que proporciona asciende "
+            f"a {annual_savings}. La recuperación económica "
+            f"estimada es de {economic_payback}. "
+            f"El ahorro marginal es de {marginal_savings}."
+        )
+
+        if combined_calculated:
+            conclusion += (
+                " La valoración conjunta de la instalación "
+                "fotovoltaica y la batería debe considerarse para "
+                "determinar la rentabilidad de la inversión completa."
+            )
+
+        return conclusion
 
     @staticmethod
     def final_recommendation(

@@ -27,7 +27,12 @@ class EconomicsEngine:
         self.npv = None
         self.irr = None
 
+        # Solo es True cuando el controlador ha completado
+        # correctamente toda la secuencia de cálculo económico.
+        self.economic_analysis_calculated = False
+
         self.scenario_results = []
+
 
 
     def calculate_cost_without_pv(

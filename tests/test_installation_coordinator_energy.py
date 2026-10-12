@@ -196,6 +196,7 @@ def test_recommend_energy_returns_integral_recommendation():
         candidate_capacities_kwh=[5.0],
         max_charge_power_kw=5.0,
         max_discharge_power_kw=5.0,
+        optimization_criterion="energy",
     )
 
     assert isinstance(
@@ -223,6 +224,7 @@ def test_recommend_energy_calculates_production_for_each_candidate():
         candidate_capacities_kwh=[5.0],
         max_charge_power_kw=5.0,
         max_discharge_power_kw=5.0,
+        optimization_criterion="energy",
     )
 
     assert result is not None
@@ -247,6 +249,7 @@ def test_recommend_energy_propagates_ev_scenario():
         max_charge_power_kw=5.0,
         max_discharge_power_kw=5.0,
         ev_scenario=ev_scenario,
+        optimization_criterion="energy",
     )
 
     assert result.ev_scenario is ev_scenario
@@ -262,17 +265,18 @@ def test_recommend_energy_defaults_to_combined_npv():
         _production_calculator_factory(production_calls),
     )
 
-    result = coordinator.recommend_energy(
-        configuration=_configuration(),
-        annual_consumption_kwh=8760.0,
-        consumption_scenario=_consumption_scenario(),
-        candidate_capacities_kwh=[5.0],
-        max_charge_power_kw=5.0,
-        max_discharge_power_kw=5.0,
-    )
-
-    assert result.optimization_criterion == "combined_npv"
-
+    with pytest.raises(
+        ValueError,
+        match="Combined economic optimization requires",
+    ):
+        coordinator.recommend_energy(
+            configuration=_configuration(),
+            annual_consumption_kwh=8760.0,
+            consumption_scenario=_consumption_scenario(),
+            candidate_capacities_kwh=[5.0],
+            max_charge_power_kw=5.0,
+            max_discharge_power_kw=5.0,
+        )
 
 def test_recommend_energy_accepts_combined_payback():
     production_calls = []
@@ -281,17 +285,19 @@ def test_recommend_energy_accepts_combined_payback():
         _production_calculator_factory(production_calls),
     )
 
-    result = coordinator.recommend_energy(
-        configuration=_configuration(),
-        annual_consumption_kwh=8760.0,
-        consumption_scenario=_consumption_scenario(),
-        candidate_capacities_kwh=[5.0],
-        max_charge_power_kw=5.0,
-        max_discharge_power_kw=5.0,
-        optimization_criterion="combined_payback",
-    )
-
-    assert result.optimization_criterion == "combined_payback"
+    with pytest.raises(
+        ValueError,
+        match="Combined economic optimization requires",
+    ):
+        coordinator.recommend_energy(
+            configuration=_configuration(),
+            annual_consumption_kwh=8760.0,
+            consumption_scenario=_consumption_scenario(),
+            candidate_capacities_kwh=[5.0],
+            max_charge_power_kw=5.0,
+            max_discharge_power_kw=5.0,
+            optimization_criterion="combined_payback",
+        )
 
 
 def test_recommend_energy_passes_economic_configuration_factory():

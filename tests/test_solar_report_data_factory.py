@@ -66,6 +66,8 @@ class TestSolarReportDataFactory:
                 "combined_economic_npv_eur": 2239.27,
                 "combined_economic_irr_percent": 6.47,
                 "combined_economic_payback_years": 12.79,
+                "economic_analysis_calculated": True,
+                "combined_economic_analysis_calculated": True,
             },
         )()
 
@@ -693,6 +695,9 @@ class TestSolarReportDataFactory:
             == 12.79
         )
 
+        assert battery.economic_analysis_calculated is True
+        assert battery.combined_economic_analysis_calculated is True
+
     def test_create_without_battery_recommendations_returns_empty_list(
         self,
     ):
@@ -1316,3 +1321,35 @@ class TestSolarReportDataFactory:
 
         assert result.reference_year == 2023
         assert result.consumption_reference_year == 2025
+
+    @pytest.mark.parametrize(
+        "calculated",
+        [True, False],
+    )
+    def test_factory_propagates_economic_analysis_calculated(
+        self,
+        calculated,
+    ):
+        economics_controller = self._economics_controller()
+        economics_controller.analyzer.economics_engine.economic_analysis_calculated = (
+            calculated
+        )
+
+        data = SolarReportDataFactory.create(
+            self._solar_controller(),
+            economics_controller,
+        )
+
+        assert data.economic_analysis_calculated is calculated
+
+        assert (
+            data.battery_recommendations[0]
+            .economic_analysis_calculated
+            is True
+        )
+
+        assert (
+            data.battery_recommendations[0]
+            .combined_economic_analysis_calculated
+            is True
+        )

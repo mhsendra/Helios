@@ -28,6 +28,42 @@ class BatteryOptimizer:
                 "recommendations must not be empty."
             )
 
+        if optimization_criterion not in {
+            "energy",
+            "npv",
+            "combined_npv",
+            "payback",
+            "combined_payback",
+        }:
+            raise ValueError(
+                "optimization_criterion must be one of: "
+                "'energy', 'npv', 'combined_npv', "
+                "'payback', 'combined_payback'."
+            )
+
+        if optimization_criterion in {"npv", "payback"}:
+            if not all(
+                recommendation.economic_analysis_calculated
+                for recommendation in recommendations
+            ):
+                raise ValueError(
+                    "Economic optimization requires a calculated "
+                    "battery economic analysis for every recommendation."
+                )
+
+        if optimization_criterion in {
+            "combined_npv",
+            "combined_payback",
+        }:
+            if not all(
+                recommendation.combined_economic_analysis_calculated
+                for recommendation in recommendations
+            ):
+                raise ValueError(
+                    "Combined economic optimization requires a calculated "
+                    "PV and battery economic analysis for every recommendation."
+                )
+
         if optimization_criterion == "energy":
             return max(
                 recommendations,
@@ -64,19 +100,12 @@ class BatteryOptimizer:
                 ),
             )
 
-        if optimization_criterion == "combined_payback":
-            return min(
-                recommendations,
-                key=lambda recommendation: (
-                    recommendation.combined_economic_payback_years,
-                    recommendation.capacity_kwh,
-                ),
-            )
-
-        raise ValueError(
-            "optimization_criterion must be one of: "
-            "'energy', 'npv', 'combined_npv', "
-            "'payback', 'combined_payback'."
+        return min(
+            recommendations,
+            key=lambda recommendation: (
+                recommendation.combined_economic_payback_years,
+                recommendation.capacity_kwh,
+            ),
         )
 
     def _evaluate_capacities(
@@ -298,6 +327,9 @@ class BatteryOptimizer:
             # Lifecycle economic analysis
             # ---------------------------------------------------------
 
+            economic_analysis_calculated = False
+            combined_economic_analysis_calculated = False
+
             economic_npv_eur = 0.0
             economic_irr_percent = 0.0
             economic_payback_years = float("inf")
@@ -323,17 +355,12 @@ class BatteryOptimizer:
                     )
                 )
 
-                economic_npv_eur = (
-                    economic_result.npv_eur
-                )
-
-                economic_irr_percent = (
-                    economic_result.irr_percent
-                )
-
+                economic_npv_eur = economic_result.npv_eur
+                economic_irr_percent = economic_result.irr_percent
                 economic_payback_years = (
                     economic_result.payback_years
                 )
+                economic_analysis_calculated = True
 
             # ---------------------------------------------------------
             # Combined PV + battery lifecycle economic analysis
@@ -367,14 +394,13 @@ class BatteryOptimizer:
                 combined_economic_npv_eur = (
                     combined_economic_result.npv_eur
                 )
-
                 combined_economic_irr_percent = (
                     combined_economic_result.irr_percent
                 )
-
                 combined_economic_payback_years = (
                     combined_economic_result.payback_years
                 )
+                combined_economic_analysis_calculated = True
 
             recommendations.append(
                 BatteryRecommendation(
@@ -435,6 +461,12 @@ class BatteryOptimizer:
                     ),
                     combined_economic_payback_years=(
                         combined_economic_payback_years
+                    ),
+                    economic_analysis_calculated=(
+                        economic_analysis_calculated
+                    ),
+                    combined_economic_analysis_calculated=(
+                        combined_economic_analysis_calculated
                     ),
                 )
             )

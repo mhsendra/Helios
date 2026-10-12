@@ -26,6 +26,14 @@ class SolarReportDataBuilder:
             project.analyzer.economics_engine
         )
 
+        economic_analysis_calculated = bool(
+            getattr(
+                economics_engine,
+                "economic_analysis_calculated",
+                False,
+            )
+        )
+
         economics_configuration = (
             economics.configuration
         )
@@ -624,6 +632,12 @@ class SolarReportDataBuilder:
                 combined_economic_payback_years=float(
                     recommendation.combined_economic_payback_years
                 ),
+                economic_analysis_calculated=(
+                    recommendation.economic_analysis_calculated
+                ),
+                combined_economic_analysis_calculated=(
+                    recommendation.combined_economic_analysis_calculated
+                ),
             )
             for recommendation in battery_recommendations
         ]
@@ -689,6 +703,7 @@ class SolarReportDataBuilder:
             ),
 
             economic_horizon_years=economic_horizon_years,
+            economic_analysis_calculated=economic_analysis_calculated,
 
             first_year_degradation_percent=(
                 first_year_degradation_percent

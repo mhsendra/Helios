@@ -1,6 +1,8 @@
 import pandas as pd
 import pytest
 
+from types import SimpleNamespace
+
 from helios.core.consumption_scenario import ConsumptionScenario
 from helios.solar.battery_optimizer import BatteryOptimizer
 from helios.solar.battery_recommendation import BatteryRecommendation
@@ -762,6 +764,7 @@ class TestBatteryOptimizer:
                 self_sufficiency_percent=90.0,
                 equivalent_cycles=30.0,
                 combined_economic_npv_eur=2500.0,
+                combined_economic_analysis_calculated=True,
             ),
             BatteryRecommendation(
                 capacity_kwh=10.0,
@@ -778,6 +781,7 @@ class TestBatteryOptimizer:
                 self_sufficiency_percent=95.0,
                 equivalent_cycles=27.0,
                 combined_economic_npv_eur=1800.0,
+                combined_economic_analysis_calculated=True,
             ),
         ]
 
@@ -834,6 +838,7 @@ class TestBatteryOptimizer:
                 self_sufficiency_percent=90.0,
                 equivalent_cycles=18.0,
                 combined_economic_npv_eur=3500.0,
+                combined_economic_analysis_calculated=True,
             ),
             BatteryRecommendation(
                 capacity_kwh=10.0,
@@ -850,6 +855,7 @@ class TestBatteryOptimizer:
                 self_sufficiency_percent=95.0,
                 equivalent_cycles=14.0,
                 combined_economic_npv_eur=2500.0,
+                combined_economic_analysis_calculated=True,
             ),
         ]
 
@@ -971,3 +977,116 @@ class TestBatteryOptimizer:
         assert recommendation.economic_npv_eur == pytest.approx(
             1018.30
         )
+
+    def test_select_recommendation_by_combined_npv_rejects_uncalculated_analysis(
+        self,
+    ):
+        recommendations = [
+            BatteryRecommendation(
+                capacity_kwh=5.0,
+                max_charge_power_kw=5.0,
+                max_discharge_power_kw=5.0,
+                annual_consumption_kwh=1000.0,
+                annual_production_kwh=1000.0,
+                annual_surplus_kwh=500.0,
+                annual_export_kwh=100.0,
+                annual_grid_import_kwh=100.0,
+                annual_battery_charge_kwh=200.0,
+                annual_battery_discharge_kwh=150.0,
+                self_consumption_kwh=900.0,
+                self_sufficiency_percent=90.0,
+                equivalent_cycles=30.0,
+                combined_economic_npv_eur=2500.0,
+            ),
+        ]
+
+        with pytest.raises(
+            ValueError,
+            match="Combined economic optimization requires",
+        ):
+            BatteryOptimizer._select_recommendation(
+                recommendations,
+                "combined_npv",
+            )
+
+    @pytest.mark.parametrize(
+        "criterion, required_flag",
+        [
+            ("npv", "economic_analysis_calculated"),
+            ("payback", "economic_analysis_calculated"),
+            ("combined_npv", "combined_economic_analysis_calculated"),
+            ("combined_payback", "combined_economic_analysis_calculated"),
+        ],
+    )
+    def test_select_recommendation_rejects_incomplete_economic_analysis(
+        self,
+        criterion,
+        required_flag,
+    ):
+        recommendations = [
+            SimpleNamespace(
+                capacity_kwh=5.0,
+                economic_npv_eur=1000.0,
+                economic_payback_years=5.0,
+                combined_economic_npv_eur=2000.0,
+                combined_economic_payback_years=4.0,
+                economic_analysis_calculated=True,
+                combined_economic_analysis_calculated=True,
+            ),
+            SimpleNamespace(
+                capacity_kwh=8.3,
+                economic_npv_eur=1500.0,
+                economic_payback_years=4.0,
+                combined_economic_npv_eur=2500.0,
+                combined_economic_payback_years=3.0,
+                economic_analysis_calculated=True,
+                combined_economic_analysis_calculated=True,
+            ),
+        ]
+
+        setattr(recommendations[1], required_flag, False)
+
+        with pytest.raises(ValueError, match="calculated"):
+            BatteryOptimizer._select_recommendation(
+                recommendations,
+                criterion,
+            )
+
+    @pytest.mark.parametrize(
+        "criterion",
+        ["npv", "payback", "combined_npv", "combined_payback"],
+    )
+    def test_select_recommendation_accepts_completed_economic_analysis(
+        self,
+        criterion,
+    ):
+        recommendations = [
+            SimpleNamespace(
+                capacity_kwh=5.0,
+                economic_npv_eur=1000.0,
+                economic_payback_years=5.0,
+                combined_economic_npv_eur=2000.0,
+                combined_economic_payback_years=4.0,
+                economic_analysis_calculated=True,
+                combined_economic_analysis_calculated=True,
+            ),
+            SimpleNamespace(
+                capacity_kwh=8.3,
+                economic_npv_eur=1500.0,
+                economic_payback_years=4.0,
+                combined_economic_npv_eur=2500.0,
+                combined_economic_payback_years=3.0,
+                economic_analysis_calculated=True,
+                combined_economic_analysis_calculated=True,
+            ),
+        ]
+
+        result = BatteryOptimizer._select_recommendation(
+            recommendations,
+            criterion,
+        )
+
+        if criterion in ("npv", "combined_npv"):
+            assert result.capacity_kwh == 8.3
+        else:
+            assert result.capacity_kwh == 8.3

@@ -44,6 +44,11 @@ class BatteryRecommendation:
     combined_economic_irr_percent: float = 0.0
     combined_economic_payback_years: float = float("inf")
 
+    # Estado explícito de los cálculos económicos.
+    # False significa que el análisis no se ha ejecutado.
+    economic_analysis_calculated: bool = False
+    combined_economic_analysis_calculated: bool = False
+
     @property
     def battery_energy_stored_kwh(self) -> float:
         return self.annual_battery_charge_kwh

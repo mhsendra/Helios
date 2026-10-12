@@ -876,3 +876,26 @@ class TestEconomicsController:
             energy_balance,
             tariff_data,
         )
+
+    def test_calculate_resets_economic_analysis_flag_when_calculation_fails(
+        self,
+    ):
+        engine = self.analyzer.economics_engine
+        engine.economic_analysis_calculated = True
+
+        self.controller._get_economic_data = MagicMock(
+            return_value=("consumption", "tariff")
+        )
+        self.controller.calculate_cost_without_pv = MagicMock()
+        self.controller.calculate_export_income = MagicMock(
+            side_effect=RuntimeError("Error de prueba")
+        )
+
+        with pytest.raises(
+            RuntimeError,
+            match="Error de prueba",
+        ):
+            self.controller.calculate()
+
+        assert engine.economic_analysis_calculated is False
+        assert self.controller._economic_data is None

@@ -75,3 +75,6 @@ class BatteryReportData:
 
     annual_import_savings_eur: float | None = None
     annual_export_compensation_lost_eur: float | None = None
+
+    economic_analysis_calculated: bool = False
+    combined_economic_analysis_calculated: bool = False
