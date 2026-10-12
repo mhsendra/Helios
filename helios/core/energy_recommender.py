@@ -6,7 +6,10 @@ from helios.core.consumption_scenario import ConsumptionScenario
 from helios.core.energy_recommendation import EnergyRecommendation
 from helios.ev.scenario import EVScenario
 from helios.solar.battery_economic_model import CombinedEconomicConfiguration
-from helios.solar.battery_optimizer import BatteryOptimizer
+from helios.solar.battery_optimizer import (
+    BatteryOptimizer,
+    NoFinitePaybackError,
+)
 from helios.solar.installation_evaluation import InstallationEvaluation
 from helios.solar.installation_recommendation import InstallationRecommendation
 from helios.solar.production_profile import SolarProductionProfile
@@ -131,8 +134,8 @@ class EnergyRecommender:
                     export_income_calculator(baseline_balance)
                 )
 
-            battery_recommendation = (
-                self.battery_optimizer.optimize(
+            try:
+                battery_recommendation = self.battery_optimizer.optimize(
                     consumption_scenario,
                     production_profile,
                     candidate_capacities_kwh,
@@ -144,9 +147,7 @@ class EnergyRecommender:
                     min_soc=min_soc,
                     max_soc=max_soc,
                     initial_soc=initial_soc,
-                    battery_cost_per_kwh_eur=(
-                        battery_cost_per_kwh_eur
-                    ),
+                    battery_cost_per_kwh_eur=battery_cost_per_kwh_eur,
                     annual_cost_without_battery_eur=(
                         annual_cost_without_battery_eur
                     ),
@@ -157,12 +158,11 @@ class EnergyRecommender:
                     annual_export_income_without_battery_eur=(
                         annual_export_income_without_battery_eur
                     ),
-                    export_income_calculator=(
-                        export_income_calculator
-                    ),
+                    export_income_calculator=export_income_calculator,
                     ev_scenario=ev_scenario,
                 )
-            )
+            except NoFinitePaybackError:
+                continue
 
             installation_recommendation = InstallationRecommendation(
                 evaluation=evaluation,
@@ -185,7 +185,8 @@ class EnergyRecommender:
 
         if not evaluated_options:
             raise ValueError(
-                "No valid energy recommendation could be generated."
+                "No valid energy recommendation could be generated "
+                f"for optimization criterion '{optimization_criterion}'."
             )
 
         best_energy_recommendation = evaluated_options[0]

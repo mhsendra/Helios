@@ -1090,3 +1090,97 @@ class TestBatteryOptimizer:
             assert result.capacity_kwh == 8.3
         else:
             assert result.capacity_kwh == 8.3
+
+    @pytest.mark.parametrize(
+        "criterion, payback_attribute, required_flag",
+        [
+            (
+                "payback",
+                "economic_payback_years",
+                "economic_analysis_calculated",
+            ),
+            (
+                "combined_payback",
+                "combined_economic_payback_years",
+                "combined_economic_analysis_calculated",
+            ),
+        ],
+    )
+    def test_select_recommendation_rejects_all_infinite_paybacks(
+        self,
+        criterion,
+        payback_attribute,
+        required_flag,
+    ):
+        recommendations = [
+            SimpleNamespace(
+                capacity_kwh=5.0,
+                economic_payback_years=float("inf"),
+                combined_economic_payback_years=float("inf"),
+                economic_analysis_calculated=True,
+                combined_economic_analysis_calculated=True,
+            ),
+            SimpleNamespace(
+                capacity_kwh=8.3,
+                economic_payback_years=float("inf"),
+                combined_economic_payback_years=float("inf"),
+                economic_analysis_calculated=True,
+                combined_economic_analysis_calculated=True,
+            ),
+        ]
+
+        with pytest.raises(
+            ValueError,
+            match="finite",
+        ):
+            BatteryOptimizer._select_recommendation(
+                recommendations,
+                criterion,
+            )
+
+    @pytest.mark.parametrize(
+        "criterion, payback_attribute",
+        [
+            ("payback", "economic_payback_years"),
+            (
+                "combined_payback",
+                "combined_economic_payback_years",
+            ),
+        ],
+    )
+    def test_select_recommendation_ignores_infinite_paybacks(
+        self,
+        criterion,
+        payback_attribute,
+    ):
+        recommendations = [
+            SimpleNamespace(
+                capacity_kwh=5.0,
+                economic_payback_years=float("inf"),
+                combined_economic_payback_years=float("inf"),
+                economic_analysis_calculated=True,
+                combined_economic_analysis_calculated=True,
+            ),
+            SimpleNamespace(
+                capacity_kwh=8.3,
+                economic_payback_years=7.0,
+                combined_economic_payback_years=6.0,
+                economic_analysis_calculated=True,
+                combined_economic_analysis_calculated=True,
+            ),
+            SimpleNamespace(
+                capacity_kwh=16.6,
+                economic_payback_years=9.0,
+                combined_economic_payback_years=8.0,
+                economic_analysis_calculated=True,
+                combined_economic_analysis_calculated=True,
+            ),
+        ]
+
+        result = BatteryOptimizer._select_recommendation(
+            recommendations,
+            criterion,
+        )
+
+        assert result.capacity_kwh == 8.3
+        

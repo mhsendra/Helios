@@ -15,6 +15,8 @@ from helios.solar.production_profile import SolarProductionProfile
 
 from helios.ev.scenario import EVScenario
 
+class NoFinitePaybackError(ValueError):
+    """No existe ninguna batería con un plazo de amortización finito."""
 
 class BatteryOptimizer:
 
@@ -92,16 +94,44 @@ class BatteryOptimizer:
             )
 
         if optimization_criterion == "payback":
+            eligible = [
+                recommendation
+                for recommendation in recommendations
+                if math.isfinite(
+                    recommendation.economic_payback_years
+                )
+            ]
+
+            if not eligible:
+                raise NoFinitePaybackError(
+                    "No battery recommendation has a finite "
+                    "economic payback period."
+                )
+
             return min(
-                recommendations,
+                eligible,
                 key=lambda recommendation: (
                     recommendation.economic_payback_years,
                     recommendation.capacity_kwh,
                 ),
             )
 
+        eligible = [
+            recommendation
+            for recommendation in recommendations
+            if math.isfinite(
+                recommendation.combined_economic_payback_years
+            )
+        ]
+
+        if not eligible:
+            raise NoFinitePaybackError(
+                "No battery recommendation has a finite "
+                "combined economic payback period."
+            )
+
         return min(
-            recommendations,
+            eligible,
             key=lambda recommendation: (
                 recommendation.combined_economic_payback_years,
                 recommendation.capacity_kwh,

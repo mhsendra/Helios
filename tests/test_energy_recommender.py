@@ -13,6 +13,9 @@ from helios.solar.balance import SolarBalanceEngine
 from helios.solar.battery_economic_model import (
     CombinedEconomicConfiguration,
 )
+from helios.solar.battery_optimizer import (
+    NoFinitePaybackError,
+)
 from helios.solar.battery_recommendation import BatteryRecommendation
 
 from helios.solar.installation_candidate import (
@@ -1274,3 +1277,181 @@ class TestEnergyRecommender:
             is export_income_calculator
         )
         assert balance_calls == [None]
+
+@pytest.mark.parametrize(
+    "optimization_criterion",
+    [
+        "payback",
+        "combined_payback",
+    ],
+)
+def test_recommend_skips_installation_without_finite_payback(
+    optimization_criterion,
+):
+    consumption = _consumption_scenario()
+
+    evaluation_5 = _evaluation(
+        panel_count=10,
+        installed_power_kwp=5.4,
+    )
+    evaluation_10 = _evaluation(
+        panel_count=15,
+        installed_power_kwp=8.1,
+    )
+
+    profiles = {
+        10: _production_profile(5.4, 8000.0),
+        15: _production_profile(8.1, 12000.0),
+    }
+
+    valid_recommendation = _battery_recommendation(
+        capacity_kwh=8.3,
+        combined_npv_eur=2000.0,
+    )
+
+    if optimization_criterion == "payback":
+        valid_recommendation = replace(
+            valid_recommendation,
+            economic_payback_years=5.0,
+            economic_analysis_calculated=True,
+        )
+    else:
+        valid_recommendation = replace(
+            valid_recommendation,
+            combined_economic_payback_years=5.0,
+            combined_economic_analysis_calculated=True,
+        )
+
+    class SelectiveFailureOptimizer:
+        def __init__(self):
+            self.calls = []
+
+        def optimize(
+            self,
+            consumption_scenario,
+            production_profile,
+            candidate_capacities_kwh,
+            **kwargs,
+        ):
+            self.calls.append(
+                production_profile.installed_power_kwp
+            )
+
+            if production_profile.installed_power_kwp == 5.4:
+                raise NoFinitePaybackError(
+                    "No finite payback for this installation."
+                )
+
+            return valid_recommendation
+
+    optimizer = SelectiveFailureOptimizer()
+
+    recommender = EnergyRecommender(
+        battery_optimizer=optimizer,
+    )
+
+    result = recommender.recommend(
+        evaluations=[evaluation_5, evaluation_10],
+        annual_consumption_kwh=8760.0,
+        consumption_scenario=consumption,
+        production_profiles=profiles,
+        candidate_capacities_kwh=[5.0, 8.3],
+        max_charge_power_kw=5.0,
+        max_discharge_power_kw=5.0,
+        optimization_criterion=optimization_criterion,
+    )
+
+    assert result.panel_count == 15
+    assert result.installed_power_kwp == pytest.approx(8.1)
+    assert optimizer.calls == [5.4, 8.1]
+
+    assert len(result.evaluated_options) == 1
+    assert result.evaluated_options[0].panel_count == 15
+
+
+@pytest.mark.parametrize(
+    "optimization_criterion",
+    [
+        "payback",
+        "combined_payback",
+    ],
+)
+def test_recommend_raises_when_no_installation_has_finite_payback(
+    optimization_criterion,
+):
+    consumption = _consumption_scenario()
+
+    evaluations = [
+        _evaluation(10, 5.4),
+        _evaluation(15, 8.1),
+    ]
+
+    profiles = {
+        10: _production_profile(5.4, 8000.0),
+        15: _production_profile(8.1, 12000.0),
+    }
+
+    class NoFinitePaybackOptimizer:
+        def optimize(self, *args, **kwargs):
+            raise NoFinitePaybackError(
+                "No finite payback for this installation."
+            )
+
+    recommender = EnergyRecommender(
+        battery_optimizer=NoFinitePaybackOptimizer(),
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            "No valid energy recommendation could be generated "
+            f"for optimization criterion '{optimization_criterion}'"
+        ),
+    ):
+        recommender.recommend(
+            evaluations=evaluations,
+            annual_consumption_kwh=8760.0,
+            consumption_scenario=consumption,
+            production_profiles=profiles,
+            candidate_capacities_kwh=[5.0, 8.3],
+            max_charge_power_kw=5.0,
+            max_discharge_power_kw=5.0,
+            optimization_criterion=optimization_criterion,
+        )
+
+
+def test_recommend_propagates_unexpected_value_error():
+    consumption = _consumption_scenario()
+
+    evaluation = _evaluation(
+        panel_count=15,
+        installed_power_kwp=8.1,
+    )
+
+    profiles = {
+        15: _production_profile(8.1, 12000.0),
+    }
+
+    class FailingOptimizer:
+        def optimize(self, *args, **kwargs):
+            raise ValueError("Unexpected optimizer failure.")
+
+    recommender = EnergyRecommender(
+        battery_optimizer=FailingOptimizer(),
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="Unexpected optimizer failure.",
+    ):
+        recommender.recommend(
+            evaluations=[evaluation],
+            annual_consumption_kwh=8760.0,
+            consumption_scenario=consumption,
+            production_profiles=profiles,
+            candidate_capacities_kwh=[5.0, 8.3],
+            max_charge_power_kw=5.0,
+            max_discharge_power_kw=5.0,
+            optimization_criterion="combined_payback",
+        )
+
