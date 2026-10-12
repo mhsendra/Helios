@@ -717,7 +717,7 @@ class SolarReportText:
                 ),
             )
 
-            if best_economic.capacity_kwh == best_combined.capacity_kwh:
+            if viable and best_economic.capacity_kwh == best_combined.capacity_kwh:
                 text += (
                     f" La capacidad de "
                     f"{best_combined.capacity_kwh:.1f} kWh presenta "

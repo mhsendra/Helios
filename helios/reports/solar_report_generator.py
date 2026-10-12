@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import math
+
 from helios.reports.solar_report_charts import SolarReportCharts
 from helios.reports.solar_report_data import SolarReportData
 from helios.reports.solar_report_text import SolarReportText
@@ -868,7 +870,15 @@ class SolarReportGenerator:
                     ),
                     (
                         "Retorno",
-                        f"{data.payback_years:.2f} años",
+                        (
+                            f"{data.payback_years:.2f} años"
+                            if (
+                                data.economic_analysis_calculated
+                                and data.payback_years is not None
+                                and math.isfinite(data.payback_years)
+                            )
+                            else "N/D"
+                        ),
                         HELIOS_BLUE,
                     ),
                 ],
@@ -1310,17 +1320,32 @@ class SolarReportGenerator:
             ],
             [
                 "Periodo de retorno",
-                f"{data.payback_years:.2f} años",
+                (
+                    f"{data.payback_years:.2f} años"
+                    if (
+                        data.economic_analysis_calculated
+                        and data.payback_years is not None
+                        and math.isfinite(data.payback_years)
+                    )
+                    else "N/D"
+                ),
             ],
             [
                 "Valor actual neto (VAN)",
-                f"{data.net_present_value_eur:,.2f} €",
+                (
+                    f"{data.net_present_value_eur:,.2f} €"
+                    if data.economic_analysis_calculated
+                    else "N/D"
+                ),
             ],
             [
                 "Tasa interna de retorno (TIR)",
                 (
                     f"{data.internal_rate_of_return_percent:.2f} %"
-                    if data.internal_rate_of_return_percent is not None
+                    if (
+                        data.economic_analysis_calculated
+                        and data.internal_rate_of_return_percent is not None
+                    )
                     else "N/D"
                 ),
             ],
@@ -1567,18 +1592,42 @@ class SolarReportGenerator:
             battery_economic_data.append(
                 [
                     capacity,
-                    f"{recommendation.economic_npv_eur:,.2f} €",
-                    f"{recommendation.economic_irr_percent:.2f} %",
-                    economic_payback,
+                    (
+                        f"{recommendation.economic_npv_eur:,.2f} €"
+                        if recommendation.economic_analysis_calculated
+                        else "N/D"
+                    ),
+                    (
+                        f"{recommendation.economic_irr_percent:.2f} %"
+                        if recommendation.economic_analysis_calculated
+                        else "N/D"
+                    ),
+                    (
+                        economic_payback
+                        if recommendation.economic_analysis_calculated
+                        else "N/D"
+                    ),
                 ]
             )
 
             battery_combined_data.append(
                 [
                     capacity,
-                    f"{recommendation.combined_economic_npv_eur:,.2f} €",
-                    f"{recommendation.combined_economic_irr_percent:.2f} %",
-                    combined_payback,
+                    (
+                        f"{recommendation.combined_economic_npv_eur:,.2f} €"
+                        if recommendation.combined_economic_analysis_calculated
+                        else "N/D"
+                    ),
+                    (
+                        f"{recommendation.combined_economic_irr_percent:.2f} %"
+                        if recommendation.combined_economic_analysis_calculated
+                        else "N/D"
+                    ),
+                    (
+                        combined_payback
+                        if recommendation.combined_economic_analysis_calculated
+                        else "N/D"
+                    ),
                 ]
             )
 
@@ -2229,17 +2278,32 @@ class SolarReportGenerator:
             ],
             [
                 Paragraph(
-                    f"{data.payback_years:.2f} años",
+                    (
+                        f"{data.payback_years:.2f} años"
+                        if (
+                            data.economic_analysis_calculated
+                            and data.payback_years is not None
+                            and math.isfinite(data.payback_years)
+                        )
+                        else "N/D"
+                    ),
                     styles["HeliosKpiValue"],
                 ),
                 Paragraph(
-                    f"{data.net_present_value_eur:,.0f} €",
+                    (
+                        f"{data.net_present_value_eur:,.0f} €"
+                        if data.economic_analysis_calculated
+                        else "N/D"
+                    ),
                     styles["HeliosKpiValue"],
                 ),
                 Paragraph(
                     (
                         f"{data.internal_rate_of_return_percent:.2f} %"
-                        if data.internal_rate_of_return_percent is not None
+                        if (
+                            data.economic_analysis_calculated
+                            and data.internal_rate_of_return_percent is not None
+                        )
                         else "N/D"
                     ),
                     styles["HeliosKpiValue"],

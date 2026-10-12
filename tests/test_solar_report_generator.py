@@ -48,6 +48,8 @@ class TestSolarReportGenerator:
                 economic_npv_eur=260.10,
                 economic_irr_percent=6.80,
                 economic_payback_years=12.47,
+                economic_analysis_calculated=True,
+                combined_economic_analysis_calculated=True,
             ),
             BatteryRecommendation(
                 capacity_kwh=8.3,
@@ -73,6 +75,8 @@ class TestSolarReportGenerator:
                 economic_npv_eur=429.40,
                 economic_irr_percent=6.79,
                 economic_payback_years=12.48,
+                economic_analysis_calculated=True,
+                combined_economic_analysis_calculated=True,
             ),
             BatteryRecommendation(
                 capacity_kwh=16.6,
@@ -98,6 +102,8 @@ class TestSolarReportGenerator:
                 economic_npv_eur=-451.89,
                 economic_irr_percent=4.00,
                 economic_payback_years=17.06,
+                economic_analysis_calculated=True,
+                combined_economic_analysis_calculated=True,
             ),
             BatteryRecommendation(
                 capacity_kwh=24.9,
@@ -123,6 +129,8 @@ class TestSolarReportGenerator:
                 economic_npv_eur=-2132.50,
                 economic_irr_percent=1.62,
                 economic_payback_years=23.42,
+                economic_analysis_calculated=True,
+                combined_economic_analysis_calculated=True,
             ),
             BatteryRecommendation(
                 capacity_kwh=30.0,
@@ -148,6 +156,8 @@ class TestSolarReportGenerator:
                 economic_npv_eur=-3340.47,
                 economic_irr_percent=0.43,
                 economic_payback_years=28.02,
+                economic_analysis_calculated=True,
+                combined_economic_analysis_calculated=True,
             ),
         ]
 
@@ -2155,3 +2165,94 @@ class TestSolarReportGenerator:
         )
 
         assert SolarReportText.recommended_battery(data) is None
+
+    def test_economic_indicators_are_not_displayed_when_analysis_is_not_calculated(
+        self,
+        monkeypatch,
+        tmp_path,
+    ):
+        data = replace(
+            self._report_data(),
+            economic_analysis_calculated=False,
+            payback_years=float("inf"),
+            net_present_value_eur=0.0,
+            internal_rate_of_return_percent=None,
+        )
+        captured = self._capture_story(monkeypatch)
+
+        SolarReportGenerator().generate(
+            data,
+            tmp_path / "report_without_economics.pdf",
+        )
+
+        tables = self._get_tables(captured["story"])
+        economics_rows = self._table_rows(tables[5])
+        executive_text = self._story_text(captured["story"])
+
+        assert economics_rows[8] == [
+            "Periodo de retorno",
+            "N/D",
+        ]
+        assert economics_rows[9] == [
+            "Valor actual neto (VAN)",
+            "N/D",
+        ]
+        assert economics_rows[10] == [
+            "Tasa interna de retorno (TIR)",
+            "N/D",
+        ]
+
+        assert "inf años" not in executive_text
+
+
+    def test_battery_economic_tables_respect_calculation_status(
+        self,
+        monkeypatch,
+        tmp_path,
+    ):
+        data = self._report_data()
+        recommendations = [
+            replace(
+                recommendation,
+                economic_analysis_calculated=(index == 0),
+                combined_economic_analysis_calculated=(index == 1),
+            )
+            for index, recommendation in enumerate(
+                data.battery_recommendations
+            )
+        ]
+        data = replace(
+            data,
+            battery_recommendations=recommendations,
+        )
+        captured = self._capture_story(monkeypatch)
+
+        SolarReportGenerator().generate(
+            data,
+            tmp_path / "report_partial_battery_economics.pdf",
+        )
+
+        tables = self._get_tables(captured["story"])
+        battery_rows = self._table_rows(tables[8])
+        combined_rows = self._table_rows(tables[9])
+
+        # Primera capacidad: análisis incremental calculado,
+        # pero análisis conjunto pendiente.
+        assert battery_rows[1][1] == "260.10 €"
+        assert battery_rows[1][2] == "6.80 %"
+        assert combined_rows[1][1] == "N/D"
+        assert combined_rows[1][2] == "N/D"
+
+        # Segunda capacidad: análisis incremental pendiente,
+        # pero análisis conjunto calculado.
+        assert battery_rows[2][1] == "N/D"
+        assert battery_rows[2][2] == "N/D"
+        assert combined_rows[2][1] != "N/D"
+        assert combined_rows[2][2] != "N/D"
+
+        # Las capacidades restantes no tienen análisis calculado.
+        for row in battery_rows[3:]:
+            assert row[1:3] == ["N/D", "N/D"]
+
+        for row in combined_rows[3:]:
+            assert row[1:3] == ["N/D", "N/D"]
