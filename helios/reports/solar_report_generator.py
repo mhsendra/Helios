@@ -1122,14 +1122,6 @@ class SolarReportGenerator:
                 self._keep_table(installation_table),
             ),
 
-            self._keep_section_content(
-                Spacer(1, 12),
-                self._section_conclusion(
-                    SolarReportText.installation_conclusion(data),
-                    HELIOS_BLUE,
-                ),
-            ),
-
             Spacer(1, 25),
 
             self._keep_section_content(

@@ -1,5 +1,7 @@
 import pandas as pd
 
+import math
+
 import pytest
 
 from dataclasses import replace
@@ -7,7 +9,6 @@ from dataclasses import replace
 from helios.reports.solar_report_data import SolarReportData
 from helios.reports.solar_report_text import SolarReportText
 from helios.reports.battery_report_data import BatteryReportData
-
 
 class TestSolarReportText:
 
@@ -746,19 +747,33 @@ class TestSolarReportText:
             self._report_data()
         )
 
-        assert "19,542 kWh anuales" in text
+        assert "perfil de consumo de referencia" in text
         assert "autosuficiencia alcanzable" in text
+        assert "distribución temporal" in text
+        assert "producción fotovoltaica" in text
+        assert "19,542 kWh anuales" not in text
+        assert "kWh mensuales" not in text
 
-    def test_installation_conclusion_interprets_coverage(self):
+    def test_installation_conclusion_summarizes_configuration(self):
 
         text = SolarReportText.installation_conclusion(
             self._report_data()
         )
 
-        assert "64.0 %" in text
-        assert "coincidencia horaria" in text
+        assert "8.10 kWp" in text
+        assert "producción solar" in text
+        assert "aprovechamiento energético" in text
+        assert "apartados siguientes" in text
 
-    def test_production_conclusion_interprets_annual_generation(self):
+        # La cobertura y la coincidencia temporal se analizan
+        # en la sección de producción, no aquí.
+        assert "64.0 %" not in text
+        assert "coincidencia horaria" not in text
+        assert "consumo eléctrico de referencia" not in text
+
+    def test_production_conclusion_interprets_annual_generation(
+        self,
+    ):
 
         text = SolarReportText.production_conclusion(
             self._report_data()
@@ -767,73 +782,105 @@ class TestSolarReportText:
         assert "12,500 kWh/año" in text
         assert "64.0 %" in text
         assert "autosuficiencia energética" in text
-        assert "falta de coincidencia temporal" in text
-        assert "cargas flexibles" in text
+        assert "no siempre coinciden temporalmente" in text
+        assert "aprovechar directamente" in text
 
-    def test_production_statistics_conclusion_contains_performance(self):
+        # Las medidas de mejora se desarrollan en el balance.
+        assert "cargas flexibles" not in text
+        assert "almacenarse" not in text
+
+    def test_production_statistics_conclusion_interprets_performance(
+        self,
+    ):
 
         text = SolarReportText.production_statistics_conclusion(
             self._report_data()
         )
 
-        assert "4,380 horas" in text
-        assert "17.62 %" in text
-        assert "rendimiento global" in text
+        assert "estadísticas" in text
+        assert "producción anual" in text
+        assert "rendimiento de la instalación" in text
+        assert "distribuye la generación" in text
 
-    def test_energy_balance_conclusion_identifies_temporal_mismatch(self):
+        # Las cifras ya aparecen en la tabla y el análisis.
+        assert "4,380 horas" not in text
+        assert "17.62 %" not in text
+
+    def test_energy_balance_conclusion_identifies_temporal_mismatch(
+        self,
+    ):
 
         text = SolarReportText.energy_balance_conclusion(
             self._report_data()
         )
 
-        assert "4,000 kWh" in text
-        assert "11,042 kWh" in text
-        assert "no coincide temporalmente" in text
-        assert "almacenamiento" in text
+        assert "no siempre coinciden temporalmente" in text
+        assert "Desplazar consumos" in text
+        assert "incorporar almacenamiento" in text
+        assert "perfil horario" in text
+        assert "costes" in text
 
-    def test_economic_conclusion_contains_key_indicators(self):
+        # Los valores cuantitativos ya aparecen en la tabla,
+        # el resumen de flujos y el análisis del balance.
+        assert "4,000 kWh" not in text
+        assert "11,042 kWh" not in text
 
+    def test_economic_conclusion_summarizes_profitability_without_repeating_values(
+        self,
+    ):
         text = SolarReportText.economic_conclusion(
             self._report_data()
         )
 
-        assert "12,490.00 €" in text
-        assert "2,338.00 €" in text
-        assert "5.34 años" in text
-        assert "VAN resulta positivo" in text
+        assert "VAN positivo" in text
+        assert "genera valor" in text
+        assert "precios de la electricidad" in text
+        assert "costes de mantenimiento" in text
+        assert "tasa de descuento" in text
+        assert "escenarios económicos" in text
 
-    def test_scenario_conclusion_explains_sensitivity(self):
+        # Los indicadores numéricos ya se muestran en la tabla
+        # y se interpretan en economic_analysis().
+        assert "12,490.00 €" not in text
+        assert "2,338.00 €" not in text
+        assert "5.34 años" not in text
 
+    def test_scenario_conclusion_interprets_sensitivity_without_repeating_values(
+        self,
+    ):
         text = SolarReportText.scenario_conclusion(
             self._report_data()
         )
 
-        assert "18,000.00 €" in text
-        assert "28,000.00 €" in text
-        assert "sensibilidad" in text
+        assert "Todos los escenarios evaluados presentan un VAN positivo" in text
+        assert "rentabilidad" in text
+        assert "sensibilidad de la inversión" in text
+        assert "no garantías de resultados futuros" in text
+
+        # Los valores concretos ya figuran en la tabla de escenarios.
+        assert "18,000.00 €" not in text
+        assert "28,000.00 €" not in text
 
     def test_battery_conclusion_recommends_highest_positive_npv(self):
         text = SolarReportText.battery_conclusion(
             self._report_data()
         )
 
-        assert "recomendación económica" in text
         assert "mayor VAN positivo" in text
-        assert "ahorro adicional anual" in text
-        assert "recuperación económica" in text
-        assert "ahorro anual adicional" in text
-        assert "€/kWh" in text
-        assert "VAN de batería positivo" in text
+        assert "constituye la recomendación económica" in text
+        assert "recuperación económica estimada" in text
 
     def test_methodology_conclusion_defines_interpretation_scope(self):
-
         text = SolarReportText.methodology_conclusion(
             self._report_data()
         )
 
-        assert "2025" in text
-        assert "simulación" in text
-        assert "no constituyen una garantía" in text
+        assert "resultados reales pueden diferir" in text
+        assert "variaciones meteorológicas" in text
+        assert "hábitos de consumo" in text
+        assert "precios de la electricidad" in text
+        assert "condiciones concretas de la instalación" in text
+        assert "hipótesis económicas" in text
 
     def test_final_recommendation_recommends_positive_npv_installation(self):
 
@@ -1074,3 +1121,191 @@ class TestSolarReportText:
 
         assert "no se ha calculado" in text
         assert "intervalo de VAN" not in text
+
+    def test_final_recommendation_mentions_future_16_6_kwh_battery_when_combined_npv_is_within_one_percent(
+        self,
+    ):
+        data = self._report_data()
+
+        recommendations = [
+            replace(
+                battery,
+                combined_economic_npv_eur=500.0,
+                combined_economic_analysis_calculated=True,
+            )
+            for battery in data.battery_recommendations
+        ]
+
+        battery_16_6 = replace(
+            recommendations[1],
+            capacity_kwh=16.6,
+            incremental_battery_cost_eur=1800.0,
+            combined_economic_npv_eur=-0.39,
+            combined_economic_analysis_calculated=True,
+        )
+
+        recommendations.append(battery_16_6)
+
+        data = replace(
+            data,
+            battery_recommendations=recommendations,
+            economic_analysis_calculated=True,
+        )
+
+        text = SolarReportText.final_recommendation(data)
+
+        assert "Escenario de incremento futuro del consumo" in text
+        assert (
+            "no constituye una recomendación de ampliación inmediata"
+            in text
+        )
+
+
+    def test_final_recommendation_uses_total_pv_and_battery_investment_for_one_percent_margin(
+        self,
+    ):
+        data = self._report_data()
+
+        recommendations = [
+            replace(
+                battery,
+                combined_economic_npv_eur=500.0,
+                combined_economic_analysis_calculated=True,
+            )
+            for battery in data.battery_recommendations
+        ]
+
+        battery_16_6 = replace(
+            recommendations[1],
+            capacity_kwh=16.6,
+            incremental_battery_cost_eur=1800.0,
+            combined_economic_npv_eur=142.0,
+            combined_economic_analysis_calculated=True,
+        )
+
+        recommendations.append(battery_16_6)
+
+        data = replace(
+            data,
+            battery_recommendations=recommendations,
+            economic_analysis_calculated=True,
+        )
+
+        text = SolarReportText.final_recommendation(data)
+
+        # Inversión total: 12.490 € + 1.800 € = 14.290 €.
+        # El margen del 1 % es 142,90 €.
+        # El VAN conjunto de 142 € está dentro de ese margen.
+        assert "Escenario de incremento futuro del consumo" in text
+
+    def test_final_recommendation_does_not_mention_future_battery_when_all_combined_npvs_are_outside_margin(
+        self,
+    ):
+        data = self._report_data()
+
+        recommendations = [
+            replace(
+                battery,
+                combined_economic_npv_eur=500.0,
+                combined_economic_analysis_calculated=True,
+            )
+            for battery in data.battery_recommendations
+        ]
+
+        data = replace(
+            data,
+            battery_recommendations=recommendations,
+            economic_analysis_calculated=True,
+        )
+
+        text = SolarReportText.final_recommendation(data)
+
+        assert "Escenario de incremento futuro del consumo" not in text
+        assert "16,6 kWh" not in text
+
+    def test_final_recommendation_uses_total_pv_and_battery_investment_for_one_percent_margin(
+        self,
+    ):
+        data = self._report_data()
+
+        recommendations = [
+            replace(
+                battery,
+                combined_economic_npv_eur=500.0,
+                combined_economic_analysis_calculated=True,
+            )
+            for battery in data.battery_recommendations
+        ]
+
+        battery_16_6 = replace(
+            recommendations[1],
+            capacity_kwh=16.6,
+            incremental_battery_cost_eur=1800.0,
+            combined_economic_npv_eur=142.0,
+            combined_economic_analysis_calculated=True,
+        )
+
+        recommendations.append(battery_16_6)
+
+        data = replace(
+            data,
+            battery_recommendations=recommendations,
+            economic_analysis_calculated=True,
+        )
+
+        text = SolarReportText.final_recommendation(data)
+
+        # 12.490 € + 1.800 € = 14.290 €.
+        # El 1 % de 14.290 € son 142,90 €.
+        # Un VAN conjunto de 142 € debe quedar dentro del margen.
+        assert "Escenario de incremento futuro del consumo" in text
+
+    def test_final_recommendation_does_not_use_standalone_battery_npv_for_future_scenario(
+        self,
+    ):
+        data = self._report_data()
+
+        recommendations = [
+            replace(
+                battery,
+                economic_npv_eur=0.0,
+                combined_economic_npv_eur=500.0,
+                combined_economic_analysis_calculated=True,
+            )
+            for battery in data.battery_recommendations
+        ]
+
+        data = replace(
+            data,
+            battery_recommendations=recommendations,
+            economic_analysis_calculated=True,
+        )
+
+        text = SolarReportText.final_recommendation(data)
+
+        assert "Escenario de incremento futuro del consumo" not in text
+
+    def test_final_recommendation_does_not_show_future_battery_without_combined_economics(
+        self,
+    ):
+        data = self._report_data()
+
+        recommendations = [
+            replace(
+                battery,
+                combined_economic_npv_eur=-0.39,
+                combined_economic_analysis_calculated=False,
+            )
+            for battery in data.battery_recommendations
+        ]
+
+        data = replace(
+            data,
+            battery_recommendations=recommendations,
+            economic_analysis_calculated=True,
+        )
+
+        text = SolarReportText.final_recommendation(data)
+
+        assert "Escenario de incremento futuro del consumo" not in text
+        assert "16,6 kWh" not in text

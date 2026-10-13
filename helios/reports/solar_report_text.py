@@ -1,3 +1,5 @@
+import math
+
 from helios.reports.solar_report_data import SolarReportData
 
 class SolarReportText:
@@ -470,23 +472,20 @@ class SolarReportText:
         data: SolarReportData,
     ) -> str:
         """
-        Resume el alcance y las limitaciones de la metodología utilizada.
+        Resume las limitaciones prácticas de los resultados simulados.
         """
 
         if data is None:
             raise ValueError("report data is required")
 
         return (
-            f"Los resultados se basan en una simulación energética "
-            f"y económica referida al año de consumo "
-            f"{data.consumption_reference_year}, calculada a partir "
-            f"de los perfiles y las hipótesis definidos para el "
-            f"proyecto. La simulación permite estimar el "
-            f"comportamiento de la instalación bajo esas condiciones, "
-            f"pero los resultados dependen de las hipótesis adoptadas "
-            f"y de las condiciones reales de funcionamiento. "
-            f"Por tanto, los resultados son estimaciones y "
-            f"no constituyen una garantía de resultados futuros."
+            "Los resultados reales pueden diferir de las estimaciones "
+            "por variaciones meteorológicas, cambios en los hábitos "
+            "de consumo, degradación de los equipos y evolución de "
+            "los precios de la electricidad. Antes de tomar una "
+            "decisión de inversión, conviene contrastar estas "
+            "estimaciones con las condiciones concretas de la "
+            "instalación y revisar las hipótesis económicas aplicadas."
         )
 
     @staticmethod
@@ -819,23 +818,19 @@ class SolarReportText:
         data: SolarReportData,
     ) -> str:
         """
-        Resume qué implica la situación energética de referencia.
+        Resume la importancia del perfil de consumo de referencia
+        sin repetir las cifras presentadas en el análisis.
         """
 
         if data is None:
             raise ValueError("report data is required")
 
-        monthly_average = (
-            data.yearly_consumption_kwh / 12
-        )
-
         return (
-            f"La demanda eléctrica de referencia alcanza "
-            f"{data.yearly_consumption_kwh:,.0f} kWh anuales, "
-            f"equivalentes a unos {monthly_average:,.0f} kWh mensuales. "
-            f"Este nivel de consumo constituye la referencia frente a "
-            f"la que debe valorarse tanto la producción fotovoltaica "
-            f"como el grado real de autosuficiencia alcanzable."
+            f"El perfil de consumo de referencia constituye la base "
+            f"para valorar la producción fotovoltaica y la "
+            f"autosuficiencia alcanzable. Además del consumo total, "
+            f"su distribución temporal condiciona qué parte de la "
+            f"generación solar puede aprovecharse directamente."
         )
 
     @staticmethod
@@ -843,27 +838,20 @@ class SolarReportText:
         data: SolarReportData,
     ) -> str:
         """
-        Resume el significado energético de la configuración FV.
+        Resume la configuración fotovoltaica sin anticipar
+        el análisis de producción y del balance energético.
         """
 
         if data is None:
             raise ValueError("report data is required")
 
-        production_ratio = (
-            data.yearly_production_kwh
-            / data.yearly_consumption_kwh
-            * 100
-        )
-
         return (
-            f"La configuración de {data.installed_power_kwp:.2f} kWp "
-            f"permite generar anualmente un volumen de energía "
-            f"equivalente aproximadamente al "
-            f"{production_ratio:.1f} % del consumo eléctrico de referencia. "
-            f"La comparación anual muestra una cobertura energética "
-            f"significativa, aunque la utilización efectiva de esa "
-            f"producción depende de la coincidencia horaria entre "
-            f"generación y demanda."
+            f"La configuración fotovoltaica tiene una potencia "
+            f"instalada de {data.installed_power_kwp:.2f} kWp. "
+            f"Este valor constituye la base para estimar la "
+            f"producción solar y evaluar el aprovechamiento "
+            f"energético de la instalación en los apartados "
+            f"siguientes."
         )
 
     @staticmethod
@@ -871,8 +859,8 @@ class SolarReportText:
         data: SolarReportData,
     ) -> str:
         """
-        Explica la relación entre producción anual, consumo y
-        aprovechamiento directo de la energía solar.
+        Explica la diferencia entre producción anual
+        y autosuficiencia energética.
         """
 
         if data is None:
@@ -889,17 +877,16 @@ class SolarReportText:
 
         return (
             f"La instalación genera aproximadamente "
-            f"{data.yearly_production_kwh:,.0f} kWh/año, equivalentes "
-            f"al {production_ratio:.1f} % del consumo eléctrico anual "
-            f"de referencia. Sin embargo, la autosuficiencia energética "
-            f"se sitúa en el {data.self_sufficiency_rate_percent:.1f} %. "
-            f"Esta diferencia no representa una contradicción: refleja "
-            f"la falta de coincidencia temporal entre la generación "
-            f"fotovoltaica y la demanda eléctrica. "
-            f"Una parte relevante de la energía generada se produce cuando "
-            f"la vivienda no puede consumirla directamente y debe "
-            f"utilizarse posteriormente, gestionarse mediante cargas "
-            f"flexibles, almacenarse o verterse a la red."
+            f"{data.yearly_production_kwh:,.0f} kWh/año, "
+            f"equivalentes al {production_ratio:.1f} % del consumo "
+            f"eléctrico anual de referencia. Sin embargo, la "
+            f"autosuficiencia energética se sitúa en el "
+            f"{data.self_sufficiency_rate_percent:.1f} %. "
+            f"Esta diferencia se debe a que la generación "
+            f"fotovoltaica y la demanda eléctrica no siempre "
+            f"coinciden temporalmente. Por ello, la producción "
+            f"anual no equivale a la energía solar que la vivienda "
+            f"puede aprovechar directamente."
         )
 
     @staticmethod
@@ -907,21 +894,20 @@ class SolarReportText:
         data: SolarReportData,
     ) -> str:
         """
-        Resume el significado de las estadísticas de producción.
+        Interpreta el valor de las estadísticas de producción
+        sin repetir las métricas mostradas en la tabla.
         """
 
         if data is None:
             raise ValueError("report data is required")
 
         return (
-            f"La producción presenta un comportamiento compatible con "
-            f"una instalación fotovoltaica de {data.installed_power_kwp:.2f} kWp, "
-            f"con {data.productive_hours:,} horas productivas estimadas "
-            f"y un factor de capacidad del "
-            f"{data.capacity_factor_percent:.2f} %. "
-            f"Estas métricas describen el rendimiento global del sistema "
-            f"y sirven como referencia para interpretar posteriormente "
-            f"el balance entre generación y demanda."
+            "Las estadísticas complementan la estimación de "
+            "producción anual y ayudan a contextualizar el "
+            "rendimiento de la instalación. Para interpretar "
+            "adecuadamente estos resultados, también debe "
+            "considerarse cómo se distribuye la generación "
+            "a lo largo del año."
         )
 
     @staticmethod
@@ -929,75 +915,78 @@ class SolarReportText:
         data: SolarReportData,
     ) -> str:
         """
-        Resume la consecuencia energética del balance FV-consumo.
+        Interpreta las consecuencias del balance energético
+        sin repetir los valores de la tabla.
         """
 
         if data is None:
             raise ValueError("report data is required")
 
         if data.grid_export_kwh > 0 and data.grid_import_kwh > 0:
-            temporal_mismatch = (
-                "La existencia simultánea de excedentes vertidos a la red "
-                "y de energía importada muestra que una parte de la "
-                "generación y de la demanda no coincide temporalmente."
-            )
-        else:
-            temporal_mismatch = (
-                "El balance no presenta simultáneamente excedentes "
-                "vertidos e importación de red en los resultados analizados."
+            return (
+                "La presencia simultánea de excedentes fotovoltaicos "
+                "y energía importada confirma que la generación y "
+                "la demanda no siempre coinciden temporalmente. "
+                "Desplazar consumos hacia las horas de mayor producción "
+                "o incorporar almacenamiento podría aumentar el "
+                "aprovechamiento de la energía solar. La conveniencia "
+                "de estas medidas debe evaluarse teniendo en cuenta "
+                "el perfil horario y sus costes."
             )
 
         return (
-            f"La instalación aprovecha directamente "
-            f"{data.self_consumption_kwh:,.0f} kWh de generación solar, "
-            f"mientras que {data.grid_export_kwh:,.0f} kWh se vierten a "
-            f"la red y {data.grid_import_kwh:,.0f} kWh deben importarse. "
-            f"{temporal_mismatch} "
-            f"Por tanto, el balance energético es el punto de partida "
-            f"para valorar posibles mecanismos de desplazamiento de energía, "
-            f"como el almacenamiento."
+            "El balance no presenta simultáneamente excedentes "
+            "fotovoltaicos e importación de energía en los resultados "
+            "analizados. La utilidad de desplazar consumos o incorporar "
+            "almacenamiento debe valorarse a partir del perfil horario "
+            "y de los costes asociados."
         )
 
     @staticmethod
     def economic_conclusion(
         data: SolarReportData,
     ) -> str:
-        """Resume la interpretación económica de la instalación FV."""
+        """
+        Sintetiza la rentabilidad sin repetir los indicadores
+        económicos presentados en la tabla y el análisis.
+        """
 
         if data is None:
             raise ValueError("report data is required")
 
         if not data.economic_analysis_calculated:
             return (
-                "El análisis económico de la instalación fotovoltaica "
-                "no se ha calculado. No es posible establecer una "
-                "conclusión sobre su rentabilidad ni validar el "
-                "periodo de recuperación de la inversión."
+                "El análisis económico de la instalación "
+                "fotovoltaica no se ha calculado. Por tanto, "
+                "todavía no es posible establecer una conclusión "
+                "fundamentada sobre su rentabilidad."
             )
 
         if data.net_present_value_eur > 0:
-            npv_text = (
-                "El VAN resulta positivo bajo las hipótesis utilizadas."
+            assessment = (
+                "El VAN positivo indica que la inversión genera "
+                "valor bajo las hipótesis económicas consideradas."
             )
         elif data.net_present_value_eur < 0:
-            npv_text = (
-                "El VAN resulta negativo bajo las hipótesis utilizadas."
+            assessment = (
+                "El VAN negativo indica que la inversión no alcanza "
+                "la rentabilidad exigida bajo las hipótesis "
+                "económicas consideradas."
             )
         else:
-            npv_text = (
-                "El VAN resulta aproximadamente nulo bajo las "
-                "hipótesis utilizadas."
+            assessment = (
+                "El VAN aproximadamente nulo indica que la inversión "
+                "se sitúa en torno al umbral de rentabilidad "
+                "establecido por las hipótesis del análisis."
             )
 
         return (
-            f"La inversión de {data.investment_eur:,.2f} € se compara "
-            f"con un ahorro anual estimado de "
-            f"{data.yearly_savings_eur:,.2f} € y un periodo de "
-            f"recuperación de {data.payback_years:.2f} años. "
-            f"{npv_text} "
-            f"Estos resultados dependen directamente de las hipótesis "
-            f"de precios, degradación, mantenimiento y tasa de descuento "
-            f"utilizadas en la simulación."
+            f"{assessment} La conclusión depende de la evolución "
+            f"de los precios de la electricidad, la degradación "
+            f"de los equipos, los costes de mantenimiento y la "
+            f"tasa de descuento. Conviene revisar estas hipótesis "
+            f"mediante los escenarios económicos antes de tomar "
+            f"una decisión de inversión."
         )
 
     @staticmethod
@@ -1005,7 +994,8 @@ class SolarReportText:
         data: SolarReportData,
     ) -> str:
         """
-        Resume la sensibilidad del resultado económico.
+        Interpreta la sensibilidad económica sin repetir los
+        indicadores numéricos mostrados en la tabla de escenarios.
         """
 
         if data is None:
@@ -1029,13 +1019,39 @@ class SolarReportText:
             for result in data.scenario_results
         ]
 
+        minimum_npv = min(npvs)
+        maximum_npv = max(npvs)
+
+        if minimum_npv > 0:
+            assessment = (
+                "Todos los escenarios evaluados presentan un VAN "
+                "positivo, lo que indica que la rentabilidad se "
+                "mantiene bajo las distintas hipótesis analizadas."
+            )
+        elif maximum_npv < 0:
+            assessment = (
+                "Todos los escenarios evaluados presentan un VAN "
+                "negativo, por lo que la inversión no alcanza "
+                "la rentabilidad exigida en ninguno de ellos."
+            )
+        elif minimum_npv == 0 and maximum_npv == 0:
+            assessment = (
+                "Todos los escenarios se sitúan en torno al umbral "
+                "de rentabilidad, sin generar valor neto adicional."
+            )
+        else:
+            assessment = (
+                "La rentabilidad cambia según las hipótesis "
+                "consideradas: algunos escenarios presentan un "
+                "VAN positivo y otros no alcanzan ese umbral."
+            )
+
         return (
-            f"Los escenarios económicos muestran un intervalo de VAN "
-            f"entre {min(npvs):,.2f} € y {max(npvs):,.2f} €. "
-            f"Este intervalo permite valorar la sensibilidad de la "
-            f"rentabilidad estimada a las hipótesis económicas. "
-            f"Los resultados deben interpretarse como un intervalo de "
-            f"escenarios, no como un valor garantizado."
+            f"{assessment} La comparación permite valorar la "
+            f"sensibilidad de la inversión ante cambios en las "
+            f"condiciones económicas. Estos escenarios representan "
+            f"estimaciones alternativas, no garantías de resultados "
+            f"futuros."
         )
 
     @staticmethod
@@ -1123,9 +1139,8 @@ class SolarReportText:
             f"hipótesis evaluadas. El VAN de batería positivo "
             f"respalda esta recomendación. El ahorro adicional anual "
             f"estimado es de {annual_savings}. "
-            f"El ahorro anual adicional que proporciona asciende "
-            f"a {annual_savings}. La recuperación económica "
-            f"estimada es de {economic_payback}. "
+            f"La recuperación económica estimada es de "
+            f"{economic_payback}. "
             f"El ahorro marginal es de {marginal_savings}."
         )
 
@@ -1204,6 +1219,47 @@ class SolarReportText:
             "resulte económicamente justificado, almacenamiento."
         )
 
+        future_consumption_message = ""
+
+        if data.economic_analysis_calculated:
+            for battery in data.battery_recommendations:
+                if not math.isclose(
+                    battery.capacity_kwh,
+                    16.6,
+                    rel_tol=0.0,
+                    abs_tol=1e-6,
+                ):
+                    continue
+
+                if not battery.combined_economic_analysis_calculated:
+                    continue
+
+                total_investment_eur = (
+                    data.investment_eur
+                    + battery.incremental_battery_cost_eur
+                )
+
+                if total_investment_eur <= 0:
+                    continue
+
+                margin_eur = total_investment_eur * 0.01
+
+                if (
+                    abs(battery.combined_economic_npv_eur)
+                    <= margin_eur
+                ):
+                    future_consumption_message = (
+                        "Escenario de incremento futuro del consumo: "
+                        "la alternativa con batería de 16,6 kWh merece "
+                        "una evaluación adicional si se prevé un aumento "
+                        "del consumo eléctrico. Esta posibilidad no "
+                        "constituye una recomendación de ampliación "
+                        "inmediata y debe reevaluarse con la demanda "
+                        "futura y sus hipótesis económicas."
+                    )
+
+                break
+
         return (
             f"<b>Recomendación final</b><br/>"
             f"{recommendation} "
@@ -1211,7 +1267,8 @@ class SolarReportText:
             f"La autosuficiencia energética estimada es del "
             f"{data.self_sufficiency_rate_percent:.1f} %. "
             f"{economic_message} "
-            f"{flexibility_message}"
+            f"{flexibility_message} "
+            f"{future_consumption_message}"
         )
 
     @staticmethod

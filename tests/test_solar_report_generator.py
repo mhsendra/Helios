@@ -1868,23 +1868,38 @@ class TestSolarReportGenerator:
             tmp_path / "report.pdf",
         )
 
-        text = self._story_text(
-            captured["story"]
+        text = self._story_text(captured["story"])
+        normalized_text = " ".join(text.split()).casefold()
+
+        # El informe incluye los bloques de conclusión.
+        assert "conclusión de la sección" in normalized_text
+
+        # Las conclusiones energéticas explican la relación temporal
+        # entre generación y demanda sin exigir una frase concreta.
+        assert (
+            "coinciden temporalmente" in normalized_text
+            or "distribución temporal" in normalized_text
         )
 
-        expected_conclusions = [
-            "Conclusión de la sección",
-            "coincidencia horaria",
-            "no coincide temporalmente",
-            "VAN resulta positivo",
-            "sensibilidad",
-            "coste incremental",
-            "no constituyen una garantía",
-        ]
+        # La interpretación económica utiliza la terminología vigente.
+        assert (
+            "van positivo" in normalized_text
+            or "van negativo" in normalized_text
+            or "umbral de rentabilidad" in normalized_text
+        )
 
-        for value in expected_conclusions:
-            assert value in text
+        # El análisis de escenarios interpreta la sensibilidad económica.
+        assert "sensibilidad" in normalized_text
 
+        # Se distingue el VAN incremental de la batería del VAN conjunto.
+        assert (
+            "van incremental" in normalized_text
+            or "van conjunto" in normalized_text
+        )
+
+        # El informe presenta los resultados como estimaciones,
+        # no como garantías de ahorro o rentabilidad futuros.
+        assert "garantía" in normalized_text
     
     def test_generate_without_energy_balance_skips_consumption_chart(
         self,
