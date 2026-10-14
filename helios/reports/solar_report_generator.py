@@ -922,13 +922,6 @@ class SolarReportGenerator:
                     styles["HeliosBodyText"],
                 ),
             ),
-            self._keep_section_content(
-                Spacer(1, 12),
-                self._section_conclusion(
-                    SolarReportText.energy_situation_conclusion(data),
-                    HELIOS_GOLD,
-                ),
-            ),
         ]
     
     def _build_pv_section(
@@ -1162,14 +1155,6 @@ class SolarReportGenerator:
             Spacer(1, 15),
 
             self._keep_table(solar_statistics_table),
-
-            self._keep_section_content(
-                Spacer(1, 12),
-                self._section_conclusion(
-                    SolarReportText.production_conclusion(data),
-                    HELIOS_GREEN,
-                ),
-            ),
         ]
 
         return story
@@ -1262,14 +1247,6 @@ class SolarReportGenerator:
             Paragraph(
                 SolarReportText.energy_balance_analysis(data),
                 styles["BodyText"],
-            ),
-
-            self._keep_section_content(
-                Spacer(1, 12),
-                self._section_conclusion(
-                    SolarReportText.energy_balance_conclusion(data),
-                    HELIOS_GOLD,
-                ),
             ),
         ]
 
@@ -1382,14 +1359,6 @@ class SolarReportGenerator:
                     SolarReportText.economic_analysis(data),
                     styles["BodyText"],
                 ),
-
-                self._keep_section_content(
-                    Spacer(1, 12),
-                    self._section_conclusion(
-                        SolarReportText.economic_conclusion(data),
-                        HELIOS_PURPLE,
-                    ),
-                ),
             ]
         )
 
@@ -1449,13 +1418,9 @@ class SolarReportGenerator:
                     self._keep_table(
                         scenarios_table
                     ),
-                ),
-
-                self._keep_section_content(
-                    Spacer(1, 12),
-                    self._section_conclusion(
+                    Paragraph(
                         SolarReportText.scenario_conclusion(data),
-                        HELIOS_PURPLE_LIGHT,
+                        styles["HeliosBodyText"],
                     ),
                 ),
             ]

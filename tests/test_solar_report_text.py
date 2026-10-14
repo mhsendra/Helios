@@ -1309,3 +1309,44 @@ class TestSolarReportText:
 
         assert "Escenario de incremento futuro del consumo" not in text
         assert "16,6 kWh" not in text
+
+    def test_battery_conclusion_recommends_capacity_with_best_combined_npv(
+        self,
+    ):
+        data = self._report_data()
+
+        text = SolarReportText.battery_conclusion(data)
+
+        assert "mayor VAN positivo de batería" in text
+        assert "mayor VAN conjunto FV + batería" in text
+        assert "constituye la opción recomendada" in text
+        assert "208.28 €" in text
+        assert "2,320.78 €" in text
+
+    def test_battery_conclusion_distinguishes_different_economic_optima(
+        self,
+    ):
+        data = self._report_data()
+        recommendations = list(data.battery_recommendations)
+
+        recommendations[0] = replace(
+            recommendations[0],
+            economic_npv_eur=500.0,
+            combined_economic_npv_eur=1000.0,
+        )
+        recommendations[1] = replace(
+            recommendations[1],
+            economic_npv_eur=208.28,
+            combined_economic_npv_eur=2000.0,
+        )
+
+        data = replace(
+            data,
+            battery_recommendations=recommendations,
+        )
+
+        text = SolarReportText.battery_conclusion(data)
+
+        assert "mayor VAN positivo de batería" in text
+        assert "difiere de la que maximiza el VAN incremental" in text
+        assert "priorizar el resultado conjunto" in text
