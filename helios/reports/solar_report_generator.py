@@ -380,12 +380,11 @@ class BatteryRecommendationBlock(Flowable):
                 "Por tanto, no se recomienda añadir almacenamiento."
             )
         else:
+            
             payback = (
                 "N/D"
-                if recommendation.economic_payback_years == float("inf")
-                else (
-                    f"{recommendation.economic_payback_years:.2f} años"
-                )
+                if not math.isfinite(recommendation.economic_payback_years)
+                else f"{recommendation.economic_payback_years:.2f} años"
             )
 
             self.text = (
@@ -503,12 +502,9 @@ class BatteryRecommendationBlock(Flowable):
                 "Recuperación",
                 (
                     "N/D"
-                    if recommendation.economic_payback_years
-                    == float("inf")
-                    else (
-                        f"{recommendation.economic_payback_years:.2f} años"
-                    )
-                ),
+                    if not math.isfinite(recommendation.economic_payback_years)
+                    else f"{recommendation.economic_payback_years:.2f} años"
+                )
             ),
         ]
 
@@ -839,12 +835,33 @@ class SolarReportGenerator:
             ]
         )
 
-
     def _build_executive_summary(
         self,
         data: SolarReportData,
         styles,
     ) -> list:
+        """Construye el resumen ejecutivo y evita mostrar KPI no válidos."""
+
+        annual_savings = (
+            f"{data.yearly_savings_eur:,.2f} €/año"
+            if (
+                data.economic_analysis_calculated
+                and data.yearly_savings_eur is not None
+                and math.isfinite(data.yearly_savings_eur)
+            )
+            else "N/D"
+        )
+
+        payback = (
+            f"{data.payback_years:.2f} años"
+            if (
+                data.economic_analysis_calculated
+                and data.payback_years is not None
+                and math.isfinite(data.payback_years)
+            )
+            else "N/D"
+        )
+
         return [
             self._section_header(
                 "Resumen ejecutivo",
@@ -855,30 +872,38 @@ class SolarReportGenerator:
                 [
                     (
                         "Producción solar",
-                        f"{data.yearly_production_kwh:,.0f} kWh/año",
+                        (
+                            f"{data.yearly_production_kwh:,.0f} kWh/año"
+                            if (
+                                data.yearly_production_kwh is not None
+                                and math.isfinite(data.yearly_production_kwh)
+                            )
+                            else "N/D"
+                        ),
                         HELIOS_GREEN,
                     ),
                     (
                         "Autosuficiencia",
-                        f"{data.self_sufficiency_rate_percent:.1f} %",
+                        (
+                            f"{data.self_sufficiency_rate_percent:.1f} %"
+                            if (
+                                data.self_sufficiency_rate_percent is not None
+                                and math.isfinite(
+                                    data.self_sufficiency_rate_percent
+                                )
+                            )
+                            else "N/D"
+                        ),
                         HELIOS_GREEN_DARK,
                     ),
                     (
                         "Ahorro anual",
-                        f"{data.yearly_savings_eur:,.2f} €/año",
+                        annual_savings,
                         HELIOS_GOLD,
                     ),
                     (
                         "Retorno",
-                        (
-                            f"{data.payback_years:.2f} años"
-                            if (
-                                data.economic_analysis_calculated
-                                and data.payback_years is not None
-                                and math.isfinite(data.payback_years)
-                            )
-                            else "N/D"
-                        ),
+                        payback,
                         HELIOS_BLUE,
                     ),
                 ],
@@ -1257,52 +1282,69 @@ class SolarReportGenerator:
         data: SolarReportData,
         styles,
     ) -> list:
+        def is_finite(value) -> bool:
+            return (
+                value is not None
+                and math.isfinite(value)
+            )
+
+        def format_eur(value) -> str:
+            if not is_finite(value):
+                return "N/D"
+            return f"{value:,.2f} €"
+
+        def format_years(value) -> str:
+            if not is_finite(value):
+                return "N/D"
+            return f"{value:.2f} años"
+
+        def format_percent(value) -> str:
+            if not is_finite(value):
+                return "N/D"
+            return f"{value:.2f} %"
+
         economics_data = [
             ["Concepto", "Valor"],
             [
                 "Coste anual sin FV",
-                f"{data.cost_without_pv_eur:,.2f} €",
+                format_eur(data.cost_without_pv_eur),
             ],
             [
                 "Coste energía importada con FV",
-                f"{data.grid_import_cost_eur:,.2f} €",
+                format_eur(data.grid_import_cost_eur),
             ],
             [
                 "Ingresos por excedentes",
-                f"{data.export_income_eur:,.2f} €",
+                format_eur(data.export_income_eur),
             ],
             [
                 "Coste neto con FV",
-                f"{data.cost_with_pv_eur:,.2f} €",
+                format_eur(data.cost_with_pv_eur),
             ],
             [
                 "Ahorro por autoconsumo",
-                f"{data.self_consumption_savings_eur:,.2f} €",
+                format_eur(data.self_consumption_savings_eur),
             ],
             [
                 "Ahorro anual total",
-                f"{data.yearly_savings_eur:,.2f} €",
+                format_eur(data.yearly_savings_eur),
             ],
             [
                 "Inversión neta",
-                f"{data.investment_eur:,.2f} €",
+                format_eur(data.investment_eur),
             ],
             [
                 "Periodo de retorno",
                 (
-                    f"{data.payback_years:.2f} años"
-                    if (
-                        data.economic_analysis_calculated
-                        and data.payback_years is not None
-                        and math.isfinite(data.payback_years)
-                    )
+                    format_years(data.payback_years)
+                    if data.economic_analysis_calculated
                     else "N/D"
                 ),
             ],
             [
                 "Valor actual neto (VAN)",
                 (
-                    f"{data.net_present_value_eur:,.2f} €"
+                    format_eur(data.net_present_value_eur)
                     if data.economic_analysis_calculated
                     else "N/D"
                 ),
@@ -1310,11 +1352,10 @@ class SolarReportGenerator:
             [
                 "Tasa interna de retorno (TIR)",
                 (
-                    f"{data.internal_rate_of_return_percent:.2f} %"
-                    if (
-                        data.economic_analysis_calculated
-                        and data.internal_rate_of_return_percent is not None
+                    format_percent(
+                        data.internal_rate_of_return_percent
                     )
+                    if data.economic_analysis_calculated
                     else "N/D"
                 ),
             ],
@@ -1352,9 +1393,7 @@ class SolarReportGenerator:
                         economics_table
                     ),
                 ),
-
                 Spacer(1, 15),
-
                 Paragraph(
                     SolarReportText.economic_analysis(data),
                     styles["BodyText"],
@@ -1377,13 +1416,19 @@ class SolarReportGenerator:
         ]
 
         for scenario in data.scenario_results:
+            irr_percent = (
+                scenario.irr * 100
+                if is_finite(scenario.irr)
+                else None
+            )
+
             scenarios_data.append(
                 [
                     scenario.name,
-                    f"{scenario.annual_savings:,.2f} €",
-                    f"{scenario.payback_years:.2f} años",
-                    f"{scenario.npv:,.2f} €",
-                    f"{scenario.irr * 100:.2f} %",
+                    format_eur(scenario.annual_savings),
+                    format_years(scenario.payback_years),
+                    format_eur(scenario.npv),
+                    format_percent(irr_percent),
                 ]
             )
 
@@ -1406,7 +1451,6 @@ class SolarReportGenerator:
         story.extend(
             [
                 Spacer(1, 25),
-
                 self._keep_section_content(
                     self._section_header(
                         "Escenarios económicos",
@@ -1471,9 +1515,12 @@ class SolarReportGenerator:
         ]
 
         for recommendation in data.battery_recommendations:
+            
             marginal_payback = (
                 "N/D"
-                if recommendation.marginal_payback_years == float("inf")
+                if not math.isfinite(
+                    recommendation.marginal_payback_years
+                )
                 else (
                     f"{recommendation.marginal_payback_years:.2f} años"
                 )
@@ -1481,7 +1528,9 @@ class SolarReportGenerator:
 
             economic_payback = (
                 "N/D"
-                if recommendation.economic_payback_years == float("inf")
+                if not math.isfinite(
+                    recommendation.economic_payback_years
+                )
                 else (
                     f"{recommendation.economic_payback_years:.2f} años"
                 )
@@ -1489,8 +1538,9 @@ class SolarReportGenerator:
 
             combined_payback = (
                 "N/D"
-                if recommendation.combined_economic_payback_years
-                == float("inf")
+                if not math.isfinite(
+                    recommendation.combined_economic_payback_years
+                )
                 else (
                     f"{recommendation.combined_economic_payback_years:.2f} años"
                 )
@@ -1556,7 +1606,10 @@ class SolarReportGenerator:
                     ),
                     (
                         f"{recommendation.economic_irr_percent:.2f} %"
-                        if recommendation.economic_analysis_calculated
+                        if (
+                            recommendation.economic_analysis_calculated
+                            and math.isfinite(recommendation.economic_irr_percent)
+                        )
                         else "N/D"
                     ),
                     (
@@ -1575,9 +1628,15 @@ class SolarReportGenerator:
                         if recommendation.combined_economic_analysis_calculated
                         else "N/D"
                     ),
+                    
                     (
                         f"{recommendation.combined_economic_irr_percent:.2f} %"
-                        if recommendation.combined_economic_analysis_calculated
+                        if (
+                            recommendation.combined_economic_analysis_calculated
+                            and math.isfinite(
+                                recommendation.combined_economic_irr_percent
+                            )
+                        )
                         else "N/D"
                     ),
                     (
@@ -1761,16 +1820,16 @@ class SolarReportGenerator:
             self._keep_table(
                 battery_economic_table
             ),
-            Spacer(1, 12),
+                        Spacer(1, 12),
             self._keep_section_content(
                 Paragraph(
                     "Economía conjunta FV + batería",
                     styles["HeliosSubsectionTitle"],
                 ),
                 Spacer(1, 6),
-                self._keep_table(
-                    battery_combined_table
-                ),
+            ),
+            self._keep_table(
+                battery_combined_table
             ),
 
             Spacer(1, 15),
@@ -2016,6 +2075,33 @@ class SolarReportGenerator:
         if output_path is None:
             raise ValueError("output path is required")
 
+        def is_finite(value) -> bool:
+            return (
+                value is not None
+                and math.isfinite(value)
+            )
+
+        def format_production(value) -> str:
+            return (
+                f"{value:,.0f} kWh"
+                if is_finite(value)
+                else "N/D"
+            )
+
+        def format_power(value) -> str:
+            return (
+                f"{value:.2f} kWp"
+                if is_finite(value)
+                else "N/D"
+            )
+
+        def format_savings(value) -> str:
+            return (
+                f"{value:,.0f} €"
+                if is_finite(value)
+                else "N/D"
+            )
+        
         output_path = Path(output_path)
         output_path.parent.mkdir(
             parents=True,
@@ -2182,8 +2268,12 @@ class SolarReportGenerator:
             Spacer(1, 10 * mm),
 
             Paragraph(
-                f"Instalación fotovoltaica — "
-                f"{data.installed_power_kwp:.2f} kWp",
+                (
+                    f"Instalación fotovoltaica — "
+                    f"{data.installed_power_kwp:.2f} kWp"
+                    if is_finite(data.installed_power_kwp)
+                    else "Instalación fotovoltaica"
+                ),
                 styles["HeliosCoverSubtitle"],
             ),
 
@@ -2207,15 +2297,21 @@ class SolarReportGenerator:
             ],
             [
                 Paragraph(
-                    f"{data.yearly_production_kwh:,.0f} kWh",
+                    format_production(
+                        data.yearly_production_kwh
+                    ),
                     styles["HeliosKpiValue"],
                 ),
                 Paragraph(
-                    f"{data.installed_power_kwp:.2f} kWp",
+                    format_power(
+                        data.installed_power_kwp
+                    ),
                     styles["HeliosKpiValue"],
                 ),
                 Paragraph(
-                    f"{data.yearly_savings_eur:,.0f} €",
+                    format_savings(
+                        data.yearly_savings_eur
+                    ),
                     styles["HeliosKpiValue"],
                 ),
             ],
@@ -2239,8 +2335,7 @@ class SolarReportGenerator:
                         f"{data.payback_years:.2f} años"
                         if (
                             data.economic_analysis_calculated
-                            and data.payback_years is not None
-                            and math.isfinite(data.payback_years)
+                            and is_finite(data.payback_years)
                         )
                         else "N/D"
                     ),
@@ -2249,7 +2344,12 @@ class SolarReportGenerator:
                 Paragraph(
                     (
                         f"{data.net_present_value_eur:,.0f} €"
-                        if data.economic_analysis_calculated
+                        if (
+                            data.economic_analysis_calculated
+                            and is_finite(
+                                data.net_present_value_eur
+                            )
+                        )
                         else "N/D"
                     ),
                     styles["HeliosKpiValue"],
@@ -2259,7 +2359,9 @@ class SolarReportGenerator:
                         f"{data.internal_rate_of_return_percent:.2f} %"
                         if (
                             data.economic_analysis_calculated
-                            and data.internal_rate_of_return_percent is not None
+                            and is_finite(
+                                data.internal_rate_of_return_percent
+                            )
                         )
                         else "N/D"
                     ),

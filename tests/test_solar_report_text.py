@@ -1350,3 +1350,400 @@ class TestSolarReportText:
         assert "mayor VAN positivo de batería" in text
         assert "difiere de la que maximiza el VAN incremental" in text
         assert "priorizar el resultado conjunto" in text
+    
+    def test_battery_analysis_handles_missing_combined_economics(self):
+        data = self._report_data()
+
+        recommendations = [
+            replace(
+                recommendation,
+                combined_economic_analysis_calculated=False,
+            )
+            for recommendation in data.battery_recommendations
+        ]
+        data = replace(
+            data,
+            battery_recommendations=recommendations,
+        )
+
+        text = SolarReportText.battery_analysis(data)
+
+        assert (
+            "no se ha calculado el van conjunto"
+            in text.lower()
+        )
+        assert (
+            "próximo al umbral de neutralidad económica"
+            not in text
+        )
+
+    def test_battery_analysis_classifies_combined_npv_near_zero_as_neutral(
+        self,
+    ):
+        data = self._report_data()
+
+        recommendations = [
+            replace(
+                recommendation,
+                combined_economic_npv_eur=500.0,
+            )
+            for recommendation in data.battery_recommendations
+        ]
+
+        target = replace(
+            recommendations[1],
+            capacity_kwh=16.6,
+            incremental_battery_cost_eur=1800.0,
+            combined_economic_npv_eur=-0.39,
+            combined_economic_analysis_calculated=True,
+        )
+        recommendations.append(target)
+
+        data = replace(
+            data,
+            battery_recommendations=recommendations,
+        )
+
+        text = SolarReportText.battery_analysis(data)
+
+        assert (
+            "La capacidad de 16.6 kWh presenta un VAN conjunto "
+            "próximo al umbral de neutralidad económica"
+            in text
+        )
+        assert "La capacidad de 16.6 kWh no resulta rentable" not in text
+
+    def test_battery_analysis_uses_total_investment_for_neutrality(
+        self,
+    ):
+        data = self._report_data()
+
+        recommendations = [
+            replace(
+                recommendation,
+                combined_economic_npv_eur=500.0,
+            )
+            for recommendation in data.battery_recommendations
+        ]
+
+        target = replace(
+            recommendations[1],
+            capacity_kwh=16.6,
+            incremental_battery_cost_eur=1800.0,
+            combined_economic_npv_eur=142.0,
+            combined_economic_analysis_calculated=True,
+        )
+        recommendations.append(target)
+
+        data = replace(
+            data,
+            battery_recommendations=recommendations,
+        )
+
+        text = SolarReportText.battery_analysis(data)
+
+        # Inversión total: 12.490 € + 1.800 € = 14.290 €.
+        # El 1 % equivale a 142,90 €, por lo que 142 € es neutral.
+        assert (
+            "La capacidad de 16.6 kWh presenta un VAN conjunto "
+            "próximo al umbral de neutralidad económica"
+            in text
+        )
+
+    def test_battery_analysis_selects_combined_npv_from_viable_capacities(
+        self,
+    ):
+        data = self._report_data()
+        recommendations = list(data.battery_recommendations)
+
+        # La primera capacidad tiene un VAN conjunto mayor,
+        # pero no es una alternativa viable por VAN incremental.
+        recommendations[0] = replace(
+            recommendations[0],
+            economic_npv_eur=-10.0,
+            combined_economic_npv_eur=5000.0,
+        )
+
+        recommendations[1] = replace(
+            recommendations[1],
+            economic_npv_eur=208.28,
+            combined_economic_npv_eur=2320.78,
+        )
+
+        data = replace(
+            data,
+            battery_recommendations=recommendations,
+        )
+
+        text = SolarReportText.battery_analysis(data)
+
+        assert (
+            "mayor VAN conjunto del sistema FV + batería, "
+            "con 2,320.78 €"
+        ) in text
+        assert "con 5,000.00 €" not in text
+
+    @pytest.mark.parametrize(
+        "payback_years",
+        [float("nan"), float("inf"), float("-inf")],
+    )
+    def test_executive_summary_does_not_present_non_finite_payback(
+        self,
+        payback_years,
+    ):
+        data = replace(
+            self._report_data(),
+            payback_years=payback_years,
+            economic_analysis_calculated=True,
+        )
+
+        result = SolarReportText.executive_summary(data)
+
+        assert "nan" not in result.lower()
+        assert "inf años" not in result.lower()
+        assert "periodo de recuperación de la inversión estimado es de" not in (
+            result.lower()
+        )
+
+    @pytest.mark.parametrize(
+        "field,value",
+        [
+            ("net_present_value_eur", float("nan")),
+            ("net_present_value_eur", float("inf")),
+            ("net_present_value_eur", float("-inf")),
+            ("internal_rate_of_return_percent", float("nan")),
+            ("internal_rate_of_return_percent", float("inf")),
+            ("internal_rate_of_return_percent", float("-inf")),
+            ("payback_years", float("nan")),
+            ("payback_years", float("inf")),
+            ("payback_years", float("-inf")),
+        ],
+    )
+    def test_economic_analysis_does_not_present_non_finite_metrics(
+        self,
+        field,
+        value,
+    ):
+        data = replace(
+            self._report_data(),
+            **{
+                field: value,
+                "economic_analysis_calculated": True,
+            },
+        )
+
+        result = SolarReportText.economic_analysis(data)
+        normalized = result.lower()
+
+        assert "nan" not in normalized
+        assert "inf años" not in normalized
+        assert "inf %" not in normalized
+        assert "inf €" not in normalized
+
+        if field == "net_present_value_eur":
+            assert "aproximadamente nulo" not in normalized
+
+    @pytest.mark.parametrize(
+        "npv",
+        [float("nan"), float("inf"), float("-inf")],
+    )
+    def test_economic_conclusion_does_not_interpret_non_finite_npv(
+        self,
+        npv,
+    ):
+        data = replace(
+            self._report_data(),
+            net_present_value_eur=npv,
+            economic_analysis_calculated=True,
+        )
+
+        result = SolarReportText.economic_conclusion(data)
+        normalized = result.lower()
+
+        assert "aproximadamente nulo" not in normalized
+        assert "nan" not in normalized
+
+    @pytest.mark.parametrize(
+        "npv",
+        [float("nan"), float("inf"), float("-inf")],
+    )
+    def test_final_conclusion_does_not_interpret_non_finite_npv(
+        self,
+        npv,
+    ):
+        data = replace(
+            self._report_data(),
+            net_present_value_eur=npv,
+            economic_analysis_calculated=True,
+        )
+
+        result = SolarReportText.conclusion(data)
+        normalized = result.lower()
+
+        assert "aproximadamente nulo" not in normalized
+        assert "nan" not in normalized
+        assert "inf años" not in normalized
+    
+    def test_battery_conclusion_classifies_zero_combined_npv_as_neutral(self):
+        data = self._report_data()
+        recommendations = list(data.battery_recommendations)
+
+        target = replace(
+            recommendations[1],
+            capacity_kwh=16.6,
+            incremental_battery_cost_eur=1800.0,
+            combined_economic_npv_eur=0.0,
+            combined_economic_analysis_calculated=True,
+        )
+        recommendations.append(target)
+
+        data = replace(
+            data,
+            battery_recommendations=recommendations,
+        )
+
+        text = SolarReportText.battery_conclusion(data)
+
+        assert "16.6 kWh" in text
+        assert "neutralidad económica" in text
+
+
+    def test_battery_conclusion_uses_total_investment_for_neutrality(self):
+        data = self._report_data()
+        recommendations = list(data.battery_recommendations)
+
+        target = replace(
+            recommendations[1],
+            capacity_kwh=16.6,
+            incremental_battery_cost_eur=1800.0,
+            combined_economic_npv_eur=142.0,
+            combined_economic_analysis_calculated=True,
+        )
+        recommendations.append(target)
+
+        data = replace(
+            data,
+            battery_recommendations=recommendations,
+        )
+
+        text = SolarReportText.battery_conclusion(data)
+
+        # 12.490 € + 1.800 € = 14.290 €; el 1 % es 142,90 €.
+        assert "16.6 kWh" in text
+        assert "neutralidad económica" in text
+
+
+    def test_battery_conclusion_does_not_classify_npv_outside_margin_as_neutral(
+        self,
+    ):
+        data = self._report_data()
+        recommendations = list(data.battery_recommendations)
+
+        target = replace(
+            recommendations[1],
+            capacity_kwh=16.6,
+            incremental_battery_cost_eur=1800.0,
+            combined_economic_npv_eur=143.0,
+            combined_economic_analysis_calculated=True,
+        )
+        recommendations.append(target)
+
+        data = replace(
+            data,
+            battery_recommendations=recommendations,
+        )
+
+        text = SolarReportText.battery_conclusion(data)
+
+        assert "16.6 kWh presenta un VAN conjunto próximo" not in text
+    
+    def test_battery_conclusion_does_not_recommend_negative_incremental_npv(
+        self,
+    ):
+        data = self._report_data()
+        recommendations = list(data.battery_recommendations)
+
+        # La primera alternativa tiene el mayor VAN conjunto,
+        # pero no es rentable de forma incremental.
+        recommendations[0] = replace(
+            recommendations[0],
+            economic_npv_eur=-10.0,
+            combined_economic_npv_eur=5000.0,
+        )
+
+        recommendations[1] = replace(
+            recommendations[1],
+            economic_npv_eur=208.28,
+            combined_economic_npv_eur=2320.78,
+        )
+
+        data = replace(
+            data,
+            battery_recommendations=recommendations,
+        )
+
+        text = SolarReportText.battery_conclusion(data)
+
+        assert "208.28 €" in text
+        assert "5,000.00 €" in text
+        assert (
+            "no presenta un VAN incremental positivo de batería"
+            in text
+        )
+    
+    def test_battery_conclusion_ignores_nan_combined_npv(self):
+        data = self._report_data()
+        recommendations = list(data.battery_recommendations)
+
+        recommendations[0] = replace(
+            recommendations[0],
+            combined_economic_npv_eur=float("nan"),
+        )
+
+        data = replace(
+            data,
+            battery_recommendations=recommendations,
+        )
+
+        text = SolarReportText.battery_conclusion(data)
+
+        assert "nan €" not in text.lower()
+
+    def test_battery_conclusion_ignores_infinite_combined_npv(self):
+        data = self._report_data()
+        recommendations = list(data.battery_recommendations)
+
+        recommendations[0] = replace(
+            recommendations[0],
+            combined_economic_npv_eur=float("inf"),
+        )
+
+        data = replace(
+            data,
+            battery_recommendations=recommendations,
+        )
+
+        text = SolarReportText.battery_conclusion(data)
+
+        assert "inf €" not in text.lower()
+        assert "infinity €" not in text.lower()
+
+    def test_battery_conclusion_ignores_none_combined_npv(self):
+        data = self._report_data()
+        recommendations = list(data.battery_recommendations)
+
+        recommendations[0] = replace(
+            recommendations[0],
+            combined_economic_npv_eur=None,
+        )
+
+        data = replace(
+            data,
+            battery_recommendations=recommendations,
+        )
+
+        text = SolarReportText.battery_conclusion(data)
+
+        assert "none €" not in text.lower()
+        assert "nan €" not in text.lower()
+        assert "inf €" not in text.lower()

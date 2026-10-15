@@ -2271,3 +2271,51 @@ class TestSolarReportGenerator:
 
         for row in combined_rows[3:]:
             assert row[1:3] == ["N/D", "N/D"]
+
+    def test_battery_economic_table_formats_nan_metrics_as_not_available(
+        self,
+        monkeypatch,
+        tmp_path,
+    ):
+        captured = self._capture_story(monkeypatch)
+
+        data = self._report_data()
+        recommendation = data.battery_recommendations[0]
+
+        data.battery_recommendations[0] = replace(
+            recommendation,
+            marginal_payback_years=float("nan"),
+            economic_payback_years=float("nan"),
+            economic_irr_percent=float("nan"),
+            economic_analysis_calculated=True,
+            combined_economic_payback_years=float("nan"),
+            combined_economic_irr_percent=float("nan"),
+            combined_economic_analysis_calculated=True,
+        )
+
+        generator = SolarReportGenerator()
+        generator.generate(data, tmp_path / "report.pdf")
+
+        tables = self._get_tables(captured["story"])
+
+        operational_rows = self._table_rows(tables[7])
+        economic_rows = self._table_rows(tables[8])
+        combined_rows = self._table_rows(tables[9])
+
+        actual = {
+            "retorno_operativo": operational_rows[1][-1],
+            "tir_individual": economic_rows[1][2],
+            "retorno_individual": economic_rows[1][-1],
+            "tir_conjunta": combined_rows[1][2],
+            "retorno_conjunto": combined_rows[1][-1],
+        }
+
+        expected = {
+            "retorno_operativo": "N/D",
+            "tir_individual": "N/D",
+            "retorno_individual": "N/D",
+            "tir_conjunta": "N/D",
+            "retorno_conjunto": "N/D",
+        }
+
+        assert actual == expected
