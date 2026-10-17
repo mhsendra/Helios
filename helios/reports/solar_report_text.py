@@ -95,9 +95,9 @@ class SolarReportText:
         if battery is not None:
             battery_message = (
                 f"Para el almacenamiento, la capacidad de "
-                f"{battery.capacity_kwh:.1f} kWh ofrece el mejor "
-                f"resultado conjunto entre las capacidades con "
-                f"VAN incremental de batería positivo."
+                f"{battery.capacity_kwh:.1f} kWh presenta el mejor "
+                f"equilibrio entre ahorro, rentabilidad y valor "
+                f"económico conjunto."
             )
         elif data.battery_recommendations and all(
             recommendation.economic_analysis_calculated
@@ -643,7 +643,6 @@ class SolarReportText:
         Interpreta los resultados técnicos y económicos de las
         capacidades de batería evaluadas.
         """
-
         if data is None:
             raise ValueError("report data is required")
 
@@ -729,7 +728,11 @@ class SolarReportText:
         viable = [
             recommendation
             for recommendation in recommendations
-            if recommendation.economic_npv_eur > 0.0
+            if (
+                recommendation.economic_npv_eur is not None
+                and math.isfinite(recommendation.economic_npv_eur)
+                and recommendation.economic_npv_eur > 0.0
+            )
         ]
 
         best_economic = None
@@ -745,7 +748,12 @@ class SolarReportText:
 
             economic_payback = (
                 "N/D"
-                if best_economic.economic_payback_years == float("inf")
+                if (
+                    best_economic.economic_payback_years is None
+                    or not math.isfinite(
+                        best_economic.economic_payback_years
+                    )
+                )
                 else (
                     f"{best_economic.economic_payback_years:.2f} años"
                 )
@@ -753,7 +761,12 @@ class SolarReportText:
 
             marginal_payback = (
                 "N/D"
-                if best_economic.marginal_payback_years == float("inf")
+                if (
+                    best_economic.marginal_payback_years is None
+                    or not math.isfinite(
+                        best_economic.marginal_payback_years
+                    )
+                )
                 else (
                     f"{best_economic.marginal_payback_years:.2f} años"
                 )
@@ -782,214 +795,228 @@ class SolarReportText:
 
             text += (
                 f" {len(viable)} de las {len(recommendations)} "
-                f"capacidades evaluadas presentan un VAN de batería "
-                f"positivo bajo las hipótesis económicas utilizadas."
+                f"capacidades evaluadas presentan un VAN incremental "
+                f"de batería positivo bajo las hipótesis económicas utilizadas."
             )
         else:
             text += (
                 " Ninguna de las capacidades de batería evaluadas "
                 "presenta un VAN incremental positivo; no se "
                 "recomienda añadir almacenamiento por rentabilidad "
-                "económica bajo las hipótesis actuales."
+                "incremental bajo las hipótesis actuales."
             )
 
-        # El análisis conjunto se trata de forma independiente del
-        # análisis económico incremental de la batería.
-        neutral_capacities = []
-
-        if combined_calculated:
-            # Máximo VAN conjunto entre las alternativas viables.
-            best_combined_viable = (
-                max(
-                    viable,
-                    key=lambda recommendation: (
-                        recommendation.combined_economic_npv_eur,
-                        recommendation.economic_npv_eur,
-                        -recommendation.capacity_kwh,
-                    ),
-                )
-                if viable
-                else None
-            )
-
-            # Máximo matemático entre todas las capacidades evaluadas.
-            best_combined_overall = max(
-                recommendations,
-                key=lambda recommendation: (
-                    recommendation.combined_economic_npv_eur,
-                    -recommendation.capacity_kwh,
-                ),
-            )
-
-            if best_combined_viable is not None:
-                text += (
-                    f" La capacidad de "
-                    f"{best_combined_viable.capacity_kwh:.1f} kWh "
-                    f"presenta el mayor VAN conjunto del sistema FV + batería, "
-                    f"con "
-                    f"{best_combined_viable.combined_economic_npv_eur:,.2f} €, "
-                    f"entre las alternativas con VAN incremental positivo."
-                )
-
-                if (
-                    best_economic.capacity_kwh
-                    != best_combined_viable.capacity_kwh
-                ):
-                    text += (
-                        f" Esta capacidad no coincide con la que presenta "
-                        f"el mayor VAN de batería "
-                        f"({best_economic.capacity_kwh:.1f} kWh). "
-                        f"Ambos indicadores deben considerarse conjuntamente "
-                        f"antes de establecer una recomendación global."
-                    )
-            else:
-                text += (
-                    " Ninguna capacidad presenta un VAN incremental "
-                    "positivo, por lo que no puede recomendarse una batería "
-                    "por rentabilidad incremental."
-                )
-
-            # Informar del máximo global si difiere del máximo viable
-            # o si corresponde a una capacidad sin VAN incremental positivo.
-            
-            # Informar del máximo global sin confundirlo con
-            # la alternativa económicamente viable.
-            if (
-                best_combined_overall.economic_npv_eur <= 0.0
-                or (
-                    best_combined_viable is not None
-                    and (
-                        best_combined_overall.capacity_kwh
-                        != best_combined_viable.capacity_kwh
-                        or best_combined_overall.capacity_kwh
-                        != best_economic.capacity_kwh
-                    )
-                )
-            ):
-                text += (
-                    f" Considerando todas las capacidades evaluadas, "
-                    f"el mayor VAN conjunto del sistema FV + batería "
-                    f"es de "
-                    f"{best_combined_overall.combined_economic_npv_eur:,.2f} € "
-                    f"para {best_combined_overall.capacity_kwh:.1f} kWh."
-                )
-
-                if best_combined_overall.economic_npv_eur <= 0.0:
-                    text += (
-                        " Esta capacidad no tiene un VAN incremental "
-                        "positivo y no debe interpretarse por ese dato "
-                        "como una recomendación de añadir batería."
-                    )
-
-            
-            
-            # Aclarar cuándo los máximos económicos corresponden
-            # a capacidades distintas.
-            if (
-                best_economic is not None
-                and (
-                    best_combined_overall.capacity_kwh
-                    != best_economic.capacity_kwh
-                )
-            ):
-                text += (
-                    " Ambos indicadores deben considerarse conjuntamente "
-                    "antes de establecer una recomendación global."
-                )
-
-            # Neutralidad: tolerancia del 1 % de la inversión total.
-            for recommendation in recommendations:
-                total_investment_eur = (
-                    data.investment_eur
-                    + recommendation.incremental_battery_cost_eur
-                )
-
-                if (
-                    total_investment_eur <= 0.0
-                    or recommendation.combined_economic_npv_eur is None
-                ):
-                    continue
-
-                neutral_tolerance_eur = total_investment_eur * 0.01
-
-                if (
-                    abs(recommendation.combined_economic_npv_eur)
-                    <= neutral_tolerance_eur
-                ):
-                    neutral_capacities.append(
-                        recommendation.capacity_kwh
-                    )
-
-            if neutral_capacities:
-                capacities_text = ", ".join(
-                    f"{capacity:.1f} kWh"
-                    for capacity in sorted(neutral_capacities)
-                )
-
-                if len(neutral_capacities) == 1:
-                    text += (
-                        f" La capacidad de {capacities_text} presenta "
-                        f"un VAN conjunto próximo al umbral de neutralidad "
-                        f"económica, considerando una tolerancia del 1 % "
-                        f"de la inversión total."
-                    )
-                else:
-                    text += (
-                        f" Las capacidades de {capacities_text} presentan "
-                        f"un VAN conjunto próximo al umbral de neutralidad "
-                        f"económica, considerando una tolerancia del 1 % "
-                        f"de la inversión total."
-                    )
-
-            largest_viable_capacity = (
-                max(
-                    recommendation.capacity_kwh
-                    for recommendation in viable
-                )
-                if viable
-                else None
-            )
-
-            neutral_capacity_set = set(neutral_capacities)
-
-            if largest_viable_capacity is not None:
-                unprofitable_larger = sorted(
-                    recommendation.capacity_kwh
-                    for recommendation in recommendations
-                    if (
-                        recommendation.capacity_kwh
-                        > largest_viable_capacity
-                        and recommendation.capacity_kwh
-                        not in neutral_capacity_set
-                        and recommendation.combined_economic_npv_eur < 0.0
-                    )
-                )
-
-                if unprofitable_larger:
-                    capacities_text = ", ".join(
-                        f"{capacity:.1f} kWh"
-                        for capacity in unprofitable_larger
-                    )
-
-                    if len(unprofitable_larger) == 1:
-                        text += (
-                            f" La capacidad de {capacities_text} no resulta "
-                            f"rentable en términos de VAN conjunto "
-                            f"bajo las hipótesis consideradas."
-                        )
-                    else:
-                        text += (
-                            f" Las capacidades de {capacities_text} no "
-                            f"resultan rentables en términos de VAN conjunto "
-                            f"bajo las hipótesis consideradas."
-                        )
-        else:
+        # El análisis del VAN conjunto se mantiene separado del
+        # análisis incremental de la batería.
+        if not combined_calculated:
             text += (
                 " No se ha calculado el VAN conjunto de la instalación "
                 "fotovoltaica y la batería para todas las capacidades; "
                 "por tanto, no puede establecerse una recomendación "
                 "económica conjunta."
             )
+        else:
+            valid_combined = [
+                recommendation
+                for recommendation in recommendations
+                if (
+                    recommendation.combined_economic_npv_eur is not None
+                    and math.isfinite(
+                        recommendation.combined_economic_npv_eur
+                    )
+                )
+            ]
+
+            if not valid_combined:
+                text += (
+                    " No hay valores finitos de VAN conjunto para "
+                    "establecer una comparación económica fiable."
+                )
+            else:
+                valid_combined_viable = [
+                    recommendation
+                    for recommendation in valid_combined
+                    if recommendation in viable
+                ]
+
+                best_combined_overall = max(
+                    valid_combined,
+                    key=lambda recommendation: (
+                        recommendation.combined_economic_npv_eur,
+                        -recommendation.capacity_kwh,
+                    ),
+                )
+
+                best_combined_viable = (
+                    max(
+                        valid_combined_viable,
+                        key=lambda recommendation: (
+                            recommendation.combined_economic_npv_eur,
+                            recommendation.economic_npv_eur,
+                            -recommendation.capacity_kwh,
+                        ),
+                    )
+                    if valid_combined_viable
+                    else None
+                )
+
+                if best_combined_viable is not None:
+
+                    text += (
+                        f" La capacidad de "
+                        f"{best_combined_viable.capacity_kwh:.1f} kWh "
+                        f"presenta el mayor VAN conjunto del sistema FV + batería, "
+                        f"con "
+                        f"{best_combined_viable.combined_economic_npv_eur:,.2f} €, "
+                        f"entre las alternativas con VAN incremental positivo."
+                    )
+
+                    if (
+                        best_economic is not None
+                        and best_combined_overall.capacity_kwh
+                        != best_economic.capacity_kwh
+                    ):
+                        text += (
+                            " Ambos indicadores deben considerarse "
+                            "conjuntamente antes de establecer una "
+                            "recomendación global."
+                        )
+
+                else:
+                    text += (
+                        " Ninguna capacidad con VAN incremental de batería "
+                        "positivo dispone de un VAN conjunto válido para "
+                        "establecer una recomendación global."
+                        if not viable
+                        else
+                        " Ninguna capacidad con VAN incremental de batería "
+                        "positivo tiene un VAN conjunto finito para "
+                        "comparar las alternativas."
+                    )
+
+                if (
+                    best_combined_overall.capacity_kwh
+                    != (
+                        best_combined_viable.capacity_kwh
+                        if best_combined_viable is not None
+                        else None
+                    )
+                ):
+                    text += (
+                        f" Considerando todas las capacidades con VAN "
+                        f"conjunto válido, el mayor VAN conjunto es de "
+                        f"{best_combined_overall.combined_economic_npv_eur:,.2f} € "
+                        f"para {best_combined_overall.capacity_kwh:.1f} kWh."
+                    )
+
+                    if best_combined_overall not in valid_combined_viable:
+                        text += (
+                            " Esta alternativa no presenta un VAN "
+                            "incremental positivo de batería y, por tanto, "
+                            "el mayor VAN conjunto no basta por sí solo "
+                            "para recomendar añadir almacenamiento."
+                        )
+
+                # Clasificar la neutralidad y la falta de rentabilidad
+                # conjunta con el 1 % de la inversión total como margen.
+                neutral_capacities = []
+                unprofitable_larger = []
+
+                largest_viable_capacity = (
+                    max(
+                        recommendation.capacity_kwh
+                        for recommendation in viable
+                    )
+                    if viable
+                    else None
+                )
+
+                for recommendation in valid_combined:
+                    total_investment_eur = (
+                        data.investment_eur
+                        + recommendation.incremental_battery_cost_eur
+                    )
+
+                    if (
+                        not math.isfinite(total_investment_eur)
+                        or total_investment_eur <= 0.0
+                    ):
+                        continue
+
+                    neutral_tolerance_eur = (
+                        total_investment_eur * 0.01
+                    )
+                    combined_npv = (
+                        recommendation.combined_economic_npv_eur
+                    )
+
+                    if abs(combined_npv) <= neutral_tolerance_eur:
+                        neutral_capacities.append(
+                            recommendation.capacity_kwh
+                        )
+                    elif (
+                        combined_npv < -neutral_tolerance_eur
+                        and largest_viable_capacity is not None
+                        and recommendation.capacity_kwh
+                        > largest_viable_capacity
+                    ):
+                        unprofitable_larger.append(
+                            recommendation.capacity_kwh
+                        )
+
+                if neutral_capacities:
+                    neutral_capacity_labels = sorted(
+                        {
+                            f"{capacity:.1f} kWh"
+                            for capacity in neutral_capacities
+                        },
+                        key=lambda label: float(label.split()[0]),
+                    )
+
+                    capacities_text = ", ".join(
+                        neutral_capacity_labels
+                    )
+
+                    if len(neutral_capacity_labels) == 1:
+                        text += (
+                            f" La capacidad de {capacities_text} presenta "
+                            f"un VAN conjunto próximo al umbral de "
+                            f"neutralidad económica, considerando como "
+                            f"margen el 1 % de la inversión total de "
+                            f"cada alternativa. Por tanto, su resultado "
+                            f"debe interpretarse como económicamente "
+                            f"neutro bajo las hipótesis consideradas."
+                        )
+                    else:
+                        text += (
+                            f" Las capacidades {capacities_text} presentan "
+                            f"un VAN conjunto próximo al umbral de "
+                            f"neutralidad económica, considerando como "
+                            f"margen el 1 % de la inversión total de "
+                            f"cada alternativa. Por tanto, sus resultados "
+                            f"deben interpretarse como económicamente "
+                            f"neutros bajo las hipótesis consideradas."
+                        )
+
+                if unprofitable_larger:
+                    capacities_text = ", ".join(
+                        f"{capacity:.1f} kWh"
+                        for capacity in sorted(unprofitable_larger)
+                    )
+
+                    if len(unprofitable_larger) == 1:
+                        text += (
+                            f" La capacidad de {capacities_text} no "
+                            f"resulta rentable en términos de VAN "
+                            f"conjunto bajo las hipótesis consideradas."
+                        )
+                    else:
+                        text += (
+                            f" Las capacidades de {capacities_text} "
+                            f"no resultan rentables en términos de "
+                            f"VAN conjunto bajo las hipótesis "
+                            f"consideradas."
+                        )
 
         text += (
             " El ahorro marginal por kWh representa el ahorro adicional "
@@ -1437,9 +1464,11 @@ class SolarReportText:
                 ):
                     conclusion += (
                         f" La capacidad de "
-                        f"{best_combined.capacity_kwh:.1f} kWh constituye "
-                        f"la opción recomendada al presentar "
-                        f"simultáneamente el mayor VAN de batería "
+                        f"{best_combined.capacity_kwh:.1f} kWh "
+                        f"constituye la opción recomendada para la "
+                        f"inversión conjunta FV + batería, al "
+                        f"presentar simultáneamente el mayor VAN "
+                        f"de batería "
                         f"({best_economic.economic_npv_eur:,.2f} €) "
                         f"y el mayor VAN conjunto FV + batería "
                         f"({best_combined.combined_economic_npv_eur:,.2f} €) "
@@ -1547,40 +1576,84 @@ class SolarReportText:
                 neutral_capacities.append(recommendation)
 
         if neutral_capacities:
-            capacities_text = ", ".join(
-                f"{recommendation.capacity_kwh:.1f} kWh"
-                for recommendation in neutral_capacities
+            neutral_capacity_labels = sorted(
+                {
+                    f"{recommendation.capacity_kwh:.1f} kWh"
+                    for recommendation in neutral_capacities
+                },
+                key=lambda label: float(label.split()[0]),
             )
 
-            conclusion += (
-                f" Las capacidades {capacities_text} presentan un VAN "
-                f"conjunto próximo a la neutralidad económica, "
-                f"considerando como margen el 1 % de la inversión "
-                f"total de cada alternativa. Por tanto, sus resultados "
-                f"deben interpretarse como económicamente neutros "
-                f"bajo las hipótesis consideradas."
+            capacities_text = ", ".join(
+                neutral_capacity_labels
             )
+
+            if len(neutral_capacity_labels) == 1:
+                conclusion += (
+                    f" La capacidad de {capacities_text} presenta un VAN "
+                    f"conjunto próximo a la neutralidad económica, "
+                    f"considerando como margen el 1 % de la inversión "
+                    f"total de cada alternativa. Por tanto, su resultado "
+                    f"debe interpretarse como económicamente neutro "
+                    f"bajo las hipótesis consideradas."
+                )
+            else:
+                conclusion += (
+                    f" Las capacidades {capacities_text} presentan un VAN "
+                    f"conjunto próximo a la neutralidad económica, "
+                    f"considerando como margen el 1 % de la inversión "
+                    f"total de cada alternativa. Por tanto, sus resultados "
+                    f"deben interpretarse como económicamente neutros "
+                    f"bajo las hipótesis consideradas."
+                )
 
         # Las capacidades neutrales no deben etiquetarse como
-        # no rentables. Tampoco se incluyen alternativas inferiores
-        # a la mayor capacidad con VAN incremental positivo.
+        # no rentables. Solo se clasifican como no rentables las
+        # capacidades superiores a la mayor capacidad con VAN
+        # incremental positivo cuyo VAN conjunto sea inferior
+        # al umbral negativo de neutralidad.
+
         largest_viable_capacity = max(
             recommendation.capacity_kwh
             for recommendation in viable
         )
 
-        neutral_capacity_set = set(neutral_capacities)
-
-        unprofitable_larger = sorted(
+        neutral_capacity_set = {
             recommendation.capacity_kwh
-            for recommendation in recommendations
+            for recommendation in neutral_capacities
+        }
+
+        unprofitable_larger = []
+
+        for recommendation in recommendations:
+            capacity_kwh = recommendation.capacity_kwh
+            combined_npv = recommendation.combined_economic_npv_eur
+
             if (
-                recommendation.capacity_kwh > largest_viable_capacity
-                and recommendation.capacity_kwh
-                not in neutral_capacity_set
-                and recommendation.combined_economic_npv_eur < 0.0
+                capacity_kwh <= largest_viable_capacity
+                or capacity_kwh in neutral_capacity_set
+                or combined_npv is None
+                or not math.isfinite(combined_npv)
+            ):
+                continue
+
+            total_investment_eur = (
+                data.investment_eur
+                + recommendation.incremental_battery_cost_eur
             )
-        )
+
+            if (
+                not math.isfinite(total_investment_eur)
+                or total_investment_eur <= 0.0
+            ):
+                continue
+
+            neutral_tolerance_eur = total_investment_eur * 0.01
+
+            if combined_npv < -neutral_tolerance_eur:
+                unprofitable_larger.append(capacity_kwh)
+
+        unprofitable_larger.sort()
 
         if unprofitable_larger:
             capacities_text = " y ".join(

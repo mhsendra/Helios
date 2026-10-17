@@ -1905,8 +1905,6 @@ class SolarReportGenerator:
         )
 
         return [
-            PageBreak(),
-
             self._keep_section_content(
                 self._section_header(
                     "Hipótesis y metodología",

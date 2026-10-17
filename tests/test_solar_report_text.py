@@ -618,6 +618,48 @@ class TestSolarReportText:
             in text
         )
 
+    def test_battery_analysis_reports_unprofitable_larger_capacity_without_neutral_capacity(
+        self,
+    ):
+        data = self._report_data()
+
+        recommendations = []
+
+        for recommendation in data.battery_recommendations:
+            capacity = recommendation.capacity_kwh
+
+            if capacity <= 8.3:
+                # Estas alternativas son viables por VAN incremental.
+                economic_npv = 208.28
+                combined_npv = 500.0
+            else:
+                # La capacidad de 30 kWh supera la máxima viable
+                # y su VAN conjunto es claramente negativo.
+                economic_npv = -100.0
+                combined_npv = -500.0
+
+            recommendations.append(
+                replace(
+                    recommendation,
+                    economic_npv_eur=economic_npv,
+                    combined_economic_npv_eur=combined_npv,
+                    economic_analysis_calculated=True,
+                    combined_economic_analysis_calculated=True,
+                )
+            )
+
+        data = replace(
+            data,
+            battery_recommendations=recommendations,
+        )
+
+        text = SolarReportText.battery_analysis(data)
+
+        assert (
+            "La capacidad de 30.0 kWh no resulta rentable en términos "
+            "de VAN conjunto bajo las hipótesis consideradas."
+        ) in text
+
     # ==================================================
     # Scenarios
     # ==================================================
@@ -866,9 +908,10 @@ class TestSolarReportText:
             self._report_data()
         )
 
-        assert "mayor VAN positivo" in text
-        assert "constituye la recomendación económica" in text
+        assert "capacidad de batería de 8.3 kWh" in text
+        assert "ahorro adicional anual estimado" in text
         assert "recuperación económica estimada" in text
+        assert "constituye la opción recomendada" in text
 
     def test_methodology_conclusion_defines_interpretation_scope(self):
         text = SolarReportText.methodology_conclusion(
@@ -1317,9 +1360,9 @@ class TestSolarReportText:
 
         text = SolarReportText.battery_conclusion(data)
 
-        assert "mayor VAN positivo de batería" in text
-        assert "mayor VAN conjunto FV + batería" in text
+        assert "capacidad de batería de 8.3 kWh" in text
         assert "constituye la opción recomendada" in text
+        assert "mayor VAN conjunto FV + batería" in text
         assert "208.28 €" in text
         assert "2,320.78 €" in text
 
@@ -1347,7 +1390,10 @@ class TestSolarReportText:
 
         text = SolarReportText.battery_conclusion(data)
 
-        assert "mayor VAN positivo de batería" in text
+        assert "capacidad de batería de 5.0 kWh" in text
+        assert "mayor VAN conjunto FV + batería" in text
+        assert "VAN incremental de batería" in text
+        assert "VAN conjunto FV + batería" in text
         assert "difiere de la que maximiza el VAN incremental" in text
         assert "priorizar el resultado conjunto" in text
     
@@ -1747,3 +1793,35 @@ class TestSolarReportText:
         assert "none €" not in text.lower()
         assert "nan €" not in text.lower()
         assert "inf €" not in text.lower()
+
+    def test_battery_conclusion_uses_singular_for_one_neutral_capacity(
+        self,
+    ):
+        data = self._report_data()
+
+        recommendations = [
+            replace(
+                recommendation,
+                combined_economic_npv_eur=100.0,
+            )
+            if recommendation.capacity_kwh == 30.0
+            else replace(
+                recommendation,
+                combined_economic_npv_eur=1000.0,
+            )
+            for recommendation in data.battery_recommendations
+        ]
+
+        data = replace(
+            data,
+            battery_recommendations=recommendations,
+        )
+
+        text = SolarReportText.battery_conclusion(data)
+
+        assert (
+            "La capacidad de 30.0 kWh presenta un VAN "
+            "conjunto próximo a la neutralidad económica"
+        ) in text
+
+        assert "Las capacidades 30.0 kWh presentan" not in text
