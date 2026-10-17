@@ -15,6 +15,9 @@ from PySide6.QtWidgets import (
 
 from helios.solar.configuration import SolarConfiguration
 
+from helios.gui.widgets.localized_double_spinbox import (
+    LocalizedDoubleSpinBox,
+)
 
 class SolarConfigPage(QWidget):
     """
@@ -117,15 +120,15 @@ class SolarConfigPage(QWidget):
 
         layout = QFormLayout(group)
 
-        self.latitude_spinbox = QDoubleSpinBox()
-        self.longitude_spinbox = QDoubleSpinBox()
+        self.latitude_spinbox = LocalizedDoubleSpinBox()
+        self.longitude_spinbox = LocalizedDoubleSpinBox()
 
         self.tilt_spinbox = QSpinBox()
         self.azimuth_spinbox = QSpinBox()
 
         self.reference_year_spinbox = QSpinBox()
 
-        self.system_losses_spinbox = QDoubleSpinBox()
+        self.system_losses_spinbox = LocalizedDoubleSpinBox()
 
         self.pv_technology_combobox = QComboBox()
         self.mounting_place_combobox = QComboBox()

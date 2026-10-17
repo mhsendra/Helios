@@ -64,7 +64,6 @@ class TestMainWindow:
 
     def test_main_window_creates_all_pages(self):
 
-        assert self.window.home_page is not None
         assert self.window.load_page is not None
         assert self.window.solar_config_page is not None
         assert self.window.validation_page is not None
@@ -82,7 +81,6 @@ class TestMainWindow:
     def test_all_pages_use_same_project(self):
 
         pages = [
-            self.window.home_page,
             self.window.load_page,
             self.window.solar_config_page,
             self.window.validation_page,
@@ -102,10 +100,9 @@ class TestMainWindow:
 
     def test_all_pages_are_added_to_stack(self):
 
-        assert self.window.pages.count() == 14
+        assert self.window.pages.count() == 13
 
         pages = [
-            self.window.home_page,
             self.window.load_page,
             self.window.solar_config_page,
             self.window.validation_page,
@@ -129,25 +126,20 @@ class TestMainWindow:
 
     def test_navigation_has_expected_top_level_items(self):
 
-        assert self.window.navigation.topLevelItemCount() == 4
+        assert self.window.navigation.topLevelItemCount() == 3
 
         assert (
             self.window.navigation.topLevelItem(0).text(0)
-            == "Inicio"
-        )
-
-        assert (
-            self.window.navigation.topLevelItem(1).text(0)
             == "Proyecto"
         )
 
         assert (
-            self.window.navigation.topLevelItem(2).text(0)
+            self.window.navigation.topLevelItem(1).text(0)
             == "Análisis"
         )
 
         assert (
-            self.window.navigation.topLevelItem(3).text(0)
+            self.window.navigation.topLevelItem(2).text(0)
             == "Resultados"
         )
 
@@ -207,7 +199,6 @@ class TestMainWindow:
     def test_page_map_contains_expected_pages(self):
 
         assert self.window.page_map == {
-            "Inicio": self.window.home_page,
             "Cargar datos": self.window.load_page,
             "Configuración solar": self.window.solar_config_page,
             "Optimización solar": self.window.solar_optimization_page,
@@ -248,7 +239,6 @@ class TestMainWindow:
 
     def test_project_navigation_items_remain_enabled_initially(self):
 
-        assert not self.window.home_item.isDisabled()
         assert self.window.load_item.isDisabled()
 
     # ==================================================
@@ -365,7 +355,7 @@ class TestMainWindow:
 
         assert (
             self.window.pages.currentWidget()
-            is self.window.home_page
+            is self.window.solar_config_page
         )
 
     def test_solar_configuration_page_is_enabled_when_project_is_not_loaded(
@@ -467,7 +457,7 @@ class TestMainWindow:
 
         assert (
             self.window.pages.currentWidget()
-            is self.window.home_page
+            is self.window.solar_config_page
         )
 
     def test_set_solar_configured_enables_load_data(self):

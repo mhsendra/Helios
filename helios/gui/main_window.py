@@ -10,7 +10,6 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
 
-from helios.gui.widgets.home_page import HomePage
 from helios.gui.widgets.load_data_page import LoadDataPage
 from helios.gui.widgets.validation_page import ValidationPage
 from helios.gui.widgets.statistics_page import StatisticsPage
@@ -106,10 +105,6 @@ class MainWindow(QMainWindow):
 
     def build_pages(self):
 
-        self.home_page = HomePage(self.project)
-
-        self.pages.addWidget(self.home_page)
-
         self.solar_config_page = SolarConfigPage(self.project, self)
 
         self.pages.addWidget(self.solar_config_page)
@@ -167,8 +162,6 @@ class MainWindow(QMainWindow):
     # ==================================================
 
     def build_navigation(self):
-
-        self.home_item = QTreeWidgetItem(["Inicio"])
 
         self.project_item = QTreeWidgetItem(["Proyecto"])
 
@@ -241,14 +234,12 @@ class MainWindow(QMainWindow):
             ["Gráficas"]
         )
 
-        self.navigation.addTopLevelItem(self.home_item)
         self.navigation.addTopLevelItem(self.project_item)
         self.navigation.addTopLevelItem(self.analysis_item)
         self.navigation.addTopLevelItem(self.results_item)
 
         # Asociación árbol → páginas
 
-        self.page_map["Inicio"] = self.home_page
         self.page_map["Cargar datos"] = self.load_page
         self.page_map["Configuración solar"] = self.solar_config_page
         self.page_map["Optimización solar"] = self.solar_optimization_page
@@ -262,7 +253,8 @@ class MainWindow(QMainWindow):
         self.page_map["Informes"] = self.reports_page
         self.page_map["Solar"] = self.solar_page
         self.page_map["Economía"] = self.economics_page
-        
+
+        self.pages.setCurrentWidget(self.solar_config_page)
 
         self.set_project_loaded(False)
 

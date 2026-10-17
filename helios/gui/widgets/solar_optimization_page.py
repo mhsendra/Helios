@@ -32,6 +32,9 @@ from helios.solar.installation_configuration import (
     InstallationConfiguration,
 )
 
+from helios.gui.widgets.localized_double_spinbox import (
+    LocalizedDoubleSpinBox,
+)
 
 class RoofLayoutWidget(QWidget):
     """
@@ -767,9 +770,9 @@ class SolarOptimizationPage(QWidget):
 
         layout = QFormLayout(group)
 
-        self.available_area_spinbox = QDoubleSpinBox()
-        self.roof_width_spinbox = QDoubleSpinBox()
-        self.roof_height_spinbox = QDoubleSpinBox()
+        self.available_area_spinbox = LocalizedDoubleSpinBox()
+        self.roof_width_spinbox = LocalizedDoubleSpinBox()
+        self.roof_height_spinbox = LocalizedDoubleSpinBox()
 
         layout.addRow(
             "Superficie disponible",
@@ -800,8 +803,8 @@ class SolarOptimizationPage(QWidget):
 
         layout = QFormLayout(group)
 
-        self.panel_width_spinbox = QDoubleSpinBox()
-        self.panel_height_spinbox = QDoubleSpinBox()
+        self.panel_width_spinbox = LocalizedDoubleSpinBox()
+        self.panel_height_spinbox = LocalizedDoubleSpinBox()
         self.panel_power_spinbox = QDoubleSpinBox()
 
         self.panel_orientation_combobox = QComboBox()
@@ -880,7 +883,7 @@ class SolarOptimizationPage(QWidget):
             "Requiere paso de mantenimiento"
         )
 
-        self.maintenance_width_spinbox = QDoubleSpinBox()
+        self.maintenance_width_spinbox = LocalizedDoubleSpinBox()
 
         self.maintenance_orientation_combobox = QComboBox()
 
