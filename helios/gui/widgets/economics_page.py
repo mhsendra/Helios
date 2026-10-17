@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
     QTableWidgetItem,
     QGroupBox,
     QScrollArea,
+    QHBoxLayout,
 )
 
 from helios.core.economic_scenarios import default_economic_scenarios
@@ -86,7 +87,16 @@ class EconomicsPage(QWidget):
             self.net_investment_label
         )
 
-        layout.addWidget(summary_group)
+        overview_widget = QWidget()
+
+        overview_layout = QHBoxLayout(overview_widget)
+        overview_layout.setContentsMargins(0, 0, 0, 0)
+        overview_layout.setSpacing(10)
+
+        overview_layout.addWidget(
+            summary_group,
+            1,
+        )
 
         # ==================================================
         # Rentabilidad
@@ -125,9 +135,29 @@ class EconomicsPage(QWidget):
             self.discount_rate_label
         )
 
-        layout.addWidget(
-            profitability_group
+        overview_layout.addWidget(
+            profitability_group,
+            1,
         )
+
+        # ==================================================
+        # Botón
+        # ==================================================
+
+        self.calculate_button = QPushButton(
+            "Calcular\nanálisis económico"
+        )
+        self.calculate_button.clicked.connect(
+            self.calculate
+        )
+
+        overview_layout.addWidget(
+            self.calculate_button,
+            0,
+            Qt.AlignmentFlag.AlignCenter,
+        )
+
+        layout.addWidget(overview_widget)
 
         # ==================================================
         # Análisis económico del almacenamiento
@@ -175,22 +205,6 @@ class EconomicsPage(QWidget):
 
         layout.addWidget(
             cash_flow_group
-        )
-
-        # ==================================================
-        # Botón
-        # ==================================================
-
-        self.calculate_button = QPushButton(
-            "Calcular análisis económico"
-        )
-
-        layout.addWidget(
-            self.calculate_button
-        )
-
-        self.calculate_button.clicked.connect(
-            self.calculate
         )
 
         layout.addStretch()

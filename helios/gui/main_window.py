@@ -5,8 +5,10 @@ from PySide6.QtWidgets import (
     QTreeWidget,
     QTreeWidgetItem,
     QStackedWidget,
-    QSplitter
+    QSplitter,
+    QPushButton,
 )
+
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
 
@@ -51,6 +53,8 @@ class MainWindow(QMainWindow):
         self.create_layout()
 
         self.build_pages()
+
+        self.configure_button_keyboard_accessibility()
 
         self.build_navigation()
 
@@ -156,6 +160,16 @@ class MainWindow(QMainWindow):
         self.economics_page = EconomicsPage(self.project)
 
         self.pages.addWidget(self.economics_page)
+
+    # ==================================================
+    # Accesibilidad con el tabulador
+    # ==================================================
+
+    def configure_button_keyboard_accessibility(self):
+        """Permite recorrer y activar los botones con el teclado."""
+
+        for button in self.findChildren(QPushButton):
+            button.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
 
     # ==================================================
     # Árbol de navegación

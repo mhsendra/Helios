@@ -1,11 +1,10 @@
 
-from PySide6.QtCore import QEvent
-from PySide6.QtCore import QLocale
+from PySide6.QtCore import QEvent, QLocale, Qt
 from PySide6.QtWidgets import QDoubleSpinBox
 
 
 class LocalizedDoubleSpinBox(QDoubleSpinBox):
-    """QDoubleSpinBox con coma decimal y soporte del punto del teclado numérico."""
+    """QDoubleSpinBox con coma decimal y soporte del punto numérico."""
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -13,34 +12,52 @@ class LocalizedDoubleSpinBox(QDoubleSpinBox):
         self.setLocale(QLocale("es_ES"))
         self.setGroupSeparatorShown(False)
 
-        # El foco de edición está en el QLineEdit interno.
+        # El evento puede llegar tanto al spinbox como al editor interno.
+        self.installEventFilter(self)
         self.lineEdit().installEventFilter(self)
 
     def eventFilter(self, watched, event):
-        if (
-            watched is self.lineEdit()
-            and event.type() == QEvent.Type.KeyPress
-            and event.text() in {".", ","}
-        ):
-            line_edit = self.lineEdit()
-            decimal_point = self.locale().decimalPoint()
-            current_text = line_edit.text()
-            selected_text = line_edit.selectedText()
+        if event.type() != QEvent.Type.KeyPress:
+            return super().eventFilter(watched, event)
 
-            # Permite reemplazar el contenido seleccionado, incluso
-            # cuando ya contenía un separador decimal.
-            remaining_text = current_text
+        if watched not in (self, self.lineEdit()):
+            return super().eventFilter(watched, event)
 
-            if selected_text:
-                start = line_edit.selectionStart()
-                end = start + len(selected_text)
-                remaining_text = (
-                    current_text[:start] + current_text[end:]
+        key = event.key()
+        text = event.text()
+        modifiers = event.modifiers()
+
+        is_decimal_key = (
+            text in {".", ","}
+            or event.nativeVirtualKey() == 0x6E
+            or (
+                key == Qt.Key.Key_Period
+                and bool(
+                    modifiers & Qt.KeyboardModifier.KeypadModifier
                 )
+            )
+        )
 
-            if decimal_point not in remaining_text:
-                line_edit.insert(decimal_point)
+        if not is_decimal_key:
+            return super().eventFilter(watched, event)
 
-            return True
+        line_edit = self.lineEdit()
+        decimal_point = self.locale().decimalPoint()
 
-        return super().eventFilter(watched, event)
+        current_text = line_edit.text()
+        selected_text = line_edit.selectedText()
+        remaining_text = current_text
+
+        if selected_text:
+            start = line_edit.selectionStart()
+            end = start + len(selected_text)
+            remaining_text = (
+                current_text[:start] + current_text[end:]
+            )
+
+        # Evita insertar una segunda coma decimal.
+        if decimal_point not in remaining_text:
+            line_edit.insert(decimal_point)
+
+        # Evita que Qt procese también el punto original.
+        return True

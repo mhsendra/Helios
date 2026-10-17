@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
     QTableWidget,
     QTableWidgetItem,
     QHeaderView,
+    QGridLayout,
 )
 
 from PySide6.QtGui import (
@@ -703,22 +704,49 @@ class SolarOptimizationPage(QWidget):
             self.create_title()
         )
 
-        layout.addWidget(
-            self.create_installation_group()
+        # Distribución de los bloques de configuración.
+        configuration_widget = QWidget()
+        configuration_layout = QGridLayout(
+            configuration_widget
+        )
+        configuration_layout.setContentsMargins(0, 0, 0, 0)
+        configuration_layout.setHorizontalSpacing(10)
+        configuration_layout.setVerticalSpacing(10)
+
+        configuration_layout.addWidget(
+            self.create_installation_group(),
+            0,
+            0,
         )
 
-        layout.addWidget(
-            self.create_panel_group()
+        configuration_layout.addWidget(
+            self.create_panel_group(),
+            0,
+            1,
         )
 
-        layout.addWidget(
-            self.create_maintenance_group()
+        configuration_layout.addWidget(
+            self.create_maintenance_group(),
+            1,
+            0,
+            1,
+            2,
         )
 
-        layout.addWidget(
-            self.create_action_group()
+        configuration_layout.addWidget(
+            self.create_action_group(),
+            2,
+            0,
+            1,
+            2,
         )
 
+        configuration_layout.setColumnStretch(0, 1)
+        configuration_layout.setColumnStretch(1, 1)
+
+        layout.addWidget(configuration_widget)
+
+        # Resultados de la optimización.
         layout.addWidget(
             self.create_result_group()
         )
