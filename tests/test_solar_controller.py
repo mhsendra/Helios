@@ -41,6 +41,16 @@ from helios.solar.installation_costs import InstallationCostConfiguration
 
 from helios.solar.installation_evaluation import InstallationEvaluation
 
+from helios.solar.components_catalog import (
+    ComponentCatalog,
+    Inverter,
+    MountingSystem,
+    PhotovoltaicPanel,
+)
+from helios.solar.installation_component_selection import (
+    InstallationComponentSelection,
+)
+
 class TestSolarController:
 
     def setup_method(self):
@@ -1525,6 +1535,119 @@ class TestSolarController:
             self.controller.installation_configuration
             is configuration
         )
+
+    def test_recommend_installation_applies_component_selection(
+        self,
+        monkeypatch,
+    ):
+        configuration = self._installation_configuration()
+        consumption_scenario = self._consumption_scenario()
+
+        self.analyzer.solar_engine.configuration = (
+            self._solar_configuration()
+        )
+
+        panel = PhotovoltaicPanel(
+            id="panel-540",
+            manufacturer="Test",
+            model="Panel 540 W",
+            power_wp=540,
+            width_m=1.13,
+            height_m=2.28,
+            price_eur=92.0,
+        )
+        inverter = Inverter(
+            id="inverter-8",
+            manufacturer="Test",
+            model="Inverter 8 kW",
+            nominal_power_kw=8.0,
+            max_pv_power_kwp=8.0,
+            price_eur=900.0,
+        )
+        mounting = MountingSystem(
+            id="mounting-tile",
+            manufacturer="Test",
+            model="Mounting tile",
+            price_per_panel_eur=20.0,
+            compatible_roof_types=("tile",),
+        )
+        catalog = ComponentCatalog(
+            panels=(panel,),
+            inverters=(inverter,),
+            mounting_systems=(mounting,),
+        )
+        selection = InstallationComponentSelection(
+            catalog=catalog,
+            panel_id="panel-540",
+            inverter_id="inverter-8",
+            mounting_system_id="mounting-tile",
+            roof_type="tile",
+        )
+
+        self.analyzer.project = MagicMock()
+        self.analyzer.project.component_selection = selection
+
+        production_profile = self._solar_production_profile()
+        service = MagicMock()
+        service.get_production_profile.return_value = production_profile
+
+        monkeypatch.setattr(
+            "helios.core.controllers.solar_controller."
+            "PVGISProductionProfileService",
+            MagicMock(return_value=service),
+        )
+        monkeypatch.setattr(
+            "helios.core.controllers.solar_controller."
+            "SolarProductionCalculator",
+            MagicMock(),
+        )
+
+        coordinator = MagicMock()
+        coordinator.recommend.return_value = InstallationRecommendation(
+            evaluation=MagicMock(),
+            annual_consumption_kwh=(
+                consumption_scenario.annual_consumption
+            ),
+            annual_production_kwh=8760.0,
+            consumption_scenario=consumption_scenario,
+            production_profile=production_profile,
+        )
+        coordinator_class = MagicMock(return_value=coordinator)
+
+        monkeypatch.setattr(
+            "helios.core.controllers.solar_controller."
+            "InstallationCoordinator",
+            coordinator_class,
+        )
+
+        result = self.controller.recommend_installation(
+            configuration,
+            consumption_scenario,
+        )
+
+        adjusted_configuration = (
+            coordinator_class.call_args.kwargs["optimizer"].constraints
+        )
+
+        assert result is coordinator.recommend.return_value
+        assert adjusted_configuration.panel_power_wp == 540
+        assert adjusted_configuration.panel_width_m == 1.13
+        assert adjusted_configuration.panel_height_m == 2.28
+        assert adjusted_configuration.max_panels == 14
+        assert (
+            self.controller.installation_configuration.panel_power_wp
+            == 540
+        )
+        assert (
+            self.controller.installation_configuration.panel_width_m
+            == 1.13
+        )
+        assert (
+            self.controller.installation_configuration.panel_height_m
+            == 2.28
+        )
+        assert self.controller.installation_configuration.max_panels == 14
+
 
     def test_recommend_installation_returns_result(
         self,

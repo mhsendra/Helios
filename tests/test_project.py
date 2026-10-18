@@ -9,6 +9,16 @@ from helios.solar.battery_configuration import BatteryConfiguration
 from helios.solar.installation_costs import InstallationCostConfiguration
 from helios.ev.configuration import EVConfiguration
 
+from helios.solar.components_catalog import (
+    ComponentCatalog,
+    Inverter,
+    MountingSystem,
+    PhotovoltaicPanel,
+)
+from helios.solar.installation_component_selection import (
+    InstallationComponentSelection,
+)
+
 def create_project():
 
     configuration = EconomicsConfiguration(
@@ -17,6 +27,39 @@ def create_project():
 
     return HeliosProject(configuration)
 
+def create_component_catalog():
+    panel = PhotovoltaicPanel(
+        id="panel-540",
+        manufacturer="Test",
+        model="Panel 540 W",
+        power_wp=540,
+        width_m=1.13,
+        height_m=2.28,
+        price_eur=92.0,
+    )
+
+    inverter = Inverter(
+        id="inverter-8",
+        manufacturer="Test",
+        model="Inverter 8 kW",
+        nominal_power_kw=8.0,
+        max_pv_power_kwp=10.0,
+        price_eur=900.0,
+    )
+
+    mounting = MountingSystem(
+        id="mounting-tile",
+        manufacturer="Test",
+        model="Mounting tile",
+        price_per_panel_eur=20.0,
+        compatible_roof_types=("tile",),
+    )
+
+    return ComponentCatalog(
+        panels=(panel,),
+        inverters=(inverter,),
+        mounting_systems=(mounting,),
+    )
 
 def test_project_creates_analyzer():
 
@@ -370,3 +413,119 @@ def test_set_installation_cost_configuration_rejects_invalid_type():
         project.set_installation_cost_configuration(
             object()
         )
+
+def test_project_set_component_catalog():
+    project = create_project()
+    catalog = create_component_catalog()
+
+    project.set_component_catalog(catalog)
+
+    assert project.component_catalog is catalog
+
+
+def test_project_set_component_catalog_rejects_invalid_type():
+    project = create_project()
+
+    with pytest.raises(TypeError):
+        project.set_component_catalog(object())
+
+
+def test_project_set_component_selection():
+    project = create_project()
+    catalog = create_component_catalog()
+
+    selection = InstallationComponentSelection(
+        catalog=catalog,
+        panel_id="panel-540",
+        inverter_id="inverter-8",
+        mounting_system_id="mounting-tile",
+        roof_type="tile",
+    )
+
+    project.set_component_catalog(catalog)
+    project.set_component_selection(selection)
+
+    assert project.component_selection is selection
+
+
+def test_project_set_component_selection_rejects_missing_catalog():
+    project = create_project()
+    catalog = create_component_catalog()
+
+    selection = InstallationComponentSelection(
+        catalog=catalog,
+        panel_id="panel-540",
+        inverter_id="inverter-8",
+        mounting_system_id="mounting-tile",
+        roof_type="tile",
+    )
+
+    with pytest.raises(ValueError):
+        project.set_component_selection(selection)
+
+
+def test_project_set_component_selection_rejects_invalid_type():
+    project = create_project()
+
+    with pytest.raises(TypeError):
+        project.set_component_selection(object())
+
+
+def test_project_set_component_selection_rejects_foreign_catalog():
+    project = create_project()
+    project_catalog = create_component_catalog()
+    foreign_catalog = create_component_catalog()
+
+    selection = InstallationComponentSelection(
+        catalog=foreign_catalog,
+        panel_id="panel-540",
+        inverter_id="inverter-8",
+        mounting_system_id="mounting-tile",
+        roof_type="tile",
+    )
+
+    project.set_component_catalog(project_catalog)
+
+    with pytest.raises(ValueError):
+        project.set_component_selection(selection)
+
+
+def test_project_set_component_selection_can_be_cleared():
+    project = create_project()
+    catalog = create_component_catalog()
+
+    selection = InstallationComponentSelection(
+        catalog=catalog,
+        panel_id="panel-540",
+        inverter_id="inverter-8",
+        mounting_system_id="mounting-tile",
+        roof_type="tile",
+    )
+
+    project.set_component_catalog(catalog)
+    project.set_component_selection(selection)
+    project.set_component_selection(None)
+
+    assert project.component_selection is None
+
+def test_project_rejects_replacing_catalog_with_active_selection():
+    project = create_project()
+    original_catalog = create_component_catalog()
+    replacement_catalog = create_component_catalog()
+
+    selection = InstallationComponentSelection(
+        catalog=original_catalog,
+        panel_id="panel-540",
+        inverter_id="inverter-8",
+        mounting_system_id="mounting-tile",
+        roof_type="tile",
+    )
+
+    project.set_component_catalog(original_catalog)
+    project.set_component_selection(selection)
+
+    with pytest.raises(ValueError):
+        project.set_component_catalog(replacement_catalog)
+
+    assert project.component_catalog is original_catalog
+    assert project.component_selection is selection

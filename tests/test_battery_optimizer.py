@@ -1183,4 +1183,3 @@ class TestBatteryOptimizer:
         )
 
         assert result.capacity_kwh == 8.3
-        

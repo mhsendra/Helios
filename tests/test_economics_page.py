@@ -467,9 +467,8 @@ class TestEconomicsPage:
 
         page = EconomicsPage(project)
 
-        assert (
-            page.calculate_button.text()
-            == "Calcular análisis económico"
+        assert page.calculate_button.text() == (
+            "Calcular\nanálisis económico"
         )
 
     # ==================================================

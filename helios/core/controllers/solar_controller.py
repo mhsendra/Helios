@@ -78,6 +78,10 @@ from helios.ev.scenario import (
 
 from helios.solar.installation_costs import InstallationCostConfiguration
 
+from helios.solar.installation_component_selection import (
+    InstallationComponentSelection,
+)
+
 class SolarController:
 
     def __init__(self, analyzer):
@@ -1047,6 +1051,23 @@ class SolarController:
         production_calculator = SolarProductionCalculator(
             base_profile
         )
+
+        # --------------------------------------------------
+        # Aplicar la selección del catálogo, si existe.
+        # --------------------------------------------------
+
+        project = getattr(self.analyzer, "project", None)
+        selection = (
+            getattr(project, "component_selection", None)
+            if project is not None
+            else None
+        )
+
+        # Un analyzer de prueba u otro objeto con atributos
+        # dinámicos puede devolver mocks para atributos ausentes.
+        # Solo aceptamos una selección real del catálogo.
+        if isinstance(selection, InstallationComponentSelection):
+            configuration = selection.apply_to(configuration)
 
         # --------------------------------------------------
         # Dimensionamiento automático.

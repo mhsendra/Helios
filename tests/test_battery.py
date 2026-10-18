@@ -383,6 +383,7 @@ class TestBatteryEngine:
             "consumption_kwh",
             "production_kwh",
             "direct_self_consumption_kwh",
+            "self_consumption_kwh",
             "battery_charge_kwh",
             "battery_discharge_kwh",
             "grid_import_kwh",

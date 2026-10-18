@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 from PySide6.QtCore import Qt, QRectF
 from PySide6.QtWidgets import (
     QWidget,
@@ -36,6 +38,54 @@ from helios.solar.installation_configuration import (
 from helios.gui.widgets.localized_double_spinbox import (
     LocalizedDoubleSpinBox,
 )
+
+from helios.solar.battery_configuration import BatteryConfiguration
+from helios.solar.installation_costs import InstallationCostConfiguration
+
+from helios.solar.battery_economic_configuration import (
+    BatteryEconomicParameters,
+)
+
+from helios.solar.installation_component_selection import (
+    InstallationComponentSelection,
+)
+
+# Presupuesto de referencia HELIOS.
+# Los importes originales de los componentes y de la mano de obra
+# están expresados sin IVA.
+INSTALLATION_VAT_RATE = 0.21
+
+PANEL_COST_GROSS_EUR = 92.196 * (1 + INSTALLATION_VAT_RATE)
+
+# Estructuras: 291,00 € + 101,27 € para los 15 paneles.
+# Aproximación lineal para poder evaluar otros tamaños.
+STRUCTURE_COST_GROSS_PER_PANEL_EUR = (
+    (291.00 + 101.27) / 15
+) * (1 + INSTALLATION_VAT_RATE)
+
+INVERTER_COST_GROSS_EUR = 960.38 * (1 + INSTALLATION_VAT_RATE)
+
+INSTALLATION_LABOUR_GROSS_EUR = 2950.00 * (
+    1 + INSTALLATION_VAT_RATE
+)
+
+ELECTRICAL_PROTECTION_GROSS_EUR = 343.96 * (
+    1 + INSTALLATION_VAT_RATE
+)
+
+# Cable solar, conectores MC4 y perfil de unión.
+CABLING_AND_ACCESSORIES_GROSS_EUR = (
+    110.58 + 14.78 + 14.18 + 8.27
+) * (1 + INSTALLATION_VAT_RATE)
+
+# Estimación adicional de legalización, en euros finales.
+LEGALIZATION_ESTIMATE_EUR = 650.00
+
+# 4.145,27 € sin IVA por 16,6 kWh.
+# Convertimos a precio unitario con IVA para el análisis económico.
+BATTERY_COST_GROSS_PER_KWH_EUR = (
+    4145.27 / 16.6
+) * (1 + INSTALLATION_VAT_RATE)
 
 class RoofLayoutWidget(QWidget):
     """
@@ -81,6 +131,188 @@ class RoofLayoutWidget(QWidget):
             QSizePolicy.Expanding,
         )
 
+    def _calculate_layout_rectangles(
+        self,
+        roof_x: float,
+        roof_y: float,
+        scale: float,
+    ):
+        """Calcula los rectángulos de paneles y pasillo en píxeles."""
+        panel_width, panel_height = self._panel_dimensions()
+
+        panel_width_px = panel_width * scale
+        panel_height_px = panel_height * scale
+
+        walkway_width_px = self.walkway_width * scale
+
+        walkway_vertical = (
+            self.walkway_width > 0
+            and self.walkway_position == "vertical"
+        )
+        walkway_horizontal = (
+            self.walkway_width > 0
+            and self.walkway_position == "horizontal"
+        )
+
+        installation_width = (
+            self.columns * panel_width
+            + (
+                self.walkway_width
+                if walkway_vertical
+                else 0.0
+            )
+        )
+        installation_height = (
+            self.rows * panel_height
+            + (
+                self.walkway_width
+                if walkway_horizontal
+                else 0.0
+            )
+        )
+
+        # Centra el conjunto completo, incluido el pasillo.
+        installation_x = (
+            roof_x
+            + (self.roof_width - installation_width)
+            * scale
+            / 2
+        )
+        installation_y = (
+            roof_y
+            + (self.roof_height - installation_height)
+            * scale
+            / 2
+        )
+
+        panel_rectangles = []
+        walkway_rectangle = None
+
+        if walkway_vertical:
+            if self.columns > 1:
+                split_index = round(
+                    self.walkway_offset_percent
+                    * self.columns
+                    / 100
+                )
+                split_index = max(
+                    1,
+                    min(self.columns - 1, split_index),
+                )
+            else:
+                # Con una sola columna, el pasillo solo puede
+                # quedar a uno de sus lados.
+                split_index = (
+                    0
+                    if self.walkway_offset_percent < 50
+                    else 1
+                )
+
+            walkway_x = (
+                installation_x
+                + split_index * panel_width_px
+            )
+
+            walkway_rectangle = QRectF(
+                walkway_x,
+                installation_y,
+                walkway_width_px,
+                installation_height * scale,
+            )
+
+            for row in range(self.rows):
+                for column in range(self.columns):
+                    x = (
+                        installation_x
+                        + column * panel_width_px
+                    )
+
+                    if column >= split_index:
+                        x += walkway_width_px
+
+                    y = (
+                        installation_y
+                        + row * panel_height_px
+                    )
+
+                    panel_rectangles.append(
+                        QRectF(
+                            x,
+                            y,
+                            panel_width_px,
+                            panel_height_px,
+                        )
+                    )
+
+        elif walkway_horizontal:
+            if self.rows > 1:
+                split_index = round(
+                    self.walkway_offset_percent
+                    * self.rows
+                    / 100
+                )
+                split_index = max(
+                    1,
+                    min(self.rows - 1, split_index),
+                )
+            else:
+                split_index = (
+                    0
+                    if self.walkway_offset_percent < 50
+                    else 1
+                )
+
+            walkway_y = (
+                installation_y
+                + split_index * panel_height_px
+            )
+
+            walkway_rectangle = QRectF(
+                installation_x,
+                walkway_y,
+                installation_width * scale,
+                walkway_width_px,
+            )
+
+            for row in range(self.rows):
+                for column in range(self.columns):
+                    x = (
+                        installation_x
+                        + column * panel_width_px
+                    )
+                    y = (
+                        installation_y
+                        + row * panel_height_px
+                    )
+
+                    if row >= split_index:
+                        y += walkway_width_px
+
+                    panel_rectangles.append(
+                        QRectF(
+                            x,
+                            y,
+                            panel_width_px,
+                            panel_height_px,
+                        )
+                    )
+
+        else:
+            for row in range(self.rows):
+                for column in range(self.columns):
+                    panel_rectangles.append(
+                        QRectF(
+                            installation_x
+                            + column * panel_width_px,
+                            installation_y
+                            + row * panel_height_px,
+                            panel_width_px,
+                            panel_height_px,
+                        )
+                    )
+
+        return panel_rectangles, walkway_rectangle
+
     def set_layout_data(
         self,
         roof_width,
@@ -124,9 +356,10 @@ class RoofLayoutWidget(QWidget):
         self.update()
 
     def set_walkway_offset(self, value: int):
-
-        self.walkway_offset_percent = value
-
+        self.walkway_offset_percent = max(
+            0,
+            min(100, int(value)),
+        )
         self.update()
 
     def clear(self):
@@ -167,16 +400,10 @@ class RoofLayoutWidget(QWidget):
         )
 
     def paintEvent(self, event):
-
         painter = QPainter(self)
 
-        painter.setRenderHint(
-            QPainter.Antialiasing
-        )
-
-        painter.setRenderHint(
-            QPainter.TextAntialiasing
-        )
+        painter.setRenderHint(QPainter.Antialiasing)
+        painter.setRenderHint(QPainter.TextAntialiasing)
 
         painter.fillRect(
             self.rect(),
@@ -189,17 +416,12 @@ class RoofLayoutWidget(QWidget):
             or self.rows <= 0
             or self.columns <= 0
         ):
-
-            painter.setPen(
-                QColor("#777777")
-            )
-
+            painter.setPen(QColor("#777777"))
             painter.drawText(
                 self.rect(),
                 Qt.AlignCenter,
                 "No hay una distribución física disponible.",
             )
-
             return
 
         left_margin = 70
@@ -208,15 +430,10 @@ class RoofLayoutWidget(QWidget):
         bottom_margin = 60
 
         available_width = (
-            self.width()
-            - left_margin
-            - right_margin
+            self.width() - left_margin - right_margin
         )
-
         available_height = (
-            self.height()
-            - top_margin
-            - bottom_margin
+            self.height() - top_margin - bottom_margin
         )
 
         if available_width <= 0 or available_height <= 0:
@@ -227,28 +444,16 @@ class RoofLayoutWidget(QWidget):
             available_height / self.roof_height,
         )
 
-        roof_px_width = (
-            self.roof_width * scale
-        )
-
-        roof_px_height = (
-            self.roof_height * scale
-        )
+        roof_px_width = self.roof_width * scale
+        roof_px_height = self.roof_height * scale
 
         roof_x = (
             left_margin
-            + (
-                available_width
-                - roof_px_width
-            ) / 2
+            + (available_width - roof_px_width) / 2
         )
-
         roof_y = (
             top_margin
-            + (
-                available_height
-                - roof_px_height
-            ) / 2
+            + (available_height - roof_px_height) / 2
         )
 
         roof_rect = QRectF(
@@ -258,308 +463,43 @@ class RoofLayoutWidget(QWidget):
             roof_px_height,
         )
 
-        painter.setPen(
-            QPen(
-                QColor("#404040"),
-                2,
-            )
-        )
-
-        painter.setBrush(
-            QBrush(
-                QColor("#e5e7eb")
-            )
-        )
-
+        painter.setPen(QPen(QColor("#404040"), 2))
+        painter.setBrush(QBrush(QColor("#e5e7eb")))
         painter.drawRect(roof_rect)
 
-        panel_width, panel_height = (
-            self._panel_dimensions()
+        panel_rectangles, walkway_rectangle = (
+            self._calculate_layout_rectangles(
+                roof_x,
+                roof_y,
+                scale,
+            )
         )
 
-        panel_width_px = (
-            panel_width * scale
-        )
+        painter.setPen(QPen(QColor("#164e8a"), 1))
+        painter.setBrush(QBrush(QColor("#1976d2")))
 
-        panel_height_px = (
-            panel_height * scale
-        )
-
-        installation_width = (
-            self.columns * panel_width
-        )
-
-        installation_height = (
-            self.rows * panel_height
-        )
-
-        walkway_vertical = (
-            self.walkway_width > 0
-            and self.walkway_position == "vertical"
-        )
-
-        walkway_horizontal = (
-            self.walkway_width > 0
-            and self.walkway_position == "horizontal"
-        )
-
-        if walkway_vertical:
-            installation_width += (
-                self.walkway_width
+        for panel_rect in panel_rectangles:
+            painter.drawRoundedRect(
+                panel_rect,
+                2,
+                2,
             )
 
-        if walkway_horizontal:
-            installation_height += (
-                self.walkway_width
-            )
+        if walkway_rectangle is not None:
+            painter.setPen(QPen(QColor("#c27c00"), 1))
+            painter.setBrush(QBrush(QColor("#f6c453")))
+            painter.drawRect(walkway_rectangle)
 
-        remaining_width = (
-            self.roof_width
-            - installation_width
-        )
-
-        remaining_height = (
-            self.roof_height
-            - installation_height
-        )
-
-        margin_x = max(
-            remaining_width / 2,
-            0.0,
-        )
-
-        margin_y = max(
-            remaining_height / 2,
-            0.0,
-        )
-
-        installation_x = (
-            roof_x
-            + margin_x * scale
-        )
-
-        installation_y = (
-            roof_y
-            + margin_y * scale
-        )
-
-        if walkway_vertical:
-
-            free_space = max(
-                remaining_width,
-                0.0,
-            )
-
-            offset = (
-                free_space
-                * self.walkway_offset_percent
-                / 100
-            )
-
-            installation_x = (
-                roof_x
-                + offset * scale
-            )
-
-        elif walkway_horizontal:
-
-            free_space = max(
-                remaining_height,
-                0.0,
-            )
-
-            offset = (
-                free_space
-                * self.walkway_offset_percent
-                / 100
-            )
-
-            installation_y = (
-                roof_y
-                + offset * scale
-            )
-
-        for row in range(self.rows):
-
-            for column in range(self.columns):
-
-                x = (
-                    installation_x
-                    + column
-                    * panel_width_px
-                )
-
-                y = (
-                    installation_y
-                    + row
-                    * panel_height_px
-                )
-
-                if (
-                    walkway_vertical
-                    and self.columns > 1
-                ):
-
-                    walkway_column = int(
-                        round(
-                            (
-                                self.walkway_offset_percent
-                                / 100
-                            )
-                            * self.columns
-                        )
-                    )
-
-                    if column >= walkway_column:
-
-                        x += (
-                            self.walkway_width
-                            * scale
-                        )
-
-                if (
-                    walkway_horizontal
-                    and self.rows > 1
-                ):
-
-                    walkway_row = int(
-                        round(
-                            (
-                                self.walkway_offset_percent
-                                / 100
-                            )
-                            * self.rows
-                        )
-                    )
-
-                    if row >= walkway_row:
-
-                        y += (
-                            self.walkway_width
-                            * scale
-                        )
-
-                panel_rect = QRectF(
-                    x,
-                    y,
-                    panel_width_px,
-                    panel_height_px,
-                )
-
-                painter.setPen(
-                    QPen(
-                        QColor("#164e8a"),
-                        1,
-                    )
-                )
-
-                painter.setBrush(
-                    QBrush(
-                        QColor("#1976d2")
-                    )
-                )
-
-                painter.drawRoundedRect(
-                    panel_rect,
-                    2,
-                    2,
-                )
-
-        if walkway_vertical:
-
-            walkway_column = int(
-                round(
-                    (
-                        self.walkway_offset_percent
-                        / 100
-                    )
-                    * self.columns
-                )
-            )
-
-            walkway_x = (
-                installation_x
-                + walkway_column
-                * panel_width_px
-            )
-
-            walkway_rect = QRectF(
-                walkway_x,
-                installation_y,
-                self.walkway_width * scale,
-                installation_height * scale,
-            )
-
-            painter.setPen(
-                QPen(
-                    QColor("#c27c00"),
-                    1,
-                )
-            )
-
-            painter.setBrush(
-                QBrush(
-                    QColor("#f6c453")
-                )
-            )
-
-            painter.drawRect(walkway_rect)
-
-        elif walkway_horizontal:
-
-            walkway_row = int(
-                round(
-                    (
-                        self.walkway_offset_percent
-                        / 100
-                    )
-                    * self.rows
-                )
-            )
-
-            walkway_y = (
-                installation_y
-                + walkway_row
-                * panel_height_px
-            )
-
-            walkway_rect = QRectF(
-                installation_x,
-                walkway_y,
-                installation_width * scale,
-                self.walkway_width * scale,
-            )
-
-            painter.setPen(
-                QPen(
-                    QColor("#c27c00"),
-                    1,
-                )
-            )
-
-            painter.setBrush(
-                QBrush(
-                    QColor("#f6c453")
-                )
-            )
-
-            painter.drawRect(walkway_rect)
-
-        painter.setPen(
-            QColor("#444444")
-        )
+        painter.setPen(QColor("#444444"))
 
         font = QFont()
         font.setPointSize(9)
-
         painter.setFont(font)
 
         painter.drawText(
             QRectF(
                 roof_x,
-                roof_y
-                + roof_px_height
-                + 8,
+                roof_y + roof_px_height + 8,
                 roof_px_width,
                 25,
             ),
@@ -568,14 +508,11 @@ class RoofLayoutWidget(QWidget):
         )
 
         painter.save()
-
         painter.translate(
             roof_x - 10,
             roof_y + roof_px_height / 2,
         )
-
         painter.rotate(-90)
-
         painter.drawText(
             QRectF(
                 -roof_px_height / 2,
@@ -586,34 +523,17 @@ class RoofLayoutWidget(QWidget):
             Qt.AlignCenter,
             f"{self.roof_height:.2f} m",
         )
-
         painter.restore()
 
-        legend_y = (
-            roof_y
-            + roof_px_height
-            + 35
-        )
+        legend_y = roof_y + roof_px_height + 35
 
-        painter.setBrush(
-            QColor("#1976d2")
-        )
-
+        painter.setBrush(QColor("#1976d2"))
         painter.setPen(Qt.NoPen)
-
         painter.drawRect(
-            QRectF(
-                roof_x,
-                legend_y,
-                14,
-                14,
-            )
+            QRectF(roof_x, legend_y, 14, 14)
         )
 
-        painter.setPen(
-            QColor("#444444")
-        )
-
+        painter.setPen(QColor("#444444"))
         painter.drawText(
             QRectF(
                 roof_x + 20,
@@ -626,13 +546,8 @@ class RoofLayoutWidget(QWidget):
         )
 
         if self.walkway_width > 0:
-
-            painter.setBrush(
-                QColor("#f6c453")
-            )
-
+            painter.setBrush(QColor("#f6c453"))
             painter.setPen(Qt.NoPen)
-
             painter.drawRect(
                 QRectF(
                     roof_x + 110,
@@ -642,21 +557,17 @@ class RoofLayoutWidget(QWidget):
                 )
             )
 
-            painter.setPen(
-                QColor("#444444")
-            )
-
+            painter.setPen(QColor("#444444"))
             painter.drawText(
                 QRectF(
                     roof_x + 130,
                     legend_y - 2,
-                    140,
+                    160,
                     20,
                 ),
                 Qt.AlignLeft,
                 "Paso mantenimiento",
             )
-
 
 class SolarOptimizationPage(QWidget):
     """
@@ -1503,6 +1414,7 @@ class SolarOptimizationPage(QWidget):
         self.show_installation_layout(result)
 
     def evaluate_batteries(self):
+        """Evalúa las capacidades de batería con el coste del presupuesto."""
 
         candidate_capacities_kwh = [
             5.0,
@@ -1512,20 +1424,18 @@ class SolarOptimizationPage(QWidget):
             30.0,
         ]
 
-        recommendations = (
-            self.project.solar.evaluate_batteries(
-                candidate_capacities_kwh,
-                max_charge_power_kw=5.0,
-                max_discharge_power_kw=5.0,
+        recommendations = self.project.solar.evaluate_batteries(
+            candidate_capacities_kwh,
+            max_charge_power_kw=5.0,
+            max_discharge_power_kw=5.0,
+            battery_economic_parameters=BatteryEconomicParameters(
+                cost_per_kwh_eur=self._battery_cost_per_kwh_eur(),
             )
         )
 
-        self.show_battery_economic_results(
-            recommendations
-        )
+        self.show_battery_economic_results(recommendations)
 
         return recommendations
-
 
     def show_battery_economic_results(
         self,
@@ -1787,15 +1697,36 @@ class SolarOptimizationPage(QWidget):
                 )
             )
 
+            self._configure_installation_costs(result)
+
             self.project.solar.calculate(
                 self.project.solar_configuration,
                 installed_power_kwp=result.installed_power_kwp,
             )
 
-            self.evaluate_batteries()
+            battery_recommendations = self.evaluate_batteries()
+
+            if not isinstance(battery_recommendations, (list, tuple)):
+                battery_recommendations = []
+
+            battery_recommendation = (
+                max(
+                    battery_recommendations,
+                    key=lambda recommendation: (
+                        recommendation.combined_economic_npv_eur,
+                        -recommendation.capacity_kwh,
+                    ),
+                )
+                if battery_recommendations
+                else None
+            )
+
+            self._update_total_investment(
+                result,
+                battery_recommendation,
+            )
 
             if self.main_window is not None:
-
                 self.main_window.set_solar_optimized(True)
 
             self.show_optimization_result(result)
@@ -1902,3 +1833,210 @@ class SolarOptimizationPage(QWidget):
             self.roof_layout_widget.set_walkway_offset(
                 value
             )
+
+    def _configure_installation_costs(self, result) -> None:
+        """Configura los costes de instalación.
+
+        Si existe una selección de catálogo, utiliza sus precios netos
+        y aplica el IVA una sola vez en esta capa.
+
+        Si no existe selección, conserva el presupuesto HELIOS anterior.
+        """
+
+        selection = getattr(
+            self.project,
+            "component_selection",
+            None,
+        )
+
+        if isinstance(selection, InstallationComponentSelection):
+            net_costs = InstallationCostConfiguration.from_selection(
+                selection,
+                auxiliary_cost_categories={
+                    "installation": "installation",
+                    "protections": "electrical_protection",
+                    "cabling": "cabling",
+                    "legalization": "legalization",
+                },
+            )
+
+            vat_multiplier = 1.0 + INSTALLATION_VAT_RATE
+
+            cost_configuration = InstallationCostConfiguration(
+                panel_unit_cost_eur=(
+                    net_costs.panel_unit_cost_eur * vat_multiplier
+                ),
+                structure_unit_cost_eur=(
+                    net_costs.structure_unit_cost_eur * vat_multiplier
+                ),
+                installation_cost_eur=(
+                    net_costs.installation_cost_eur * vat_multiplier
+                ),
+                inverter_unit_cost_eur=(
+                    net_costs.inverter_unit_cost_eur * vat_multiplier
+                ),
+                electrical_protection_cost_eur=(
+                    net_costs.electrical_protection_cost_eur
+                    * vat_multiplier
+                ),
+                cabling_cost_eur=(
+                    net_costs.cabling_cost_eur * vat_multiplier
+                ),
+                legalization_cost_eur=(
+                    net_costs.legalization_cost_eur * vat_multiplier
+                ),
+                auxiliary_panel_area_m2=(
+                    net_costs.auxiliary_panel_area_m2
+                ),
+                auxiliary_cost_items=tuple(
+                    replace(
+                        item,
+                        unit_price_eur=(
+                            item.unit_price_eur * vat_multiplier
+                        ),
+                    )
+                    for item in net_costs.auxiliary_cost_items
+                ),
+                auxiliary_cost_categories=(
+                    net_costs.auxiliary_cost_categories
+                ),
+                structure_package_cost_eur=(
+                    net_costs.structure_package_cost_eur * vat_multiplier
+                    if net_costs.structure_package_cost_eur is not None
+                    else None
+                ),
+                structure_package_panel_count=(
+                    net_costs.structure_package_panel_count
+                ),
+            )
+
+        else:
+            cost_configuration = InstallationCostConfiguration(
+                panel_unit_cost_eur=PANEL_COST_GROSS_EUR,
+                structure_unit_cost_eur=(
+                    STRUCTURE_COST_GROSS_PER_PANEL_EUR
+                ),
+                installation_cost_eur=INSTALLATION_LABOUR_GROSS_EUR,
+                inverter_unit_cost_eur=INVERTER_COST_GROSS_EUR,
+                electrical_protection_cost_eur=(
+                    ELECTRICAL_PROTECTION_GROSS_EUR
+                ),
+                cabling_cost_eur=CABLING_AND_ACCESSORIES_GROSS_EUR,
+                legalization_cost_eur=LEGALIZATION_ESTIMATE_EUR,
+            )
+
+        self.project.set_installation_cost_configuration(
+            cost_configuration
+        )
+
+    def _update_installation_costs(self, result) -> None:
+        """Actualiza la inversión económica de la instalación recomendada."""
+
+        cost_configuration = (
+            self.project.installation_cost_configuration
+        )
+
+        if cost_configuration is None:
+            self._configure_installation_costs(result)
+            cost_configuration = (
+                self.project.installation_cost_configuration
+            )
+
+        economic_configuration = (
+            cost_configuration.build_economic_configuration(
+                result.evaluation
+            )
+        )
+
+        self.project.economics.configuration.installation_cost = (
+            economic_configuration.installation_cost_eur
+        )
+
+        self.project.economics._economic_data = None
+        self.project.analyzer.economics_engine.economic_analysis_calculated = (
+            False
+        )
+
+
+    def _update_total_investment(
+        self,
+        result,
+        battery_recommendation,
+    ) -> None:
+        """Actualiza la inversión total, incluida la batería seleccionada."""
+
+        cost_configuration = (
+            self.project.installation_cost_configuration
+        )
+
+        if cost_configuration is None:
+            raise RuntimeError(
+                "No se ha configurado el coste de la instalación FV."
+            )
+
+        installation_economics = (
+            cost_configuration.build_economic_configuration(
+                result.evaluation
+            )
+        )
+
+        installation_cost = (
+            installation_economics.installation_cost_eur
+        )
+
+        battery_cost = 0.0
+        if battery_recommendation is not None:
+            battery_cost = (
+                battery_recommendation.capacity_kwh
+                * self._battery_cost_per_kwh_eur()
+            )
+
+        self.project.economics.configuration.installation_cost = (
+            installation_cost + battery_cost
+        )
+
+        if battery_recommendation is not None:
+            self.project.set_battery_configuration(
+                BatteryConfiguration(
+                    capacity_kwh=battery_recommendation.capacity_kwh,
+                    max_charge_power_kw=5.0,
+                    max_discharge_power_kw=5.0,
+                    charge_efficiency=0.95,
+                    discharge_efficiency=0.95,
+                    min_soc=0.10,
+                    max_soc=0.90,
+                    initial_soc=0.10,
+                )
+            )
+
+            self.project.solar.calculate_energy_balance()
+
+        self.project.economics._economic_data = None
+        self.project.analyzer.economics_engine.economic_analysis_calculated = (
+            False
+        )
+
+    def _battery_cost_per_kwh_eur(self) -> float:
+        """Devuelve el coste bruto estimado por kWh de batería."""
+        selection = getattr(
+            self.project,
+            "component_selection",
+            None,
+        )
+
+        if not isinstance(
+            selection,
+            InstallationComponentSelection,
+        ):
+            return BATTERY_COST_GROSS_PER_KWH_EUR
+
+        battery = selection.battery
+
+        if battery is None:
+            return BATTERY_COST_GROSS_PER_KWH_EUR
+
+        return (
+            battery.price_eur
+            * (1.0 + INSTALLATION_VAT_RATE)
+            / battery.capacity_kwh
+        )

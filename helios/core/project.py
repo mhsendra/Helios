@@ -10,8 +10,10 @@ from helios.ev.configuration import EVConfiguration
 from helios.ev.builder import EVScenarioBuilder
 from helios.ev.scenario import EVScenario
 
-
-
+from helios.solar.components_catalog import ComponentCatalog
+from helios.solar.installation_component_selection import (
+    InstallationComponentSelection,
+)
 
 class HeliosProject:
 
@@ -35,6 +37,10 @@ class HeliosProject:
         self.installation_cost_configuration: InstallationCostConfiguration | None = None
 
         self.ev_configuration: EVConfiguration | None = None
+
+        self.component_catalog: ComponentCatalog | None = None
+
+        self.component_selection: InstallationComponentSelection | None = None
 
     # ==================================================
     # Controllers
@@ -151,3 +157,54 @@ class HeliosProject:
         self.analyzer.comparisons.calculate()
         self.analyzer.indicators.calculate()
         self.analyzer.tariffs.calculate()
+
+    def set_component_catalog(
+        self,
+        catalog: ComponentCatalog,
+    ) -> None:
+        """Configura el catálogo de componentes disponibles."""
+        if not isinstance(catalog, ComponentCatalog):
+            raise TypeError(
+                "catalog debe ser una instancia de ComponentCatalog."
+            )
+
+        if (
+            self.component_selection is not None
+            and self.component_selection.catalog is not catalog
+        ):
+            raise ValueError(
+                "No se puede sustituir el catálogo mientras exista "
+                "una selección vinculada a otro catálogo. "
+                "Limpia primero la selección."
+            )
+
+        self.component_catalog = catalog
+
+
+    def set_component_selection(
+        self,
+        selection: InstallationComponentSelection | None,
+    ) -> None:
+        """Configura o limpia la selección de componentes."""
+        if selection is None:
+            self.component_selection = None
+            return
+
+        if not isinstance(selection, InstallationComponentSelection):
+            raise TypeError(
+                "selection debe ser una instancia de "
+                "InstallationComponentSelection o None."
+            )
+
+        if self.component_catalog is None:
+            raise ValueError(
+                "Debes configurar el catálogo antes de seleccionar "
+                "componentes."
+            )
+
+        if selection.catalog is not self.component_catalog:
+            raise ValueError(
+                "La selección debe pertenecer al catálogo del proyecto."
+            )
+
+        self.component_selection = selection

@@ -18,6 +18,9 @@ from helios.core.consumption_scenario import (
     ConsumptionScenario,
 )
 
+from helios.solar.battery_economic_configuration import (
+    BatteryEconomicParameters,
+)
 
 class TestSolarOptimizationPage:
 
@@ -250,6 +253,11 @@ class TestSolarOptimizationPage:
             ],
             max_charge_power_kw=5.0,
             max_discharge_power_kw=5.0,
+            battery_economic_parameters=BatteryEconomicParameters(
+                cost_per_kwh_eur=(
+                    4145.27 / 16.6
+                ) * 1.21,
+            ),
         )
 
         page.show_battery_economic_results.assert_called_once_with(
@@ -1010,6 +1018,11 @@ class TestSolarOptimizationPage:
             ],
             max_charge_power_kw=5.0,
             max_discharge_power_kw=5.0,
+            battery_economic_parameters=BatteryEconomicParameters(
+                cost_per_kwh_eur=(
+                    4145.27 / 16.6
+                ) * 1.21,
+            ),
         )
 
         assert (
@@ -1256,3 +1269,96 @@ class TestSolarOptimizationPage:
             widget.walkway_offset_percent
             == 100
         )
+
+    def test_vertical_walkway_reorganizes_panel_groups(self):
+        widget = RoofLayoutWidget()
+        widget.set_layout_data(
+            roof_width=6.5,
+            roof_height=6.5,
+            panel_width=1.134,
+            panel_height=1.99,
+            rows=2,
+            columns=3,
+            orientation="vertical",
+            walkway_width=0.45,
+            walkway_position="vertical",
+        )
+
+        widget.set_walkway_offset(0)
+        panels_left, walkway_left = (
+            widget._calculate_layout_rectangles(
+                0.0, 0.0, 100.0
+            )
+        )
+
+        widget.set_walkway_offset(100)
+        panels_right, walkway_right = (
+            widget._calculate_layout_rectangles(
+                0.0, 0.0, 100.0
+            )
+        )
+
+        assert len(panels_left) == 6
+        assert len(panels_right) == 6
+        assert walkway_left is not None
+        assert walkway_right is not None
+        assert walkway_left.x() != walkway_right.x()
+
+
+    def test_vertical_walkway_does_not_overlap_panels(self):
+        widget = RoofLayoutWidget()
+        widget.set_layout_data(
+            roof_width=6.5,
+            roof_height=6.5,
+            panel_width=1.134,
+            panel_height=1.99,
+            rows=2,
+            columns=3,
+            orientation="vertical",
+            walkway_width=0.45,
+            walkway_position="vertical",
+        )
+
+        panels, walkway = widget._calculate_layout_rectangles(
+            0.0, 0.0, 100.0
+        )
+
+        assert walkway is not None
+
+        for panel in panels:
+            overlap = panel.intersects(walkway)
+            assert not overlap
+
+
+    def test_layout_rectangles_stay_inside_roof(self):
+        widget = RoofLayoutWidget()
+        widget.set_layout_data(
+            roof_width=6.5,
+            roof_height=6.5,
+            panel_width=1.134,
+            panel_height=1.99,
+            rows=2,
+            columns=3,
+            orientation="vertical",
+            walkway_width=0.45,
+            walkway_position="vertical",
+        )
+
+        panels, walkway = widget._calculate_layout_rectangles(
+            0.0, 0.0, 100.0
+        )
+
+        roof_right = 6.5 * 100.0
+        roof_bottom = 6.5 * 100.0
+
+        for panel in panels:
+            assert panel.left() >= -1e-6
+            assert panel.top() >= -1e-6
+            assert panel.right() <= roof_right + 1e-6
+            assert panel.bottom() <= roof_bottom + 1e-6
+
+        assert walkway is not None
+        assert walkway.left() >= -1e-6
+        assert walkway.top() >= -1e-6
+        assert walkway.right() <= roof_right + 1e-6
+        assert walkway.bottom() <= roof_bottom + 1e-6
