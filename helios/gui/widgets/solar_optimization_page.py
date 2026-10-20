@@ -50,6 +50,10 @@ from helios.solar.installation_component_selection import (
     InstallationComponentSelection,
 )
 
+from helios.solar.default_component_catalog import (
+    build_default_component_catalog,
+)
+
 # Presupuesto de referencia HELIOS.
 # Los importes originales de los componentes y de la mano de obra
 # están expresados sin IVA.
@@ -590,6 +594,7 @@ class SolarOptimizationPage(QWidget):
 
         self.setup_ui()
         self.configure_widgets()
+        self._initialize_default_component_selection()
         self.connect_signals()
 
     # ==================================================
@@ -1652,58 +1657,84 @@ class SolarOptimizationPage(QWidget):
     # ==================================================
 
     def start_optimization(self):
+        """Optimiza la instalación y separa el análisis energético del económico."""
 
         self.optimize_button.setEnabled(False)
+        self.status_label.setText("Buscando la mejor instalación...")
 
-        self.status_label.setText(
-            "Buscando la mejor instalación..."
+        # Eliminar los resultados anteriores para evitar mostrar
+        # recomendaciones económicas obsoletas.
+        self.battery_table.setRowCount(0)
+        self.battery_status_label.setText(
+            "Evaluación económica de baterías pendiente."
         )
 
         try:
+            configuration = self.get_installation_configuration()
 
-            configuration = (
-                self.get_installation_configuration()
+            selection = getattr(
+                self.project,
+                "component_selection",
+                None,
             )
 
+            if isinstance(selection, InstallationComponentSelection):
+                configuration = selection.apply_to(configuration)
+
             consumption_scenario = (
-                self.project.analyzer
-                .calculate_representative_consumption_scenario(
+                self.project.analyzer.calculate_representative_consumption_scenario(
                     reference_year=2025
                 )
             )
 
             if consumption_scenario is None:
-
                 raise ValueError(
-                    "A representative consumption scenario "
-                    "is required."
+                    "A representative consumption scenario is required."
                 )
 
-            annual_consumption_kwh = (
-                consumption_scenario.annual_consumption
-            )
-
-            if annual_consumption_kwh <= 0:
-
+            if consumption_scenario.annual_consumption <= 0:
                 raise ValueError(
-                    "Annual consumption must be "
-                    "greater than zero."
+                    "Annual consumption must be greater than zero."
                 )
 
-            result = (
-                self.project.solar.recommend_installation(
-                    configuration=configuration,
-                    consumption_scenario=consumption_scenario,
-                )
+            result = self.project.solar.recommend_installation(
+                configuration=configuration,
+                consumption_scenario=consumption_scenario,
             )
 
             self._configure_installation_costs(result)
 
+            # La producción y el balance energético son independientes
+            # de la disponibilidad de todos los costes de inversión.
             self.project.solar.calculate(
                 self.project.solar_configuration,
                 installed_power_kwp=result.installed_power_kwp,
             )
 
+            self.show_optimization_result(result)
+
+            if not self._installation_economic_evaluation_available(result):
+                self.project.solar.calculate_energy_balance()
+
+                self.battery_table.setRowCount(0)
+                self.battery_status_label.setText(
+                    "Evaluación económica pendiente: falta confirmar "
+                    "el coste de la estructura de montaje."
+                )
+
+                if self.main_window is not None:
+                    self.main_window.set_solar_optimized(True)
+
+                self.status_label.setText(
+                    "Optimización energética completada; "
+                    "evaluación económica pendiente de confirmar "
+                    "el coste de montaje."
+                )
+                return
+
+            # El presupuesto permite evaluar escenarios de batería con un
+            # coste de referencia, aunque aún no se haya seleccionado un
+            # modelo concreto en el catálogo.
             battery_recommendations = self.evaluate_batteries()
 
             if not isinstance(battery_recommendations, (list, tuple)):
@@ -1729,25 +1760,17 @@ class SolarOptimizationPage(QWidget):
             if self.main_window is not None:
                 self.main_window.set_solar_optimized(True)
 
-            self.show_optimization_result(result)
-
-            self.status_label.setText(
-                "Optimización completada"
-            )
+            self.status_label.setText("Optimización completada")
 
         except Exception as error:
-
             import traceback
 
             traceback.print_exc()
-
-            self.status_label.setText(
-                f"Error: {error}"
-            )
+            self.status_label.setText(f"Error: {error}")
 
         finally:
-
             self.optimize_button.setEnabled(True)
+
 
     # ==================================================
     # RESET
@@ -1835,12 +1858,10 @@ class SolarOptimizationPage(QWidget):
             )
 
     def _configure_installation_costs(self, result) -> None:
-        """Configura los costes de instalación.
+        """Configura los costes a partir del catálogo o del presupuesto base.
 
-        Si existe una selección de catálogo, utiliza sus precios netos
-        y aplica el IVA una sola vez en esta capa.
-
-        Si no existe selección, conserva el presupuesto HELIOS anterior.
+        Los precios del catálogo se consideran netos y se convierten
+        a importes con IVA una sola vez en esta capa.
         """
 
         selection = getattr(
@@ -1850,14 +1871,30 @@ class SolarOptimizationPage(QWidget):
         )
 
         if isinstance(selection, InstallationComponentSelection):
+            category_by_id = {
+                "installation": "installation",
+                "electrical_protection": "electrical_protection",
+                "solar_cabling": "cabling",
+                "connector_female": "cabling",
+                "connector_male": "cabling",
+                "joining_profiles": "cabling",
+                "legalization_estimate": "legalization",
+            }
+
+            selected_auxiliary_ids = {
+                item.id
+                for item in selection.auxiliary_costs
+            }
+
+            auxiliary_cost_categories = {
+                cost_id: category
+                for cost_id, category in category_by_id.items()
+                if cost_id in selected_auxiliary_ids
+            }
+
             net_costs = InstallationCostConfiguration.from_selection(
                 selection,
-                auxiliary_cost_categories={
-                    "installation": "installation",
-                    "protections": "electrical_protection",
-                    "cabling": "cabling",
-                    "legalization": "legalization",
-                },
+                auxiliary_cost_categories=auxiliary_cost_categories,
             )
 
             vat_multiplier = 1.0 + INSTALLATION_VAT_RATE
@@ -1868,6 +1905,8 @@ class SolarOptimizationPage(QWidget):
                 ),
                 structure_unit_cost_eur=(
                     net_costs.structure_unit_cost_eur * vat_multiplier
+                    if net_costs.structure_unit_cost_eur is not None
+                    else None
                 ),
                 installation_cost_eur=(
                     net_costs.installation_cost_eur * vat_multiplier
@@ -2018,6 +2057,7 @@ class SolarOptimizationPage(QWidget):
 
     def _battery_cost_per_kwh_eur(self) -> float:
         """Devuelve el coste bruto estimado por kWh de batería."""
+
         selection = getattr(
             self.project,
             "component_selection",
@@ -2030,13 +2070,97 @@ class SolarOptimizationPage(QWidget):
         ):
             return BATTERY_COST_GROSS_PER_KWH_EUR
 
-        battery = selection.battery
-
-        if battery is None:
+        if selection.battery_id is None:
             return BATTERY_COST_GROSS_PER_KWH_EUR
+
+        battery = selection.battery
 
         return (
             battery.price_eur
             * (1.0 + INSTALLATION_VAT_RATE)
             / battery.capacity_kwh
         )
+
+    def _initialize_default_component_selection(self) -> None:
+        """Inicializa el catálogo y selecciona sus componentes por defecto."""
+
+        from helios.solar.components_catalog import ComponentCatalog
+        from helios.solar.default_component_catalog import (
+            build_default_component_catalog,
+        )
+        from helios.solar.installation_component_selection import (
+            InstallationComponentSelection,
+        )
+
+        catalog = getattr(self.project, "component_catalog", None)
+        selection = getattr(self.project, "component_selection", None)
+
+        # MagicMock puede devolver objetos simulados para cualquier atributo.
+        # Solo reutilizamos objetos que sean instancias reales del tipo esperado.
+        if not isinstance(catalog, ComponentCatalog):
+            if isinstance(selection, InstallationComponentSelection):
+                catalog = selection.catalog
+            else:
+                catalog = build_default_component_catalog()
+
+            self.project.set_component_catalog(catalog)
+
+            # Mantener los atributos coherentes también con proyectos simulados
+            # en los tests, cuyos setters no necesariamente actualizan el estado.
+            self.project.component_catalog = catalog
+
+        if isinstance(selection, InstallationComponentSelection):
+            if selection.catalog is not catalog:
+                raise ValueError(
+                    "La selección de componentes no pertenece "
+                    "al catálogo configurado en el proyecto."
+                )
+        else:
+            selection = InstallationComponentSelection(
+                catalog=catalog,
+                panel_id="longi lr7-60hvh-540m",
+                inverter_id="goodwe-gw8k-eha-g20",
+                mounting_system_id=None,
+                roof_type="teja_arabe",
+                auxiliary_cost_ids=(
+                    "electrical_protection",
+                    "solar_cabling",
+                    "connector_female",
+                    "connector_male",
+                    "joining_profiles",
+                    "installation",
+                    "legalization_estimate",
+                ),
+            )
+
+            self.project.set_component_selection(selection)
+            self.project.component_selection = selection
+
+            panel = selection.panel
+            self.panel_width_spinbox.setValue(panel.width_m)
+            self.panel_height_spinbox.setValue(panel.height_m)
+            self.panel_power_spinbox.setValue(panel.power_wp)
+
+    def _installation_economic_evaluation_available(
+        self,
+        result,
+    ) -> bool:
+        """Comprueba si puede calcularse la inversión con los costes actuales."""
+
+        cost_configuration = (
+            self.project.installation_cost_configuration
+        )
+
+        if cost_configuration is None:
+            return False
+
+        try:
+            cost_configuration.calculate_installation_cost(
+                result.evaluation
+            )
+        except ValueError as error:
+            if "coste de la estructura no está confirmado" in str(error):
+                return False
+            raise
+
+        return True

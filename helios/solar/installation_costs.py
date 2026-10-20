@@ -33,7 +33,7 @@ class InstallationCostConfiguration:
     """
 
     panel_unit_cost_eur: float
-    structure_unit_cost_eur: float = 0.0
+    structure_unit_cost_eur: float | None = 0.0
     installation_cost_eur: float = 0.0
     inverter_unit_cost_eur: float = 0.0
     electrical_protection_cost_eur: float = 0.0
@@ -55,7 +55,6 @@ class InstallationCostConfiguration:
     def __post_init__(self) -> None:
         fields = (
             ("panel_unit_cost_eur", self.panel_unit_cost_eur),
-            ("structure_unit_cost_eur", self.structure_unit_cost_eur),
             ("installation_cost_eur", self.installation_cost_eur),
             ("inverter_unit_cost_eur", self.inverter_unit_cost_eur),
             (
@@ -68,6 +67,12 @@ class InstallationCostConfiguration:
 
         for name, value in fields:
             self._validate_non_negative_number(name, value)
+
+        if self.structure_unit_cost_eur is not None:
+            self._validate_non_negative_number(
+                "structure_unit_cost_eur",
+                self.structure_unit_cost_eur,
+            )
 
         if self.structure_package_cost_eur is not None:
             self._validate_non_negative_number(
@@ -217,8 +222,10 @@ class InstallationCostConfiguration:
 
         return cls(
             panel_unit_cost_eur=float(selection.panel.price_eur),
-            structure_unit_cost_eur=float(
-                selection.mounting_system.price_per_panel_eur
+            structure_unit_cost_eur=(
+                float(selection.mounting_system.price_per_panel_eur)
+                if selection.mounting_system is not None
+                else None
             ),
             installation_cost_eur=category_totals["installation"],
             inverter_unit_cost_eur=float(selection.inverter.price_eur),
@@ -254,11 +261,8 @@ class InstallationCostConfiguration:
         self,
         evaluation: InstallationEvaluation,
     ) -> float:
-        """
-        Usa el precio de los conjuntos cuando coincide el número
-        presupuestado de paneles; para otras cantidades, usa el
-        coste tradicional por panel.
-        """
+        """Calcula el coste de estructura si existe un precio confirmado."""
+
         self._validate_evaluation(evaluation)
 
         if (
@@ -266,6 +270,13 @@ class InstallationCostConfiguration:
             and evaluation.panel_count == self.structure_package_panel_count
         ):
             return float(self.structure_package_cost_eur)
+
+        if self.structure_unit_cost_eur is None:
+            raise ValueError(
+                "El coste de la estructura no está confirmado. "
+                "No se puede calcular la inversión económica "
+                "hasta disponer de un precio de montaje."
+            )
 
         return float(
             evaluation.panel_count * self.structure_unit_cost_eur

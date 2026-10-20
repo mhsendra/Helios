@@ -1362,3 +1362,81 @@ class TestSolarOptimizationPage:
         assert walkway.top() >= -1e-6
         assert walkway.right() <= roof_right + 1e-6
         assert walkway.bottom() <= roof_bottom + 1e-6
+
+    def test_configure_installation_costs_without_optional_auxiliary_items(
+        self,
+    ):
+        from helios.solar.components_catalog import (
+            ComponentCatalog,
+            Inverter,
+            MountingSystem,
+            PhotovoltaicPanel,
+        )
+        from helios.solar.installation_component_selection import (
+            InstallationComponentSelection,
+        )
+
+        page, project = self.create_page()
+
+        panel = PhotovoltaicPanel(
+            id="panel-540",
+            manufacturer="Longi",
+            model="LR5-72HTH-540M",
+            power_wp=540.0,
+            width_m=2.256,
+            height_m=1.133,
+            price_eur=92.196,
+        )
+
+        inverter = Inverter(
+            id="inverter-8",
+            manufacturer="GoodWe",
+            model="GW8K",
+            nominal_power_kw=8.0,
+            max_pv_power_kwp=12.0,
+            price_eur=960.38,
+            hybrid=True,
+        )
+
+        mounting = MountingSystem(
+            id="mounting-tile",
+            manufacturer="Example",
+            model="Tile-Roof",
+            price_per_panel_eur=0.0,
+            compatible_roof_types=("arabic_tile",),
+        )
+
+        catalog = ComponentCatalog(
+            panels=(panel,),
+            inverters=(inverter,),
+            mounting_systems=(mounting,),
+        )
+
+        selection = InstallationComponentSelection(
+            catalog=catalog,
+            panel_id=panel.id,
+            inverter_id=inverter.id,
+            mounting_system_id=mounting.id,
+            roof_type="arabic_tile",
+        )
+
+        project.component_selection = selection
+
+        page._configure_installation_costs(result=None)
+
+        project.set_installation_cost_configuration.assert_called_once()
+
+        costs = (
+            project.set_installation_cost_configuration.call_args.args[0]
+        )
+
+        assert costs.panel_unit_cost_eur == pytest.approx(
+            92.196 * 1.21
+        )
+        assert costs.inverter_unit_cost_eur == pytest.approx(
+            960.38 * 1.21
+        )
+        assert costs.installation_cost_eur == 0.0
+        assert costs.electrical_protection_cost_eur == 0.0
+        assert costs.cabling_cost_eur == 0.0
+        assert costs.legalization_cost_eur == 0.0

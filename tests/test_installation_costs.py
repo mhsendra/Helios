@@ -236,7 +236,7 @@ def test_configuration_rejects_negative_structure_price(
 
 @pytest.mark.parametrize(
     "unit_price",
-    [None, "20", True],
+    ["20", True],
 )
 def test_configuration_rejects_invalid_structure_price(
     unit_price,
@@ -248,6 +248,68 @@ def test_configuration_rejects_invalid_structure_price(
         InstallationCostConfiguration(
             panel_unit_cost_eur=100.0,
             structure_unit_cost_eur=unit_price,
+        )
+
+
+def test_configuration_accepts_unknown_structure_price():
+    configuration = InstallationCostConfiguration(
+        panel_unit_cost_eur=100.0,
+        structure_unit_cost_eur=None,
+    )
+
+    assert configuration.structure_unit_cost_eur is None
+
+
+@pytest.mark.parametrize(
+    "calculate",
+    [
+        "calculate_structure_cost",
+        "calculate_installation_cost",
+        "build_economic_configuration",
+    ],
+)
+def test_unknown_structure_cost_blocks_economic_calculation(
+    calculate,
+):
+    configuration = InstallationCostConfiguration(
+        panel_unit_cost_eur=100.0,
+        structure_unit_cost_eur=None,
+    )
+    evaluation = _evaluation(panel_count=15)
+
+    with pytest.raises(
+        ValueError,
+        match="coste de la estructura no está confirmado",
+    ):
+        getattr(configuration, calculate)(evaluation)
+
+
+def test_unknown_structure_cost_allows_matching_package():
+    configuration = InstallationCostConfiguration(
+        panel_unit_cost_eur=100.0,
+        structure_unit_cost_eur=None,
+        structure_package_cost_eur=392.27,
+        structure_package_panel_count=15,
+    )
+
+    assert configuration.calculate_structure_cost(
+        _evaluation(panel_count=15),
+    ) == pytest.approx(392.27)
+
+def test_unknown_structure_cost_rejects_non_matching_package():
+    configuration = InstallationCostConfiguration(
+        panel_unit_cost_eur=100.0,
+        structure_unit_cost_eur=None,
+        structure_package_cost_eur=392.27,
+        structure_package_panel_count=16,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="coste de la estructura no está confirmado",
+    ):
+        configuration.calculate_structure_cost(
+            _evaluation(panel_count=15),
         )
 
 
