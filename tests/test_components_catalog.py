@@ -432,3 +432,19 @@ def test_mounting_package_rejects_invalid_discounts(field, value):
 
     with pytest.raises(ValueError):
         MountingSystemPackage(**values)
+
+def test_auxiliary_cost_supports_price_per_metre():
+    item = AuxiliaryCostItem(
+        id="solar-cable",
+        name="Cable solar",
+        unit_price_eur=0.0,
+        basis="per_metre",
+        list_price_eur=1.90,
+        discount_1_percent=40.0,
+        discount_2_percent=3.0,
+        quantity=50.0,
+    )
+
+    assert item.unit_price_eur == pytest.approx(1.1058)
+    assert item.quantity == 50.0
+    assert item.unit_price_eur * item.quantity == pytest.approx(55.29)

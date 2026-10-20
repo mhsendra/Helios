@@ -22,6 +22,18 @@ from helios.solar.battery_economic_configuration import (
     BatteryEconomicParameters,
 )
 
+from helios.gui.widgets.solar_optimization_page import (
+    ELECTRICAL_PROTECTION_GROSS_EUR,
+    INVERTER_COST_GROSS_EUR,
+    INSTALLATION_LABOUR_GROSS_EUR,
+    LEGALIZATION_ESTIMATE_EUR,
+    PANEL_COST_GROSS_EUR,
+    STRUCTURE_COST_GROSS_PER_PANEL_EUR,
+    CABLING_AND_ACCESSORIES_GROSS_EUR,
+    INSTALLATION_VAT_RATE,
+    LEGALIZATION_ESTIMATE_NET_EUR,
+)
+
 class TestSolarOptimizationPage:
 
     @classmethod
@@ -1440,3 +1452,43 @@ class TestSolarOptimizationPage:
         assert costs.electrical_protection_cost_eur == 0.0
         assert costs.cabling_cost_eur == 0.0
         assert costs.legalization_cost_eur == 0.0
+
+
+    def test_fallback_installation_costs_apply_vat_to_legalization(self):
+        page, project = self.create_page()
+
+        # Forzar explícitamente la ruta de respaldo del presupuesto.
+        project.component_selection = None
+
+        page._configure_installation_costs(result=None)
+
+        project.set_installation_cost_configuration.assert_called_once()
+
+        costs = (
+            project.set_installation_cost_configuration.call_args.args[0]
+        )
+
+        assert LEGALIZATION_ESTIMATE_NET_EUR == pytest.approx(650.00)
+        assert LEGALIZATION_ESTIMATE_EUR == pytest.approx(786.50)
+        assert costs.legalization_cost_eur == pytest.approx(786.50)
+
+        assert costs.panel_unit_cost_eur == pytest.approx(
+            PANEL_COST_GROSS_EUR
+        )
+        assert costs.structure_unit_cost_eur == pytest.approx(
+            STRUCTURE_COST_GROSS_PER_PANEL_EUR
+        )
+        assert costs.installation_cost_eur == pytest.approx(
+            INSTALLATION_LABOUR_GROSS_EUR
+        )
+        assert costs.inverter_unit_cost_eur == pytest.approx(
+            INVERTER_COST_GROSS_EUR
+        )
+        assert costs.electrical_protection_cost_eur == pytest.approx(
+            ELECTRICAL_PROTECTION_GROSS_EUR
+        )
+        assert costs.cabling_cost_eur == pytest.approx(
+            CABLING_AND_ACCESSORIES_GROSS_EUR
+        )
+
+        assert INSTALLATION_VAT_RATE == pytest.approx(0.21)

@@ -16,6 +16,12 @@ from helios.solar.installation_layout import (
     InstallationLayout,
 )
 
+from helios.solar.default_component_catalog import (
+    build_default_component_catalog,
+)
+from helios.solar.installation_component_selection import (
+    InstallationComponentSelection,
+)
 
 def _evaluation(
     panel_count: int = 15,
@@ -487,3 +493,54 @@ def test_configuration_rejects_non_finite_costs(
         match="must be finite",
     ):
         InstallationCostConfiguration(**values)
+
+
+def test_from_selection_maps_cabling_and_protection_costs_once():
+    catalog = build_default_component_catalog()
+
+    selection = InstallationComponentSelection(
+        catalog=catalog,
+        panel_id="longi lr7-60hvh-540m",
+        inverter_id="goodwe-gw8k-eha-g20",
+        mounting_system_id=None,
+        roof_type="tile",
+        auxiliary_cost_ids=tuple(
+            item.id for item in catalog.auxiliary_costs
+        ),
+    )
+
+    categories = {
+        "electrical_protection_dc": "electrical_protection",
+        "electrical_protection_ac": "electrical_protection",
+        "solar_cabling_red": "cabling",
+        "solar_cabling_black": "cabling",
+        "connector_female": "cabling",
+        "connector_male": "cabling",
+        "joining_profiles": "cabling",
+        "installation": "installation",
+        "legalization_estimate": "legalization",
+    }
+
+    configuration = InstallationCostConfiguration.from_selection(
+        selection,
+        auxiliary_cost_categories=categories,
+    )
+
+    assert configuration.cabling_cost_eur == pytest.approx(
+        110.58 + 14.78 + 14.18 + 8.27
+    )
+    assert configuration.electrical_protection_cost_eur == pytest.approx(
+        343.962
+    )
+    assert configuration.installation_cost_eur == pytest.approx(
+        2950.0
+    )
+    assert configuration.legalization_cost_eur == pytest.approx(
+        650.0
+    )
+
+    evaluation = _evaluation(panel_count=15)
+
+    assert configuration.calculate_unmapped_auxiliary_cost(
+        evaluation
+    ) == pytest.approx(0.0)

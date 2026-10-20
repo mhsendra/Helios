@@ -39,9 +39,8 @@ def test_default_catalog_contains_identified_hybrid_inverter():
     assert inverter.manufacturer == "GoodWe"
     assert inverter.model == "GW8K-EHA-G20"
     assert inverter.nominal_power_kw == pytest.approx(8.0)
-    assert inverter.price_eur == pytest.approx(960.38)
+    assert inverter.price_eur == pytest.approx(960.375)
     assert inverter.hybrid is True
-
 
 def test_default_catalog_contains_identified_auxiliary_costs():
     catalog = build_default_component_catalog()
@@ -52,8 +51,10 @@ def test_default_catalog_contains_identified_auxiliary_costs():
     }
 
     expected_costs = {
-        "electrical_protection": 343.96,
-        "solar_cabling": 110.58,
+        "electrical_protection_dc": 241.53,
+        "electrical_protection_ac": 102.432,
+        "solar_cabling_red": 1.1058,
+        "solar_cabling_black": 1.1058,
         "connector_female": 14.78,
         "connector_male": 14.18,
         "joining_profiles": 8.27,
@@ -67,8 +68,22 @@ def test_default_catalog_contains_identified_auxiliary_costs():
         assert costs[cost_id].unit_price_eur == pytest.approx(
             expected_price
         )
-        assert costs[cost_id].basis == "fixed"
 
+    assert costs["electrical_protection_dc"].basis == "fixed"
+    assert costs["electrical_protection_ac"].basis == "fixed"
+
+    for cost_id in ("solar_cabling_red", "solar_cabling_black"):
+        assert costs[cost_id].basis == "per_metre"
+        assert costs[cost_id].quantity == pytest.approx(50.0)
+
+    for cost_id in (
+        "connector_female",
+        "connector_male",
+        "joining_profiles",
+        "installation",
+        "legalization_estimate",
+    ):
+        assert costs[cost_id].basis == "fixed"
 
 def test_default_catalog_does_not_invent_battery_or_mounting_prices():
     catalog = build_default_component_catalog()
@@ -95,3 +110,45 @@ def test_default_catalog_uses_unique_identifiers():
     ]
 
     assert len(identifiers) == len(set(identifiers))
+
+def test_default_catalog_calculates_net_prices_from_list_prices():
+    catalog = build_default_component_catalog()
+
+    panel = catalog.get_panel("longi lr7-60hvh-540m")
+    inverter = catalog.get_inverter("goodwe-gw8k-eha-g20")
+
+    assert panel.list_price_eur == pytest.approx(156.00)
+    assert panel.price_eur == pytest.approx(92.196)
+    assert panel.discount_1_percent == pytest.approx(40.0)
+    assert panel.discount_2_percent == pytest.approx(1.5)
+    assert panel.area_m2 == pytest.approx(1.134 * 1.990)
+
+    assert inverter.list_price_eur == pytest.approx(1625.00)
+    assert inverter.price_eur == pytest.approx(960.375)
+    assert inverter.discount_1_percent == pytest.approx(40.0)
+    assert inverter.discount_2_percent == pytest.approx(1.5)
+
+def test_default_catalog_contains_cables_and_no_mounting_prices():
+    catalog = build_default_component_catalog()
+
+    costs = {
+        item.id: item
+        for item in catalog.auxiliary_costs
+    }
+
+    assert catalog.mounting_systems == ()
+    assert catalog.mounting_packages == ()
+
+    red_cable = costs["solar_cabling_red"]
+    black_cable = costs["solar_cabling_black"]
+
+    for cable in (red_cable, black_cable):
+        assert cable.basis == "per_metre"
+        assert cable.quantity == pytest.approx(50.0)
+        assert cable.list_price_eur == pytest.approx(1.90)
+        assert cable.unit_price_eur == pytest.approx(1.1058)
+
+    assert (
+        red_cable.unit_price_eur * red_cable.quantity
+        + black_cable.unit_price_eur * black_cable.quantity
+    ) == pytest.approx(110.58)

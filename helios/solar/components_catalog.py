@@ -331,11 +331,14 @@ class AuxiliaryCostItem:
     """
     Coste auxiliar configurable.
 
-    basis admite fixed, per_panel, per_kwp o per_m2.
+    unit_price_eur es el precio neto unitario.
+    Si se proporciona list_price_eur, se calcula aplicando los
+    descuentos sucesivos.
 
-    Para los artículos comerciales, unit_price_eur se convierte
-    en precio neto cuando se proporciona list_price_eur.
-    Mano de obra y legalización deben usar descuentos del 0 %.
+    quantity permite expresar cantidades contratadas, como los
+    50 metros de cada color de cable.
+
+    basis admite fixed, per_panel, per_kwp, per_m2 y per_metre.
     """
 
     id: str
@@ -345,12 +348,14 @@ class AuxiliaryCostItem:
     list_price_eur: float | None = None
     discount_1_percent: float = 0.0
     discount_2_percent: float = 0.0
+    quantity: float = 1.0
 
     VALID_BASES = frozenset({
         "fixed",
         "per_panel",
         "per_kwp",
         "per_m2",
+        "per_metre",
     })
 
     def __post_init__(self) -> None:
@@ -361,7 +366,11 @@ class AuxiliaryCostItem:
         _validate_discount("discount_2_percent", self.discount_2_percent)
 
         if self.basis not in self.VALID_BASES:
-            raise ValueError(f"Unsupported cost basis: {self.basis!r}.")
+            raise ValueError(
+                f"Unsupported cost basis: {self.basis!r}."
+            )
+
+        _validate_positive("quantity", self.quantity)
 
         if self.list_price_eur is not None:
             _validate_non_negative("list_price_eur", self.list_price_eur)
@@ -374,7 +383,6 @@ class AuxiliaryCostItem:
                     self.discount_2_percent,
                 ),
             )
-
 
 @dataclass(frozen=True)
 class ComponentCatalog:

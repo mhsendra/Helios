@@ -209,13 +209,23 @@ class InstallationCostConfiguration:
             category = auxiliary_cost_categories.get(item.id)
             if category is None:
                 continue
-            if item.basis != "fixed":
+
+            if item.basis == "fixed":
+                amount = float(item.unit_price_eur)
+            elif item.basis == "per_metre" and category == "cabling":
+                amount = (
+                    float(item.unit_price_eur)
+                    * float(item.quantity)
+                )
+            else:
                 raise ValueError(
                     f"Auxiliary cost {item.id!r} uses basis "
-                    f"{item.basis!r}; variable costs cannot be "
-                    "converted to fixed category amounts."
+                    f"{item.basis!r}; this basis cannot be "
+                    f"converted to a fixed amount for category "
+                    f"{category!r}."
                 )
-            category_totals[category] += float(item.unit_price_eur)
+
+            category_totals[category] += amount
             category_mappings.append((item.id, category))
 
         has_packages = bool(selection.mounting_packages)
@@ -364,7 +374,8 @@ class InstallationCostConfiguration:
                 * evaluation.panel_count
                 * selection.panel.area_m2
             )
-
+        if item.basis == "per_metre":
+            return unit_price * float(item.quantity)
         raise ValueError(
             f"Unsupported auxiliary cost basis: {item.basis!r}"
         )
@@ -451,6 +462,8 @@ class InstallationCostConfiguration:
                     * evaluation.panel_count
                     * self.auxiliary_panel_area_m2
                 )
+            elif item.basis == "per_metre":
+                total += unit_price * float(item.quantity)
             else:
                 raise ValueError(
                     f"Unsupported auxiliary cost basis: {item.basis!r}"

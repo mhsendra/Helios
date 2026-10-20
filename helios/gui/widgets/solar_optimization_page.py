@@ -82,8 +82,14 @@ CABLING_AND_ACCESSORIES_GROSS_EUR = (
     110.58 + 14.78 + 14.18 + 8.27
 ) * (1 + INSTALLATION_VAT_RATE)
 
-# Estimación adicional de legalización, en euros finales.
-LEGALIZATION_ESTIMATE_EUR = 650.00
+# Estimación de legalización expresada sin IVA.
+LEGALIZATION_ESTIMATE_NET_EUR = 650.00
+
+# Importe con IVA para utilizar en la configuración económica.
+LEGALIZATION_ESTIMATE_EUR = (
+    LEGALIZATION_ESTIMATE_NET_EUR
+    * (1.0 + INSTALLATION_VAT_RATE)
+)
 
 # 4.145,27 € sin IVA por 16,6 kWh.
 # Convertimos a precio unitario con IVA para el análisis económico.
@@ -1873,8 +1879,10 @@ class SolarOptimizationPage(QWidget):
         if isinstance(selection, InstallationComponentSelection):
             category_by_id = {
                 "installation": "installation",
-                "electrical_protection": "electrical_protection",
-                "solar_cabling": "cabling",
+                "electrical_protection_dc": "electrical_protection",
+                "electrical_protection_ac": "electrical_protection",
+                "solar_cabling_red": "cabling",
+                "solar_cabling_black": "cabling",
                 "connector_female": "cabling",
                 "connector_male": "cabling",
                 "joining_profiles": "cabling",
@@ -2123,8 +2131,10 @@ class SolarOptimizationPage(QWidget):
                 mounting_system_id=None,
                 roof_type="teja_arabe",
                 auxiliary_cost_ids=(
-                    "electrical_protection",
-                    "solar_cabling",
+                    "electrical_protection_dc",
+                    "electrical_protection_ac",
+                    "solar_cabling_red",
+                    "solar_cabling_black",
                     "connector_female",
                     "connector_male",
                     "joining_profiles",
