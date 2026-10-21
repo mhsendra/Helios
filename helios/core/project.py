@@ -26,6 +26,13 @@ class HeliosProject:
             economics_configuration
         )
 
+        # Presupuesto cerrado de la instalación FV, sin baterías.
+        # Se conserva separado de la inversión total, que puede
+        # actualizarse posteriormente al recomendar una batería.
+        self.closed_installation_cost_eur = float(
+            economics_configuration.installation_cost
+        )
+
         self.analyzer.project = self
 
         self.tariff_prices = TariffPrices()

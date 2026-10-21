@@ -1133,7 +1133,7 @@ class SolarOptimizationPage(QWidget):
             "Comparación de distintas capacidades de batería "
             "sobre la instalación fotovoltaica calculada. "
             "Los resultados económicos incluyen ahorro anual, "
-            "coste incremental, payback marginal, NPV e IRR."
+            "coste incremental, recuperación marginal, VAN y TIR."
         )
 
         description.setWordWrap(True)
@@ -1148,6 +1148,13 @@ class SolarOptimizationPage(QWidget):
             self.battery_status_label
         )
 
+        self.combined_economic_label = QLabel(
+            "Evaluación combinada FV + batería pendiente."
+        )
+        self.combined_economic_label.setWordWrap(True)
+
+        layout.addWidget(self.combined_economic_label)
+
         self.battery_table = QTableWidget()
 
         self.battery_table.setColumnCount(8)
@@ -1158,10 +1165,10 @@ class SolarOptimizationPage(QWidget):
                 "Ahorro adicional",
                 "Coste incremental",
                 "Ahorro incremental",
-                "Payback marginal",
-                "NPV",
-                "IRR",
-                "Payback económico",
+                "Recuperación marginal",
+                "VAN",
+                "TIR",
+                "Recuperación económica",
             ]
         )
 
@@ -1719,54 +1726,90 @@ class SolarOptimizationPage(QWidget):
 
             self.show_optimization_result(result)
 
-            if not self._installation_economic_evaluation_available(result):
-                self.project.solar.calculate_energy_balance()
-
-                self.battery_table.setRowCount(0)
-                self.battery_status_label.setText(
-                    "Evaluación económica pendiente: falta confirmar "
-                    "el coste de la estructura de montaje."
+            economic_evaluation_available = (
+                self._installation_economic_evaluation_available(
+                    result
                 )
+            )
 
-                if self.main_window is not None:
-                    self.main_window.set_solar_optimized(True)
-
-                self.status_label.setText(
-                    "Optimización energética completada; "
-                    "evaluación económica pendiente de confirmar "
-                    "el coste de montaje."
-                )
-                return
-
-            # El presupuesto permite evaluar escenarios de batería con un
-            # coste de referencia, aunque aún no se haya seleccionado un
-            # modelo concreto en el catálogo.
+            # Evaluar las baterías incluso si falta el coste de
+            # estructura. En ese caso no se podrá calcular el VAN
+            # combinado, pero sí simular sus balances energéticos.
             battery_recommendations = self.evaluate_batteries()
 
-            if not isinstance(battery_recommendations, (list, tuple)):
+            if not isinstance(
+                battery_recommendations,
+                (list, tuple),
+            ):
                 battery_recommendations = []
 
-            battery_recommendation = (
-                max(
-                    battery_recommendations,
-                    key=lambda recommendation: (
-                        recommendation.combined_economic_npv_eur,
-                        -recommendation.capacity_kwh,
-                    ),
-                )
-                if battery_recommendations
-                else None
-            )
+            if economic_evaluation_available:
+                valid_combined_recommendations = [
+                    recommendation
+                    for recommendation in battery_recommendations
+                    if recommendation.combined_economic_analysis_calculated
+                ]
 
-            self._update_total_investment(
-                result,
-                battery_recommendation,
-            )
+                battery_recommendation = (
+                    max(
+                        valid_combined_recommendations,
+                        key=lambda recommendation: (
+                            recommendation.combined_economic_npv_eur,
+                            -recommendation.capacity_kwh,
+                        ),
+                    )
+                    if valid_combined_recommendations
+                    else None
+                )
+
+                if battery_recommendation is not None:
+                    self.combined_economic_label.setText(
+                        "Evaluación combinada FV + batería calculada. "
+                        f"Capacidad seleccionada: "
+                        f"{battery_recommendation.capacity_kwh:.1f} kWh. "
+                        f"VAN combinado: "
+                        f"{battery_recommendation.combined_economic_npv_eur:,.2f} €."
+                    )
+                else:
+                    self.combined_economic_label.setText(
+                        "No se dispone de un resultado válido de VAN "
+                        "combinado para las baterías evaluadas."
+                    )
+
+                self._update_total_investment(
+                    result,
+                    battery_recommendation,
+                )
+
+            else:
+                # No utilizar el presupuesto global como sustituto
+                # ni mostrar un VAN combinado no calculado.
+                battery_recommendation = None
+
+                self.battery_status_label.setText(
+                    "Simulación de baterías completada. "
+                    "Evaluación económica combinada pendiente: "
+                    "falta confirmar el coste de la estructura."
+                )
+
+                self.combined_economic_label.setText(
+                    "Evaluación económica combinada FV + batería pendiente: "
+                    "falta confirmar el coste de la estructura de montaje. "
+                    "La tabla de baterías muestra los indicadores incrementales "
+                    "que se hayan podido calcular."
+                )
 
             if self.main_window is not None:
                 self.main_window.set_solar_optimized(True)
 
-            self.status_label.setText("Optimización completada")
+            self.status_label.setText(
+                "Optimización completada"
+                if economic_evaluation_available
+                else (
+                    "Optimización energética completada; "
+                    "evaluación económica combinada pendiente."
+                )
+            )
 
         except Exception as error:
             import traceback
@@ -2004,13 +2047,12 @@ class SolarOptimizationPage(QWidget):
             False
         )
 
-
     def _update_total_investment(
         self,
         result,
         battery_recommendation,
     ) -> None:
-        """Actualiza la inversión total, incluida la batería seleccionada."""
+        """Actualiza la inversión total sin duplicar partidas del presupuesto."""
 
         cost_configuration = (
             self.project.installation_cost_configuration
@@ -2021,17 +2063,44 @@ class SolarOptimizationPage(QWidget):
                 "No se ha configurado el coste de la instalación FV."
             )
 
-        installation_economics = (
-            cost_configuration.build_economic_configuration(
-                result.evaluation
+        try:
+            installation_economics = (
+                cost_configuration.build_economic_configuration(
+                    result.evaluation
+                )
             )
-        )
 
-        installation_cost = (
-            installation_economics.installation_cost_eur
-        )
+            installation_cost = (
+                installation_economics.installation_cost_eur
+            )
+
+        except ValueError as error:
+            if (
+                "coste de la estructura no está confirmado"
+                not in str(error)
+            ):
+                raise
+
+            installation_cost = getattr(
+                self.project,
+                "closed_installation_cost_eur",
+                None,
+            )
+
+            if (
+                isinstance(installation_cost, bool)
+                or not isinstance(installation_cost, (int, float))
+                or installation_cost <= 0
+            ):
+                raise ValueError(
+                    "No se puede actualizar la inversión: falta un "
+                    "presupuesto cerrado válido para la instalación FV."
+                ) from error
+
+            installation_cost = float(installation_cost)
 
         battery_cost = 0.0
+
         if battery_recommendation is not None:
             battery_cost = (
                 battery_recommendation.capacity_kwh
@@ -2155,7 +2224,7 @@ class SolarOptimizationPage(QWidget):
         self,
         result,
     ) -> bool:
-        """Comprueba si puede calcularse la inversión con los costes actuales."""
+        """Comprueba si existe una base válida para evaluar la inversión."""
 
         cost_configuration = (
             self.project.installation_cost_configuration
@@ -2168,9 +2237,24 @@ class SolarOptimizationPage(QWidget):
             cost_configuration.calculate_installation_cost(
                 result.evaluation
             )
+
         except ValueError as error:
-            if "coste de la estructura no está confirmado" in str(error):
-                return False
-            raise
+            if (
+                "coste de la estructura no está confirmado"
+                not in str(error)
+            ):
+                raise
+
+            closed_budget = getattr(
+                self.project,
+                "closed_installation_cost_eur",
+                None,
+            )
+
+            return (
+                isinstance(closed_budget, (int, float))
+                and not isinstance(closed_budget, bool)
+                and closed_budget > 0
+            )
 
         return True

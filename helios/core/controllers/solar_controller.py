@@ -573,6 +573,55 @@ class SolarController:
             )
         )
 
+    def _calculate_combined_installation_cost(
+        self,
+        evaluation: InstallationEvaluation,
+        installation_cost_configuration: InstallationCostConfiguration,
+    ) -> float:
+        """Calcula la inversión FV sin batería.
+
+        Si el desglose de la estructura está incompleto, utiliza
+        el presupuesto cerrado del proyecto. En ese caso no vuelve
+        a sumar la legalización ni ninguna otra partida al importe
+        cerrado.
+        """
+
+        try:
+            return (
+                installation_cost_configuration.calculate_installation_cost(
+                    evaluation
+                )
+                + installation_cost_configuration.calculate_legalization_cost(
+                    evaluation
+                )
+            )
+
+        except ValueError as error:
+            if (
+                "coste de la estructura no está confirmado"
+                not in str(error)
+            ):
+                raise
+
+            closed_budget = getattr(
+                self.analyzer.project,
+                "closed_installation_cost_eur",
+                None,
+            )
+
+            if (
+                isinstance(closed_budget, bool)
+                or not isinstance(closed_budget, (int, float))
+                or closed_budget <= 0
+            ):
+                raise ValueError(
+                    "No se puede evaluar la inversión combinada: "
+                    "falta confirmar el coste de la estructura "
+                    "y no hay un presupuesto cerrado válido."
+                ) from error
+
+            return float(closed_budget)
+
     def _build_combined_economic_configuration(
         self,
         *,
@@ -636,13 +685,11 @@ class SolarController:
         )
 
         gross_installation_cost = (
-            installation_cost_configuration
-            .calculate_installation_cost(
-                evaluation
-            )
-            + installation_cost_configuration
-            .calculate_legalization_cost(
-                evaluation
+            self._calculate_combined_installation_cost(
+                evaluation=evaluation,
+                installation_cost_configuration=(
+                    installation_cost_configuration
+                ),
             )
         )
 
@@ -882,20 +929,34 @@ class SolarController:
             )
 
         if self.sizing_result is not None:
-            combined_economic_configuration = (
-                self._build_combined_economic_configuration(
-                    evaluation=self.sizing_result.evaluation,
-                    production_profile=production_profile,
-                    consumption_scenario=consumption_scenario,
-                    installation_cost_configuration=(
-                        installation_cost_configuration
-                    ),
-                    ev_scenario=None,
-                    battery_economic_parameters=(
-                        battery_economic_parameters
-                    ),
+            try:
+                combined_economic_configuration = (
+                    self._build_combined_economic_configuration(
+                        evaluation=self.sizing_result.evaluation,
+                        production_profile=production_profile,
+                        consumption_scenario=consumption_scenario,
+                        installation_cost_configuration=(
+                            installation_cost_configuration
+                        ),
+                        ev_scenario=None,
+                        battery_economic_parameters=(
+                            battery_economic_parameters
+                        ),
+                    )
                 )
-            )
+
+            except ValueError as error:
+                if (
+                    "coste de la estructura no está confirmado"
+                    not in str(error)
+                ):
+                    raise
+
+                # Sin el coste de la estructura no puede calcularse
+                # la economía combinada FV + batería. La simulación
+                # energética y la economía incremental de la batería
+                # deben continuar sin inventar ese coste.
+                combined_economic_configuration = None
 
         # ---------------------------------------------------------
         # Battery evaluation
