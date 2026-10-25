@@ -234,7 +234,10 @@ class InstallationCostConfiguration:
             panel_unit_cost_eur=float(selection.panel.price_eur),
             structure_unit_cost_eur=(
                 float(selection.mounting_system.price_per_panel_eur)
-                if selection.mounting_system is not None
+                if (
+                    selection.mounting_system is not None
+                    and selection.mounting_system.price_per_panel_eur is not None
+                )
                 else None
             ),
             installation_cost_eur=category_totals["installation"],
