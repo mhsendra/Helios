@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 from helios.solar.configuration import SolarConfiguration
 
 from helios.solar.installation_configuration import (
@@ -54,6 +56,7 @@ from helios.solar.battery_optimizer import BatteryOptimizer
 
 from helios.solar.battery_economic_model import (
     BatteryEconomicConfiguration,
+    BatteryEconomicModel,
     CombinedEconomicConfiguration,
 )
 
@@ -105,6 +108,10 @@ class SolarController:
 
         # Recomendación energética integral FV + batería + EV.
         self.energy_recommendation: EnergyRecommendation | None = None
+
+        # Resultado económico de referencia para la misma instalación FV,
+        # pero sin batería, utilizado para comparar ambas alternativas.
+        self.no_battery_economic_result = None
 
     # ==================================================
     # Propiedades de producción
@@ -1025,6 +1032,25 @@ class SolarController:
                 # energética y la economía incremental de la batería
                 # deben continuar sin inventar ese coste.
                 combined_economic_configuration = None
+
+        # Calcular también la alternativa FV sin batería con exactamente
+        # la misma inversión y los mismos supuestos económicos. Así la GUI
+        # puede comparar VAN/TIR de ambas opciones, no solo baterías entre sí.
+        self.no_battery_economic_result = None
+        if combined_economic_configuration is not None:
+            no_battery_configuration = replace(
+                combined_economic_configuration,
+                battery_cost_eur=0.0,
+                annual_battery_additional_savings_eur=0.0,
+                annual_import_savings_eur=0.0,
+                annual_export_compensation_lost_eur=0.0,
+                annual_battery_maintenance_eur=0.0,
+            )
+            self.no_battery_economic_result = (
+                BatteryEconomicModel().calculate_combined(
+                    no_battery_configuration
+                )
+            )
 
         # ---------------------------------------------------------
         # Battery evaluation
