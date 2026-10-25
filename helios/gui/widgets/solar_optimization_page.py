@@ -1166,9 +1166,9 @@ class SolarOptimizationPage(QWidget):
                 "Coste incremental",
                 "Ahorro incremental",
                 "Recuperación marginal",
-                "VAN",
-                "TIR",
-                "Recuperación económica",
+                "VAN incremental",
+                "TIR incremental",
+                "Recuperación incremental",
             ]
         )
 
@@ -1762,18 +1762,51 @@ class SolarOptimizationPage(QWidget):
                     else None
                 )
 
+                no_battery_result = getattr(
+                    self.project.solar,
+                    "no_battery_economic_result",
+                    None,
+                )
+
+                # La alternativa FV sin batería debe competir con las
+                # alternativas FV + batería usando el mismo VAN combinado.
+                if (
+                    battery_recommendation is not None
+                    and no_battery_result is not None
+                    and no_battery_result.npv_eur
+                    >= battery_recommendation.combined_economic_npv_eur
+                ):
+                    battery_recommendation = None
+                    self.project.battery_configuration = None
+                    invalidate_balance = getattr(
+                        self.project.solar,
+                        "invalidate_energy_balance",
+                        None,
+                    )
+                    if callable(invalidate_balance):
+                        invalidate_balance()
+
                 if battery_recommendation is not None:
                     self.combined_economic_label.setText(
-                        "Evaluación combinada FV + batería calculada. "
+                        "Mejor opción: FV + batería. "
                         f"Capacidad seleccionada: "
                         f"{battery_recommendation.capacity_kwh:.1f} kWh. "
                         f"VAN combinado: "
-                        f"{battery_recommendation.combined_economic_npv_eur:,.2f} €."
+                        f"{battery_recommendation.combined_economic_npv_eur:,.2f} €. "
+                        f"TIR combinada: "
+                        f"{battery_recommendation.combined_economic_irr_percent:.2f} %."
+                    )
+                elif no_battery_result is not None:
+                    self.combined_economic_label.setText(
+                        "Mejor opción: FV sin batería. "
+                        f"VAN: {no_battery_result.npv_eur:,.2f} €. "
+                        f"TIR: {no_battery_result.irr_percent:.2f} %."
                     )
                 else:
                     self.combined_economic_label.setText(
-                        "No se dispone de un resultado válido de VAN "
-                        "combinado para las baterías evaluadas."
+                        "No se dispone de un resultado válido de VAN/TIR "
+                        "combinados para comparar la instalación sin batería "
+                        "con las alternativas con batería."
                     )
 
                 self._update_total_investment(
