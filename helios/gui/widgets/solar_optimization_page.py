@@ -1131,9 +1131,10 @@ class SolarOptimizationPage(QWidget):
 
         description = QLabel(
             "Comparación de distintas capacidades de batería "
-            "sobre la instalación fotovoltaica calculada. "
-            "Los resultados económicos incluyen ahorro anual, "
-            "coste incremental, recuperación marginal, VAN y TIR."
+            "sobre la instalación fotovoltaica calculada. La tabla muestra "
+            "indicadores incrementales de la batería; el resultado superior "
+            "compara el VAN y la TIR de la instalación completa con batería "
+            "frente a la alternativa fotovoltaica sin batería."
         )
 
         description.setWordWrap(True)
