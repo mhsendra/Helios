@@ -2210,8 +2210,13 @@ class SolarOptimizationPage(QWidget):
                 catalog=catalog,
                 panel_id="longi lr7-60hvh-540m",
                 inverter_id="goodwe-gw8k-eha-g20",
-                mounting_system_id=None,
+                mounting_system_id="mounting-arabic-tile",
                 roof_type="teja_arabe",
+                mounting_package_ids=(
+                    "mounting-arabic-tile-3-panel",
+                    "mounting-arabic-tile-2-panel",
+                ),
+                mounting_package_panel_count=15,
                 auxiliary_cost_ids=(
                     "electrical_protection_dc",
                     "electrical_protection_ac",
