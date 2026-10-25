@@ -1782,6 +1782,78 @@ class SolarReportGenerator:
                 )
             )
 
+        battery_cash_flow_tables = []
+
+        viable_recommendations = [
+            recommendation
+            for recommendation in data.battery_recommendations
+            if (
+                recommendation.combined_economic_analysis_calculated
+                and recommendation.combined_economic_npv_eur > 0
+                and recommendation.combined_economic_cash_flows
+                and recommendation.combined_economic_cumulative_cash_flow
+            )
+        ]
+
+        viable_recommendations.sort(
+            key=lambda recommendation: (
+                recommendation.combined_economic_npv_eur,
+                -recommendation.capacity_kwh,
+            ),
+            reverse=True,
+        )
+
+        for recommendation in viable_recommendations:
+            cash_flows = recommendation.combined_economic_cash_flows
+            cumulative_flows = (
+                recommendation.combined_economic_cumulative_cash_flow
+            )
+
+            if len(cash_flows) != len(cumulative_flows):
+                continue
+
+            cash_flow_data = [
+                [
+                    Paragraph("Año", battery_header_style),
+                    Paragraph("Flujo de caja (€)", battery_header_style),
+                    Paragraph("Flujo acumulado (€)", battery_header_style),
+                ]
+            ]
+
+            for year, (flow, cumulative) in enumerate(
+                zip(cash_flows, cumulative_flows)
+            ):
+                cash_flow_data.append(
+                    [
+                        str(year),
+                        f"{flow:,.2f} €",
+                        f"{cumulative:,.2f} €",
+                    ]
+                )
+
+            cash_flow_table = Table(
+                cash_flow_data,
+                colWidths=[45, 180, 180],
+                repeatRows=1,
+            )
+            self._style_table(cash_flow_table, HELIOS_PURPLE)
+            battery_cash_flow_tables.extend(
+                [
+                    Spacer(1, 8),
+                    Paragraph(
+                        (
+                            f"Flujo de caja conjunto FV + batería "
+                            f"({recommendation.capacity_kwh:g} kWh) "
+                            f"— VAN: "
+                            f"{recommendation.combined_economic_npv_eur:,.2f} €"
+                        ),
+                        styles["HeliosSubsectionTitle"],
+                    ),
+                    Spacer(1, 5),
+                    self._keep_table(cash_flow_table),
+                ]
+            )
+
         recommended_battery = SolarReportText.recommended_battery(
             data
         )
@@ -1831,6 +1903,8 @@ class SolarReportGenerator:
             self._keep_table(
                 battery_combined_table
             ),
+
+            *battery_cash_flow_tables,
 
             Spacer(1, 15),
 

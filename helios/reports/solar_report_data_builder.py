@@ -638,6 +638,12 @@ class SolarReportDataBuilder:
                 combined_economic_analysis_calculated=(
                     recommendation.combined_economic_analysis_calculated
                 ),
+                combined_economic_cash_flows=(
+                    recommendation.combined_economic_cash_flows
+                ),
+                combined_economic_cumulative_cash_flow=(
+                    recommendation.combined_economic_cumulative_cash_flow
+                ),
             )
             for recommendation in battery_recommendations
         ]

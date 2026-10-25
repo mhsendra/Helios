@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QGroupBox,
     QScrollArea,
     QHBoxLayout,
+    QTabWidget,
 )
 
 from helios.core.economic_scenarios import default_economic_scenarios
@@ -195,13 +196,8 @@ class EconomicsPage(QWidget):
             cash_flow_group
         )
 
-        self.cash_flow_table = QTableWidget()
-
-        self.cash_flow_table.setMinimumHeight(220)
-
-        cash_flow_layout.addWidget(
-            self.cash_flow_table
-        )
+        self.cash_flow_tabs = QTabWidget()
+        cash_flow_layout.addWidget(self.cash_flow_tabs)
 
         layout.addWidget(
             cash_flow_group
@@ -395,71 +391,99 @@ class EconomicsPage(QWidget):
         """Actualiza la tabla económica del almacenamiento."""
 
         self.update_battery_analysis()
-        
-    def update_cash_flow(self):
 
-        cash_flow = (
-            self.project.analyzer
-            .economics_engine
-            .cash_flow
+    def update_cash_flow(self):
+        """Muestra los flujos combinados de las baterías viables."""
+
+        self.cash_flow_tabs.clear()
+
+        recommendations = (
+            self.project.solar.battery_recommendations or []
         )
 
-        if cash_flow is None or cash_flow.empty:
+        viable_recommendations = [
+            recommendation
+            for recommendation in recommendations
+            if (
+                recommendation.combined_economic_analysis_calculated
+                and recommendation.combined_economic_npv_eur > 0
+                and recommendation.combined_economic_cash_flows
+                and recommendation.combined_economic_cumulative_cash_flow
+            )
+        ]
 
-            self.cash_flow_table.clear()
-            self.cash_flow_table.setRowCount(0)
-            self.cash_flow_table.setColumnCount(0)
-
+        if not viable_recommendations:
+            empty_label = QLabel(
+                "No hay alternativas de batería con VAN combinado positivo "
+                "y flujo de caja disponible."
+            )
+            empty_label.setWordWrap(True)
+            self.cash_flow_tabs.addTab(empty_label, "Sin alternativas viables")
             return
 
-        self.cash_flow_table.setRowCount(
-            len(cash_flow)
+        viable_recommendations.sort(
+            key=lambda recommendation: (
+                recommendation.combined_economic_npv_eur,
+                -recommendation.capacity_kwh,
+            ),
+            reverse=True,
         )
 
-        self.cash_flow_table.setColumnCount(
-            len(cash_flow.columns)
-        )
+        for recommendation in viable_recommendations:
+            cash_flows = recommendation.combined_economic_cash_flows
+            cumulative_flows = (
+                recommendation.combined_economic_cumulative_cash_flow
+            )
 
-        headers = {
-            "year": "Año",
-            "self_consumption_savings": "Ahorro autoconsumo",
-            "export_income": "Ingresos excedentes",
-            "maintenance_cost": "Mantenimiento",
-            "cash_flow": "Flujo de caja",
-            "cumulative_cash_flow": "Flujo acumulado",
-        }
+            if len(cash_flows) != len(cumulative_flows):
+                continue
 
-        self.cash_flow_table.setHorizontalHeaderLabels(
-            [
-                headers.get(
-                    column,
-                    str(column)
+            table = QTableWidget(len(cash_flows), 3)
+            table.setMinimumHeight(220)
+            table.setHorizontalHeaderLabels(
+                ["Año", "Flujo de caja (€)", "Flujo acumulado (€)"]
+            )
+
+            for year, (cash_flow, cumulative_flow) in enumerate(
+                zip(cash_flows, cumulative_flows)
+            ):
+                table.setItem(
+                    year, 0, QTableWidgetItem(str(year))
                 )
-                for column in cash_flow.columns
-            ]
-        )
-
-        for row in range(len(cash_flow)):
-
-            for column in range(len(cash_flow.columns)):
-
-                value = cash_flow.iloc[
-                    row,
-                    column
-                ]
-
-                if isinstance(value, float):
-
-                    text = f"{value:,.2f}"
-
-                else:
-
-                    text = str(value)
-
-                self.cash_flow_table.setItem(
-                    row,
-                    column,
-                    QTableWidgetItem(text)
+                table.setItem(
+                    year, 1,
+                    QTableWidgetItem(f"{cash_flow:,.2f}")
+                )
+                table.setItem(
+                    year, 2,
+                    QTableWidgetItem(f"{cumulative_flow:,.2f}")
                 )
 
-        self.cash_flow_table.resizeColumnsToContents()
+            table.resizeColumnsToContents()
+
+            capacity = recommendation.capacity_kwh
+            npv = recommendation.combined_economic_npv_eur
+            irr = recommendation.combined_economic_irr_percent
+            payback = recommendation.combined_economic_payback_years
+
+            irr_text = f"{irr:.2f} %" if irr == irr and abs(irr) != float("inf") else "N/D"
+            payback_text = (
+                f"{payback:.2f} años"
+                if payback == payback and abs(payback) != float("inf")
+                else "N/D"
+            )
+
+            details = QWidget()
+            details_layout = QVBoxLayout(details)
+            details_layout.addWidget(
+                QLabel(
+                    f"VAN combinado: {npv:,.2f} €    |    "
+                    f"TIR: {irr_text}    |    "
+                    f"Recuperación: {payback_text}"
+                )
+            )
+            details_layout.addWidget(table)
+
+            self.cash_flow_tabs.addTab(
+                details, f"{capacity:g} kWh"
+            )

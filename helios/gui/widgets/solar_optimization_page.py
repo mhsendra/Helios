@@ -2052,7 +2052,7 @@ class SolarOptimizationPage(QWidget):
         result,
         battery_recommendation,
     ) -> None:
-        """Actualiza la inversión total sin duplicar partidas del presupuesto."""
+        """Actualiza la inversión sin duplicar partidas de un presupuesto cerrado."""
 
         cost_configuration = (
             self.project.installation_cost_configuration
@@ -2063,13 +2063,14 @@ class SolarOptimizationPage(QWidget):
                 "No se ha configurado el coste de la instalación FV."
             )
 
+        using_closed_budget = False
+
         try:
             installation_economics = (
                 cost_configuration.build_economic_configuration(
                     result.evaluation
                 )
             )
-
             installation_cost = (
                 installation_economics.installation_cost_eur
             )
@@ -2097,11 +2098,24 @@ class SolarOptimizationPage(QWidget):
                     "presupuesto cerrado válido para la instalación FV."
                 ) from error
 
-            installation_cost = float(installation_cost)
+            # El presupuesto cerrado ya incluye las baterías ofertadas.
+            # La legalización se presupuesta aparte.
+            installation_cost = (
+                float(installation_cost)
+                + cost_configuration.calculate_legalization_cost(
+                    result.evaluation
+                )
+            )
+            using_closed_budget = True
 
         battery_cost = 0.0
 
-        if battery_recommendation is not None:
+        # Solo se añade la batería cuando la inversión procede del
+        # cálculo de catálogo. El presupuesto cerrado ya incluye batería.
+        if (
+            not using_closed_budget
+            and battery_recommendation is not None
+        ):
             battery_cost = (
                 battery_recommendation.capacity_kwh
                 * self._battery_cost_per_kwh_eur()
@@ -2124,7 +2138,6 @@ class SolarOptimizationPage(QWidget):
                     initial_soc=0.10,
                 )
             )
-
             self.project.solar.calculate_energy_balance()
 
         self.project.economics._economic_data = None

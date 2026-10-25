@@ -226,25 +226,33 @@ class EconomicsEngine:
         energy_balance,
         tariff_data,
     ) -> float:
-        """
-        Calculate the annual net electricity cost
-        with photovoltaic generation.
-        """
+        """Calcula el coste eléctrico con FV descontando los excedentes."""
+
+        if not energy_balance.index.equals(tariff_data.index):
+            raise ValueError(
+                "Energy balance and tariff data "
+                "must have the same hourly index."
+            )
 
         data = energy_balance.join(
-            tariff_data[
-                ["buy_price_eur_kwh"]
-            ]
+            tariff_data[["buy_price_eur_kwh"]]
         )
 
-        self.grid_import_cost = (
-            data["grid_import_kwh"]
-            * data["buy_price_eur_kwh"]
-        ).sum()
+        self.grid_import_cost = float(
+            (
+                data["grid_import_kwh"]
+                * data["buy_price_eur_kwh"]
+            ).sum()
+        )
+
+        if self.export_income is None:
+            raise RuntimeError(
+                "Export income must be calculated before "
+                "calculating the cost with PV."
+            )
 
         self.cost_with_pv = (
-            self.grid_import_cost
-            - self.export_income
+            self.grid_import_cost - self.export_income
         )
 
         return self.cost_with_pv

@@ -14,36 +14,20 @@ class SolarReportText:
     def recommended_battery(
         data: SolarReportData,
     ):
-        """
-        Selecciona la batería con mejor VAN conjunto entre las
-        capacidades cuyo VAN incremental de batería es positivo.
-
-        Solo considera recomendaciones con ambos análisis económicos
-        calculados. En caso de empate, prioriza el mayor VAN de batería
-        y, después, la menor capacidad.
-        """
+        """Selecciona la batería con mayor VAN combinado positivo."""
 
         if data is None:
             raise ValueError("report data is required")
 
-        recommendations = data.battery_recommendations
-
-        if not recommendations:
-            return None
-
-        # No interpretar valores económicos predeterminados como
-        # resultados de cálculos que todavía no se han realizado.
-        if not all(
-            recommendation.economic_analysis_calculated
-            and recommendation.combined_economic_analysis_calculated
-            for recommendation in recommendations
-        ):
-            return None
+        recommendations = data.battery_recommendations or []
 
         viable = [
             recommendation
             for recommendation in recommendations
-            if recommendation.economic_npv_eur > 0.0
+            if (
+                recommendation.combined_economic_analysis_calculated
+                and recommendation.combined_economic_npv_eur > 0.0
+            )
         ]
 
         if not viable:
@@ -53,7 +37,6 @@ class SolarReportText:
             viable,
             key=lambda recommendation: (
                 recommendation.combined_economic_npv_eur,
-                recommendation.economic_npv_eur,
                 -recommendation.capacity_kwh,
             ),
         )
@@ -800,10 +783,11 @@ class SolarReportText:
             )
         else:
             text += (
-                " Ninguna de las capacidades de batería evaluadas "
-                "presenta un VAN incremental positivo; no se "
-                "recomienda añadir almacenamiento por rentabilidad "
-                "incremental bajo las hipótesis actuales."
+                " Ninguna de las capacidades evaluadas presenta "
+                "un VAN incremental positivo de batería. Esto no "
+                "determina por sí solo la recomendación global: "
+                "debe evaluarse por separado el VAN conjunto de "
+                "la instalación fotovoltaica y la batería."
             )
 
         # El análisis del VAN conjunto se mantiene separado del

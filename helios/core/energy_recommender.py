@@ -15,6 +15,13 @@ from helios.solar.installation_recommendation import InstallationRecommendation
 from helios.solar.production_profile import SolarProductionProfile
 from helios.solar.balance import SolarBalanceEngine
 
+from helios.solar.battery_economic_model import (
+    BatteryEconomicModel,
+    CombinedEconomicConfiguration,
+)
+from helios.solar.battery_recommendation import (
+    BatteryRecommendation,
+)
 
 class EnergyRecommender:
     """
@@ -92,12 +99,25 @@ class EnergyRecommender:
             combined_economic_configuration = None
 
             if economic_configuration_factory is not None:
-                combined_economic_configuration = (
-                    economic_configuration_factory(
-                        evaluation,
-                        production_profile,
+                try:
+                    combined_economic_configuration = (
+                        economic_configuration_factory(
+                            evaluation,
+                            production_profile,
+                        )
                     )
-                )
+                except ValueError as exc:
+                    # Una candidata sin coste de estructura válido
+                    # no debe impedir evaluar las demás instalaciones.
+                    if (
+                        "falta un coste de estructura aplicable"
+                        in str(exc).lower()
+                    ):
+                        continue
+
+                    # Los errores económicos distintos de este caso
+                    # deben seguir aflorando: no ocultarlos.
+                    raise
 
                 if not isinstance(
                     combined_economic_configuration,
@@ -116,6 +136,10 @@ class EnergyRecommender:
             if (
                 cost_calculator is not None
                 or export_income_calculator is not None
+                or (
+                    optimization_criterion == "combined_npv"
+                    and combined_economic_configuration is not None
+                )
             ):
                 baseline_balance = SolarBalanceEngine.calculate(
                     consumption_scenario,
@@ -172,6 +196,54 @@ class EnergyRecommender:
                 production_profile=production_profile,
             )
 
+            print(
+                "[SELECCIÓN ECONÓMICA]",
+                {
+                    "criterion": optimization_criterion,
+                    "has_combined_configuration": (
+                        combined_economic_configuration is not None
+                    ),
+                    "has_baseline_balance": baseline_balance is not None,
+                    "evaluations_count": len(evaluations),
+                },
+            )
+
+            if (
+                optimization_criterion == "combined_npv"
+                and combined_economic_configuration is not None
+                and baseline_balance is not None
+            ):
+                no_battery_option = (
+                    self._build_no_battery_recommendation(
+                        evaluation=evaluation,
+                        annual_consumption_kwh=(
+                            annual_consumption_kwh
+                        ),
+                        consumption_scenario=consumption_scenario,
+                        production_profile=production_profile,
+                        baseline_balance=baseline_balance,
+                        combined_configuration=(
+                            combined_economic_configuration
+                        ),
+                        ev_scenario=ev_scenario,
+                    )
+                )
+
+                evaluated_options.append(no_battery_option)
+
+                print(
+                    "[OPCIÓN FV SIN BATERÍA AÑADIDA]",
+                    {
+                        "capacity_kwh": (
+                            no_battery_option.battery_recommendation.capacity_kwh
+                        ),
+                        "combined_npv_eur": (
+                            no_battery_option.battery_recommendation
+                            .combined_economic_npv_eur
+                        ),
+                    },
+                )
+
             evaluated_options.append(
                 EnergyRecommendation(
                     installation_recommendation=(
@@ -202,6 +274,120 @@ class EnergyRecommender:
         return replace(
             best_energy_recommendation,
             evaluated_options=tuple(evaluated_options),
+        )
+
+    @staticmethod
+    def _build_no_battery_recommendation(
+        *,
+        evaluation: InstallationEvaluation,
+        annual_consumption_kwh: float,
+        consumption_scenario: ConsumptionScenario,
+        production_profile: SolarProductionProfile,
+        baseline_balance,
+        combined_configuration: CombinedEconomicConfiguration,
+        ev_scenario: EVScenario | None,
+    ) -> EnergyRecommendation:
+        """Construye la alternativa económica FV sin batería."""
+
+        annual_consumption = float(
+            baseline_balance["consumption_kwh"].sum()
+        )
+        annual_production = float(
+            baseline_balance["production_kwh"].sum()
+        )
+        annual_self_consumption = float(
+            baseline_balance["self_consumption_kwh"].sum()
+        )
+        annual_grid_import = float(
+            baseline_balance["grid_import_kwh"].sum()
+        )
+        annual_export = float(
+            baseline_balance["grid_export_kwh"].sum()
+        )
+
+        self_sufficiency = (
+            annual_self_consumption / annual_consumption * 100.0
+            if annual_consumption > 0
+            else 0.0
+        )
+
+        # La alternativa sin batería conserva el coste y los
+        # ahorros FV, pero elimina todos los costes y beneficios
+        # incrementales asociados a la batería.
+        no_battery_configuration = replace(
+            combined_configuration,
+            battery_cost_eur=0.0,
+            annual_battery_additional_savings_eur=0.0,
+            annual_import_savings_eur=0.0,
+            annual_export_compensation_lost_eur=0.0,
+            annual_battery_maintenance_eur=0.0,
+        )
+
+        economic_result = BatteryEconomicModel().calculate_combined(
+            no_battery_configuration
+        )
+
+        print(
+            "[DIAGNÓSTICO FV SIN BATERÍA]",
+            {
+                "installation_cost_eur": (
+                    no_battery_configuration.installation_cost_eur
+                ),
+                "battery_cost_eur": (
+                    no_battery_configuration.battery_cost_eur
+                ),
+                "annual_pv_savings_eur": (
+                    no_battery_configuration.annual_pv_savings_eur
+                ),
+                "annual_pv_self_consumption_savings_eur": (
+                    no_battery_configuration
+                    .annual_pv_self_consumption_savings_eur
+                ),
+                "annual_export_compensation_eur": (
+                    no_battery_configuration
+                    .annual_export_compensation_eur
+                ),
+                "combined_npv_eur": economic_result.npv_eur,
+                "combined_irr_percent": economic_result.irr_percent,
+                "combined_payback_years": economic_result.payback_years,
+            },
+        )
+
+        battery_recommendation = BatteryRecommendation(
+            capacity_kwh=0.0,
+            max_charge_power_kw=0.0,
+            max_discharge_power_kw=0.0,
+            annual_consumption_kwh=annual_consumption,
+            annual_production_kwh=annual_production,
+            annual_surplus_kwh=annual_production - annual_self_consumption,
+            annual_export_kwh=annual_export,
+            annual_grid_import_kwh=annual_grid_import,
+            annual_battery_charge_kwh=0.0,
+            annual_battery_discharge_kwh=0.0,
+            self_consumption_kwh=annual_self_consumption,
+            self_sufficiency_percent=self_sufficiency,
+            equivalent_cycles=0.0,
+            combined_economic_npv_eur=economic_result.npv_eur,
+            combined_economic_irr_percent=economic_result.irr_percent,
+            combined_economic_payback_years=(
+                economic_result.payback_years
+            ),
+            combined_economic_analysis_calculated=True,
+        )
+
+        installation_recommendation = InstallationRecommendation(
+            evaluation=evaluation,
+            annual_consumption_kwh=annual_consumption_kwh,
+            annual_production_kwh=production_profile.annual_production,
+            consumption_scenario=consumption_scenario,
+            production_profile=production_profile,
+        )
+
+        return EnergyRecommendation(
+            installation_recommendation=installation_recommendation,
+            battery_recommendation=battery_recommendation,
+            ev_scenario=ev_scenario,
+            optimization_criterion="combined_npv",
         )
 
     @staticmethod

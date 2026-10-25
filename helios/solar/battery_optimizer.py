@@ -242,6 +242,32 @@ class BatteryOptimizer:
                     - annual_export_income_with_battery_eur
                 )
 
+                if (
+                    annual_import_savings_eur is not None
+                    and annual_export_compensation_lost_eur is not None
+                ):
+                    expected_net_savings = (
+                        annual_import_savings_eur
+                        - annual_export_compensation_lost_eur
+                    )
+
+                    print(
+                        "[AUDITORÍA AHORRO BATERÍA]",
+                        {
+                            "capacity_kwh": capacity,
+                            "net_savings_calculated": annual_additional_savings,
+                            "net_savings_reconstructed": expected_net_savings,
+                            "import_savings": annual_import_savings_eur,
+                            "lost_export_compensation": (
+                                annual_export_compensation_lost_eur
+                            ),
+                            "difference": (
+                                annual_additional_savings
+                                - expected_net_savings
+                            ),
+                        },
+                    )
+
             annual_consumption = float(
                 result["consumption_kwh"].sum()
             )
@@ -399,6 +425,8 @@ class BatteryOptimizer:
             combined_economic_npv_eur = 0.0
             combined_economic_irr_percent = 0.0
             combined_economic_payback_years = float("inf")
+            combined_economic_cash_flows = ()
+            combined_economic_cumulative_cash_flow = ()
 
             if combined_economic_configuration is not None:
                 combined_configuration_for_capacity = replace(
@@ -409,10 +437,46 @@ class BatteryOptimizer:
                     ),
                     annual_import_savings_eur=(
                         annual_import_savings_eur
+                        if annual_import_savings_eur is not None
+                        else combined_economic_configuration.annual_import_savings_eur
                     ),
                     annual_export_compensation_lost_eur=(
                         annual_export_compensation_lost_eur
+                        if annual_export_compensation_lost_eur is not None
+                        else combined_economic_configuration.annual_export_compensation_lost_eur
                     ),
+                )
+
+                print(
+                    "\n[DIAGNÓSTICO ECONÓMICO]",
+                    {
+                        "capacity_kwh": capacity,
+                        "battery_cost_eur": battery_cost_eur,
+                        "annual_additional_savings_eur": annual_additional_savings,
+                        "annual_import_savings_eur": annual_import_savings_eur,
+                        "annual_export_compensation_lost_eur": (
+                            annual_export_compensation_lost_eur
+                        ),
+                        "combined_installation_cost_eur": (
+                            combined_configuration_for_capacity.installation_cost_eur
+                        ),
+                        "combined_battery_cost_eur": (
+                            combined_configuration_for_capacity.battery_cost_eur
+                        ),
+                        "annual_pv_savings_eur": (
+                            combined_configuration_for_capacity.annual_pv_savings_eur
+                        ),
+                        "annual_pv_self_consumption_savings_eur": (
+                            combined_configuration_for_capacity
+                            .annual_pv_self_consumption_savings_eur
+                        ),
+                        "annual_export_compensation_eur": (
+                            combined_configuration_for_capacity
+                            .annual_export_compensation_eur
+                        ),
+                        "years": combined_configuration_for_capacity.years,
+                        "discount_rate": combined_configuration_for_capacity.discount_rate,
+                    },
                 )
 
                 combined_economic_result = (
@@ -420,6 +484,26 @@ class BatteryOptimizer:
                         combined_configuration_for_capacity
                     )
                 )
+
+                incremental_result = BatteryEconomicModel().calculate(
+                    economic_configuration_for_capacity
+                )
+
+                print("\n[COMPARACIÓN FLUJOS 8,3 kWh]")
+                print("VAN incremental:", incremental_result.npv_eur)
+                print("VAN combinado:", combined_economic_result.npv_eur)
+
+                for year, (incremental, combined) in enumerate(
+                    zip(
+                        incremental_result.cash_flows,
+                        combined_economic_result.cash_flows,
+                    )
+                ):
+                    print(
+                        f"Año {year:02d}: "
+                        f"incremental={incremental:,.2f} € | "
+                        f"combinado={combined:,.2f} €"
+                    )
 
                 combined_economic_npv_eur = (
                     combined_economic_result.npv_eur
@@ -431,6 +515,13 @@ class BatteryOptimizer:
                     combined_economic_result.payback_years
                 )
                 combined_economic_analysis_calculated = True
+
+                combined_economic_cash_flows = tuple(
+                    combined_economic_result.cash_flows
+                )
+                combined_economic_cumulative_cash_flow = tuple(
+                    combined_economic_result.cumulative_cash_flow
+                )
 
             recommendations.append(
                 BatteryRecommendation(
@@ -497,6 +588,12 @@ class BatteryOptimizer:
                     ),
                     combined_economic_analysis_calculated=(
                         combined_economic_analysis_calculated
+                    ),
+                    combined_economic_cash_flows=(
+                        combined_economic_cash_flows
+                    ),
+                    combined_economic_cumulative_cash_flow=(
+                        combined_economic_cumulative_cash_flow
                     ),
                 )
             )

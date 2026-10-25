@@ -8,6 +8,8 @@ from helios.solar.installation_coordinator import (
     InstallationCoordinator,
 )
 
+from helios.ev.scenario import EVScenario
+
 from helios.solar.installation_evaluation import (
     InstallationEvaluator,
     InstallationEvaluation, 
@@ -577,15 +579,18 @@ class SolarController:
         self,
         evaluation: InstallationEvaluation,
         installation_cost_configuration: InstallationCostConfiguration,
+        *,
+        allow_closed_budget_fallback: bool = True,
     ) -> float:
         """Calcula la inversión FV sin batería.
 
-        Si el desglose de la estructura está incompleto, utiliza
-        el presupuesto cerrado del proyecto. En ese caso no vuelve
-        a sumar la legalización ni ninguna otra partida al importe
-        cerrado.
-        """
+        El presupuesto cerrado solo puede utilizarse cuando el flujo
+        de cálculo lo autoriza explícitamente.
 
+        En una optimización que compara instalaciones de distintos
+        tamaños, la estructura debe tener un coste calculable para
+        cada candidata.
+        """
         try:
             return (
                 installation_cost_configuration.calculate_installation_cost(
@@ -602,6 +607,14 @@ class SolarController:
                 not in str(error)
             ):
                 raise
+
+            if not allow_closed_budget_fallback:
+                raise ValueError(
+                    "No se puede comparar económicamente esta instalación: "
+                    "falta un coste de estructura aplicable a la candidata. "
+                    "Configura un precio unitario de estructura o un precio "
+                    "específico válido para este número de paneles."
+                ) from error
 
             closed_budget = getattr(
                 self.analyzer.project,
@@ -620,7 +633,12 @@ class SolarController:
                     "y no hay un presupuesto cerrado válido."
                 ) from error
 
-            return float(closed_budget)
+            legalization_cost = (
+                installation_cost_configuration
+                .calculate_legalization_cost(evaluation)
+            )
+
+            return float(closed_budget) + float(legalization_cost)
 
     def _build_combined_economic_configuration(
         self,
@@ -631,23 +649,26 @@ class SolarController:
         installation_cost_configuration: InstallationCostConfiguration,
         ev_scenario: EVScenario | None,
         battery_economic_parameters: BatteryEconomicParameters,
+        allow_closed_budget_fallback: bool = True,
     ) -> CombinedEconomicConfiguration:
+        """Construye la configuración económica de FV sin batería
+        que servirá como base común para comparar las alternativas FV
+        y FV + batería.
         """
-        Construye la configuración económica combinada
-        FV + batería para una instalación candidata.
-
-        Centraliza la lógica económica utilizada por la evaluación
-        de baterías y por la recomendación energética integral.
-
-        No modifica ninguna hipótesis económica: únicamente
-        concentra su construcción en un único punto.
-        """
-
         economics_controller = self.analyzer.economics
-        economics_configuration = (
-            economics_controller.configuration
-        )
+        economics_configuration = economics_controller.configuration
+        project = self.analyzer.project
 
+        if not isinstance(ev_scenario, EVScenario):
+            ev_scenario = None
+
+            if getattr(project, "ev_configuration", None) is not None:
+                candidate_ev_scenario = project.build_ev_scenario()
+
+                if isinstance(candidate_ev_scenario, EVScenario):
+                    ev_scenario = candidate_ev_scenario
+
+        # Balance de referencia: FV sin batería.
         baseline_balance = SolarBalanceEngine.calculate(
             consumption_scenario,
             production_profile,
@@ -655,34 +676,41 @@ class SolarController:
             ev_scenario,
         )
 
+        annual_cost_without_pv = (
+            economics_controller.calculate_cost_without_pv()
+        )
         annual_cost_with_pv = (
-            economics_controller
-            .calculate_cost_with_balance(
+            economics_controller.calculate_cost_with_balance(
                 baseline_balance
             )
         )
-
-        annual_cost_without_pv = (
-            economics_controller
-            .calculate_cost_without_pv()
-        )
-
         annual_pv_savings = (
-            annual_cost_without_pv
-            - annual_cost_with_pv
+            annual_cost_without_pv - annual_cost_with_pv
         )
 
         annual_export_compensation = (
-            economics_controller
-            .calculate_export_income_for_balance(
+            economics_controller.calculate_export_income_for_balance(
                 baseline_balance
             )
         )
-
         annual_self_consumption_savings = (
-            annual_pv_savings
-            - annual_export_compensation
+            annual_pv_savings - annual_export_compensation
         )
+
+        # Determinar si se está recurriendo al presupuesto cerrado.
+        try:
+            installation_cost_configuration.calculate_installation_cost(
+                evaluation
+            )
+            uses_closed_budget = False
+        except ValueError as error:
+            if (
+                "coste de la estructura no está confirmado"
+                not in str(error)
+                or not allow_closed_budget_fallback
+            ):
+                raise
+            uses_closed_budget = True
 
         gross_installation_cost = (
             self._calculate_combined_installation_cost(
@@ -690,9 +718,53 @@ class SolarController:
                 installation_cost_configuration=(
                     installation_cost_configuration
                 ),
+                allow_closed_budget_fallback=(
+                    allow_closed_budget_fallback
+                ),
             )
         )
 
+        # Si el presupuesto cerrado incluye una batería, descontarla
+        # para obtener una base FV sin batería. El optimizador añadirá
+        # después el coste de cada batería candidata.
+        if (
+            uses_closed_budget
+            and getattr(
+                project,
+                "closed_budget_includes_battery",
+                False,
+            )
+        ):
+            reference_capacity = getattr(
+                project,
+                "closed_budget_battery_capacity_kwh",
+                None,
+            )
+
+            if (
+                isinstance(reference_capacity, bool)
+                or not isinstance(reference_capacity, (int, float))
+                or reference_capacity <= 0
+            ):
+                raise ValueError(
+                    "El presupuesto cerrado incluye una batería, "
+                    "pero no tiene una capacidad de referencia válida."
+                )
+
+            reference_battery_cost = (
+                float(reference_capacity)
+                * battery_economic_parameters.cost_per_kwh_eur
+            )
+
+            gross_installation_cost -= reference_battery_cost
+
+            if gross_installation_cost <= 0:
+                raise ValueError(
+                    "El coste de referencia FV sin batería no es válido "
+                    "después de descontar la batería incluida en el presupuesto."
+                )
+
+        # Mantener el tratamiento de subvenciones y deducciones existente.
         net_installation_cost = (
             gross_installation_cost
             - economics_configuration.subsidies
@@ -700,59 +772,37 @@ class SolarController:
         )
 
         return CombinedEconomicConfiguration(
-            installation_cost_eur=(
-                net_installation_cost
-            ),
+            installation_cost_eur=net_installation_cost,
             battery_cost_eur=0.0,
-            annual_pv_savings_eur=(
-                annual_pv_savings
-            ),
+            annual_pv_savings_eur=annual_pv_savings,
             annual_battery_additional_savings_eur=0.0,
-            years=(
-                battery_economic_parameters
-                .lifetime_years
-            ),
+            years=battery_economic_parameters.lifetime_years,
             electricity_price_growth=(
-                economics_configuration
-                .annual_electricity_price_growth
+                economics_configuration.annual_electricity_price_growth
             ),
             pv_initial_degradation=(
-                economics_configuration
-                .first_year_degradation
+                economics_configuration.first_year_degradation
             ),
-            pv_degradation=(
-                economics_configuration
-                .annual_degradation
-            ),
+            pv_degradation=economics_configuration.annual_degradation,
             battery_degradation=(
-                battery_economic_parameters
-                .annual_degradation
+                battery_economic_parameters.annual_degradation
             ),
             annual_pv_maintenance_eur=(
-                economics_configuration
-                .annual_maintenance_cost
+                economics_configuration.annual_maintenance_cost
             ),
             annual_battery_maintenance_eur=(
-                battery_economic_parameters
-                .annual_maintenance_eur
+                battery_economic_parameters.annual_maintenance_eur
             ),
             maintenance_growth=(
-                economics_configuration
-                .annual_maintenance_growth
+                economics_configuration.annual_maintenance_growth
             ),
-            discount_rate=(
-                economics_configuration
-                .discount_rate
-            ),
+            discount_rate=economics_configuration.discount_rate,
             annual_pv_self_consumption_savings_eur=(
                 annual_self_consumption_savings
             ),
-            annual_export_compensation_eur=(
-                annual_export_compensation
-            ),
+            annual_export_compensation_eur=annual_export_compensation,
             export_price_growth=(
-                economics_configuration
-                .annual_export_price_growth
+                economics_configuration.annual_export_price_growth
             ),
         )
 
@@ -822,36 +872,51 @@ class SolarController:
             self.analyzer.economics.configuration
         )
 
+        project = self.analyzer.project
+
+        ev_scenario = None
+        if getattr(project, "ev_configuration", None) is not None:
+            candidate_ev_scenario = project.build_ev_scenario()
+
+            if isinstance(candidate_ev_scenario, EVScenario):
+                ev_scenario = candidate_ev_scenario
+
         # ---------------------------------------------------------
         # Baseline FV without battery
         # ---------------------------------------------------------
 
-        baseline_balance = SolarBalanceEngine.calculate(
-            consumption_scenario,
-            production_profile,
-            None,
-        )
+        if ev_scenario is None:
+            baseline_balance = SolarBalanceEngine.calculate(
+                consumption_scenario,
+                production_profile,
+                None,
+            )
+        else:
+            baseline_balance = SolarBalanceEngine.calculate(
+                consumption_scenario,
+                production_profile,
+                None,
+                ev_scenario,
+            )
 
         annual_cost_with_pv = (
-            economics_controller
-            .calculate_cost_with_balance(
+            economics_controller.calculate_cost_with_balance(
                 baseline_balance
             )
         )
 
-        annual_cost_without_pv = (
-            economics_controller
-            .calculate_cost_without_pv()
-        )
-
-        annual_pv_savings = (
-            annual_cost_without_pv
-            - annual_cost_with_pv
+        annual_export_income_without_battery_eur = (
+            economics_controller.calculate_export_income_for_balance(
+                baseline_balance
+            )
         )
 
         cost_calculator = (
-            economics_controller
-            .calculate_cost_with_balance
+            economics_controller.calculate_cost_with_balance
+        )
+
+        export_income_calculator = (
+            economics_controller.calculate_export_income_for_balance
         )
 
         # ---------------------------------------------------------
@@ -869,6 +934,9 @@ class SolarController:
                 electricity_price_growth=(
                     economics_configuration
                     .annual_electricity_price_growth
+                ),
+                export_price_growth=(
+                    economics_configuration.annual_export_price_growth
                 ),
                 pv_initial_degradation=(
                     economics_configuration
@@ -938,7 +1006,7 @@ class SolarController:
                         installation_cost_configuration=(
                             installation_cost_configuration
                         ),
-                        ev_scenario=None,
+                        ev_scenario=ev_scenario,
                         battery_economic_parameters=(
                             battery_economic_parameters
                         ),
@@ -996,6 +1064,10 @@ class SolarController:
                 combined_economic_configuration=(
                     combined_economic_configuration
                 ),
+                annual_export_income_without_battery_eur=(
+                    annual_export_income_without_battery_eur
+                ),
+                export_income_calculator=export_income_calculator,
             )
         )
 
@@ -1183,6 +1255,10 @@ class SolarController:
         La decisión integral se delega en
         InstallationCoordinator.recommend_energy().
         """
+        print(
+            "[TRAZA] SolarController.recommend_energy ENTRADA",
+            flush=True,
+        )
 
         if not isinstance(
             configuration,
@@ -1275,8 +1351,8 @@ class SolarController:
         # Factory económica específica para cada instalación.
         # --------------------------------------------------
 
-        battery_economic_parameters = (
-            BatteryEconomicParameters()
+        battery_economic_parameters = BatteryEconomicParameters(
+            cost_per_kwh_eur=battery_cost_per_kwh_eur,
         )
 
         def economic_configuration_factory(
@@ -1295,6 +1371,7 @@ class SolarController:
                     battery_economic_parameters=(
                         battery_economic_parameters
                     ),
+                    allow_closed_budget_fallback=False,
                 )
             )
 
@@ -1315,6 +1392,17 @@ class SolarController:
             production_calculator=(
                 production_calculator.calculate
             ),
+        )
+
+        print(
+            "[TRAZA] Llamando a coordinator.recommend_energy",
+            {
+                "optimization_criterion": optimization_criterion,
+                "has_economic_configuration_factory": (
+                    economic_configuration_factory is not None
+                ),
+            },
+            flush=True,
         )
 
         result = coordinator.recommend_energy(

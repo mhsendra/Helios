@@ -11,6 +11,7 @@ from helios.ev.scenario import EVScenario
 
 from helios.solar.balance import SolarBalanceEngine
 from helios.solar.battery_economic_model import (
+    BatteryEconomicModel,
     CombinedEconomicConfiguration,
 )
 from helios.solar.battery_optimizer import (
@@ -1277,6 +1278,209 @@ class TestEnergyRecommender:
             is export_income_calculator
         )
         assert balance_calls == [None]
+
+    def test_combined_npv_can_select_pv_without_battery(self):
+        consumption = _consumption_scenario()
+
+        evaluation = _evaluation(
+            panel_count=15,
+            installed_power_kwp=8.1,
+        )
+
+        profile = _production_profile(
+            installed_power_kwp=8.1,
+            annual_production_kwh=12_000.0,
+        )
+
+        optimizer = FakeBatteryOptimizer(
+            {
+                8.1: _battery_recommendation(
+                    capacity_kwh=8.3,
+                    combined_npv_eur=-1_000.0,
+                )
+            }
+        )
+
+        economic_configuration = CombinedEconomicConfiguration(
+            installation_cost_eur=10_000.0,
+            battery_cost_eur=0.0,
+            annual_pv_savings_eur=1_000.0,
+            annual_battery_additional_savings_eur=0.0,
+            years=25,
+            annual_pv_maintenance_eur=0.0,
+            discount_rate=0.05,
+        )
+
+        recommender = EnergyRecommender(
+            battery_optimizer=optimizer,
+        )
+
+        result = recommender.recommend(
+            evaluations=[evaluation],
+            annual_consumption_kwh=8_760.0,
+            consumption_scenario=consumption,
+            production_profiles={15: profile},
+            candidate_capacities_kwh=[8.3],
+            max_charge_power_kw=5.0,
+            max_discharge_power_kw=5.0,
+            optimization_criterion="combined_npv",
+            economic_configuration_factory=(
+                lambda evaluation, production_profile:
+                    economic_configuration
+            ),
+        )
+
+        assert result.battery_capacity_kwh == pytest.approx(0.0)
+        assert result.combined_economic_npv_eur > -1_000.0
+        assert any(
+            option.battery_capacity_kwh == pytest.approx(0.0)
+            for option in result.evaluated_options
+        )
+        assert any(
+            option.battery_capacity_kwh == pytest.approx(8.3)
+            for option in result.evaluated_options
+        )
+
+    def test_no_battery_option_preserves_pv_savings_breakdown(self):
+        consumption = _consumption_scenario()
+        evaluation = _evaluation(15, 8.1)
+        profile = _production_profile(8.1, 12000.0)
+
+        baseline_balance = pd.DataFrame(
+            {
+                "consumption_kwh": [11000.0],
+                "production_kwh": [12000.0],
+                "self_consumption_kwh": [9000.0],
+                "grid_import_kwh": [2000.0],
+                "grid_export_kwh": [3000.0],
+            }
+        )
+
+        configuration = CombinedEconomicConfiguration(
+            installation_cost_eur=14000.0,
+            battery_cost_eur=3500.0,
+            annual_pv_savings_eur=1000.0,
+            annual_battery_additional_savings_eur=250.0,
+            annual_pv_self_consumption_savings_eur=800.0,
+            annual_export_compensation_eur=200.0,
+            annual_import_savings_eur=300.0,
+            annual_export_compensation_lost_eur=50.0,
+            annual_pv_maintenance_eur=0.0,
+            annual_battery_maintenance_eur=100.0,
+            electricity_price_growth=0.02,
+            export_price_growth=0.0,
+        )
+
+        result = EnergyRecommender._build_no_battery_recommendation(
+            evaluation=evaluation,
+            annual_consumption_kwh=11000.0,
+            consumption_scenario=consumption,
+            production_profile=profile,
+            baseline_balance=baseline_balance,
+            combined_configuration=configuration,
+            ev_scenario=None,
+        )
+
+        no_battery_configuration = replace(
+            configuration,
+            battery_cost_eur=0.0,
+            annual_battery_additional_savings_eur=0.0,
+            annual_import_savings_eur=0.0,
+            annual_export_compensation_lost_eur=0.0,
+            annual_battery_maintenance_eur=0.0,
+        )
+
+        expected = BatteryEconomicModel().calculate_combined(
+            no_battery_configuration
+        )
+
+        assert result.battery_capacity_kwh == 0.0
+        assert result.battery_recommendation.combined_economic_npv_eur == pytest.approx(
+            expected.npv_eur
+        )
+        assert result.battery_recommendation.annual_export_kwh == pytest.approx(
+            3000.0
+        )
+        assert result.battery_recommendation.annual_grid_import_kwh == pytest.approx(
+            2000.0
+        )
+
+    def test_recommend_skips_installation_without_structure_cost(
+        self,
+    ):
+        evaluations = [
+            _evaluation(
+                panel_count=10,
+                installed_power_kwp=5.4,
+            ),
+            _evaluation(
+                panel_count=15,
+                installed_power_kwp=8.1,
+            ),
+        ]
+
+        production_profiles = {
+            10: _production_profile(5.4, 8000.0),
+            15: _production_profile(8.1, 12000.0),
+        }
+
+        factory_calls = []
+
+        def economic_configuration_factory(
+            evaluation,
+            production_profile,
+        ):
+            factory_calls.append(evaluation.panel_count)
+
+            if evaluation.panel_count == 10:
+                raise ValueError(
+                    "No se puede comparar económicamente "
+                    "esta instalación: falta un coste de "
+                    "estructura aplicable a la candidata."
+                )
+
+            return CombinedEconomicConfiguration(
+                installation_cost_eur=14000.0,
+                battery_cost_eur=0.0,
+                annual_pv_savings_eur=1800.0,
+                annual_battery_additional_savings_eur=0.0,
+            )
+
+        optimizer = FakeBatteryOptimizer(
+            {
+                8.1: _battery_recommendation(
+                    capacity_kwh=8.3,
+                    combined_npv_eur=2000.0,
+                ),
+            }
+        )
+
+        recommender = EnergyRecommender(
+            battery_optimizer=optimizer,
+        )
+
+        result = recommender.recommend(
+            evaluations=evaluations,
+            annual_consumption_kwh=8760.0,
+            consumption_scenario=_consumption_scenario(),
+            production_profiles=production_profiles,
+            candidate_capacities_kwh=[5.0, 8.3],
+            max_charge_power_kw=5.0,
+            max_discharge_power_kw=5.0,
+            economic_configuration_factory=(
+                economic_configuration_factory
+            ),
+            optimization_criterion="combined_npv",
+        )
+
+        assert factory_calls == [10, 15]
+        assert len(optimizer.calls) == 1
+        assert (
+            optimizer.calls[0]["production_profile"]
+            is production_profiles[15]
+        )
+        assert result.panel_count == 15
+        assert result.installed_power_kwp == pytest.approx(8.1)
 
 @pytest.mark.parametrize(
     "optimization_criterion",
