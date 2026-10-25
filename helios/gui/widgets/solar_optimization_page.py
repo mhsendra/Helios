@@ -1767,6 +1767,23 @@ class SolarOptimizationPage(QWidget):
                     "no_battery_economic_result",
                     None,
                 )
+                no_battery_npv = getattr(
+                    no_battery_result,
+                    "npv_eur",
+                    None,
+                )
+                no_battery_irr = getattr(
+                    no_battery_result,
+                    "irr_percent",
+                    None,
+                )
+                if (
+                    isinstance(no_battery_npv, bool)
+                    or not isinstance(no_battery_npv, (int, float))
+                    or isinstance(no_battery_irr, bool)
+                    or not isinstance(no_battery_irr, (int, float))
+                ):
+                    no_battery_result = None
 
                 # La alternativa FV sin batería debe competir con las
                 # alternativas FV + batería usando el mismo VAN combinado.
