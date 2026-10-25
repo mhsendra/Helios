@@ -85,12 +85,22 @@ def test_default_catalog_contains_identified_auxiliary_costs():
     ):
         assert costs[cost_id].basis == "fixed"
 
-def test_default_catalog_does_not_invent_battery_or_mounting_prices():
+def test_default_catalog_keeps_battery_price_unknown_and_uses_only_confirmed_mounting_quote():
     catalog = build_default_component_catalog()
 
     assert catalog.batteries == ()
-    assert catalog.mounting_systems == ()
-    assert catalog.mounting_packages == ()
+    assert len(catalog.mounting_systems) == 1
+    assert catalog.get_mounting_system("mounting-arabic-tile").price_per_panel_eur is None
+    assert len(catalog.mounting_packages) == 2
+
+    selection_packages = {
+        package.id: package
+        for package in catalog.mounting_packages
+    }
+    assert selection_packages["mounting-arabic-tile-3-panel"].total_price_eur == pytest.approx(291.00)
+    assert selection_packages["mounting-arabic-tile-2-panel"].total_price_eur == pytest.approx(101.27)
+    assert sum(package.total_price_eur for package in catalog.mounting_packages) == pytest.approx(392.27)
+    assert sum(package.total_panel_capacity for package in catalog.mounting_packages) == 16
 
 
 def test_default_catalog_uses_unique_identifiers():
@@ -128,7 +138,7 @@ def test_default_catalog_calculates_net_prices_from_list_prices():
     assert inverter.discount_1_percent == pytest.approx(40.0)
     assert inverter.discount_2_percent == pytest.approx(1.5)
 
-def test_default_catalog_contains_cables_and_no_mounting_prices():
+def test_default_catalog_contains_cables_and_does_not_extrapolate_mounting_prices():
     catalog = build_default_component_catalog()
 
     costs = {
@@ -136,8 +146,8 @@ def test_default_catalog_contains_cables_and_no_mounting_prices():
         for item in catalog.auxiliary_costs
     }
 
-    assert catalog.mounting_systems == ()
-    assert catalog.mounting_packages == ()
+    assert catalog.get_mounting_system("mounting-arabic-tile").price_per_panel_eur is None
+    assert len(catalog.mounting_packages) == 2
 
     red_cable = costs["solar_cabling_red"]
     black_cable = costs["solar_cabling_black"]
