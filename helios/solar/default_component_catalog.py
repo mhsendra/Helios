@@ -54,6 +54,39 @@ def build_default_component_catalog() -> ComponentCatalog:
         discount_2_percent=DISCOUNT_2_PREMIUM_PERCENT,
     )
 
+    # Only the 15-panel Arabic-tile roof package has a confirmed price.
+    # Do not extrapolate this quote to other panel counts.
+    mounting_system = MountingSystem(
+        id="mounting-arabic-tile",
+        manufacturer="Sistema de montaje",
+        model="Teja árabe (tarifa por paquete)",
+        price_per_panel_eur=None,
+        compatible_roof_types=("teja_arabe",),
+    )
+
+    mounting_packages = (
+        MountingSystemPackage(
+            id="mounting-arabic-tile-3-panel",
+            mounting_system_id=mounting_system.id,
+            model="Soporte para 3 paneles",
+            panel_capacity=3,
+            quantity=4,
+            unit_price_eur=125.00,
+            discount_1_percent=40.0,
+            discount_2_percent=3.0,
+        ),
+        MountingSystemPackage(
+            id="mounting-arabic-tile-2-panel",
+            mounting_system_id=mounting_system.id,
+            model="Soporte para 2 paneles",
+            panel_capacity=2,
+            quantity=2,
+            unit_price_eur=87.00,
+            discount_1_percent=40.0,
+            discount_2_percent=3.0,
+        ),
+    )
+
     auxiliary_costs = (
         AuxiliaryCostItem(
             id="electrical_protection_dc",
@@ -129,7 +162,7 @@ def build_default_component_catalog() -> ComponentCatalog:
         panels=(panel,),
         inverters=(inverter,),
         batteries=(),
-        mounting_systems=(),
+        mounting_systems=(mounting_system,),
         auxiliary_costs=auxiliary_costs,
-        mounting_packages=(),
+        mounting_packages=mounting_packages,
     )
