@@ -8,6 +8,8 @@ from helios.solar.installation_coordinator import (
     InstallationCoordinator,
 )
 
+from helios.core.combined_demand import CombinedDemandBuilder
+
 from helios.ev.scenario import EVScenario
 
 from helios.solar.installation_evaluation import (
@@ -579,66 +581,76 @@ class SolarController:
         self,
         evaluation: InstallationEvaluation,
         installation_cost_configuration: InstallationCostConfiguration,
-        *,
-        allow_closed_budget_fallback: bool = True,
     ) -> float:
-        """Calcula la inversión FV sin batería.
+        """Calcula el coste de la instalación FV sin batería.
 
-        El presupuesto cerrado solo puede utilizarse cuando el flujo
-        de cálculo lo autoriza explícitamente.
-
-        En una optimización que compara instalaciones de distintos
-        tamaños, la estructura debe tener un coste calculable para
-        cada candidata.
+        No utiliza presupuestos cerrados como sustituto de los costes
+        específicos de la instalación candidata.
         """
         try:
-            return (
+            installation_cost = (
                 installation_cost_configuration.calculate_installation_cost(
                     evaluation
                 )
-                + installation_cost_configuration.calculate_legalization_cost(
-                    evaluation
-                )
+            )
+        except ValueError as error:
+            print(
+                "[DIAGNÓSTICO ESTRUCTURA] Error original:",
+                repr(error),
+            )
+            print(
+                "[DIAGNÓSTICO ESTRUCTURA] Configuración:",
+                {
+                    "mounting_system_id":
+                        installation_cost_configuration.mounting_system_id,
+                    "mounting_packages":
+                        [
+                            (
+                                package.id,
+                                package.mounting_system_id,
+                                package.panel_capacity,
+                                package.net_unit_price_eur,
+                            )
+                            for package
+                            in installation_cost_configuration.mounting_packages
+                        ],
+                    "structure_unit_cost_eur":
+                        installation_cost_configuration.structure_unit_cost_eur,
+                    "structure_package_cost_eur":
+                        installation_cost_configuration.structure_package_cost_eur,
+                    "structure_package_panel_count":
+                        installation_cost_configuration.structure_package_panel_count,
+                },
+            )
+            print(
+                "[DIAGNÓSTICO ESTRUCTURA] Geometría:",
+                {
+                    "panel_count": evaluation.panel_count,
+                    "layout": repr(getattr(evaluation, "layout", None)),
+                },
             )
 
-        except ValueError as error:
             if (
                 "coste de la estructura no está confirmado"
+                not in str(error)
+                and "No hay una combinación de kits de montaje"
                 not in str(error)
             ):
                 raise
 
-            if not allow_closed_budget_fallback:
-                raise ValueError(
-                    "No se puede comparar económicamente esta instalación: "
-                    "falta un coste de estructura aplicable a la candidata. "
-                    "Configura un precio unitario de estructura o un precio "
-                    "específico válido para este número de paneles."
-                ) from error
+            raise ValueError(
+                "No se puede comparar económicamente esta instalación: "
+                "falta un coste de estructura aplicable a la candidata. "
+                "Configura un precio de estructura válido para su geometría."
+            ) from error
 
-            closed_budget = getattr(
-                self.analyzer.project,
-                "closed_installation_cost_eur",
-                None,
+        legalization_cost = (
+            installation_cost_configuration.calculate_legalization_cost(
+                evaluation
             )
+        )
 
-            if (
-                isinstance(closed_budget, bool)
-                or not isinstance(closed_budget, (int, float))
-                or closed_budget <= 0
-            ):
-                raise ValueError(
-                    "No se puede evaluar la inversión combinada: "
-                    "falta confirmar el coste de la estructura "
-                    "y no hay un presupuesto cerrado válido."
-                ) from error
-
-            legalization_cost = (
-                installation_cost_configuration
-                .calculate_legalization_cost(evaluation)
-            )
-
-            return float(closed_budget) + float(legalization_cost)
+        return float(installation_cost + legalization_cost)
 
     def _build_combined_economic_configuration(
         self,
@@ -649,7 +661,6 @@ class SolarController:
         installation_cost_configuration: InstallationCostConfiguration,
         ev_scenario: EVScenario | None,
         battery_economic_parameters: BatteryEconomicParameters,
-        allow_closed_budget_fallback: bool = True,
     ) -> CombinedEconomicConfiguration:
         """Construye la configuración económica de FV sin batería
         que servirá como base común para comparar las alternativas FV
@@ -676,14 +687,33 @@ class SolarController:
             ev_scenario,
         )
 
-        annual_cost_without_pv = (
-            economics_controller.calculate_cost_without_pv()
-        )
+        # El coste de referencia sin FV debe representar la misma
+        # demanda que el balance FV, incluida la del vehículo eléctrico.
+        if ev_scenario is not None:
+            reference_consumption_scenario = (
+                CombinedDemandBuilder.build(
+                    consumption_scenario,
+                    ev_scenario,
+                )
+            )
+
+            annual_cost_without_pv = (
+                economics_controller.calculate_cost_without_pv(
+                    reference_consumption_scenario
+                )
+            )
+        else:
+            # Conserva el comportamiento actual sin vehículo eléctrico.
+            annual_cost_without_pv = (
+                economics_controller.calculate_cost_without_pv()
+            )
+
         annual_cost_with_pv = (
             economics_controller.calculate_cost_with_balance(
                 baseline_balance
             )
         )
+
         annual_pv_savings = (
             annual_cost_without_pv - annual_cost_with_pv
         )
@@ -693,24 +723,10 @@ class SolarController:
                 baseline_balance
             )
         )
+
         annual_self_consumption_savings = (
             annual_pv_savings - annual_export_compensation
         )
-
-        # Determinar si se está recurriendo al presupuesto cerrado.
-        try:
-            installation_cost_configuration.calculate_installation_cost(
-                evaluation
-            )
-            uses_closed_budget = False
-        except ValueError as error:
-            if (
-                "coste de la estructura no está confirmado"
-                not in str(error)
-                or not allow_closed_budget_fallback
-            ):
-                raise
-            uses_closed_budget = True
 
         gross_installation_cost = (
             self._calculate_combined_installation_cost(
@@ -718,51 +734,8 @@ class SolarController:
                 installation_cost_configuration=(
                     installation_cost_configuration
                 ),
-                allow_closed_budget_fallback=(
-                    allow_closed_budget_fallback
-                ),
             )
         )
-
-        # Si el presupuesto cerrado incluye una batería, descontarla
-        # para obtener una base FV sin batería. El optimizador añadirá
-        # después el coste de cada batería candidata.
-        if (
-            uses_closed_budget
-            and getattr(
-                project,
-                "closed_budget_includes_battery",
-                False,
-            )
-        ):
-            reference_capacity = getattr(
-                project,
-                "closed_budget_battery_capacity_kwh",
-                None,
-            )
-
-            if (
-                isinstance(reference_capacity, bool)
-                or not isinstance(reference_capacity, (int, float))
-                or reference_capacity <= 0
-            ):
-                raise ValueError(
-                    "El presupuesto cerrado incluye una batería, "
-                    "pero no tiene una capacidad de referencia válida."
-                )
-
-            reference_battery_cost = (
-                float(reference_capacity)
-                * battery_economic_parameters.cost_per_kwh_eur
-            )
-
-            gross_installation_cost -= reference_battery_cost
-
-            if gross_installation_cost <= 0:
-                raise ValueError(
-                    "El coste de referencia FV sin batería no es válido "
-                    "después de descontar la batería incluida en el presupuesto."
-                )
 
         # Mantener el tratamiento de subvenciones y deducciones existente.
         net_installation_cost = (
@@ -1068,6 +1041,7 @@ class SolarController:
                     annual_export_income_without_battery_eur
                 ),
                 export_income_calculator=export_income_calculator,
+                ev_scenario=ev_scenario,
             )
         )
 
@@ -1371,7 +1345,6 @@ class SolarController:
                     battery_economic_parameters=(
                         battery_economic_parameters
                     ),
-                    allow_closed_budget_fallback=False,
                 )
             )
 

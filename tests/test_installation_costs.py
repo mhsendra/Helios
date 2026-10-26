@@ -16,6 +16,8 @@ from helios.solar.installation_layout import (
     InstallationLayout,
 )
 
+from helios.solar.components_catalog import MountingSystemPackage
+
 from helios.solar.default_component_catalog import (
     build_default_component_catalog,
 )
@@ -544,3 +546,105 @@ def test_from_selection_maps_cabling_and_protection_costs_once():
     assert configuration.calculate_unmapped_auxiliary_cost(
         evaluation
     ) == pytest.approx(0.0)
+
+def test_dynamic_structure_cost_uses_cheapest_mounting_packages():
+    packages = (
+        MountingSystemPackage(
+            id="kit-1",
+            mounting_system_id="sunfer-test",
+            model="Kit 1 panel",
+            panel_capacity=1,
+            quantity=1,
+            unit_price_eur=60.0,
+        ),
+        MountingSystemPackage(
+            id="kit-2",
+            mounting_system_id="sunfer-test",
+            model="Kit 2 paneles",
+            panel_capacity=2,
+            quantity=1,
+            unit_price_eur=90.0,
+        ),
+        MountingSystemPackage(
+            id="kit-3",
+            mounting_system_id="sunfer-test",
+            model="Kit 3 paneles",
+            panel_capacity=3,
+            quantity=1,
+            unit_price_eur=110.0,
+        ),
+        MountingSystemPackage(
+            id="kit-5",
+            mounting_system_id="sunfer-test",
+            model="Kit 5 paneles",
+            panel_capacity=5,
+            quantity=1,
+            unit_price_eur=150.0,
+        ),
+    )
+
+    configuration = InstallationCostConfiguration(
+        panel_unit_cost_eur=100.0,
+        structure_unit_cost_eur=None,
+        mounting_packages=packages,
+        mounting_system_id="sunfer-test",
+    )
+
+    assert configuration.calculate_structure_cost(
+        _evaluation(panel_count=15, rows=3, columns=5),
+    ) == pytest.approx(450.0)
+
+
+def test_dynamic_structure_cost_splits_vertical_walkway():
+    packages = (
+        MountingSystemPackage(
+            id="kit-2",
+            mounting_system_id="sunfer-test",
+            model="Kit 2 paneles",
+            panel_capacity=2,
+            quantity=1,
+            unit_price_eur=90.0,
+        ),
+        MountingSystemPackage(
+            id="kit-3",
+            mounting_system_id="sunfer-test",
+            model="Kit 3 paneles",
+            panel_capacity=3,
+            quantity=1,
+            unit_price_eur=110.0,
+        ),
+    )
+
+    layout = InstallationLayout(
+        rows=3,
+        columns=5,
+        panel_width_m=1.134,
+        panel_height_m=2.278,
+        orientation="vertical",
+        walkway_width_m=0.5,
+        walkway_position="vertical",
+    )
+
+    candidate = InstallationCandidate(
+        panel_count=15,
+        panel_power_wp=540.0,
+        panel_area_m2=2.58,
+    )
+
+    evaluation = InstallationEvaluation(
+        candidate=candidate,
+        available_area_m2=100.0,
+        layout=layout,
+    )
+
+    configuration = InstallationCostConfiguration(
+        panel_unit_cost_eur=100.0,
+        structure_unit_cost_eur=None,
+        mounting_packages=packages,
+        mounting_system_id="sunfer-test",
+    )
+
+    # Cada fila se divide en dos tramos: 2 + 3 paneles.
+    assert configuration.calculate_structure_cost(
+        evaluation,
+    ) == pytest.approx(600.0)

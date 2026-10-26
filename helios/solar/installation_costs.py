@@ -13,7 +13,10 @@ from helios.solar.installation_evaluation import (
 )
 
 if TYPE_CHECKING:
-    from helios.solar.components_catalog import AuxiliaryCostItem
+    from helios.solar.components_catalog import (
+        AuxiliaryCostItem,
+        MountingSystemPackage,
+    )
     from helios.solar.installation_component_selection import (
         InstallationComponentSelection,
     )
@@ -44,6 +47,8 @@ class InstallationCostConfiguration:
     auxiliary_cost_categories: tuple[tuple[str, str], ...] = ()
     structure_package_cost_eur: float | None = None
     structure_package_panel_count: int | None = None
+    mounting_packages: tuple["MountingSystemPackage", ...] = ()
+    mounting_system_id: str | None = None
 
     _VALID_AUXILIARY_CATEGORIES = frozenset({
         "installation",
@@ -154,6 +159,49 @@ class InstallationCostConfiguration:
                     "auxiliary_panel_area_m2 must be greater than zero."
                 )
 
+        if not isinstance(self.mounting_packages, tuple):
+            raise TypeError("mounting_packages must be a tuple.")
+
+        if self.mounting_system_id is not None and (
+            not isinstance(self.mounting_system_id, str)
+            or not self.mounting_system_id.strip()
+        ):
+            raise ValueError(
+                "mounting_system_id must be None or a non-empty string."
+            )
+
+        package_ids: set[str] = set()
+
+        for package in self.mounting_packages:
+            if (
+                not hasattr(package, "id")
+                or not hasattr(package, "mounting_system_id")
+                or not hasattr(package, "panel_capacity")
+                or not hasattr(package, "net_unit_price_eur")
+            ):
+                raise TypeError(
+                    "Every mounting package must be a MountingSystemPackage."
+                )
+
+            if package.id in package_ids:
+                raise ValueError(
+                    f"Duplicate mounting package identifier: {package.id}"
+                )
+
+            package_ids.add(package.id)
+
+            if package.mounting_system_id != self.mounting_system_id:
+                raise ValueError(
+                    "All mounting packages must belong to the selected "
+                    "mounting system."
+                )
+
+        if self.mounting_packages and self.mounting_system_id is None:
+            raise ValueError(
+                "mounting_system_id is required when mounting packages "
+                "are configured."
+            )
+
     @staticmethod
     def _validate_non_negative_number(name: str, value: float) -> None:
         if isinstance(value, bool) or not isinstance(value, (int, float)):
@@ -234,7 +282,10 @@ class InstallationCostConfiguration:
             panel_unit_cost_eur=float(selection.panel.price_eur),
             structure_unit_cost_eur=(
                 float(selection.mounting_system.price_per_panel_eur)
-                if selection.mounting_system is not None
+                if (
+                    selection.mounting_system is not None
+                    and selection.mounting_system.price_per_panel_eur is not None
+                )
                 else None
             ),
             installation_cost_eur=category_totals["installation"],
@@ -257,6 +308,18 @@ class InstallationCostConfiguration:
                 if has_packages
                 else None
             ),
+            mounting_packages=(
+                tuple(
+                    package
+                    for package in selection.catalog.mounting_packages
+                    if (
+                        selection.mounting_system_id is not None
+                        and package.mounting_system_id
+                        == selection.mounting_system_id
+                    )
+                )
+            ),
+            mounting_system_id=selection.mounting_system_id,
         )
 
     def calculate_panel_cost(self, panel_count: int) -> float:
@@ -267,29 +330,101 @@ class InstallationCostConfiguration:
             raise ValueError("panel_count must be greater than zero.")
         return float(panel_count * self.panel_unit_cost_eur)
 
+    def _minimum_mounting_segment_cost(
+        self,
+        panel_count: int,
+    ) -> float:
+        """Calcula el coste mínimo de kits para cubrir exactamente N paneles."""
+
+        if isinstance(panel_count, bool) or not isinstance(panel_count, int):
+            raise TypeError("panel_count must be an integer.")
+
+        if panel_count <= 0:
+            raise ValueError("panel_count must be greater than zero.")
+
+        # Programación dinámica: coste mínimo para cada número de paneles.
+        costs: list[float] = [0.0] + [float("inf")] * panel_count
+
+        for count in range(1, panel_count + 1):
+            for package in self.mounting_packages:
+                capacity = package.panel_capacity
+
+                if capacity <= count:
+                    previous_cost = costs[count - capacity]
+
+                    if math.isfinite(previous_cost):
+                        costs[count] = min(
+                            costs[count],
+                            previous_cost + package.net_unit_price_eur,
+                        )
+
+        if not math.isfinite(costs[panel_count]):
+            raise ValueError(
+                "No hay una combinación de kits de montaje para cubrir "
+                f"exactamente un tramo de {panel_count} paneles."
+            )
+
+        return float(costs[panel_count])
+
     def calculate_structure_cost(
         self,
         evaluation: InstallationEvaluation,
     ) -> float:
-        """Calcula el coste de estructura si existe un precio confirmado."""
+        """Calcula el coste de estructura según selección y geometría."""
 
         self._validate_evaluation(evaluation)
 
-        if (
-            self.structure_package_cost_eur is not None
-            and evaluation.panel_count == self.structure_package_panel_count
-        ):
-            return float(self.structure_package_cost_eur)
+        # 1. El paquete comercial solo se aplica a su número de paneles.
+        if self.structure_package_cost_eur is not None:
+            if evaluation.panel_count == self.structure_package_panel_count:
+                return float(self.structure_package_cost_eur)
 
-        if self.structure_unit_cost_eur is None:
-            raise ValueError(
-                "El coste de la estructura no está confirmado. "
-                "No se puede calcular la inversión económica "
-                "hasta disponer de un precio de montaje."
+        # 2. Si existen kits, calcular el coste mínimo con ellos.
+        if self.mounting_packages:
+            layout = evaluation.layout
+
+            if layout is None:
+                raise ValueError(
+                    "La geometría de la instalación es necesaria para "
+                    "calcular el coste de estructura por kits."
+                )
+
+            if layout.panel_count != evaluation.panel_count:
+                raise ValueError(
+                    "La geometría de la instalación no coincide con "
+                    "el número de paneles evaluado."
+                )
+
+            if layout.walkway_position == "vertical":
+                left_columns = layout.columns // 2
+                right_columns = layout.columns - left_columns
+
+                # El coste se calcula por fila: cada fila necesita sus
+                # propios kits para los tramos a ambos lados del pasillo.
+                cost_per_row = (
+                    self._minimum_mounting_segment_cost(left_columns)
+                    + self._minimum_mounting_segment_cost(right_columns)
+                )
+
+                return float(layout.rows * cost_per_row)
+
+            return float(
+                self._minimum_mounting_segment_cost(
+                    evaluation.panel_count
+                )
             )
 
-        return float(
-            evaluation.panel_count * self.structure_unit_cost_eur
+        # 3. Sin kits disponibles, utilizar el precio unitario confirmado.
+        if self.structure_unit_cost_eur is not None:
+            return float(
+                evaluation.panel_count * self.structure_unit_cost_eur
+            )
+
+        # 4. No hay un coste aplicable a esta candidata.
+        raise ValueError(
+            "El coste de la estructura no está confirmado. "
+            "No se puede calcular la inversión económica "
+            "hasta disponer de un precio de montaje."
         )
 
     def calculate_installation_service_cost(

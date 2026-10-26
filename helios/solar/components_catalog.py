@@ -248,10 +248,11 @@ class MountingSystem:
         for name in ("id", "manufacturer", "model"):
             _validate_text(name, getattr(self, name))
 
-        _validate_non_negative(
-            "price_per_panel_eur",
-            self.price_per_panel_eur,
-        )
+        if self.price_per_panel_eur is not None:
+            _validate_non_negative(
+                "price_per_panel_eur",
+                self.price_per_panel_eur,
+            )
 
         if not self.compatible_roof_types:
             raise ValueError(

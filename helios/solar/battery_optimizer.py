@@ -200,13 +200,12 @@ class BatteryOptimizer:
             else:
                 annual_cost_with_battery = 0.0
 
-            if annual_cost_without_battery_eur is not None:
-                annual_additional_savings = (
-                    annual_cost_without_battery_eur
-                    - annual_cost_with_battery
-                )
-            else:
-                annual_additional_savings = 0.0
+            annual_additional_savings = (
+                annual_cost_without_battery_eur
+                - annual_cost_with_battery
+                if annual_cost_without_battery_eur is not None
+                else 0.0
+            )
 
             annual_import_savings_eur = None
             annual_export_compensation_lost_eur = None
@@ -242,31 +241,26 @@ class BatteryOptimizer:
                     - annual_export_income_with_battery_eur
                 )
 
-                if (
-                    annual_import_savings_eur is not None
-                    and annual_export_compensation_lost_eur is not None
-                ):
-                    expected_net_savings = (
-                        annual_import_savings_eur
-                        - annual_export_compensation_lost_eur
-                    )
+                annual_additional_savings = (
+                    annual_import_savings_eur
+                    - annual_export_compensation_lost_eur
+                )
 
-                    print(
-                        "[AUDITORÍA AHORRO BATERÍA]",
-                        {
-                            "capacity_kwh": capacity,
-                            "net_savings_calculated": annual_additional_savings,
-                            "net_savings_reconstructed": expected_net_savings,
-                            "import_savings": annual_import_savings_eur,
-                            "lost_export_compensation": (
-                                annual_export_compensation_lost_eur
-                            ),
-                            "difference": (
-                                annual_additional_savings
-                                - expected_net_savings
-                            ),
-                        },
-                    )
+                print(
+                    "[AUDITORÍA AHORRO BATERÍA]",
+                    {
+                        "capacity_kwh": capacity,
+                        "gross_import_savings_eur": (
+                            annual_import_savings_eur
+                        ),
+                        "lost_export_compensation_eur": (
+                            annual_export_compensation_lost_eur
+                        ),
+                        "net_additional_savings_eur": (
+                            annual_additional_savings
+                        ),
+                    },
+                )
 
             annual_consumption = float(
                 result["consumption_kwh"].sum()
@@ -485,25 +479,34 @@ class BatteryOptimizer:
                     )
                 )
 
-                incremental_result = BatteryEconomicModel().calculate(
-                    economic_configuration_for_capacity
-                )
-
-                print("\n[COMPARACIÓN FLUJOS 8,3 kWh]")
-                print("VAN incremental:", incremental_result.npv_eur)
-                print("VAN combinado:", combined_economic_result.npv_eur)
-
-                for year, (incremental, combined) in enumerate(
-                    zip(
-                        incremental_result.cash_flows,
-                        combined_economic_result.cash_flows,
+                if economic_configuration is not None:
+                    incremental_result = (
+                        BatteryEconomicModel().calculate(
+                            economic_configuration_for_capacity
+                        )
                     )
-                ):
+
+                    print("\n[COMPARACIÓN FLUJOS]")
                     print(
-                        f"Año {year:02d}: "
-                        f"incremental={incremental:,.2f} € | "
-                        f"combinado={combined:,.2f} €"
+                        "VAN incremental:",
+                        incremental_result.npv_eur,
                     )
+                    print(
+                        "VAN combinado:",
+                        combined_economic_result.npv_eur,
+                    )
+
+                    for year, (incremental, combined) in enumerate(
+                        zip(
+                            incremental_result.cash_flows,
+                            combined_economic_result.cash_flows,
+                        )
+                    ):
+                        print(
+                            f"Año {year:02d}: "
+                            f"incremental={incremental:,.2f} € | "
+                            f"combinado={combined:,.2f} €"
+                        )
 
                 combined_economic_npv_eur = (
                     combined_economic_result.npv_eur

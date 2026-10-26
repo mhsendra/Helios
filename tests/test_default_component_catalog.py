@@ -89,9 +89,25 @@ def test_default_catalog_does_not_invent_battery_or_mounting_prices():
     catalog = build_default_component_catalog()
 
     assert catalog.batteries == ()
-    assert catalog.mounting_systems == ()
-    assert catalog.mounting_packages == ()
 
+    # Los sistemas de montaje existen, pero no tienen una tarifa
+    # genérica por panel: el coste depende de los kits SUNFER.
+    assert {
+        system.id for system in catalog.mounting_systems
+    } == {
+        "mounting-arabic-tile",
+        "mounting-arabic-tile-l",
+    }
+    assert all(
+        system.price_per_panel_eur is None
+        for system in catalog.mounting_systems
+    )
+
+    assert catalog.mounting_packages
+    assert all(
+        package.unit_price_eur > 0
+        for package in catalog.mounting_packages
+    )
 
 def test_default_catalog_uses_unique_identifiers():
     catalog = build_default_component_catalog()
@@ -128,7 +144,7 @@ def test_default_catalog_calculates_net_prices_from_list_prices():
     assert inverter.discount_1_percent == pytest.approx(40.0)
     assert inverter.discount_2_percent == pytest.approx(1.5)
 
-def test_default_catalog_contains_cables_and_no_mounting_prices():
+def test_default_catalog_contains_cables_and_sunfer_mounting_packages():
     catalog = build_default_component_catalog()
 
     costs = {
@@ -136,19 +152,30 @@ def test_default_catalog_contains_cables_and_no_mounting_prices():
         for item in catalog.auxiliary_costs
     }
 
-    assert catalog.mounting_systems == ()
-    assert catalog.mounting_packages == ()
+    assert "solar_cabling_red" in costs
+    assert "solar_cabling_black" in costs
 
-    red_cable = costs["solar_cabling_red"]
-    black_cable = costs["solar_cabling_black"]
+    assert {
+        system.id for system in catalog.mounting_systems
+    } == {
+        "mounting-arabic-tile",
+        "mounting-arabic-tile-l",
+    }
 
-    for cable in (red_cable, black_cable):
-        assert cable.basis == "per_metre"
-        assert cable.quantity == pytest.approx(50.0)
-        assert cable.list_price_eur == pytest.approx(1.90)
-        assert cable.unit_price_eur == pytest.approx(1.1058)
-
-    assert (
-        red_cable.unit_price_eur * red_cable.quantity
-        + black_cable.unit_price_eur * black_cable.quantity
-    ) == pytest.approx(110.58)
+    # Precios por capacidad; no se extrapola una tarifa por panel.
+    assert {
+        (package.mounting_system_id, package.panel_capacity)
+        for package in catalog.mounting_packages
+    } == {
+        ("mounting-arabic-tile", 1),
+        ("mounting-arabic-tile", 2),
+        ("mounting-arabic-tile", 3),
+        ("mounting-arabic-tile", 4),
+        ("mounting-arabic-tile", 5),
+        ("mounting-arabic-tile", 6),
+        ("mounting-arabic-tile-l", 1),
+        ("mounting-arabic-tile-l", 3),
+        ("mounting-arabic-tile-l", 4),
+        ("mounting-arabic-tile-l", 5),
+        ("mounting-arabic-tile-l", 6),
+    }

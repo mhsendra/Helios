@@ -22,6 +22,7 @@ DISCOUNT_1_PERCENT = 40.0
 DISCOUNT_2_PREMIUM_PERCENT = 1.5
 DISCOUNT_2_STANDARD_PERCENT = 3.0
 
+
 def build_default_component_catalog() -> ComponentCatalog:
     """Construye el catálogo comercial predeterminado de Helios."""
 
@@ -52,6 +53,69 @@ def build_default_component_catalog() -> ComponentCatalog:
         list_price_eur=1625.00,
         discount_1_percent=DISCOUNT_1_PERCENT,
         discount_2_percent=DISCOUNT_2_PREMIUM_PERCENT,
+    )
+
+    # Sistema predeterminado: SUNFER 01V-CL con clip.
+    # Los precios publicados incluyen IVA. Se convierten a netos
+    # y no se aplican descuentos comerciales adicionales.
+    mounting_system = MountingSystem(
+        id="mounting-arabic-tile",
+        manufacturer="SUNFER",
+        model="01V-CL (clip), cubierta de teja",
+        price_per_panel_eur=None,
+        compatible_roof_types=("teja_arabe",),
+    )
+
+    mounting_system_l = MountingSystem(
+        id="mounting-arabic-tile-l",
+        manufacturer="SUNFER",
+        model="01V-L (conexión L), cubierta de teja",
+        price_per_panel_eur=None,
+        compatible_roof_types=("teja_arabe",),
+    )
+
+    # Precios brutos publicados por capacidad de kit.
+    # El catálogo de Helios almacena los precios sin IVA.
+    clip_prices_gross = {
+        1: 56.97,
+        2: 90.83,
+        3: 121.25,
+        4: 150.78,
+        5: 184.44,
+        6: 217.95,
+    }
+
+    l_prices_gross = {
+        1: 61.65,
+        3: 125.20,
+        4: 155.64,
+        5: 191.53,
+        6: 223.63,
+    }
+
+    mounting_packages = tuple(
+        [
+            MountingSystemPackage(
+                id=f"sunfer-01v-cl-{capacity}-panel",
+                mounting_system_id=mounting_system.id,
+                model=f"SUNFER 01V-CL, {capacity} módulo(s)",
+                panel_capacity=capacity,
+                quantity=1,
+                unit_price_eur=price_gross / 1.21,
+            )
+            for capacity, price_gross in clip_prices_gross.items()
+        ]
+        + [
+            MountingSystemPackage(
+                id=f"sunfer-01v-l-{capacity}-panel",
+                mounting_system_id=mounting_system_l.id,
+                model=f"SUNFER 01V-L, {capacity} módulo(s)",
+                panel_capacity=capacity,
+                quantity=1,
+                unit_price_eur=price_gross / 1.21,
+            )
+            for capacity, price_gross in l_prices_gross.items()
+        ]
     )
 
     auxiliary_costs = (
@@ -129,7 +193,10 @@ def build_default_component_catalog() -> ComponentCatalog:
         panels=(panel,),
         inverters=(inverter,),
         batteries=(),
-        mounting_systems=(),
+        mounting_systems=(
+            mounting_system,
+            mounting_system_l,
+        ),
         auxiliary_costs=auxiliary_costs,
-        mounting_packages=(),
+        mounting_packages=mounting_packages,
     )

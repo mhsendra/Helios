@@ -975,7 +975,7 @@ class TestBatteryOptimizer:
         # Año 2: 700 * 1.10 - 100 * 1.02 = 668 €
         # NPV: -249.70 + 600 + 668 = 1018.30 €
         assert recommendation.economic_npv_eur == pytest.approx(
-            1018.30
+           1018.30
         )
 
     def test_select_recommendation_by_combined_npv_rejects_uncalculated_analysis(

@@ -899,3 +899,60 @@ class TestEconomicsController:
 
         assert engine.economic_analysis_calculated is False
         assert self.controller._economic_data is None
+
+    def test_calculate_cost_without_pv_uses_explicit_consumption_scenario(
+        self,
+    ):
+        index = pd.date_range(
+            "2025-01-01",
+            periods=8760,
+            freq="h",
+        )
+
+        default_scenario = ConsumptionScenario(
+            hourly_consumption=pd.Series(
+                1.0,
+                index=index,
+                name="AE_kWh",
+            ),
+            reference_year=2025,
+        )
+
+        combined_scenario = ConsumptionScenario(
+            hourly_consumption=pd.Series(
+                2.0,
+                index=index,
+                name="combined_consumption_kwh",
+            ),
+            reference_year=2025,
+        )
+
+        tariff_data = pd.DataFrame(
+            {
+                "Periodo": ["Valle"] * 8760,
+                "buy_price_eur_kwh": [0.12] * 8760,
+                "sell_price_eur_kwh": [0.06] * 8760,
+            },
+            index=index,
+        )
+
+        self.analyzer.calculate_representative_consumption_scenario.return_value = (
+            default_scenario
+        )
+        self.analyzer.tariff_engine.build_tariff_data.return_value = (
+            tariff_data
+        )
+        self.analyzer.economics_engine.calculate_cost_without_pv.return_value = (
+            2100.0
+        )
+
+        result = self.controller.calculate_cost_without_pv(
+            combined_scenario
+        )
+
+        assert result == 2100.0
+
+        self.analyzer.economics_engine.calculate_cost_without_pv.assert_called_once_with(
+            combined_scenario,
+            tariff_data,
+        )

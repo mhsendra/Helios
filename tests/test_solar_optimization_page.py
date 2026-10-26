@@ -140,7 +140,7 @@ class TestSolarOptimizationPage:
 
         assert (
             page.battery_table.columnCount()
-            == 8
+            == 9
         )
 
         assert (
@@ -155,16 +155,12 @@ class TestSolarOptimizationPage:
             )
         )
 
-    def test_show_battery_economic_results(
-        self,
-    ):
-
+    def test_show_battery_economic_results(self):
         page, _ = self.create_page()
 
         recommendations = []
 
         for capacity in [5.0, 8.3]:
-
             recommendation = MagicMock()
 
             recommendation.capacity_kwh = capacity
@@ -176,60 +172,34 @@ class TestSolarOptimizationPage:
             recommendation.economic_irr_percent = 8.5
             recommendation.economic_payback_years = 10.0
 
-            recommendations.append(
-                recommendation
-            )
+            # Representa el flujo anterior: recomendación de batería
+            # sin una recomendación de instalación asociada.
+            recommendation.installation_recommendation = None
+            recommendation.battery_recommendation = recommendation
 
-        page.show_battery_economic_results(
-            recommendations
-        )
+            recommendations.append(recommendation)
 
-        assert (
-            page.battery_table.rowCount()
-            == 2
-        )
+        page.show_battery_economic_results(recommendations)
 
-        assert (
-            page.battery_table.item(0, 0).text()
-            == "5.0 kWh"
-        )
+        assert page.battery_table.rowCount() == 2
+        assert page.battery_table.columnCount() == 9
 
-        assert (
-            page.battery_table.item(0, 1).text()
-            == "200.00 €"
-        )
+        assert page.battery_table.item(0, 0).text() == "—"
+        assert page.battery_table.item(0, 1).text() == "5.0 kWh"
+        assert page.battery_table.item(0, 2).text() == "200.00 €"
+        assert page.battery_table.item(0, 3).text() == "1,000.00 €"
+        assert page.battery_table.item(0, 4).text() == "50.00 €"
+        assert page.battery_table.item(0, 5).text() == "20.00 años"
+        assert page.battery_table.item(0, 6).text() == "1,500.00 €"
+        assert page.battery_table.item(0, 7).text() == "8.50 %"
+        assert page.battery_table.item(0, 8).text() == "10.00 años"
 
-        assert (
-            page.battery_table.item(0, 2).text()
-            == "1,000.00 €"
-        )
-
-        assert (
-            page.battery_table.item(0, 4).text()
-            == "20.00 años"
-        )
-
-        assert (
-            page.battery_table.item(0, 5).text()
-            == "1,500.00 €"
-        )
-
-        assert (
-            page.battery_table.item(0, 6).text()
-            == "8.50 %"
-        )
-
-        assert (
-            page.battery_table.item(0, 7).text()
-            == "10.00 años"
-        )
+        assert page.battery_table.item(1, 1).text() == "8.3 kWh"
 
         assert (
             page.battery_status_label.text()
-            == (
-                "Evaluación económica completada. "
-                "2 capacidades comparadas."
-            )
+            == "Evaluación económica completada. "
+            "2 alternativas comparadas."
         )
 
     def test_evaluate_batteries_calls_controller(
@@ -983,74 +953,63 @@ class TestSolarOptimizationPage:
             is True
         )
 
-    def test_start_optimization_calls_recommendation(
-        self,
-    ):
-
+    def test_start_optimization_calls_recommendation(self):
         page, project = self.create_page(
             self.create_solar_configuration()
         )
 
-        scenario = (
-            self.create_consumption_scenario()
-        )
-
+        scenario = self.create_consumption_scenario()
         project.analyzer.calculate_representative_consumption_scenario.return_value = (
             scenario
         )
 
-        result = self.create_result()
+        installation = self.create_result()
 
-        project.solar.recommend_installation.return_value = (
-            result
-        )
+        battery = MagicMock()
+        battery.capacity_kwh = 8.3
+        battery.combined_economic_analysis_calculated = True
+        battery.combined_economic_npv_eur = 1000.0
 
-        project.solar.evaluate_batteries.return_value = []
+        recommendation = MagicMock()
+        recommendation.installation_recommendation = installation
+        recommendation.battery_recommendation = battery
+        recommendation.panel_count = installation.panel_count
+        recommendation.installed_power_kwp = installation.installed_power_kwp
+        recommendation.battery_capacity_kwh = battery.capacity_kwh
+        recommendation.combined_economic_analysis_calculated = True
+        recommendation.combined_economic_npv_eur = 1000.0
+        recommendation.alternatives = (recommendation,)
+
+        project.solar.recommend_energy.return_value = recommendation
 
         page.show_optimization_result = MagicMock()
+        page.show_battery_economic_results = MagicMock()
+        page._update_total_investment = MagicMock()
 
         page.start_optimization()
 
-        project.solar.recommend_installation.assert_called_once()
+        project.solar.recommend_energy.assert_called_once()
+        call_kwargs = project.solar.recommend_energy.call_args.kwargs
 
+        assert call_kwargs["configuration"] is not None
+        assert call_kwargs["consumption_scenario"] is scenario
+        assert call_kwargs["candidate_capacities_kwh"] == [
+            5.0, 8.3, 16.6, 24.9, 30.0,
+        ]
+        assert call_kwargs["optimization_criterion"] == "combined_npv"
+
+        page.show_optimization_result.assert_called_once_with(
+            installation
+        )
         project.solar.calculate.assert_called_once_with(
             page.project.solar_configuration,
-            installed_power_kwp=(
-                result.installed_power_kwp
-            ),
+            installed_power_kwp=installation.installed_power_kwp,
         )
 
-        project.solar.evaluate_batteries.assert_called_once_with(
-            [
-                5.0,
-                8.3,
-                16.6,
-                24.9,
-                30.0,
-            ],
-            max_charge_power_kw=5.0,
-            max_discharge_power_kw=5.0,
-            battery_economic_parameters=BatteryEconomicParameters(
-                cost_per_kwh_eur=(
-                    4145.27 / 16.6
-                ) * 1.21,
-            ),
-        )
+        assert page.status_label.text() == "Optimización conjunta completada"
+        assert page.optimize_button.isEnabled() is True
 
-        assert (
-            page.status_label.text()
-            == "Optimización completada"
-        )
-
-        assert (
-            page.optimize_button.isEnabled()
-            is True
-        )
-
-    def test_start_optimization_notifies_main_window(
-        self,
-    ):
-
+    def test_start_optimization_notifies_main_window(self):
         main_window = MagicMock()
 
         page, project = self.create_page(
@@ -1058,21 +1017,36 @@ class TestSolarOptimizationPage:
             main_window=main_window,
         )
 
+        installation = self.create_result()
+
+        battery = MagicMock()
+        battery.capacity_kwh = 8.3
+        battery.combined_economic_analysis_calculated = True
+        battery.combined_economic_npv_eur = 1000.0
+
+        recommendation = MagicMock()
+        recommendation.installation_recommendation = installation
+        recommendation.battery_recommendation = battery
+        recommendation.panel_count = installation.panel_count
+        recommendation.installed_power_kwp = installation.installed_power_kwp
+        recommendation.battery_capacity_kwh = battery.capacity_kwh
+        recommendation.combined_economic_analysis_calculated = True
+        recommendation.combined_economic_npv_eur = 1000.0
+        recommendation.alternatives = (recommendation,)
+
         project.analyzer.calculate_representative_consumption_scenario.return_value = (
             self.create_consumption_scenario()
         )
-
-        project.solar.recommend_installation.return_value = (
-            self.create_result()
-        )
+        project.solar.recommend_energy.return_value = recommendation
 
         page.show_optimization_result = MagicMock()
+        page.show_battery_economic_results = MagicMock()
+        page._update_total_investment = MagicMock()
 
         page.start_optimization()
 
-        main_window.set_solar_optimized.assert_called_once_with(
-           True
-        )
+        project.solar.recommend_energy.assert_called_once()
+        main_window.set_solar_optimized.assert_called_once_with(True)
 
     def test_start_optimization_restores_button_after_error(
         self,

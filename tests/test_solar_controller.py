@@ -2976,7 +2976,7 @@ class TestSolarController:
             installation_cost_eur - 500.0 - 250.0
         )
 
-    def test_combined_optimization_rejects_closed_budget_when_structure_cost_is_unknown(
+    def test_combined_installation_cost_rejects_unknown_structure_cost(
         self,
     ):
         installation_cost_configuration = (
@@ -2984,10 +2984,6 @@ class TestSolarController:
                 panel_unit_cost_eur=100.0,
                 structure_unit_cost_eur=None,
             )
-        )
-
-        self.analyzer.project.closed_installation_cost_eur = (
-            12490.0
         )
 
         evaluation = InstallationEvaluation(
@@ -3006,141 +3002,4 @@ class TestSolarController:
             self.controller._calculate_combined_installation_cost(
                 evaluation,
                 installation_cost_configuration,
-                allow_closed_budget_fallback=False,
             )
-
-    def test_battery_evaluation_allows_closed_budget_when_structure_cost_is_unknown(
-        self,
-    ):
-        installation_cost_configuration = (
-            InstallationCostConfiguration(
-                panel_unit_cost_eur=100.0,
-                structure_unit_cost_eur=None,
-            )
-        )
-
-        self.analyzer.project.closed_installation_cost_eur = (
-            12490.0
-        )
-
-        evaluation = InstallationEvaluation(
-            candidate=InstallationCandidate(
-                panel_count=10,
-                panel_power_wp=540.0,
-                panel_area_m2=19.5,
-            ),
-            available_area_m2=50.0,
-        )
-
-        result = self.controller._calculate_combined_installation_cost(
-            evaluation,
-            installation_cost_configuration,
-            allow_closed_budget_fallback=True,
-        )
-
-        assert result == 12490.0
-
-    def test_combined_economic_configuration_deducts_included_battery_once(
-        self,
-    ):
-        from helios.solar.battery_economic_configuration import (
-            BatteryEconomicParameters,
-        )
-
-        from helios.solar.installation_costs import (
-            InstallationCostConfiguration,
-        )
-
-        from helios.solar.installation_evaluation import (
-            InstallationEvaluation,
-        )
-
-        from helios.solar.installation_candidate import (
-            InstallationCandidate,
-        )
-
-        from helios.core.consumption_scenario import (
-            ConsumptionScenario,
-        )
-
-        from helios.solar.production_profile import (
-            SolarProductionProfile,
-        )
-
-        installation_cost_configuration = (
-            InstallationCostConfiguration(
-                panel_unit_cost_eur=100.0,
-                structure_unit_cost_eur=None,
-            )
-        )
-
-        self.analyzer.project.closed_installation_cost_eur = 12490.0
-        self.analyzer.project.closed_budget_includes_battery = True
-        self.analyzer.project.closed_budget_battery_capacity_kwh = 16.6
-
-        economics_controller = self.analyzer.economics
-        economics_controller.configuration = EconomicsConfiguration(
-            installation_cost=12490.0,
-            subsidies=0.0,
-            tax_deductions=0.0,
-        )
-        economics_controller.calculate_cost_with_balance.return_value = 1000.0
-        economics_controller.calculate_cost_without_pv.return_value = 2000.0
-        economics_controller.calculate_export_income_for_balance.return_value = 100.0
-
-        evaluation = InstallationEvaluation(
-            candidate=InstallationCandidate(
-                panel_count=10,
-                panel_power_wp=540.0,
-                panel_area_m2=19.5,
-            ),
-            available_area_m2=50.0,
-        )
-
-        index = pd.date_range(
-            "2023-01-01",
-            periods=8760,
-            freq="h",
-        )
-        consumption_scenario = ConsumptionScenario(
-            hourly_consumption=pd.Series(
-                2.0,
-                index=index,
-                name="AE_kWh",
-            ),
-            reference_year=2023,
-        )
-        production_profile = SolarProductionProfile(
-            hourly_production=pd.Series(
-                1.0,
-                index=index,
-                name="production_kwh",
-            ),
-            reference_year=2023,
-            installed_power_kwp=5.4,
-        )
-
-        configuration = (
-            self.controller._build_combined_economic_configuration(
-                evaluation=evaluation,
-                production_profile=production_profile,
-                consumption_scenario=consumption_scenario,
-                installation_cost_configuration=(
-                    installation_cost_configuration
-                ),
-                ev_scenario=None,
-                battery_economic_parameters=BatteryEconomicParameters(
-                    cost_per_kwh_eur=249.70,
-                    lifetime_years=25,
-                    annual_degradation=0.02,
-                    annual_maintenance_eur=0.0,
-                ),
-            )
-        )
-
-        assert configuration.installation_cost_eur == pytest.approx(
-            12490.0 - (16.6 * 249.70)
-        )
-        assert configuration.installation_cost_eur == pytest.approx(
-            8344.98
-        )

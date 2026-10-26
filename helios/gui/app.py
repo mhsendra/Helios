@@ -39,9 +39,6 @@ def main():
         economics_configuration
     )
 
-    window.project.closed_budget_includes_battery = True
-    window.project.closed_budget_battery_capacity_kwh = 16.6
-
     window.show()
 
     sys.exit(app.exec())

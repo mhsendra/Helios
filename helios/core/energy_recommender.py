@@ -107,16 +107,30 @@ class EnergyRecommender:
                         )
                     )
                 except ValueError as exc:
-                    # Una candidata sin coste de estructura válido
+                    # Una candidata sin coste de estructura confirmado
                     # no debe impedir evaluar las demás instalaciones.
-                    if (
-                        "falta un coste de estructura aplicable"
-                        in str(exc).lower()
+                    error_message = str(exc).casefold()
+
+                    structure_cost_errors = (
+                        "falta un coste de estructura aplicable",
+                        "coste de la estructura no está confirmado",
+                    )
+
+                    if any(
+                        message in error_message
+                        for message in structure_cost_errors
                     ):
+                        print(
+                            "[CANDIDATA DESCARTADA POR ESTRUCTURA]",
+                            {
+                                "panel_count": panel_count,
+                                "error": str(exc),
+                            },
+                            flush=True,
+                        )
                         continue
 
-                    # Los errores económicos distintos de este caso
-                    # deben seguir aflorando: no ocultarlos.
+                    # No ocultar otros errores económicos.
                     raise
 
                 if not isinstance(
@@ -130,7 +144,6 @@ class EnergyRecommender:
 
             annual_cost_without_battery_eur = None
             annual_export_income_without_battery_eur = None
-
             baseline_balance = None
 
             if (
@@ -158,6 +171,69 @@ class EnergyRecommender:
                     export_income_calculator(baseline_balance)
                 )
 
+            installation_recommendation = InstallationRecommendation(
+                evaluation=evaluation,
+                annual_consumption_kwh=annual_consumption_kwh,
+                annual_production_kwh=production_profile.annual_production,
+                consumption_scenario=consumption_scenario,
+                production_profile=production_profile,
+            )
+
+            print(
+                "[SELECCIÓN ECONÓMICA]",
+                {
+                    "criterion": optimization_criterion,
+                    "panel_count": panel_count,
+                    "has_combined_configuration": (
+                        combined_economic_configuration is not None
+                    ),
+                    "has_baseline_balance": baseline_balance is not None,
+                    "evaluations_count": len(evaluations),
+                },
+                flush=True,
+            )
+
+            # Añadir primero la alternativa FV sin batería.
+            # Así no se pierde si el optimizador de baterías falla.
+            if (
+                optimization_criterion == "combined_npv"
+                and combined_economic_configuration is not None
+                and baseline_balance is not None
+            ):
+                no_battery_option = (
+                    self._build_no_battery_recommendation(
+                        evaluation=evaluation,
+                        annual_consumption_kwh=annual_consumption_kwh,
+                        consumption_scenario=consumption_scenario,
+                        production_profile=production_profile,
+                        baseline_balance=baseline_balance,
+                        combined_configuration=(
+                            combined_economic_configuration
+                        ),
+                        ev_scenario=ev_scenario,
+                    )
+                )
+
+                evaluated_options.append(no_battery_option)
+
+                print(
+                    "[OPCIÓN FV SIN BATERÍA AÑADIDA]",
+                    {
+                        "panel_count": (
+                            no_battery_option.panel_count
+                        ),
+                        "capacity_kwh": (
+                            no_battery_option.battery_capacity_kwh
+                        ),
+                        "combined_npv_eur": (
+                            no_battery_option.combined_economic_npv_eur
+                        ),
+                    },
+                    flush=True,
+                )
+
+            # La batería es una alternativa adicional, no un requisito
+            # para conservar la instalación FV sin batería.
             try:
                 battery_recommendation = self.battery_optimizer.optimize(
                     consumption_scenario,
@@ -185,64 +261,16 @@ class EnergyRecommender:
                     export_income_calculator=export_income_calculator,
                     ev_scenario=ev_scenario,
                 )
-            except NoFinitePaybackError:
-                continue
-
-            installation_recommendation = InstallationRecommendation(
-                evaluation=evaluation,
-                annual_consumption_kwh=annual_consumption_kwh,
-                annual_production_kwh=production_profile.annual_production,
-                consumption_scenario=consumption_scenario,
-                production_profile=production_profile,
-            )
-
-            print(
-                "[SELECCIÓN ECONÓMICA]",
-                {
-                    "criterion": optimization_criterion,
-                    "has_combined_configuration": (
-                        combined_economic_configuration is not None
-                    ),
-                    "has_baseline_balance": baseline_balance is not None,
-                    "evaluations_count": len(evaluations),
-                },
-            )
-
-            if (
-                optimization_criterion == "combined_npv"
-                and combined_economic_configuration is not None
-                and baseline_balance is not None
-            ):
-                no_battery_option = (
-                    self._build_no_battery_recommendation(
-                        evaluation=evaluation,
-                        annual_consumption_kwh=(
-                            annual_consumption_kwh
-                        ),
-                        consumption_scenario=consumption_scenario,
-                        production_profile=production_profile,
-                        baseline_balance=baseline_balance,
-                        combined_configuration=(
-                            combined_economic_configuration
-                        ),
-                        ev_scenario=ev_scenario,
-                    )
-                )
-
-                evaluated_options.append(no_battery_option)
-
+            except NoFinitePaybackError as exc:
                 print(
-                    "[OPCIÓN FV SIN BATERÍA AÑADIDA]",
+                    "[BATERÍA DESCARTADA]",
                     {
-                        "capacity_kwh": (
-                            no_battery_option.battery_recommendation.capacity_kwh
-                        ),
-                        "combined_npv_eur": (
-                            no_battery_option.battery_recommendation
-                            .combined_economic_npv_eur
-                        ),
+                        "panel_count": panel_count,
+                        "reason": str(exc),
                     },
+                    flush=True,
                 )
+                continue
 
             evaluated_options.append(
                 EnergyRecommendation(

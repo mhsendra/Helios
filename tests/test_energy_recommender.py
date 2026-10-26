@@ -1434,9 +1434,8 @@ class TestEnergyRecommender:
 
             if evaluation.panel_count == 10:
                 raise ValueError(
-                    "No se puede comparar económicamente "
-                    "esta instalación: falta un coste de "
-                    "estructura aplicable a la candidata."
+                    "El coste de la estructura no está confirmado "
+                    "para esta instalación."
                 )
 
             return CombinedEconomicConfiguration(
@@ -1659,3 +1658,45 @@ def test_recommend_propagates_unexpected_value_error():
             optimization_criterion="combined_payback",
         )
 
+
+def test_combined_npv_keeps_no_battery_option_when_battery_fails():
+    consumption = _consumption_scenario()
+    evaluation = _evaluation(15, 8.1)
+    profile = _production_profile(8.1, 12000.0)
+
+    configuration = CombinedEconomicConfiguration(
+        installation_cost_eur=14000.0,
+        battery_cost_eur=0.0,
+        annual_pv_savings_eur=1800.0,
+        annual_battery_additional_savings_eur=0.0,
+    )
+
+    class NoFinitePaybackOptimizer:
+        def optimize(self, *args, **kwargs):
+            raise NoFinitePaybackError(
+                "No finite payback for this installation."
+            )
+
+    recommender = EnergyRecommender(
+        battery_optimizer=NoFinitePaybackOptimizer(),
+    )
+
+    result = recommender.recommend(
+        evaluations=[evaluation],
+        annual_consumption_kwh=8760.0,
+        consumption_scenario=consumption,
+        production_profiles={15: profile},
+        candidate_capacities_kwh=[5.0, 8.3],
+        max_charge_power_kw=5.0,
+        max_discharge_power_kw=5.0,
+        economic_configuration_factory=(
+            lambda evaluation, production_profile: configuration
+        ),
+        optimization_criterion="combined_npv",
+    )
+
+    assert result.panel_count == 15
+    assert result.battery_capacity_kwh == 0.0
+    assert result.battery_recommendation.combined_economic_analysis_calculated
+    assert len(result.evaluated_options) == 1
+    assert result.evaluated_options[0].battery_capacity_kwh == 0.0
