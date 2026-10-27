@@ -79,7 +79,6 @@ class TestEconomicsPage:
         assert page.discount_rate_label.text() == "-"
 
         assert page.cash_flow_tabs.count() == 0
-        assert page.cash_flow_tabs.count() == 0
 
     # ==================================================
     # Resumen económico

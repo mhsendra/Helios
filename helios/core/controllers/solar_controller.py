@@ -594,41 +594,6 @@ class SolarController:
                 )
             )
         except ValueError as error:
-            print(
-                "[DIAGNÓSTICO ESTRUCTURA] Error original:",
-                repr(error),
-            )
-            print(
-                "[DIAGNÓSTICO ESTRUCTURA] Configuración:",
-                {
-                    "mounting_system_id":
-                        installation_cost_configuration.mounting_system_id,
-                    "mounting_packages":
-                        [
-                            (
-                                package.id,
-                                package.mounting_system_id,
-                                package.panel_capacity,
-                                package.net_unit_price_eur,
-                            )
-                            for package
-                            in installation_cost_configuration.mounting_packages
-                        ],
-                    "structure_unit_cost_eur":
-                        installation_cost_configuration.structure_unit_cost_eur,
-                    "structure_package_cost_eur":
-                        installation_cost_configuration.structure_package_cost_eur,
-                    "structure_package_panel_count":
-                        installation_cost_configuration.structure_package_panel_count,
-                },
-            )
-            print(
-                "[DIAGNÓSTICO ESTRUCTURA] Geometría:",
-                {
-                    "panel_count": evaluation.panel_count,
-                    "layout": repr(getattr(evaluation, "layout", None)),
-                },
-            )
 
             if (
                 "coste de la estructura no está confirmado"
@@ -1229,10 +1194,6 @@ class SolarController:
         La decisión integral se delega en
         InstallationCoordinator.recommend_energy().
         """
-        print(
-            "[TRAZA] SolarController.recommend_energy ENTRADA",
-            flush=True,
-        )
 
         if not isinstance(
             configuration,
@@ -1365,17 +1326,6 @@ class SolarController:
             production_calculator=(
                 production_calculator.calculate
             ),
-        )
-
-        print(
-            "[TRAZA] Llamando a coordinator.recommend_energy",
-            {
-                "optimization_criterion": optimization_criterion,
-                "has_economic_configuration_factory": (
-                    economic_configuration_factory is not None
-                ),
-            },
-            flush=True,
         )
 
         result = coordinator.recommend_energy(

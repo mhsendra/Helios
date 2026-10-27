@@ -120,14 +120,6 @@ class EnergyRecommender:
                         message in error_message
                         for message in structure_cost_errors
                     ):
-                        print(
-                            "[CANDIDATA DESCARTADA POR ESTRUCTURA]",
-                            {
-                                "panel_count": panel_count,
-                                "error": str(exc),
-                            },
-                            flush=True,
-                        )
                         continue
 
                     # No ocultar otros errores económicos.
@@ -179,20 +171,6 @@ class EnergyRecommender:
                 production_profile=production_profile,
             )
 
-            print(
-                "[SELECCIÓN ECONÓMICA]",
-                {
-                    "criterion": optimization_criterion,
-                    "panel_count": panel_count,
-                    "has_combined_configuration": (
-                        combined_economic_configuration is not None
-                    ),
-                    "has_baseline_balance": baseline_balance is not None,
-                    "evaluations_count": len(evaluations),
-                },
-                flush=True,
-            )
-
             # Añadir primero la alternativa FV sin batería.
             # Así no se pierde si el optimizador de baterías falla.
             if (
@@ -215,22 +193,6 @@ class EnergyRecommender:
                 )
 
                 evaluated_options.append(no_battery_option)
-
-                print(
-                    "[OPCIÓN FV SIN BATERÍA AÑADIDA]",
-                    {
-                        "panel_count": (
-                            no_battery_option.panel_count
-                        ),
-                        "capacity_kwh": (
-                            no_battery_option.battery_capacity_kwh
-                        ),
-                        "combined_npv_eur": (
-                            no_battery_option.combined_economic_npv_eur
-                        ),
-                    },
-                    flush=True,
-                )
 
             # La batería es una alternativa adicional, no un requisito
             # para conservar la instalación FV sin batería.
@@ -261,15 +223,7 @@ class EnergyRecommender:
                     export_income_calculator=export_income_calculator,
                     ev_scenario=ev_scenario,
                 )
-            except NoFinitePaybackError as exc:
-                print(
-                    "[BATERÍA DESCARTADA]",
-                    {
-                        "panel_count": panel_count,
-                        "reason": str(exc),
-                    },
-                    flush=True,
-                )
+            except NoFinitePaybackError:
                 continue
 
             evaluated_options.append(
@@ -353,32 +307,6 @@ class EnergyRecommender:
 
         economic_result = BatteryEconomicModel().calculate_combined(
             no_battery_configuration
-        )
-
-        print(
-            "[DIAGNÓSTICO FV SIN BATERÍA]",
-            {
-                "installation_cost_eur": (
-                    no_battery_configuration.installation_cost_eur
-                ),
-                "battery_cost_eur": (
-                    no_battery_configuration.battery_cost_eur
-                ),
-                "annual_pv_savings_eur": (
-                    no_battery_configuration.annual_pv_savings_eur
-                ),
-                "annual_pv_self_consumption_savings_eur": (
-                    no_battery_configuration
-                    .annual_pv_self_consumption_savings_eur
-                ),
-                "annual_export_compensation_eur": (
-                    no_battery_configuration
-                    .annual_export_compensation_eur
-                ),
-                "combined_npv_eur": economic_result.npv_eur,
-                "combined_irr_percent": economic_result.irr_percent,
-                "combined_payback_years": economic_result.payback_years,
-            },
         )
 
         battery_recommendation = BatteryRecommendation(

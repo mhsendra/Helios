@@ -246,22 +246,6 @@ class BatteryOptimizer:
                     - annual_export_compensation_lost_eur
                 )
 
-                print(
-                    "[AUDITORÍA AHORRO BATERÍA]",
-                    {
-                        "capacity_kwh": capacity,
-                        "gross_import_savings_eur": (
-                            annual_import_savings_eur
-                        ),
-                        "lost_export_compensation_eur": (
-                            annual_export_compensation_lost_eur
-                        ),
-                        "net_additional_savings_eur": (
-                            annual_additional_savings
-                        ),
-                    },
-                )
-
             annual_consumption = float(
                 result["consumption_kwh"].sum()
             )
@@ -441,38 +425,6 @@ class BatteryOptimizer:
                     ),
                 )
 
-                print(
-                    "\n[DIAGNÓSTICO ECONÓMICO]",
-                    {
-                        "capacity_kwh": capacity,
-                        "battery_cost_eur": battery_cost_eur,
-                        "annual_additional_savings_eur": annual_additional_savings,
-                        "annual_import_savings_eur": annual_import_savings_eur,
-                        "annual_export_compensation_lost_eur": (
-                            annual_export_compensation_lost_eur
-                        ),
-                        "combined_installation_cost_eur": (
-                            combined_configuration_for_capacity.installation_cost_eur
-                        ),
-                        "combined_battery_cost_eur": (
-                            combined_configuration_for_capacity.battery_cost_eur
-                        ),
-                        "annual_pv_savings_eur": (
-                            combined_configuration_for_capacity.annual_pv_savings_eur
-                        ),
-                        "annual_pv_self_consumption_savings_eur": (
-                            combined_configuration_for_capacity
-                            .annual_pv_self_consumption_savings_eur
-                        ),
-                        "annual_export_compensation_eur": (
-                            combined_configuration_for_capacity
-                            .annual_export_compensation_eur
-                        ),
-                        "years": combined_configuration_for_capacity.years,
-                        "discount_rate": combined_configuration_for_capacity.discount_rate,
-                    },
-                )
-
                 combined_economic_result = (
                     BatteryEconomicModel().calculate_combined(
                         combined_configuration_for_capacity
@@ -485,28 +437,6 @@ class BatteryOptimizer:
                             economic_configuration_for_capacity
                         )
                     )
-
-                    print("\n[COMPARACIÓN FLUJOS]")
-                    print(
-                        "VAN incremental:",
-                        incremental_result.npv_eur,
-                    )
-                    print(
-                        "VAN combinado:",
-                        combined_economic_result.npv_eur,
-                    )
-
-                    for year, (incremental, combined) in enumerate(
-                        zip(
-                            incremental_result.cash_flows,
-                            combined_economic_result.cash_flows,
-                        )
-                    ):
-                        print(
-                            f"Año {year:02d}: "
-                            f"incremental={incremental:,.2f} € | "
-                            f"combinado={combined:,.2f} €"
-                        )
 
                 combined_economic_npv_eur = (
                     combined_economic_result.npv_eur
