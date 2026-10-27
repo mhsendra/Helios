@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 from helios.solar.configuration import SolarConfiguration
 
 from helios.solar.installation_configuration import (
@@ -56,6 +58,7 @@ from helios.solar.battery_optimizer import BatteryOptimizer
 
 from helios.solar.battery_economic_model import (
     BatteryEconomicConfiguration,
+    BatteryEconomicModel,
     CombinedEconomicConfiguration,
 )
 

@@ -85,7 +85,7 @@ def test_default_catalog_contains_identified_auxiliary_costs():
     ):
         assert costs[cost_id].basis == "fixed"
 
-def test_default_catalog_does_not_invent_battery_or_mounting_prices():
+def test_default_catalog_keeps_battery_price_unknown_and_uses_only_confirmed_mounting_quote():
     catalog = build_default_component_catalog()
 
     assert catalog.batteries == ()
@@ -154,6 +154,20 @@ def test_default_catalog_contains_cables_and_sunfer_mounting_packages():
 
     assert "solar_cabling_red" in costs
     assert "solar_cabling_black" in costs
+
+    red_cable = costs["solar_cabling_red"]
+    black_cable = costs["solar_cabling_black"]
+
+    for cable in (red_cable, black_cable):
+        assert cable.basis == "per_metre"
+        assert cable.quantity == pytest.approx(50.0)
+        assert cable.list_price_eur == pytest.approx(1.90)
+        assert cable.unit_price_eur == pytest.approx(1.1058)
+
+    assert (
+        red_cable.unit_price_eur * red_cable.quantity
+        + black_cable.unit_price_eur * black_cable.quantity
+    ) == pytest.approx(110.58)
 
     assert {
         system.id for system in catalog.mounting_systems

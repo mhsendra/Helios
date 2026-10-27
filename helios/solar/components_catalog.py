@@ -241,7 +241,9 @@ class MountingSystem:
     id: str
     manufacturer: str
     model: str
-    price_per_panel_eur: float
+    # None means that no general per-panel tariff is confirmed;
+    # a capacity-specific mounting package may still be priced.
+    price_per_panel_eur: float | None
     compatible_roof_types: tuple[str, ...]
 
     def __post_init__(self) -> None:
