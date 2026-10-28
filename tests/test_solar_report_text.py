@@ -1825,3 +1825,38 @@ class TestSolarReportText:
         ) in text
 
         assert "Las capacidades 30.0 kWh presentan" not in text
+
+    def test_selected_option_without_economics_does_not_fall_back_to_reference(self):
+        data = replace(
+            self._report_data(),
+            selected_option_available=True,
+            selected_economic_analysis_calculated=False,
+            selected_payback_years=None,
+            selected_net_present_value_eur=None,
+            selected_internal_rate_of_return_percent=None,
+            # Los valores de referencia existen, pero no deben utilizarse.
+            economic_analysis_calculated=True,
+            payback_years=7.5,
+            net_present_value_eur=5000.0,
+            internal_rate_of_return_percent=12.5,
+        )
+
+        assert SolarReportText._primary_economic_analysis_calculated(data) is False
+        assert SolarReportText._primary_payback_years(data) is None
+        assert SolarReportText._primary_npv_eur(data) is None
+        assert SolarReportText._primary_irr_percent(data) is None
+
+    def test_without_selected_option_uses_reference_economics(self):
+        data = replace(
+            self._report_data(),
+            selected_option_available=False,
+            economic_analysis_calculated=True,
+            payback_years=7.5,
+            net_present_value_eur=5000.0,
+            internal_rate_of_return_percent=12.5,
+        )
+
+        assert SolarReportText._primary_economic_analysis_calculated(data) is True
+        assert SolarReportText._primary_payback_years(data) == 7.5
+        assert SolarReportText._primary_npv_eur(data) == 5000.0
+        assert SolarReportText._primary_irr_percent(data) == 12.5

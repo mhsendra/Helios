@@ -188,6 +188,82 @@ class SolarReportDataFactory:
             )
 
         # ==================================================
+        # Economic indicators of the selected option
+        # ==================================================
+
+        energy_recommendation = getattr(
+            solar_controller,
+            "energy_recommendation",
+            None,
+        )
+
+        selected_battery = getattr(
+            energy_recommendation,
+            "battery_recommendation",
+            None,
+        )
+
+        selected_option_available = (
+            energy_recommendation is not None
+            and selected_battery is not None
+        )
+
+        selected_economic_analysis_calculated = bool(
+            selected_option_available
+            and getattr(
+                selected_battery,
+                "combined_economic_analysis_calculated",
+                False,
+            )
+        )
+
+        selected_payback_years = None
+        selected_net_present_value_eur = None
+        selected_internal_rate_of_return_percent = None
+
+        selected_panel_count = None
+        selected_battery_capacity_kwh = None
+
+        if selected_option_available:
+            selected_panel_count = (
+                energy_recommendation.panel_count
+            )
+
+            selected_battery_capacity_kwh = (
+                selected_battery.capacity_kwh
+            )
+
+        if selected_economic_analysis_calculated:
+            selected_payback_years = (
+                selected_battery.combined_economic_payback_years
+            )
+            selected_net_present_value_eur = (
+                selected_battery.combined_economic_npv_eur
+            )
+            selected_internal_rate_of_return_percent = (
+                selected_battery.combined_economic_irr_percent
+            )
+
+            # Recuperar la inversión y el flujo neto del primer año
+            # de la misma opción que se ha evaluado económicamente.
+            selected_cash_flows = (
+                getattr(
+                    selected_battery,
+                    "combined_economic_cash_flows",
+                    (),
+                )
+                or ()
+            )
+
+            if len(selected_cash_flows) >= 2:
+                selected_investment_eur = (
+                    -float(selected_cash_flows[0])
+                )
+                selected_yearly_savings_eur = (
+                    float(selected_cash_flows[1])
+                )
+
+        # ==================================================
         # Battery recommendations
         # ==================================================
 
@@ -478,6 +554,38 @@ class SolarReportDataFactory:
 
             battery_recommendations=(
                 battery_report_data
+            ),
+
+            # ==================================================
+            # Economic indicators of the selected option
+            # ==================================================
+
+            selected_economic_analysis_calculated=(
+                selected_economic_analysis_calculated
+            ),
+
+            selected_option_available=(
+                selected_option_available
+            ),
+
+            selected_payback_years=(
+                selected_payback_years
+            ),
+
+            selected_net_present_value_eur=(
+                selected_net_present_value_eur
+            ),
+
+            selected_internal_rate_of_return_percent=(
+                selected_internal_rate_of_return_percent
+            ),
+
+            selected_panel_count=(
+                selected_panel_count
+            ),
+
+            selected_battery_capacity_kwh=(
+                selected_battery_capacity_kwh
             ),
 
             # ==================================================

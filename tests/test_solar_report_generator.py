@@ -1943,23 +1943,39 @@ class TestSolarReportGenerator:
         assert output_path.exists()
         assert output_path.stat().st_size > 0
 
-    def test_executive_summary_contains_dynamic_recommendation(
+    def test_executive_summary_avoids_redundant_recommendation(
         self,
         monkeypatch,
         tmp_path,
     ):
+        data = self._report_data()
         captured = self._capture_story(monkeypatch)
 
         SolarReportGenerator().generate(
-            self._report_data(),
+            data,
             tmp_path / "report.pdf",
         )
 
         text = self._story_text(captured["story"])
+        normalized_text = " ".join(text.split()).casefold()
 
-        assert "Recomendación general" in text
-        assert "instalación fotovoltaica es recomendable" in text
-        assert "8.3 kWh" in text
+        # Las tarjetas KPI siguen presentes en el resumen.
+        assert "Ahorro anual" in text
+        assert "Retorno" in text
+
+        # El diagnóstico presenta indicadores económicos concretos.
+        diagnostic = SolarReportText.quick_diagnostic(data)
+
+        assert "VAN de 22,071.16 €" in diagnostic
+        assert "5.34 años" in diagnostic
+        assert "TIR del 18.80 %" in diagnostic
+
+        # No se repite la recomendación general en el informe.
+        assert "recomendación general" not in normalized_text
+        assert (
+            "la instalación fotovoltaica es recomendable bajo "
+            "las hipótesis económicas consideradas"
+        ) not in normalized_text
 
     def test_battery_recommendation_block_uses_best_viable_capacity(
         self,

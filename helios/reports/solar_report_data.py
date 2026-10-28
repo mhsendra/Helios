@@ -98,6 +98,27 @@ class SolarReportData:
     ] = field(default_factory=list)
 
     # ==================================================
+    # Economic indicators of the selected option
+    # ==================================================
+
+    # Estos campos representan la opción global elegida por
+    # el optimizador, que puede ser FV sin batería o FV con ella.
+    # Los campos económicos anteriores siguen representando
+    # el análisis económico de referencia de la instalación FV.
+
+    selected_option_available: bool = False
+    selected_economic_analysis_calculated: bool = False
+    selected_investment_eur: float | None = None
+    selected_yearly_savings_eur: float | None = None
+    selected_payback_years: float | None = None
+    selected_net_present_value_eur: float | None = None
+    selected_internal_rate_of_return_percent: float | None = None
+
+    selected_panel_count: int | None = None
+    selected_battery_capacity_kwh: float | None = None
+
+
+    # ==================================================
     # Automatic dimensioning
     # ==================================================
 

@@ -409,6 +409,12 @@ class EnergyRecommender:
                 economic_result.payback_years
             ),
             combined_economic_analysis_calculated=True,
+            combined_economic_cash_flows=tuple(
+                economic_result.cash_flows
+            ),
+            combined_economic_cumulative_cash_flow=tuple(
+                economic_result.cumulative_cash_flow
+            ),
         )
 
         installation_recommendation = InstallationRecommendation(

@@ -11,6 +11,42 @@ class SolarReportText:
         return value is not None and math.isfinite(value)
 
     @staticmethod
+    def _primary_economic_analysis_calculated(
+        data: SolarReportData,
+    ) -> bool:
+        if data.selected_option_available:
+            return data.selected_economic_analysis_calculated
+
+        return data.economic_analysis_calculated
+
+    @staticmethod
+    def _primary_npv_eur(
+        data: SolarReportData,
+    ) -> float | None:
+        if data.selected_option_available:
+            return data.selected_net_present_value_eur
+
+        return data.net_present_value_eur
+
+    @staticmethod
+    def _primary_payback_years(
+        data: SolarReportData,
+    ) -> float | None:
+        if data.selected_option_available:
+            return data.selected_payback_years
+
+        return data.payback_years
+
+    @staticmethod
+    def _primary_irr_percent(
+        data: SolarReportData,
+    ) -> float | None:
+        if data.selected_option_available:
+            return data.selected_internal_rate_of_return_percent
+
+        return data.internal_rate_of_return_percent
+
+    @staticmethod
     def recommended_battery(
         data: SolarReportData,
     ):
@@ -50,27 +86,38 @@ class SolarReportText:
         if data is None:
             raise ValueError("report data is required")
 
-        if data.economic_analysis_calculated:
-            if data.net_present_value_eur > 0:
+        primary_npv = SolarReportText._primary_npv_eur(data)
+        primary_analysis_calculated = (
+            SolarReportText._primary_economic_analysis_calculated(data)
+        )
+
+        if (
+            primary_analysis_calculated
+            and SolarReportText._is_finite_metric(primary_npv)
+        ):
+            if primary_npv > 0:
                 pv_message = (
-                    "La instalación fotovoltaica es recomendable "
-                    "bajo las hipótesis económicas consideradas."
+                    "La opción de instalación seleccionada "
+                    "es recomendable bajo las hipótesis "
+                    "económicas consideradas."
                 )
-            elif data.net_present_value_eur < 0:
+            elif primary_npv < 0:
                 pv_message = (
-                    "La instalación fotovoltaica no resulta rentable "
-                    "bajo las hipótesis económicas consideradas."
+                    "La opción de instalación seleccionada no "
+                    "resulta rentable bajo las hipótesis "
+                    "económicas consideradas."
                 )
             else:
                 pv_message = (
-                    "La instalación fotovoltaica se encuentra "
-                    "aproximadamente en el punto de equilibrio económico."
+                    "La opción de instalación seleccionada se "
+                    "encuentra aproximadamente en el punto de "
+                    "equilibrio económico."
                 )
         else:
             pv_message = (
                 "No puede establecerse una recomendación económica "
-                "sobre la instalación fotovoltaica porque el análisis "
-                "económico no se ha calculado."
+                "porque no hay un VAN válido disponible para la "
+                "opción seleccionada ni para el análisis de referencia."
             )
 
         battery = SolarReportText.recommended_battery(data)
@@ -162,7 +209,7 @@ class SolarReportText:
                 f"{data.self_sufficiency_rate_percent:.1f} %."
             )
 
-        if not data.economic_analysis_calculated:
+        if not SolarReportText._primary_economic_analysis_calculated(data):
             summary += (
                 " El análisis económico no se ha calculado; "
                 "no se presentan estimaciones económicas."
@@ -190,13 +237,15 @@ class SolarReportText:
         
         
         if (
-            data.economic_analysis_calculated
-            and data.payback_years is not None
-            and math.isfinite(data.payback_years)
+            SolarReportText._primary_economic_analysis_calculated(data)
+            and SolarReportText._primary_payback_years(data) is not None
+            and math.isfinite(
+                SolarReportText._primary_payback_years(data)
+            )
         ):
             summary += (
                 " El periodo de recuperación de la inversión "
-                f"es de {data.payback_years:.2f} años."
+                f"es de {SolarReportText._primary_payback_years(data):.2f} años."
             )
 
         return summary
@@ -260,26 +309,50 @@ class SolarReportText:
                 "significativos en el escenario analizado."
             )
 
-        if not data.economic_analysis_calculated:
+        primary_analysis_calculated = (
+            SolarReportText._primary_economic_analysis_calculated(data)
+        )
+        primary_npv = SolarReportText._primary_npv_eur(data)
+        primary_payback = SolarReportText._primary_payback_years(data)
+        primary_irr = SolarReportText._primary_irr_percent(data)
+
+        if not primary_analysis_calculated:
             economic_message = (
-                "ℹ No se puede evaluar la rentabilidad de la "
-                "inversión porque el análisis económico no se ha calculado."
-            )
-        elif data.net_present_value_eur > 0:
-            economic_message = (
-                "✓ La inversión presenta un VAN positivo bajo las "
-                "hipótesis económicas utilizadas."
-            )
-        elif data.net_present_value_eur < 0:
-            economic_message = (
-                "⚠ La inversión presenta un VAN negativo bajo las "
-                "hipótesis económicas utilizadas."
+                "ℹ No se puede evaluar la rentabilidad porque "
+                "el análisis económico no se ha calculado."
             )
         else:
-            economic_message = (
-                "ℹ La inversión presenta un VAN aproximadamente nulo "
-                "bajo las hipótesis económicas utilizadas."
-            )
+            economic_parts = []
+
+            if SolarReportText._is_finite_metric(primary_npv):
+                economic_parts.append(
+                    f"VAN de {primary_npv:,.2f} €"
+                )
+
+            if SolarReportText._is_finite_metric(primary_payback):
+                economic_parts.append(
+                    "recuperación de la inversión en "
+                    f"{primary_payback:.2f} años"
+                )
+
+            if SolarReportText._is_finite_metric(primary_irr):
+                economic_parts.append(
+                    "TIR del "
+                    f"{primary_irr:.2f} %"
+                )
+
+            if economic_parts:
+                economic_message = (
+                    "✓ Evaluación económica de la opción seleccionada: "
+                    + "; ".join(economic_parts)
+                    + "."
+                )
+            else:
+                economic_message = (
+                    "ℹ El análisis económico está marcado como "
+                    "calculado, pero no hay indicadores económicos "
+                    "válidos disponibles para la opción seleccionada."
+                )
 
         if (
             data.grid_export_kwh > 0
@@ -538,44 +611,59 @@ class SolarReportText:
         if data is None:
             raise ValueError("report data is required")
 
-        if not data.economic_analysis_calculated:
-            return (
+        selected_option = data.selected_option_available
+
+        if not SolarReportText._primary_economic_analysis_calculated(data):
+            message = (
                 "El análisis económico de la instalación no se ha "
                 "calculado. Por tanto, no es posible interpretar "
                 "el valor actual neto, la tasa interna de retorno "
-                "ni el periodo de recuperación de la inversión. "
-                f"El ahorro anual estimado a partir del balance "
-                f"energético es de {data.yearly_savings_eur:,.2f} €."
+                "ni el periodo de recuperación de la inversión."
             )
 
+            if not selected_option and SolarReportText._is_finite_metric(
+                data.yearly_savings_eur
+            ):
+                message += (
+                    " El ahorro anual estimado a partir del balance "
+                    "energético de referencia es de "
+                    f"{data.yearly_savings_eur:,.2f} €."
+                )
+
+            return message
+
+        primary_npv = SolarReportText._primary_npv_eur(data)
+        primary_payback = SolarReportText._primary_payback_years(data)
+        primary_irr = SolarReportText._primary_irr_percent(data)
+
         npv_is_finite = SolarReportText._is_finite_metric(
-            data.net_present_value_eur
+            primary_npv
         )
         payback_is_finite = SolarReportText._is_finite_metric(
-            data.payback_years
+            primary_payback
         )
         irr_is_finite = SolarReportText._is_finite_metric(
-            data.internal_rate_of_return_percent
+            primary_irr
         )
 
         if not npv_is_finite:
             npv_text = (
                 "El valor actual neto no está disponible como indicador "
-                "válido, por lo que no puede determinarse la rentabilidad "
-                "a partir de este resultado."
+                "válido para la opción seleccionada, por lo que no puede "
+                "determinarse su rentabilidad a partir de este resultado."
             )
-        elif data.net_present_value_eur > 0:
+        elif primary_npv > 0:
             npv_text = (
-                f"El valor actual neto alcanza "
-                f"{data.net_present_value_eur:,.2f} €. "
+                "El valor actual neto de la opción seleccionada alcanza "
+                f"{primary_npv:,.2f} €. "
                 "El valor actual neto es positivo, lo que indica que la "
                 "inversión genera valor por encima del valor exigido, "
                 "una vez tenido en cuenta el valor del dinero en el tiempo."
             )
-        elif data.net_present_value_eur < 0:
+        elif primary_npv < 0:
             npv_text = (
-                f"El valor actual neto alcanza "
-                f"{data.net_present_value_eur:,.2f} €. "
+                "El valor actual neto de la opción seleccionada alcanza "
+                f"{primary_npv:,.2f} €. "
                 "El valor actual neto es negativo, lo que indica que, "
                 "bajo las hipótesis consideradas, el valor de los ahorros "
                 "futuros no alcanza a compensar la inversión una vez "
@@ -583,38 +671,75 @@ class SolarReportText:
             )
         else:
             npv_text = (
-                "El valor actual neto es aproximadamente nulo, lo que "
-                "indica que, bajo las hipótesis consideradas, los ahorros "
-                "futuros compensan aproximadamente la inversión una vez "
-                "tenido en cuenta el valor del dinero en el tiempo."
+                "El valor actual neto de la opción seleccionada es "
+                "aproximadamente nulo, lo que indica que, bajo las "
+                "hipótesis consideradas, los ahorros futuros compensan "
+                "aproximadamente la inversión una vez tenido en cuenta "
+                "el valor del dinero en el tiempo."
             )
 
         if irr_is_finite:
             irr_text = (
-                "La tasa interna de retorno estimada es del "
-                f"{data.internal_rate_of_return_percent:.2f} %."
+                "La tasa interna de retorno estimada de la opción "
+                "seleccionada es del "
+                f"{primary_irr:.2f} %."
             )
         else:
             irr_text = (
                 "No ha sido posible determinar una tasa interna de "
-                "retorno válida con los resultados disponibles."
+                "retorno válida para la opción seleccionada."
             )
 
         if payback_is_finite:
             payback_text = (
-                f"El periodo de recuperación de la inversión es de "
-                f"{data.payback_years:.2f} años."
+                "El periodo de recuperación de la inversión de la "
+                "opción seleccionada es de "
+                f"{primary_payback:.2f} años."
             )
         else:
             payback_text = (
-                "El periodo de recuperación de la inversión no está "
-                "disponible como indicador válido."
+                "El periodo de recuperación de la inversión de la "
+                "opción seleccionada no está disponible como "
+                "indicador válido."
+            )
+
+        if selected_option:
+            investment = data.selected_investment_eur
+            savings = data.selected_yearly_savings_eur
+
+            investment_label = "La inversión neta de la opción seleccionada"
+            savings_label = (
+                "El ahorro neto estimado del primer año de la opción seleccionada"
+            )
+        else:
+            investment = data.investment_eur
+            savings = data.yearly_savings_eur
+
+            investment_label = "La inversión neta de referencia"
+            savings_label = "El ahorro anual de referencia"
+
+        if SolarReportText._is_finite_metric(investment):
+            investment_text = (
+                f"{investment_label} asciende a {investment:,.2f} €."
+            )
+        else:
+            investment_text = (
+                f"{investment_label.lower()} no está disponible."
+            )
+
+        if SolarReportText._is_finite_metric(savings):
+            savings_text = (
+                f"{savings_label} es de {savings:,.2f} €."
+            )
+        else:
+            savings_text = (
+                f"{savings_label} no está disponible."
             )
 
         return (
-            f"La inversión neta asciende a {data.investment_eur:,.2f} € "
-            f"y genera un ahorro anual estimado de "
-            f"{data.yearly_savings_eur:,.2f} €. "
+            "Los indicadores de VAN, TIR y periodo de recuperación "
+            "corresponden a la opción seleccionada por el optimizador. "
+            f"{investment_text} {savings_text} "
             f"{payback_text} {npv_text} {irr_text}"
         )
 
@@ -1207,44 +1332,45 @@ class SolarReportText:
         data: SolarReportData,
     ) -> str:
         """
-        Sintetiza la rentabilidad sin repetir los indicadores
-        económicos presentados en la tabla y el análisis.
+        Sintetiza la rentabilidad de la opción seleccionada
+        sin repetir los indicadores económicos de la tabla.
         """
 
         if data is None:
             raise ValueError("report data is required")
 
-        if not data.economic_analysis_calculated:
+        if not SolarReportText._primary_economic_analysis_calculated(data):
             return (
-                "El análisis económico de la instalación "
-                "fotovoltaica no se ha calculado. Por tanto, "
+                "El análisis económico no se ha calculado. Por tanto, "
                 "todavía no es posible establecer una conclusión "
-                "fundamentada sobre su rentabilidad."
+                "fundamentada sobre la rentabilidad de la opción "
+                "seleccionada."
             )
 
-        if not SolarReportText._is_finite_metric(
-            data.net_present_value_eur
-        ):
+        primary_npv = SolarReportText._primary_npv_eur(data)
+
+        if not SolarReportText._is_finite_metric(primary_npv):
             assessment = (
-                "El valor actual neto no está disponible como indicador "
-                "válido, por lo que no puede determinarse la rentabilidad "
-                "de la inversión con este resultado."
+                "El VAN de la opción seleccionada no está disponible "
+                "como indicador válido, por lo que no puede determinarse "
+                "su rentabilidad con este resultado."
             )
-        elif data.net_present_value_eur > 0:
+        elif primary_npv > 0:
             assessment = (
-                "El VAN positivo indica que la inversión genera valor "
-                "bajo las hipótesis económicas consideradas."
+                "El VAN positivo indica que la opción seleccionada "
+                "genera valor bajo las hipótesis económicas consideradas."
             )
-        elif data.net_present_value_eur < 0:
+        elif primary_npv < 0:
             assessment = (
-                "El VAN negativo indica que la inversión no alcanza la "
-                "rentabilidad exigida bajo las hipótesis consideradas."
+                "El VAN negativo indica que la opción seleccionada "
+                "no alcanza la rentabilidad exigida bajo las hipótesis "
+                "consideradas."
             )
         else:
             assessment = (
-                "El VAN aproximadamente nulo indica que la inversión se "
-                "sitúa en torno al umbral de rentabilidad establecido "
-                "por las hipótesis del análisis."
+                "El VAN aproximadamente nulo indica que la opción "
+                "seleccionada se sitúa en torno al umbral de rentabilidad "
+                "establecido por las hipótesis del análisis."
             )
 
         return (
@@ -1678,27 +1804,43 @@ class SolarReportText:
         else:
             production_ratio = 0.0
 
-        if not data.economic_analysis_calculated:
+        primary_analysis_calculated = (
+            SolarReportText._primary_economic_analysis_calculated(data)
+        )
+        primary_npv = SolarReportText._primary_npv_eur(data)
+
+        if not primary_analysis_calculated:
             recommendation = (
                 "No puede establecerse todavía una recomendación "
                 "de inversión basada en la rentabilidad."
             )
             economic_message = (
                 "El análisis económico no se ha calculado, por lo que "
-                "no puede determinarse si el valor actual neto es "
-                "positivo o negativo."
+                "no puede determinarse si el VAN de la opción "
+                "seleccionada es positivo o negativo."
             )
-        elif data.net_present_value_eur > 0:
+        elif not SolarReportText._is_finite_metric(primary_npv):
+            recommendation = (
+                "No puede establecerse una recomendación de inversión "
+                "hasta disponer de un VAN válido para la opción "
+                "seleccionada."
+            )
+            economic_message = (
+                "El análisis económico está marcado como calculado, "
+                "pero el VAN de la opción seleccionada no es válido."
+            )
+        elif primary_npv > 0:
             recommendation = (
                 "Se recomienda la instalación fotovoltaica "
-                "en el escenario analizado."
+                "en el escenario analizado. La opción evaluada "
+                "corresponde a la selección del optimizador."
             )
             economic_message = (
                 "El resultado económico es favorable, ya que el "
-                "valor actual neto es positivo bajo las hipótesis "
-                "utilizadas."
+                "valor actual neto es positivo para la opción "
+                "seleccionada bajo las hipótesis utilizadas."
             )
-        elif data.net_present_value_eur < 0:
+        elif primary_npv < 0:
             recommendation = (
                 "No se recomienda ejecutar la instalación sin revisar "
                 "previamente sus condiciones económicas."
@@ -1706,7 +1848,7 @@ class SolarReportText:
             economic_message = (
                 "El resultado económico no es favorable bajo las "
                 "hipótesis utilizadas, ya que el valor actual neto "
-                "es negativo."
+                "es negativo para la opción seleccionada."
             )
         else:
             recommendation = (
@@ -1714,8 +1856,9 @@ class SolarReportText:
                 "valorar también criterios energéticos y no económicos."
             )
             economic_message = (
-                "El resultado económico se encuentra aproximadamente "
-                "en el punto de equilibrio bajo las hipótesis utilizadas."
+                "El VAN de la opción seleccionada se encuentra "
+                "aproximadamente en el punto de equilibrio bajo "
+                "las hipótesis utilizadas."
             )
 
         production_message = (
@@ -1951,9 +2094,10 @@ class SolarReportText:
         if data is None:
             raise ValueError("report data is required")
 
-        
+        primary_npv = SolarReportText._primary_npv_eur(data)
+
         npv_is_finite = SolarReportText._is_finite_metric(
-            data.net_present_value_eur
+            primary_npv
         )
 
         if not npv_is_finite:
@@ -1963,18 +2107,23 @@ class SolarReportText:
                 "que no puede determinarse la rentabilidad de la inversión "
                 "con este resultado."
             )
-        elif data.net_present_value_eur > 0:
+        elif primary_npv > 0:
             investment_assessment = (
-                "El valor actual neto es positivo bajo las hipótesis utilizadas."
+                "El valor actual neto es positivo bajo las hipótesis utilizadas. "
+                "Este resultado corresponde a la opción seleccionada "
+                "por el optimizador."
             )
-        elif data.net_present_value_eur < 0:
+        elif primary_npv < 0:
             investment_assessment = (
-                "El valor actual neto es negativo bajo las hipótesis utilizadas."
+                "El valor actual neto es negativo bajo las hipótesis utilizadas. "
+                "Este resultado corresponde a la opción seleccionada "
+                "por el optimizador."
             )
         else:
             investment_assessment = (
                 "El valor actual neto es aproximadamente nulo bajo las "
-                "hipótesis utilizadas."
+                "hipótesis utilizadas. Este resultado corresponde a la "
+                "opción seleccionada por el optimizador."
             )
 
         if data.yearly_consumption_kwh > 0:
@@ -2011,42 +2160,59 @@ class SolarReportText:
                 f"cuánta energía debe importarse de la red."
             )
 
-        if data.economic_analysis_calculated:
-            if SolarReportText._is_finite_metric(
-                data.yearly_savings_eur
-            ):
+        if SolarReportText._primary_economic_analysis_calculated(data):
+            if data.selected_option_available:
+                savings_value = data.selected_yearly_savings_eur
+                investment_value = data.selected_investment_eur
+
+                savings_label = (
+                    "el ahorro neto estimado del primer año de la opción seleccionada"
+                )
+                investment_label = (
+                    "la inversión neta de la opción seleccionada"
+                )
+            else:
+                savings_value = data.yearly_savings_eur
+                investment_value = data.investment_eur
+
+                savings_label = "el ahorro anual estimado"
+                investment_label = "la inversión neta de referencia"
+
+            if SolarReportText._is_finite_metric(savings_value):
                 savings_text = (
-                    f"un ahorro anual estimado de "
-                    f"{data.yearly_savings_eur:,.2f} €"
+                    f"{savings_label} de "
+                    f"{savings_value:,.2f} €"
                 )
             else:
-                savings_text = "un ahorro anual estimado no disponible"
+                savings_text = f"{savings_label} no disponible"
 
-            if SolarReportText._is_finite_metric(
-                data.investment_eur
-            ):
+            if SolarReportText._is_finite_metric(investment_value):
                 investment_text = (
-                    f"una inversión neta de "
-                    f"{data.investment_eur:,.2f} €"
+                    f"{investment_label} de "
+                    f"{investment_value:,.2f} €"
                 )
             else:
-                investment_text = "una inversión neta no disponible"
+                investment_text = f"{investment_label} no disponible"
 
-            if SolarReportText._is_finite_metric(
-                data.payback_years
-            ):
+            primary_payback = (
+                SolarReportText._primary_payback_years(data)
+            )
+
+            if SolarReportText._is_finite_metric(primary_payback):
                 payback_text = (
-                    f"un periodo de recuperación de la inversión "
-                    f"estimado de {data.payback_years:.2f} años"
+                    "el periodo de recuperación de la inversión "
+                    "de la opción seleccionada estimado en "
+                    f"{primary_payback:.2f} años"
                 )
             else:
                 payback_text = (
-                    "un periodo de recuperación de la inversión "
-                    "no disponible como indicador válido"
+                    "el periodo de recuperación de la inversión "
+                    "de la opción seleccionada no disponible "
+                    "como indicador válido"
                 )
 
             economic_summary = (
-                f"Desde el punto de vista económico, la instalación "
+                "Desde el punto de vista económico, la instalación "
                 f"presenta {savings_text}, {investment_text} y "
                 f"{payback_text}. {investment_assessment}"
             )
