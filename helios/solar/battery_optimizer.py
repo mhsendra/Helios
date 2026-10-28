@@ -18,6 +18,9 @@ from helios.ev.scenario import EVScenario
 class NoFinitePaybackError(ValueError):
     """No existe ninguna batería con un plazo de amortización finito."""
 
+class NoFiniteNPVError(ValueError):
+    """No existe ninguna recomendación con un VAN finito."""
+
 class BatteryOptimizer:
 
     @staticmethod
@@ -26,21 +29,20 @@ class BatteryOptimizer:
         optimization_criterion: str,
     ) -> BatteryRecommendation:
         if not recommendations:
-            raise ValueError(
-                "recommendations must not be empty."
-            )
+            raise ValueError("recommendations must not be empty.")
 
-        if optimization_criterion not in {
+        valid_criteria = {
             "energy",
             "npv",
             "combined_npv",
             "payback",
             "combined_payback",
-        }:
+        }
+        if optimization_criterion not in valid_criteria:
             raise ValueError(
-                "optimization_criterion must be one of: "
-                "'energy', 'npv', 'combined_npv', "
-                "'payback', 'combined_payback'."
+                "optimization_criterion must be one of "
+                "'energy', 'npv', 'payback', 'combined_npv', "
+                "or 'combined_payback'."
             )
 
         if optimization_criterion in {"npv", "payback"}:
@@ -49,21 +51,19 @@ class BatteryOptimizer:
                 for recommendation in recommendations
             ):
                 raise ValueError(
-                    "Economic optimization requires a calculated "
-                    "battery economic analysis for every recommendation."
+                    "Economic analysis must be calculated for all "
+                    "recommendations."
                 )
 
-        if optimization_criterion in {
-            "combined_npv",
-            "combined_payback",
-        }:
+        if optimization_criterion in {"combined_npv", "combined_payback"}:
             if not all(
                 recommendation.combined_economic_analysis_calculated
                 for recommendation in recommendations
             ):
                 raise ValueError(
-                    "Combined economic optimization requires a calculated "
-                    "PV and battery economic analysis for every recommendation."
+                    "Combined economic optimization requires "
+                    "calculated combined economic analysis for "
+                    "all recommendations."
                 )
 
         if optimization_criterion == "energy":
@@ -76,8 +76,18 @@ class BatteryOptimizer:
             )
 
         if optimization_criterion == "npv":
+            eligible = [
+                recommendation
+                for recommendation in recommendations
+                if math.isfinite(recommendation.economic_npv_eur)
+            ]
+            if not eligible:
+                raise NoFiniteNPVError(
+                    "No recommendation has a finite economic NPV."
+                )
+
             return max(
-                recommendations,
+                eligible,
                 key=lambda recommendation: (
                     recommendation.economic_npv_eur,
                     -recommendation.capacity_kwh,
@@ -85,8 +95,20 @@ class BatteryOptimizer:
             )
 
         if optimization_criterion == "combined_npv":
+            eligible = [
+                recommendation
+                for recommendation in recommendations
+                if math.isfinite(
+                    recommendation.combined_economic_npv_eur
+                )
+            ]
+            if not eligible:
+                raise NoFiniteNPVError(
+                    "No recommendation has a finite combined economic NPV."
+                )
+
             return max(
-                recommendations,
+                eligible,
                 key=lambda recommendation: (
                     recommendation.combined_economic_npv_eur,
                     -recommendation.capacity_kwh,
@@ -97,15 +119,11 @@ class BatteryOptimizer:
             eligible = [
                 recommendation
                 for recommendation in recommendations
-                if math.isfinite(
-                    recommendation.economic_payback_years
-                )
+                if math.isfinite(recommendation.economic_payback_years)
             ]
-
             if not eligible:
                 raise NoFinitePaybackError(
-                    "No battery recommendation has a finite "
-                    "economic payback period."
+                    "No recommendation has a finite economic payback."
                 )
 
             return min(
@@ -123,11 +141,9 @@ class BatteryOptimizer:
                 recommendation.combined_economic_payback_years
             )
         ]
-
         if not eligible:
             raise NoFinitePaybackError(
-                "No battery recommendation has a finite "
-                "combined economic payback period."
+                "No recommendation has a finite combined economic payback."
             )
 
         return min(
@@ -309,6 +325,7 @@ class BatteryOptimizer:
             incremental_savings = 0.0
             marginal_savings_per_kwh = 0.0
             marginal_payback_years = float("inf")
+            marginal_recovered_kwh_per_kwh = 0.0
 
             if recommendations:
                 previous = recommendations[-1]
@@ -319,8 +336,7 @@ class BatteryOptimizer:
                 )
 
                 capacity_increment = (
-                    capacity
-                    - previous.capacity_kwh
+                    capacity - previous.capacity_kwh
                 )
 
                 marginal_recovered_kwh_per_kwh = (
@@ -331,8 +347,7 @@ class BatteryOptimizer:
 
                 incremental_battery_cost = (
                     battery_cost_eur
-                    - previous.capacity_kwh
-                    * battery_cost_per_kwh_eur
+                    - previous.capacity_kwh * battery_cost_per_kwh_eur
                 )
 
                 incremental_savings = (
@@ -341,21 +356,16 @@ class BatteryOptimizer:
                 )
 
                 marginal_savings_per_kwh = (
-                    incremental_savings
-                    / capacity_increment
+                    incremental_savings / capacity_increment
                     if capacity_increment > 0
                     else 0.0
                 )
 
                 marginal_payback_years = (
-                    incremental_battery_cost
-                    / incremental_savings
+                    incremental_battery_cost / incremental_savings
                     if incremental_savings > 0
                     else float("inf")
                 )
-
-            else:
-                marginal_recovered_kwh_per_kwh = 0.0
 
             # ---------------------------------------------------------
             # Lifecycle economic analysis

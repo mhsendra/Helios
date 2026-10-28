@@ -399,15 +399,25 @@ class InstallationCostConfiguration:
                 left_columns = layout.columns // 2
                 right_columns = layout.columns - left_columns
 
-                # El coste se calcula por fila: cada fila necesita sus
-                # propios kits para los tramos a ambos lados del pasillo.
-                cost_per_row = (
+                # Un lado vacío del pasillo no necesita kits.
+                left_cost = (
                     self._minimum_mounting_segment_cost(left_columns)
-                    + self._minimum_mounting_segment_cost(right_columns)
+                    if left_columns > 0
+                    else 0.0
+                )
+                right_cost = (
+                    self._minimum_mounting_segment_cost(right_columns)
+                    if right_columns > 0
+                    else 0.0
                 )
 
-                return float(layout.rows * cost_per_row)
+                # Cada fila necesita kits para sus tramos no vacíos.
+                return float(
+                    layout.rows * (left_cost + right_cost)
+                )
 
+            # Distribución sin pasillo vertical: optimizar kits
+            # para cubrir todos los paneles.
             return float(
                 self._minimum_mounting_segment_cost(
                     evaluation.panel_count

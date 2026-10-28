@@ -140,7 +140,7 @@ class TestSolarOptimizationPage:
 
         assert (
             page.battery_table.columnCount()
-            == 9
+            == 5
         )
 
         assert (
@@ -182,17 +182,13 @@ class TestSolarOptimizationPage:
         page.show_battery_economic_results(recommendations)
 
         assert page.battery_table.rowCount() == 2
-        assert page.battery_table.columnCount() == 9
+        assert page.battery_table.columnCount() == 5
 
         assert page.battery_table.item(0, 0).text() == "—"
         assert page.battery_table.item(0, 1).text() == "5.0 kWh"
-        assert page.battery_table.item(0, 2).text() == "200.00 €"
-        assert page.battery_table.item(0, 3).text() == "1,000.00 €"
-        assert page.battery_table.item(0, 4).text() == "50.00 €"
-        assert page.battery_table.item(0, 5).text() == "20.00 años"
-        assert page.battery_table.item(0, 6).text() == "1,500.00 €"
-        assert page.battery_table.item(0, 7).text() == "8.50 %"
-        assert page.battery_table.item(0, 8).text() == "10.00 años"
+        assert page.battery_table.item(0, 2).text() == "1,500.00 €"
+        assert page.battery_table.item(0, 3).text() == "8.50 %"
+        assert page.battery_table.item(0, 4).text() == "10.00 años"
 
         assert page.battery_table.item(1, 1).text() == "8.3 kWh"
 
@@ -1427,6 +1423,97 @@ class TestSolarOptimizationPage:
         assert costs.cabling_cost_eur == 0.0
         assert costs.legalization_cost_eur == 0.0
 
+    def test_configure_installation_costs_preserves_mounting_packages_and_applies_vat(
+        self,
+    ):
+        from helios.solar.components_catalog import (
+            ComponentCatalog,
+            Inverter,
+            MountingSystem,
+            MountingSystemPackage,
+            PhotovoltaicPanel,
+        )
+        from helios.solar.installation_component_selection import (
+            InstallationComponentSelection,
+        )
+
+        page, project = self.create_page()
+
+        panel = PhotovoltaicPanel(
+            id="panel-540",
+            manufacturer="Longi",
+            model="LR7-60HVH-540M",
+            power_wp=540.0,
+            width_m=1.134,
+            height_m=1.990,
+            price_eur=92.196,
+        )
+
+        inverter = Inverter(
+            id="inverter-8",
+            manufacturer="GoodWe",
+            model="GW8K",
+            nominal_power_kw=8.0,
+            max_pv_power_kwp=12.0,
+            price_eur=960.375,
+            hybrid=True,
+        )
+
+        mounting = MountingSystem(
+            id="mounting-arabic-tile",
+            manufacturer="SUNFER",
+            model="01V-CL",
+            price_per_panel_eur=None,
+            compatible_roof_types=("arabic_tile",),
+        )
+
+        package = MountingSystemPackage(
+            id="sunfer-test-3-panels",
+            mounting_system_id=mounting.id,
+            model="Kit de 3 paneles",
+            panel_capacity=3,
+            quantity=1,
+            unit_price_eur=100.00,
+        )
+
+        catalog = ComponentCatalog(
+            panels=(panel,),
+            inverters=(inverter,),
+            mounting_systems=(mounting,),
+            mounting_packages=(package,),
+        )
+
+        selection = InstallationComponentSelection(
+            catalog=catalog,
+            panel_id=panel.id,
+            inverter_id=inverter.id,
+            mounting_system_id=mounting.id,
+            mounting_package_ids=(package.id,),
+            mounting_package_panel_count=3,
+            roof_type="arabic_tile",
+        )
+
+        project.component_selection = selection
+
+        page._configure_installation_costs(result=None)
+
+        project.set_installation_cost_configuration.assert_called_once()
+
+        costs = (
+            project.set_installation_cost_configuration.call_args.args[0]
+        )
+
+        assert costs.structure_unit_cost_eur is None
+        assert costs.mounting_system_id == mounting.id
+        assert len(costs.mounting_packages) == 1
+
+        preserved_package = costs.mounting_packages[0]
+        assert preserved_package.id == package.id
+        assert preserved_package.unit_price_eur == pytest.approx(121.00)
+        assert preserved_package.total_price_eur == pytest.approx(121.00)
+
+        assert costs.structure_package_panel_count == 3
+        assert costs.structure_package_cost_eur == pytest.approx(121.00)
 
     def test_fallback_installation_costs_apply_vat_to_legalization(self):
         page, project = self.create_page()

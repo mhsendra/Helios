@@ -1,6 +1,8 @@
 import pandas as pd
 import pytest
 
+import math
+
 from dataclasses import replace
 
 from helios.core.consumption_scenario import ConsumptionScenario
@@ -1279,7 +1281,14 @@ class TestEnergyRecommender:
         )
         assert balance_calls == [None]
 
-    def test_combined_npv_can_select_pv_without_battery(self):
+    @pytest.mark.parametrize(
+    "optimization_criterion",
+    ["combined_npv", "combined_payback"],
+    )
+    def test_combined_criterion_can_select_pv_without_battery(
+        self,
+        optimization_criterion,
+    ):
         consumption = _consumption_scenario()
 
         evaluation = _evaluation(
@@ -1292,13 +1301,16 @@ class TestEnergyRecommender:
             annual_production_kwh=12_000.0,
         )
 
+        battery_recommendation = replace(
+            _battery_recommendation(
+                capacity_kwh=8.3,
+                combined_npv_eur=-1_000.0,
+            ),
+            combined_economic_payback_years=10.0,
+        )
+
         optimizer = FakeBatteryOptimizer(
-            {
-                8.1: _battery_recommendation(
-                    capacity_kwh=8.3,
-                    combined_npv_eur=-1_000.0,
-                )
-            }
+            {8.1: battery_recommendation}
         )
 
         economic_configuration = CombinedEconomicConfiguration(
@@ -1323,7 +1335,7 @@ class TestEnergyRecommender:
             candidate_capacities_kwh=[8.3],
             max_charge_power_kw=5.0,
             max_discharge_power_kw=5.0,
-            optimization_criterion="combined_npv",
+            optimization_criterion=optimization_criterion,
             economic_configuration_factory=(
                 lambda evaluation, production_profile:
                     economic_configuration
@@ -1331,7 +1343,7 @@ class TestEnergyRecommender:
         )
 
         assert result.battery_capacity_kwh == pytest.approx(0.0)
-        assert result.combined_economic_npv_eur > -1_000.0
+
         assert any(
             option.battery_capacity_kwh == pytest.approx(0.0)
             for option in result.evaluated_options
@@ -1340,6 +1352,14 @@ class TestEnergyRecommender:
             option.battery_capacity_kwh == pytest.approx(8.3)
             for option in result.evaluated_options
         )
+
+        if optimization_criterion == "combined_npv":
+            assert result.combined_economic_npv_eur > -1_000.0
+        else:
+            assert math.isfinite(
+                result.combined_economic_payback_years
+            )
+            assert result.combined_economic_payback_years < 10.0
 
     def test_no_battery_option_preserves_pv_savings_breakdown(self):
         consumption = _consumption_scenario()
@@ -1379,6 +1399,7 @@ class TestEnergyRecommender:
             baseline_balance=baseline_balance,
             combined_configuration=configuration,
             ev_scenario=None,
+            optimization_criterion="combined_npv",
         )
 
         no_battery_configuration = replace(
