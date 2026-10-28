@@ -1,5 +1,8 @@
 from dataclasses import replace
 
+from datetime import datetime
+from pathlib import Path
+
 from PySide6.QtCore import Qt, QRectF
 from PySide6.QtWidgets import (
     QWidget,
@@ -50,6 +53,10 @@ from helios.solar.installation_component_selection import (
     InstallationComponentSelection,
 )
 
+from helios.solar.default_component_catalog import (
+    build_default_component_catalog,
+)
+
 # Presupuesto de referencia HELIOS.
 # Los importes originales de los componentes y de la mano de obra
 # están expresados sin IVA.
@@ -78,8 +85,14 @@ CABLING_AND_ACCESSORIES_GROSS_EUR = (
     110.58 + 14.78 + 14.18 + 8.27
 ) * (1 + INSTALLATION_VAT_RATE)
 
-# Estimación adicional de legalización, en euros finales.
-LEGALIZATION_ESTIMATE_EUR = 650.00
+# Estimación de legalización expresada sin IVA.
+LEGALIZATION_ESTIMATE_NET_EUR = 650.00
+
+# Importe con IVA para utilizar en la configuración económica.
+LEGALIZATION_ESTIMATE_EUR = (
+    LEGALIZATION_ESTIMATE_NET_EUR
+    * (1.0 + INSTALLATION_VAT_RATE)
+)
 
 # 4.145,27 € sin IVA por 16,6 kWh.
 # Convertimos a precio unitario con IVA para el análisis económico.
@@ -590,6 +603,7 @@ class SolarOptimizationPage(QWidget):
 
         self.setup_ui()
         self.configure_widgets()
+        self._initialize_default_component_selection()
         self.connect_signals()
 
     # ==================================================
@@ -1120,9 +1134,10 @@ class SolarOptimizationPage(QWidget):
 
         description = QLabel(
             "Comparación de distintas capacidades de batería "
-            "sobre la instalación fotovoltaica calculada. "
-            "Los resultados económicos incluyen ahorro anual, "
-            "coste incremental, payback marginal, NPV e IRR."
+            "sobre la instalación fotovoltaica calculada. La tabla muestra "
+            "indicadores incrementales de la batería; el resultado superior "
+            "compara el VAN y la TIR de la instalación completa con batería "
+            "frente a la alternativa fotovoltaica sin batería."
         )
 
         description.setWordWrap(True)
@@ -1137,20 +1152,23 @@ class SolarOptimizationPage(QWidget):
             self.battery_status_label
         )
 
-        self.battery_table = QTableWidget()
+        self.combined_economic_label = QLabel(
+            "Evaluación combinada FV + batería pendiente."
+        )
+        self.combined_economic_label.setWordWrap(True)
 
-        self.battery_table.setColumnCount(8)
+        layout.addWidget(self.combined_economic_label)
+
+        self.battery_table = QTableWidget()
+        self.battery_table.setColumnCount(5)
 
         self.battery_table.setHorizontalHeaderLabels(
             [
-                "Capacidad",
-                "Ahorro adicional",
-                "Coste incremental",
-                "Ahorro incremental",
-                "Payback marginal",
-                "NPV",
-                "IRR",
-                "Payback económico",
+                "Paneles FV",
+                "Batería",
+                "VAN combinado",
+                "TIR combinada",
+                "Amortización",
             ]
         )
 
@@ -1170,15 +1188,10 @@ class SolarOptimizationPage(QWidget):
             QHeaderView.Stretch
         )
 
-        self.battery_table.verticalHeader().setVisible(
-            False
-        )
-
+        self.battery_table.verticalHeader().setVisible(False)
         self.battery_table.setMinimumHeight(220)
 
-        layout.addWidget(
-            self.battery_table
-        )
+        layout.addWidget(self.battery_table)
 
         return group
 
@@ -1437,73 +1450,280 @@ class SolarOptimizationPage(QWidget):
 
         return recommendations
 
-    def show_battery_economic_results(
+    def _write_battery_debug_report(
         self,
-        recommendations,
+        energy_recommendation,
+        alternatives,
     ):
+        """Guarda un informe de diagnóstico de la optimización FV+batería."""
 
-        self.battery_table.setRowCount(
-            len(recommendations)
+        def describe(value):
+            if value is None:
+                return "None"
+
+            if isinstance(value, float):
+                if value == float("inf"):
+                    return "inf"
+                if value == float("-inf"):
+                    return "-inf"
+                return f"{value:.6f}"
+
+            if isinstance(value, (int, bool, str)):
+                return repr(value)
+
+            if isinstance(value, (tuple, list)):
+                if len(value) > 40:
+                    return (
+                        f"{type(value).__name__}"
+                        f"(n={len(value)}, "
+                        f"primeros_40={value[:40]!r})"
+                    )
+                return repr(value)
+
+            return repr(value)
+
+        lines = [
+            "HELIOS - DEBUG OPTIMIZACION FV + BATERIA",
+            f"Fecha: {datetime.now().astimezone().isoformat()}",
+            f"Directorio de ejecución: {Path.cwd()}",
+            "",
+            "=== RESULTADO SELECCIONADO ===",
+        ]
+
+        selected_fields = (
+            "optimization_criterion",
+            "panel_count",
+            "installed_power_kwp",
+            "battery_capacity_kwh",
+            "combined_economic_npv_eur",
+            "combined_economic_irr_percent",
+            "combined_economic_payback_years",
         )
 
-        for row, recommendation in enumerate(
-            recommendations
-        ):
+        for field in selected_fields:
+            try:
+                value = getattr(energy_recommendation, field)
+            except (AttributeError, TypeError):
+                value = "<no disponible>"
+            lines.append(f"{field} = {describe(value)}")
+
+        lines.extend([
+            "",
+            "=== ALTERNATIVAS EVALUADAS ===",
+            f"Número de alternativas: {len(alternatives)}",
+        ])
+
+        battery_fields = (
+            "capacity_kwh",
+            "annual_consumption_kwh",
+            "annual_production_kwh",
+            "annual_surplus_kwh",
+            "annual_export_kwh",
+            "annual_grid_import_kwh",
+            "annual_battery_charge_kwh",
+            "annual_battery_discharge_kwh",
+            "self_consumption_kwh",
+            "self_sufficiency_percent",
+            "equivalent_cycles",
+            "annual_cost_with_battery_eur",
+            "annual_additional_savings_eur",
+            "annual_import_savings_eur",
+            "annual_export_compensation_lost_eur",
+            "incremental_battery_cost_eur",
+            "incremental_savings_eur",
+            "marginal_savings_per_kwh",
+            "marginal_payback_years",
+            "economic_analysis_calculated",
+            "economic_npv_eur",
+            "economic_irr_percent",
+            "economic_payback_years",
+            "combined_economic_analysis_calculated",
+            "combined_economic_npv_eur",
+            "combined_economic_irr_percent",
+            "combined_economic_payback_years",
+            "combined_economic_cash_flows",
+            "combined_economic_cumulative_cash_flow",
+        )
+
+        for index, alternative in enumerate(alternatives):
+            installation = getattr(
+                alternative,
+                "installation_recommendation",
+                None,
+            )
+            battery = getattr(
+                alternative,
+                "battery_recommendation",
+                alternative,
+            )
+
+            lines.extend([
+                "",
+                f"--- ALTERNATIVA {index + 1} ---",
+            ])
+
+            if installation is not None:
+                evaluation = getattr(
+                    installation,
+                    "evaluation",
+                    None,
+                )
+
+                for field in (
+                    "panel_count",
+                    "installed_power_kwp",
+                    "annual_production_kwh",
+                ):
+                    try:
+                        value = getattr(installation, field)
+                    except (AttributeError, TypeError):
+                        value = "<no disponible>"
+                    lines.append(
+                        f"installation.{field} = {describe(value)}"
+                    )
+
+                if evaluation is not None:
+                    for field in (
+                        "panel_count",
+                        "installed_power_kwp",
+                    ):
+                        try:
+                            value = getattr(evaluation, field)
+                        except (AttributeError, TypeError):
+                            continue
+                        lines.append(
+                            f"evaluation.{field} = {describe(value)}"
+                        )
+
+            for field in battery_fields:
+                try:
+                    value = getattr(battery, field)
+                except (AttributeError, TypeError):
+                    value = "<no disponible>"
+
+                lines.append(
+                    f"battery.{field} = {describe(value)}"
+                )
+
+        lines.extend([
+            "",
+            "=== TABLA MOSTRADA EN LA GUI ===",
+        ])
+
+        table = getattr(self, "battery_table", None)
+
+        if table is not None:
+            headers = []
+            for column in range(table.columnCount()):
+                header = table.horizontalHeaderItem(column)
+                headers.append(
+                    header.text() if header is not None
+                    else f"columna_{column}"
+                )
+
+            lines.append(" | ".join(headers))
+
+            for row in range(table.rowCount()):
+                cells = []
+                for column in range(table.columnCount()):
+                    item = table.item(row, column)
+                    cells.append(
+                        item.text() if item is not None else ""
+                    )
+                lines.append(" | ".join(cells))
+        else:
+            lines.append("Tabla no disponible.")
+
+        report_path = Path.cwd() / "helios_battery_debug.txt"
+
+        report_path.write_text(
+            "\n".join(lines) + "\n",
+            encoding="utf-8",
+        )
+
+        return report_path
+
+
+    def show_battery_economic_results(self, recommendations):
+        self.battery_table.setRowCount(len(recommendations))
+
+        for row, recommendation in enumerate(recommendations):
+            installation_recommendation = getattr(
+                recommendation,
+                "installation_recommendation",
+                None,
+            )
+
+            battery_recommendation = getattr(
+                recommendation,
+                "battery_recommendation",
+                recommendation,
+            )
+
+            panel_count = (
+                getattr(
+                    installation_recommendation,
+                    "panel_count",
+                    None,
+                )
+                if installation_recommendation is not None
+                else None
+            )
+
+            panel_count_text = (
+                str(panel_count)
+                if panel_count is not None
+                else "—"
+            )
+
+            combined_calculated = (
+                getattr(
+                    battery_recommendation,
+                    "combined_economic_analysis_calculated",
+                    False,
+                )
+                is True
+            )
+
+            if combined_calculated:
+                npv = (
+                    battery_recommendation.combined_economic_npv_eur
+                )
+                irr = (
+                    battery_recommendation.combined_economic_irr_percent
+                )
+                payback = (
+                    battery_recommendation.combined_economic_payback_years
+                )
+            else:
+                # Compatibilidad con el flujo anterior de evaluación
+                # de baterías, sin análisis económico combinado.
+                npv = battery_recommendation.economic_npv_eur
+                irr = battery_recommendation.economic_irr_percent
+                payback = battery_recommendation.economic_payback_years
 
             values = [
-                (
-                    f"{recommendation.capacity_kwh:.1f} kWh"
-                ),
-                (
-                    f"{recommendation.annual_additional_savings_eur:,.2f} €"
-                ),
-                (
-                    f"{recommendation.incremental_battery_cost_eur:,.2f} €"
-                ),
-                (
-                    f"{recommendation.incremental_savings_eur:,.2f} €"
-                ),
-                self._format_years(
-                    recommendation.marginal_payback_years
-                ),
-                (
-                    f"{recommendation.economic_npv_eur:,.2f} €"
-                ),
-                (
-                    f"{recommendation.economic_irr_percent:.2f} %"
-                ),
-                self._format_years(
-                    recommendation.economic_payback_years
-                ),
+                panel_count_text,
+                f"{battery_recommendation.capacity_kwh:.1f} kWh",
+                f"{npv:,.2f} €",
+                f"{irr:.2f} %",
+                self._format_years(payback),
             ]
 
             for column, value in enumerate(values):
-
                 item = QTableWidgetItem(value)
-
-                item.setTextAlignment(
-                    Qt.AlignCenter
-                )
-
-                self.battery_table.setItem(
-                    row,
-                    column,
-                    item,
-                )
+                item.setTextAlignment(Qt.AlignCenter)
+                self.battery_table.setItem(row, column, item)
 
         if recommendations:
-
             self.battery_status_label.setText(
                 "Evaluación económica completada. "
-                f"{len(recommendations)} capacidades comparadas."
+                f"{len(recommendations)} alternativas comparadas."
             )
-
         else:
-
             self.battery_status_label.setText(
                 "No se han obtenido recomendaciones de batería."
             )
-
 
     @staticmethod
     def _format_years(value):
@@ -1652,18 +1872,29 @@ class SolarOptimizationPage(QWidget):
     # ==================================================
 
     def start_optimization(self):
+        """Selecciona conjuntamente la instalación FV y la batería."""
 
         self.optimize_button.setEnabled(False)
-
         self.status_label.setText(
-            "Buscando la mejor instalación..."
+            "Buscando la mejor combinación FV + batería..."
+        )
+
+        self.battery_table.setRowCount(0)
+        self.battery_status_label.setText(
+            "Evaluación económica conjunta en curso."
         )
 
         try:
+            configuration = self.get_installation_configuration()
 
-            configuration = (
-                self.get_installation_configuration()
+            selection = getattr(
+                self.project,
+                "component_selection",
+                None,
             )
+
+            if isinstance(selection, InstallationComponentSelection):
+                configuration = selection.apply_to(configuration)
 
             consumption_scenario = (
                 self.project.analyzer
@@ -1673,53 +1904,103 @@ class SolarOptimizationPage(QWidget):
             )
 
             if consumption_scenario is None:
-
                 raise ValueError(
-                    "A representative consumption scenario "
-                    "is required."
+                    "A representative consumption scenario is required."
                 )
 
-            annual_consumption_kwh = (
-                consumption_scenario.annual_consumption
-            )
-
-            if annual_consumption_kwh <= 0:
-
+            if consumption_scenario.annual_consumption <= 0:
                 raise ValueError(
-                    "Annual consumption must be "
-                    "greater than zero."
+                    "Annual consumption must be greater than zero."
                 )
 
-            result = (
-                self.project.solar.recommend_installation(
+            # Los costes deben estar disponibles antes de evaluar
+            # económicamente todas las instalaciones candidatas.
+            self._configure_installation_costs(result=None)
+
+            energy_recommendation = (
+                self.project.solar.recommend_energy(
                     configuration=configuration,
                     consumption_scenario=consumption_scenario,
+                    candidate_capacities_kwh=[
+                        5.0,
+                        8.3,
+                        16.6,
+                        24.9,
+                        30.0,
+                    ],
+                    max_charge_power_kw=5.0,
+                    max_discharge_power_kw=5.0,
+                    battery_cost_per_kwh_eur=(
+                        self._battery_cost_per_kwh_eur()
+                    ),
+                    optimization_criterion="combined_npv",
                 )
             )
 
-            self._configure_installation_costs(result)
+            # La recomendación energética contiene la instalación ganadora
+            # y su recomendación de batería.
+            result = energy_recommendation.installation_recommendation
+            battery_recommendation = (
+                energy_recommendation.battery_recommendation
+            )
 
+            # Mantener sincronizado el estado del controlador con
+            # la instalación que realmente ha ganado la optimización.
+            self.project.solar.sizing_result = result
+            self.project.solar.installation_configuration = configuration
+            self.project.solar.energy_recommendation = (
+                energy_recommendation
+            )
+
+            # Calcular la producción mostrada para la instalación elegida.
             self.project.solar.calculate(
                 self.project.solar_configuration,
                 installed_power_kwp=result.installed_power_kwp,
             )
 
-            battery_recommendations = self.evaluate_batteries()
+            self.show_optimization_result(result)
 
-            if not isinstance(battery_recommendations, (list, tuple)):
-                battery_recommendations = []
+            # Mostrar únicamente las alternativas correspondientes
+            # a la instalación FV seleccionada por el optimizador.
+            selected_panel_count = energy_recommendation.panel_count
 
-            battery_recommendation = (
-                max(
-                    battery_recommendations,
-                    key=lambda recommendation: (
-                        recommendation.combined_economic_npv_eur,
-                        -recommendation.capacity_kwh,
-                    ),
-                )
-                if battery_recommendations
-                else None
+            alternatives = [
+                alternative
+                for alternative in energy_recommendation.alternatives
+                if getattr(
+                    alternative,
+                    "panel_count",
+                    None,
+                ) == selected_panel_count
+            ]
+
+            self.show_battery_economic_results(alternatives)
+
+            debug_path = self._write_battery_debug_report(
+                energy_recommendation,
+                alternatives,
             )
+
+            self.battery_status_label.setText(
+                self.battery_status_label.text()
+                + f" Informe de diagnóstico: {debug_path}"
+            )
+
+            if battery_recommendation.combined_economic_analysis_calculated:
+                self.combined_economic_label.setText(
+                    "Optimización conjunta completada. "
+                    f"Instalación: {energy_recommendation.panel_count} paneles "
+                    f"({energy_recommendation.installed_power_kwp:.2f} kWp). "
+                    f"Batería: "
+                    f"{energy_recommendation.battery_capacity_kwh:.1f} kWh. "
+                    f"VAN combinado: "
+                    f"{energy_recommendation.combined_economic_npv_eur:,.2f} €."
+                )
+            else:
+                self.combined_economic_label.setText(
+                    "La combinación ha sido seleccionada, pero el VAN "
+                    "combinado no está calculado."
+                )
 
             self._update_total_investment(
                 result,
@@ -1729,25 +2010,19 @@ class SolarOptimizationPage(QWidget):
             if self.main_window is not None:
                 self.main_window.set_solar_optimized(True)
 
-            self.show_optimization_result(result)
-
             self.status_label.setText(
-                "Optimización completada"
+                "Optimización conjunta completada"
             )
 
         except Exception as error:
-
             import traceback
 
             traceback.print_exc()
-
-            self.status_label.setText(
-                f"Error: {error}"
-            )
+            self.status_label.setText(f"Error: {error}")
 
         finally:
-
             self.optimize_button.setEnabled(True)
+
 
     # ==================================================
     # RESET
@@ -1835,12 +2110,10 @@ class SolarOptimizationPage(QWidget):
             )
 
     def _configure_installation_costs(self, result) -> None:
-        """Configura los costes de instalación.
+        """Configura los costes a partir del catálogo o del presupuesto base.
 
-        Si existe una selección de catálogo, utiliza sus precios netos
-        y aplica el IVA una sola vez en esta capa.
-
-        Si no existe selección, conserva el presupuesto HELIOS anterior.
+        Los precios del catálogo se consideran netos y se convierten
+        a importes con IVA una sola vez en esta capa.
         """
 
         selection = getattr(
@@ -1850,14 +2123,32 @@ class SolarOptimizationPage(QWidget):
         )
 
         if isinstance(selection, InstallationComponentSelection):
+            category_by_id = {
+                "installation": "installation",
+                "electrical_protection_dc": "electrical_protection",
+                "electrical_protection_ac": "electrical_protection",
+                "solar_cabling_red": "cabling",
+                "solar_cabling_black": "cabling",
+                "connector_female": "cabling",
+                "connector_male": "cabling",
+                "joining_profiles": "cabling",
+                "legalization_estimate": "legalization",
+            }
+
+            selected_auxiliary_ids = {
+                item.id
+                for item in selection.auxiliary_costs
+            }
+
+            auxiliary_cost_categories = {
+                cost_id: category
+                for cost_id, category in category_by_id.items()
+                if cost_id in selected_auxiliary_ids
+            }
+
             net_costs = InstallationCostConfiguration.from_selection(
                 selection,
-                auxiliary_cost_categories={
-                    "installation": "installation",
-                    "protections": "electrical_protection",
-                    "cabling": "cabling",
-                    "legalization": "legalization",
-                },
+                auxiliary_cost_categories=auxiliary_cost_categories,
             )
 
             vat_multiplier = 1.0 + INSTALLATION_VAT_RATE
@@ -1868,6 +2159,8 @@ class SolarOptimizationPage(QWidget):
                 ),
                 structure_unit_cost_eur=(
                     net_costs.structure_unit_cost_eur * vat_multiplier
+                    if net_costs.structure_unit_cost_eur is not None
+                    else None
                 ),
                 installation_cost_eur=(
                     net_costs.installation_cost_eur * vat_multiplier
@@ -1908,6 +2201,16 @@ class SolarOptimizationPage(QWidget):
                 structure_package_panel_count=(
                     net_costs.structure_package_panel_count
                 ),
+                mounting_packages=tuple(
+                    replace(
+                        package,
+                        unit_price_eur=(
+                            package.unit_price_eur * vat_multiplier
+                        ),
+                    )
+                    for package in net_costs.mounting_packages
+                ),
+                mounting_system_id=net_costs.mounting_system_id,
             )
 
         else:
@@ -1957,13 +2260,12 @@ class SolarOptimizationPage(QWidget):
             False
         )
 
-
     def _update_total_investment(
         self,
         result,
         battery_recommendation,
     ) -> None:
-        """Actualiza la inversión total, incluida la batería seleccionada."""
+        """Actualiza la inversión de FV y batería sin duplicar costes."""
 
         cost_configuration = (
             self.project.installation_cost_configuration
@@ -1979,7 +2281,6 @@ class SolarOptimizationPage(QWidget):
                 result.evaluation
             )
         )
-
         installation_cost = (
             installation_economics.installation_cost_eur
         )
@@ -2008,7 +2309,6 @@ class SolarOptimizationPage(QWidget):
                     initial_soc=0.10,
                 )
             )
-
             self.project.solar.calculate_energy_balance()
 
         self.project.economics._economic_data = None
@@ -2018,6 +2318,7 @@ class SolarOptimizationPage(QWidget):
 
     def _battery_cost_per_kwh_eur(self) -> float:
         """Devuelve el coste bruto estimado por kWh de batería."""
+
         selection = getattr(
             self.project,
             "component_selection",
@@ -2030,13 +2331,107 @@ class SolarOptimizationPage(QWidget):
         ):
             return BATTERY_COST_GROSS_PER_KWH_EUR
 
-        battery = selection.battery
-
-        if battery is None:
+        if selection.battery_id is None:
             return BATTERY_COST_GROSS_PER_KWH_EUR
+
+        battery = selection.battery
 
         return (
             battery.price_eur
             * (1.0 + INSTALLATION_VAT_RATE)
             / battery.capacity_kwh
         )
+
+    def _initialize_default_component_selection(self) -> None:
+        """Inicializa el catálogo y selecciona sus componentes por defecto."""
+
+        from helios.solar.components_catalog import ComponentCatalog
+        from helios.solar.default_component_catalog import (
+            build_default_component_catalog,
+        )
+        from helios.solar.installation_component_selection import (
+            InstallationComponentSelection,
+        )
+
+        catalog = getattr(self.project, "component_catalog", None)
+        selection = getattr(self.project, "component_selection", None)
+
+        # MagicMock puede devolver objetos simulados para cualquier atributo.
+        # Solo reutilizamos objetos que sean instancias reales del tipo esperado.
+        if not isinstance(catalog, ComponentCatalog):
+            if isinstance(selection, InstallationComponentSelection):
+                catalog = selection.catalog
+            else:
+                catalog = build_default_component_catalog()
+
+            self.project.set_component_catalog(catalog)
+
+            # Mantener los atributos coherentes también con proyectos simulados
+            # en los tests, cuyos setters no necesariamente actualizan el estado.
+            self.project.component_catalog = catalog
+
+        if isinstance(selection, InstallationComponentSelection):
+            if selection.catalog is not catalog:
+                raise ValueError(
+                    "La selección de componentes no pertenece "
+                    "al catálogo configurado en el proyecto."
+                )
+        else:
+            selection = InstallationComponentSelection(
+                catalog=catalog,
+                panel_id="longi lr7-60hvh-540m",
+                inverter_id="goodwe-gw8k-eha-g20",
+                mounting_system_id="mounting-arabic-tile",
+                roof_type="teja_arabe",
+                mounting_package_ids=(),
+                mounting_package_panel_count=None,
+                auxiliary_cost_ids=(
+                    "electrical_protection_dc",
+                    "electrical_protection_ac",
+                    "solar_cabling_red",
+                    "solar_cabling_black",
+                    "connector_female",
+                    "connector_male",
+                    "joining_profiles",
+                    "installation",
+                    "legalization_estimate",
+                ),
+            )
+
+            self.project.set_component_selection(selection)
+            self.project.component_selection = selection
+
+            panel = selection.panel
+            self.panel_width_spinbox.setValue(panel.width_m)
+            self.panel_height_spinbox.setValue(panel.height_m)
+            self.panel_power_spinbox.setValue(panel.power_wp)
+
+    def _installation_economic_evaluation_available(
+        self,
+        result,
+    ) -> bool:
+        """Comprueba si los costes reales permiten evaluar la inversión."""
+
+        cost_configuration = (
+            self.project.installation_cost_configuration
+        )
+
+        if cost_configuration is None:
+            return False
+
+        try:
+            cost_configuration.build_economic_configuration(
+                result.evaluation
+            )
+        except ValueError as error:
+            message = str(error)
+
+            if (
+                "coste de la estructura no está confirmado" in message
+                or "No hay una combinación de kits de montaje" in message
+            ):
+                return False
+
+            raise
+
+        return True

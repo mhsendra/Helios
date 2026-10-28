@@ -9,12 +9,20 @@ from helios.solar.battery_economic_model import CombinedEconomicConfiguration
 from helios.solar.battery_optimizer import (
     BatteryOptimizer,
     NoFinitePaybackError,
+    NoFiniteNPVError,
 )
 from helios.solar.installation_evaluation import InstallationEvaluation
 from helios.solar.installation_recommendation import InstallationRecommendation
 from helios.solar.production_profile import SolarProductionProfile
 from helios.solar.balance import SolarBalanceEngine
 
+from helios.solar.battery_economic_model import (
+    BatteryEconomicModel,
+    CombinedEconomicConfiguration,
+)
+from helios.solar.battery_recommendation import (
+    BatteryRecommendation,
+)
 
 class EnergyRecommender:
     """
@@ -92,12 +100,31 @@ class EnergyRecommender:
             combined_economic_configuration = None
 
             if economic_configuration_factory is not None:
-                combined_economic_configuration = (
-                    economic_configuration_factory(
-                        evaluation,
-                        production_profile,
+                try:
+                    combined_economic_configuration = (
+                        economic_configuration_factory(
+                            evaluation,
+                            production_profile,
+                        )
                     )
-                )
+                except ValueError as exc:
+                    # Una candidata sin coste de estructura confirmado
+                    # no debe impedir evaluar las demás instalaciones.
+                    error_message = str(exc).casefold()
+
+                    structure_cost_errors = (
+                        "falta un coste de estructura aplicable",
+                        "coste de la estructura no está confirmado",
+                    )
+
+                    if any(
+                        message in error_message
+                        for message in structure_cost_errors
+                    ):
+                        continue
+
+                    # No ocultar otros errores económicos.
+                    raise
 
                 if not isinstance(
                     combined_economic_configuration,
@@ -110,12 +137,16 @@ class EnergyRecommender:
 
             annual_cost_without_battery_eur = None
             annual_export_income_without_battery_eur = None
-
             baseline_balance = None
 
             if (
                 cost_calculator is not None
                 or export_income_calculator is not None
+                or (
+                    optimization_criterion
+                    in {"combined_npv", "combined_payback"}
+                    and combined_economic_configuration is not None
+                )
             ):
                 baseline_balance = SolarBalanceEngine.calculate(
                     consumption_scenario,
@@ -134,36 +165,6 @@ class EnergyRecommender:
                     export_income_calculator(baseline_balance)
                 )
 
-            try:
-                battery_recommendation = self.battery_optimizer.optimize(
-                    consumption_scenario,
-                    production_profile,
-                    candidate_capacities_kwh,
-                    optimization_criterion=optimization_criterion,
-                    max_charge_power_kw=max_charge_power_kw,
-                    max_discharge_power_kw=max_discharge_power_kw,
-                    charge_efficiency=charge_efficiency,
-                    discharge_efficiency=discharge_efficiency,
-                    min_soc=min_soc,
-                    max_soc=max_soc,
-                    initial_soc=initial_soc,
-                    battery_cost_per_kwh_eur=battery_cost_per_kwh_eur,
-                    annual_cost_without_battery_eur=(
-                        annual_cost_without_battery_eur
-                    ),
-                    cost_calculator=cost_calculator,
-                    combined_economic_configuration=(
-                        combined_economic_configuration
-                    ),
-                    annual_export_income_without_battery_eur=(
-                        annual_export_income_without_battery_eur
-                    ),
-                    export_income_calculator=export_income_calculator,
-                    ev_scenario=ev_scenario,
-                )
-            except NoFinitePaybackError:
-                continue
-
             installation_recommendation = InstallationRecommendation(
                 evaluation=evaluation,
                 annual_consumption_kwh=annual_consumption_kwh,
@@ -172,21 +173,153 @@ class EnergyRecommender:
                 production_profile=production_profile,
             )
 
-            evaluated_options.append(
-                EnergyRecommendation(
-                    installation_recommendation=(
-                        installation_recommendation
-                    ),
-                    battery_recommendation=battery_recommendation,
+            # Añadir primero la alternativa FV sin batería.
+            # Así no se pierde si el optimizador de baterías falla.
+            if (
+                optimization_criterion
+                in {"combined_npv", "combined_payback"}
+                and combined_economic_configuration is not None
+                and baseline_balance is not None
+            ):
+                no_battery_option = self._build_no_battery_recommendation(
+                    evaluation=evaluation,
+                    annual_consumption_kwh=annual_consumption_kwh,
+                    consumption_scenario=consumption_scenario,
+                    production_profile=production_profile,
+                    baseline_balance=baseline_balance,
+                    combined_configuration=combined_economic_configuration,
                     ev_scenario=ev_scenario,
                     optimization_criterion=optimization_criterion,
                 )
-            )
+
+                evaluated_options.append(no_battery_option)
+
+            # Evaluar todas las capacidades si el optimizador lo permite.
+            # Mantener compatibilidad con optimizadores que solo exponen
+            # optimize(), incluidos los utilizados por los tests.
+            try:
+                if callable(
+                    getattr(self.battery_optimizer, "evaluate", None)
+                ):
+                    battery_recommendations = (
+                        self.battery_optimizer.evaluate(
+                            consumption_scenario,
+                            production_profile,
+                            candidate_capacities_kwh,
+                            max_charge_power_kw=max_charge_power_kw,
+                            max_discharge_power_kw=max_discharge_power_kw,
+                            charge_efficiency=charge_efficiency,
+                            discharge_efficiency=discharge_efficiency,
+                            min_soc=min_soc,
+                            max_soc=max_soc,
+                            initial_soc=initial_soc,
+                            battery_cost_per_kwh_eur=(
+                                battery_cost_per_kwh_eur
+                            ),
+                            annual_cost_without_battery_eur=(
+                                annual_cost_without_battery_eur
+                            ),
+                            cost_calculator=cost_calculator,
+                            combined_economic_configuration=(
+                                combined_economic_configuration
+                            ),
+                            annual_export_income_without_battery_eur=(
+                                annual_export_income_without_battery_eur
+                            ),
+                            export_income_calculator=(
+                                export_income_calculator
+                            ),
+                            ev_scenario=ev_scenario,
+                        )
+                    )
+                else:
+                    # Compatibilidad con implementaciones que solo
+                    # ofrecen optimize(): devuelven una única batería.
+                    battery_recommendations = [
+                        self.battery_optimizer.optimize(
+                            consumption_scenario,
+                            production_profile,
+                            candidate_capacities_kwh,
+                            optimization_criterion=optimization_criterion,
+                            max_charge_power_kw=max_charge_power_kw,
+                            max_discharge_power_kw=max_discharge_power_kw,
+                            charge_efficiency=charge_efficiency,
+                            discharge_efficiency=discharge_efficiency,
+                            min_soc=min_soc,
+                            max_soc=max_soc,
+                            initial_soc=initial_soc,
+                            battery_cost_per_kwh_eur=(
+                                battery_cost_per_kwh_eur
+                            ),
+                            annual_cost_without_battery_eur=(
+                                annual_cost_without_battery_eur
+                            ),
+                            cost_calculator=cost_calculator,
+                            combined_economic_configuration=(
+                                combined_economic_configuration
+                            ),
+                            annual_export_income_without_battery_eur=(
+                                annual_export_income_without_battery_eur
+                            ),
+                            export_income_calculator=(
+                                export_income_calculator
+                            ),
+                            ev_scenario=ev_scenario,
+                        )
+                    ]
+
+            except (NoFinitePaybackError, NoFiniteNPVError):
+                # Si no hay baterías con una evaluación económica válida,
+                # conservar las alternativas ya añadidas, incluida la FV sola.
+                continue
+
+            # Incorporar las capacidades evaluadas.
+            # Para criterios económicos basados en VAN, excluir únicamente
+            # resultados no finitos; un VAN negativo finito sigue siendo válido.
+            for battery_recommendation in battery_recommendations:
+                if optimization_criterion == "npv":
+                    if not math.isfinite(
+                        battery_recommendation.economic_npv_eur
+                    ):
+                        continue
+
+                elif optimization_criterion == "combined_npv":
+                    if not math.isfinite(
+                        battery_recommendation.combined_economic_npv_eur
+                    ):
+                        continue
+
+                evaluated_options.append(
+                    EnergyRecommendation(
+                        installation_recommendation=(
+                            installation_recommendation
+                        ),
+                        battery_recommendation=battery_recommendation,
+                        ev_scenario=ev_scenario,
+                        optimization_criterion=optimization_criterion,
+                    )
+                )
 
         if not evaluated_options:
             raise ValueError(
                 "No valid energy recommendation could be generated "
                 f"for optimization criterion '{optimization_criterion}'."
+            )
+
+        # DEBUG: mostrar las alternativas económicas evaluadas.
+        for option in evaluated_options:
+            battery = option.battery_recommendation
+            print(
+                f"Paneles={option.panel_count}, "
+                f"Batería={option.battery_capacity_kwh:.1f} kWh, "
+                f"VAN combinado="
+                f"{battery.combined_economic_npv_eur:.2f} €, "
+                f"TIR combinada="
+                f"{battery.combined_economic_irr_percent:.2f} %, "
+                f"Amortización="
+                f"{battery.combined_economic_payback_years:.2f} años, "
+                f"Análisis calculado="
+                f"{battery.combined_economic_analysis_calculated}"
             )
 
         best_energy_recommendation = evaluated_options[0]
@@ -202,6 +335,95 @@ class EnergyRecommender:
         return replace(
             best_energy_recommendation,
             evaluated_options=tuple(evaluated_options),
+        )
+
+    @staticmethod
+    def _build_no_battery_recommendation(
+        *,
+        evaluation: InstallationEvaluation,
+        annual_consumption_kwh: float,
+        consumption_scenario: ConsumptionScenario,
+        production_profile: SolarProductionProfile,
+        baseline_balance,
+        combined_configuration: CombinedEconomicConfiguration,
+        ev_scenario: EVScenario | None,
+        optimization_criterion: str,
+    ) -> EnergyRecommendation:
+        """Construye la alternativa económica FV sin batería."""
+
+        annual_consumption = float(
+            baseline_balance["consumption_kwh"].sum()
+        )
+        annual_production = float(
+            baseline_balance["production_kwh"].sum()
+        )
+        annual_self_consumption = float(
+            baseline_balance["self_consumption_kwh"].sum()
+        )
+        annual_grid_import = float(
+            baseline_balance["grid_import_kwh"].sum()
+        )
+        annual_export = float(
+            baseline_balance["grid_export_kwh"].sum()
+        )
+
+        self_sufficiency = (
+            annual_self_consumption / annual_consumption * 100.0
+            if annual_consumption > 0
+            else 0.0
+        )
+
+        # La alternativa sin batería conserva el coste y los
+        # ahorros FV, pero elimina todos los costes y beneficios
+        # incrementales asociados a la batería.
+        no_battery_configuration = replace(
+            combined_configuration,
+            battery_cost_eur=0.0,
+            annual_battery_additional_savings_eur=0.0,
+            annual_import_savings_eur=0.0,
+            annual_export_compensation_lost_eur=0.0,
+            annual_battery_maintenance_eur=0.0,
+        )
+
+        economic_result = BatteryEconomicModel().calculate_combined(
+            no_battery_configuration
+        )
+
+        battery_recommendation = BatteryRecommendation(
+            capacity_kwh=0.0,
+            max_charge_power_kw=0.0,
+            max_discharge_power_kw=0.0,
+            annual_consumption_kwh=annual_consumption,
+            annual_production_kwh=annual_production,
+            annual_surplus_kwh=annual_production - annual_self_consumption,
+            annual_export_kwh=annual_export,
+            annual_grid_import_kwh=annual_grid_import,
+            annual_battery_charge_kwh=0.0,
+            annual_battery_discharge_kwh=0.0,
+            self_consumption_kwh=annual_self_consumption,
+            self_sufficiency_percent=self_sufficiency,
+            equivalent_cycles=0.0,
+            combined_economic_npv_eur=economic_result.npv_eur,
+            combined_economic_irr_percent=economic_result.irr_percent,
+            combined_economic_payback_years=(
+                economic_result.payback_years
+            ),
+            combined_economic_analysis_calculated=True,
+        )
+
+        installation_recommendation = InstallationRecommendation(
+            evaluation=evaluation,
+            annual_consumption_kwh=annual_consumption_kwh,
+            annual_production_kwh=production_profile.annual_production,
+            consumption_scenario=consumption_scenario,
+            production_profile=production_profile,
+        )
+
+        return EnergyRecommendation(
+            installation_recommendation=installation_recommendation,
+            battery_recommendation=battery_recommendation,
+            ev_scenario=ev_scenario,
+            optimization_criterion=optimization_criterion,
         )
 
     @staticmethod
@@ -227,26 +449,62 @@ class EnergyRecommender:
             return candidate_key > current_key
 
         if optimization_criterion == "npv":
+            candidate_npv = candidate_battery.economic_npv_eur
+            current_npv = current_battery.economic_npv_eur
+
+            candidate_finite = math.isfinite(candidate_npv)
+            current_finite = math.isfinite(current_npv)
+
+            if candidate_finite != current_finite:
+                return candidate_finite
+
+            if not candidate_finite:
+                return (
+                    candidate.battery_capacity_kwh,
+                    candidate.panel_count,
+                ) < (
+                    current.battery_capacity_kwh,
+                    current.panel_count,
+                )
+
             candidate_key = (
-                candidate_battery.economic_npv_eur,
+                candidate_npv,
                 -candidate.battery_capacity_kwh,
                 -candidate.panel_count,
             )
             current_key = (
-                current_battery.economic_npv_eur,
+                current_npv,
                 -current.battery_capacity_kwh,
                 -current.panel_count,
             )
             return candidate_key > current_key
 
         if optimization_criterion == "combined_npv":
+            candidate_npv = candidate_battery.combined_economic_npv_eur
+            current_npv = current_battery.combined_economic_npv_eur
+
+            candidate_finite = math.isfinite(candidate_npv)
+            current_finite = math.isfinite(current_npv)
+
+            if candidate_finite != current_finite:
+                return candidate_finite
+
+            if not candidate_finite:
+                return (
+                    candidate.battery_capacity_kwh,
+                    candidate.panel_count,
+                ) < (
+                    current.battery_capacity_kwh,
+                    current.panel_count,
+                )
+
             candidate_key = (
-                candidate_battery.combined_economic_npv_eur,
+                candidate_npv,
                 -candidate.battery_capacity_kwh,
                 -candidate.panel_count,
             )
             current_key = (
-                current_battery.combined_economic_npv_eur,
+                current_npv,
                 -current.battery_capacity_kwh,
                 -current.panel_count,
             )
@@ -266,13 +524,33 @@ class EnergyRecommender:
             return candidate_key < current_key
 
         if optimization_criterion == "combined_payback":
+            candidate_payback = (
+                candidate_battery.combined_economic_payback_years
+            )
+            current_payback = (
+                current_battery.combined_economic_payback_years
+            )
+
+            candidate_is_finite = math.isfinite(candidate_payback)
+            current_is_finite = math.isfinite(current_payback)
+
+            # Una alternativa con amortización finita siempre
+            # es preferible a otra sin amortización finita.
+            if candidate_is_finite != current_is_finite:
+                return candidate_is_finite
+
+            # Si ninguna tiene amortización finita, no sustituir
+            # la opción actual por otra igualmente no evaluable.
+            if not candidate_is_finite:
+                return False
+
             candidate_key = (
-                candidate_battery.combined_economic_payback_years,
+                candidate_payback,
                 candidate.battery_capacity_kwh,
                 candidate.panel_count,
             )
             current_key = (
-                current_battery.combined_economic_payback_years,
+                current_payback,
                 current.battery_capacity_kwh,
                 current.panel_count,
             )

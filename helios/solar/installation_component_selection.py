@@ -24,7 +24,7 @@ class InstallationComponentSelection:
     catalog: ComponentCatalog
     panel_id: str
     inverter_id: str
-    mounting_system_id: str
+    mounting_system_id: str | None
     roof_type: str
     battery_id: str | None = None
     auxiliary_cost_ids: tuple[str, ...] = ()
@@ -38,11 +38,18 @@ class InstallationComponentSelection:
         for name, value in (
             ("panel_id", self.panel_id),
             ("inverter_id", self.inverter_id),
-            ("mounting_system_id", self.mounting_system_id),
             ("roof_type", self.roof_type),
         ):
             if not isinstance(value, str) or not value.strip():
                 raise ValueError(f"{name} must be a non-empty string.")
+
+        if self.mounting_system_id is not None and (
+            not isinstance(self.mounting_system_id, str)
+            or not self.mounting_system_id.strip()
+        ):
+            raise ValueError(
+                "mounting_system_id must be None or a non-empty string."
+            )
 
         if self.battery_id is not None and (
             not isinstance(self.battery_id, str)
@@ -93,11 +100,18 @@ class InstallationComponentSelection:
         inverter = self.inverter
         mounting = self.mounting_system
 
-        if self.roof_type not in mounting.compatible_roof_types:
+        if mounting is None and self.mounting_package_ids:
             raise ValueError(
-                f"Mounting system {mounting.id!r} is not compatible "
-                f"with roof type {self.roof_type!r}."
+                "Mounting packages cannot be selected without "
+                "a mounting system."
             )
+
+        if mounting is not None:
+            if self.roof_type not in mounting.compatible_roof_types:
+                raise ValueError(
+                    f"Mounting system {mounting.id!r} is not compatible "
+                    f"with roof type {self.roof_type!r}."
+                )
 
         if self.battery_id is not None:
             if not inverter.hybrid:
@@ -123,11 +137,10 @@ class InstallationComponentSelection:
             )
 
         for package in self.mounting_packages:
-            if package.mounting_system_id != mounting.id:
+            if mounting is None or package.mounting_system_id != mounting.id:
                 raise ValueError(
-                    f"Mounting package {package.id!r} belongs to "
-                    f"mounting system {package.mounting_system_id!r}, "
-                    f"not selected system {mounting.id!r}."
+                    f"Mounting package {package.id!r} does not belong "
+                    "to the selected mounting system."
                 )
 
         if self.mounting_packages:
@@ -168,7 +181,9 @@ class InstallationComponentSelection:
         return self.catalog.get_battery(self.battery_id)
 
     @property
-    def mounting_system(self) -> MountingSystem:
+    def mounting_system(self) -> MountingSystem | None:
+        if self.mounting_system_id is None:
+            return None
         return self.catalog.get_mounting_system(self.mounting_system_id)
 
     @property

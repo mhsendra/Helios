@@ -9,8 +9,8 @@ from helios.solar.components_catalog import (
     Inverter,
     MountingSystem,
     PhotovoltaicPanel,
+    MountingSystemPackage,
 )
-
 
 @pytest.fixture
 def panel():
@@ -367,3 +367,84 @@ def test_catalog_defaults_to_empty_collections():
     assert catalog.batteries == ()
     assert catalog.mounting_systems == ()
     assert catalog.auxiliary_costs == ()
+
+
+def test_mounting_package_applies_successive_discounts():
+    package_3 = MountingSystemPackage(
+        id="mounting-package-3",
+        mounting_system_id="mounting-arabic-tile",
+        model="Soporte para 3 paneles",
+        panel_capacity=3,
+        quantity=4,
+        unit_price_eur=125.00,
+        discount_1_percent=40.0,
+        discount_2_percent=3.0,
+    )
+
+    package_2 = MountingSystemPackage(
+        id="mounting-package-2",
+        mounting_system_id="mounting-arabic-tile",
+        model="Soporte para 2 paneles",
+        panel_capacity=2,
+        quantity=2,
+        unit_price_eur=87.00,
+        discount_1_percent=40.0,
+        discount_2_percent=3.0,
+    )
+
+    assert package_3.net_unit_price_eur == pytest.approx(72.75)
+    assert package_3.total_price_eur == 291.00
+
+    assert package_2.net_unit_price_eur == pytest.approx(50.634)
+    assert package_2.total_price_eur == 101.27
+
+    assert (
+        package_3.total_price_eur + package_2.total_price_eur
+    ) == 392.27
+
+    assert (
+        package_3.total_panel_capacity
+        + package_2.total_panel_capacity
+    ) == 16
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("discount_1_percent", -1.0),
+        ("discount_1_percent", 100.1),
+        ("discount_2_percent", -1.0),
+        ("discount_2_percent", 100.1),
+    ],
+)
+def test_mounting_package_rejects_invalid_discounts(field, value):
+    values = {
+        "id": "mounting-package",
+        "mounting_system_id": "mounting-arabic-tile",
+        "model": "Soporte",
+        "panel_capacity": 3,
+        "quantity": 4,
+        "unit_price_eur": 125.00,
+        "discount_1_percent": 40.0,
+        "discount_2_percent": 3.0,
+    }
+    values[field] = value
+
+    with pytest.raises(ValueError):
+        MountingSystemPackage(**values)
+
+def test_auxiliary_cost_supports_price_per_metre():
+    item = AuxiliaryCostItem(
+        id="solar-cable",
+        name="Cable solar",
+        unit_price_eur=0.0,
+        basis="per_metre",
+        list_price_eur=1.90,
+        discount_1_percent=40.0,
+        discount_2_percent=3.0,
+        quantity=50.0,
+    )
+
+    assert item.unit_price_eur == pytest.approx(1.1058)
+    assert item.quantity == 50.0
+    assert item.unit_price_eur * item.quantity == pytest.approx(55.29)

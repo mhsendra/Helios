@@ -22,6 +22,18 @@ from helios.solar.battery_economic_configuration import (
     BatteryEconomicParameters,
 )
 
+from helios.gui.widgets.solar_optimization_page import (
+    ELECTRICAL_PROTECTION_GROSS_EUR,
+    INVERTER_COST_GROSS_EUR,
+    INSTALLATION_LABOUR_GROSS_EUR,
+    LEGALIZATION_ESTIMATE_EUR,
+    PANEL_COST_GROSS_EUR,
+    STRUCTURE_COST_GROSS_PER_PANEL_EUR,
+    CABLING_AND_ACCESSORIES_GROSS_EUR,
+    INSTALLATION_VAT_RATE,
+    LEGALIZATION_ESTIMATE_NET_EUR,
+)
+
 class TestSolarOptimizationPage:
 
     @classmethod
@@ -128,7 +140,7 @@ class TestSolarOptimizationPage:
 
         assert (
             page.battery_table.columnCount()
-            == 8
+            == 5
         )
 
         assert (
@@ -143,16 +155,12 @@ class TestSolarOptimizationPage:
             )
         )
 
-    def test_show_battery_economic_results(
-        self,
-    ):
-
+    def test_show_battery_economic_results(self):
         page, _ = self.create_page()
 
         recommendations = []
 
         for capacity in [5.0, 8.3]:
-
             recommendation = MagicMock()
 
             recommendation.capacity_kwh = capacity
@@ -164,60 +172,30 @@ class TestSolarOptimizationPage:
             recommendation.economic_irr_percent = 8.5
             recommendation.economic_payback_years = 10.0
 
-            recommendations.append(
-                recommendation
-            )
+            # Representa el flujo anterior: recomendación de batería
+            # sin una recomendación de instalación asociada.
+            recommendation.installation_recommendation = None
+            recommendation.battery_recommendation = recommendation
 
-        page.show_battery_economic_results(
-            recommendations
-        )
+            recommendations.append(recommendation)
 
-        assert (
-            page.battery_table.rowCount()
-            == 2
-        )
+        page.show_battery_economic_results(recommendations)
 
-        assert (
-            page.battery_table.item(0, 0).text()
-            == "5.0 kWh"
-        )
+        assert page.battery_table.rowCount() == 2
+        assert page.battery_table.columnCount() == 5
 
-        assert (
-            page.battery_table.item(0, 1).text()
-            == "200.00 €"
-        )
+        assert page.battery_table.item(0, 0).text() == "—"
+        assert page.battery_table.item(0, 1).text() == "5.0 kWh"
+        assert page.battery_table.item(0, 2).text() == "1,500.00 €"
+        assert page.battery_table.item(0, 3).text() == "8.50 %"
+        assert page.battery_table.item(0, 4).text() == "10.00 años"
 
-        assert (
-            page.battery_table.item(0, 2).text()
-            == "1,000.00 €"
-        )
-
-        assert (
-            page.battery_table.item(0, 4).text()
-            == "20.00 años"
-        )
-
-        assert (
-            page.battery_table.item(0, 5).text()
-            == "1,500.00 €"
-        )
-
-        assert (
-            page.battery_table.item(0, 6).text()
-            == "8.50 %"
-        )
-
-        assert (
-            page.battery_table.item(0, 7).text()
-            == "10.00 años"
-        )
+        assert page.battery_table.item(1, 1).text() == "8.3 kWh"
 
         assert (
             page.battery_status_label.text()
-            == (
-                "Evaluación económica completada. "
-                "2 capacidades comparadas."
-            )
+            == "Evaluación económica completada. "
+            "2 alternativas comparadas."
         )
 
     def test_evaluate_batteries_calls_controller(
@@ -971,74 +949,63 @@ class TestSolarOptimizationPage:
             is True
         )
 
-    def test_start_optimization_calls_recommendation(
-        self,
-    ):
-
+    def test_start_optimization_calls_recommendation(self):
         page, project = self.create_page(
             self.create_solar_configuration()
         )
 
-        scenario = (
-            self.create_consumption_scenario()
-        )
-
+        scenario = self.create_consumption_scenario()
         project.analyzer.calculate_representative_consumption_scenario.return_value = (
             scenario
         )
 
-        result = self.create_result()
+        installation = self.create_result()
 
-        project.solar.recommend_installation.return_value = (
-            result
-        )
+        battery = MagicMock()
+        battery.capacity_kwh = 8.3
+        battery.combined_economic_analysis_calculated = True
+        battery.combined_economic_npv_eur = 1000.0
 
-        project.solar.evaluate_batteries.return_value = []
+        recommendation = MagicMock()
+        recommendation.installation_recommendation = installation
+        recommendation.battery_recommendation = battery
+        recommendation.panel_count = installation.panel_count
+        recommendation.installed_power_kwp = installation.installed_power_kwp
+        recommendation.battery_capacity_kwh = battery.capacity_kwh
+        recommendation.combined_economic_analysis_calculated = True
+        recommendation.combined_economic_npv_eur = 1000.0
+        recommendation.alternatives = (recommendation,)
+
+        project.solar.recommend_energy.return_value = recommendation
 
         page.show_optimization_result = MagicMock()
+        page.show_battery_economic_results = MagicMock()
+        page._update_total_investment = MagicMock()
 
         page.start_optimization()
 
-        project.solar.recommend_installation.assert_called_once()
+        project.solar.recommend_energy.assert_called_once()
+        call_kwargs = project.solar.recommend_energy.call_args.kwargs
 
+        assert call_kwargs["configuration"] is not None
+        assert call_kwargs["consumption_scenario"] is scenario
+        assert call_kwargs["candidate_capacities_kwh"] == [
+            5.0, 8.3, 16.6, 24.9, 30.0,
+        ]
+        assert call_kwargs["optimization_criterion"] == "combined_npv"
+
+        page.show_optimization_result.assert_called_once_with(
+            installation
+        )
         project.solar.calculate.assert_called_once_with(
             page.project.solar_configuration,
-            installed_power_kwp=(
-                result.installed_power_kwp
-            ),
+            installed_power_kwp=installation.installed_power_kwp,
         )
 
-        project.solar.evaluate_batteries.assert_called_once_with(
-            [
-                5.0,
-                8.3,
-                16.6,
-                24.9,
-                30.0,
-            ],
-            max_charge_power_kw=5.0,
-            max_discharge_power_kw=5.0,
-            battery_economic_parameters=BatteryEconomicParameters(
-                cost_per_kwh_eur=(
-                    4145.27 / 16.6
-                ) * 1.21,
-            ),
-        )
+        assert page.status_label.text() == "Optimización conjunta completada"
+        assert page.optimize_button.isEnabled() is True
 
-        assert (
-            page.status_label.text()
-            == "Optimización completada"
-        )
-
-        assert (
-            page.optimize_button.isEnabled()
-            is True
-        )
-
-    def test_start_optimization_notifies_main_window(
-        self,
-    ):
-
+    def test_start_optimization_notifies_main_window(self):
         main_window = MagicMock()
 
         page, project = self.create_page(
@@ -1046,21 +1013,36 @@ class TestSolarOptimizationPage:
             main_window=main_window,
         )
 
+        installation = self.create_result()
+
+        battery = MagicMock()
+        battery.capacity_kwh = 8.3
+        battery.combined_economic_analysis_calculated = True
+        battery.combined_economic_npv_eur = 1000.0
+
+        recommendation = MagicMock()
+        recommendation.installation_recommendation = installation
+        recommendation.battery_recommendation = battery
+        recommendation.panel_count = installation.panel_count
+        recommendation.installed_power_kwp = installation.installed_power_kwp
+        recommendation.battery_capacity_kwh = battery.capacity_kwh
+        recommendation.combined_economic_analysis_calculated = True
+        recommendation.combined_economic_npv_eur = 1000.0
+        recommendation.alternatives = (recommendation,)
+
         project.analyzer.calculate_representative_consumption_scenario.return_value = (
             self.create_consumption_scenario()
         )
-
-        project.solar.recommend_installation.return_value = (
-            self.create_result()
-        )
+        project.solar.recommend_energy.return_value = recommendation
 
         page.show_optimization_result = MagicMock()
+        page.show_battery_economic_results = MagicMock()
+        page._update_total_investment = MagicMock()
 
         page.start_optimization()
 
-        main_window.set_solar_optimized.assert_called_once_with(
-           True
-        )
+        project.solar.recommend_energy.assert_called_once()
+        main_window.set_solar_optimized.assert_called_once_with(True)
 
     def test_start_optimization_restores_button_after_error(
         self,
@@ -1362,3 +1344,212 @@ class TestSolarOptimizationPage:
         assert walkway.top() >= -1e-6
         assert walkway.right() <= roof_right + 1e-6
         assert walkway.bottom() <= roof_bottom + 1e-6
+
+    def test_configure_installation_costs_without_optional_auxiliary_items(
+        self,
+    ):
+        from helios.solar.components_catalog import (
+            ComponentCatalog,
+            Inverter,
+            MountingSystem,
+            PhotovoltaicPanel,
+        )
+        from helios.solar.installation_component_selection import (
+            InstallationComponentSelection,
+        )
+
+        page, project = self.create_page()
+
+        panel = PhotovoltaicPanel(
+            id="panel-540",
+            manufacturer="Longi",
+            model="LR5-72HTH-540M",
+            power_wp=540.0,
+            width_m=2.256,
+            height_m=1.133,
+            price_eur=92.196,
+        )
+
+        inverter = Inverter(
+            id="inverter-8",
+            manufacturer="GoodWe",
+            model="GW8K",
+            nominal_power_kw=8.0,
+            max_pv_power_kwp=12.0,
+            price_eur=960.38,
+            hybrid=True,
+        )
+
+        mounting = MountingSystem(
+            id="mounting-tile",
+            manufacturer="Example",
+            model="Tile-Roof",
+            price_per_panel_eur=0.0,
+            compatible_roof_types=("arabic_tile",),
+        )
+
+        catalog = ComponentCatalog(
+            panels=(panel,),
+            inverters=(inverter,),
+            mounting_systems=(mounting,),
+        )
+
+        selection = InstallationComponentSelection(
+            catalog=catalog,
+            panel_id=panel.id,
+            inverter_id=inverter.id,
+            mounting_system_id=mounting.id,
+            roof_type="arabic_tile",
+        )
+
+        project.component_selection = selection
+
+        page._configure_installation_costs(result=None)
+
+        project.set_installation_cost_configuration.assert_called_once()
+
+        costs = (
+            project.set_installation_cost_configuration.call_args.args[0]
+        )
+
+        assert costs.panel_unit_cost_eur == pytest.approx(
+            92.196 * 1.21
+        )
+        assert costs.inverter_unit_cost_eur == pytest.approx(
+            960.38 * 1.21
+        )
+        assert costs.installation_cost_eur == 0.0
+        assert costs.electrical_protection_cost_eur == 0.0
+        assert costs.cabling_cost_eur == 0.0
+        assert costs.legalization_cost_eur == 0.0
+
+    def test_configure_installation_costs_preserves_mounting_packages_and_applies_vat(
+        self,
+    ):
+        from helios.solar.components_catalog import (
+            ComponentCatalog,
+            Inverter,
+            MountingSystem,
+            MountingSystemPackage,
+            PhotovoltaicPanel,
+        )
+        from helios.solar.installation_component_selection import (
+            InstallationComponentSelection,
+        )
+
+        page, project = self.create_page()
+
+        panel = PhotovoltaicPanel(
+            id="panel-540",
+            manufacturer="Longi",
+            model="LR7-60HVH-540M",
+            power_wp=540.0,
+            width_m=1.134,
+            height_m=1.990,
+            price_eur=92.196,
+        )
+
+        inverter = Inverter(
+            id="inverter-8",
+            manufacturer="GoodWe",
+            model="GW8K",
+            nominal_power_kw=8.0,
+            max_pv_power_kwp=12.0,
+            price_eur=960.375,
+            hybrid=True,
+        )
+
+        mounting = MountingSystem(
+            id="mounting-arabic-tile",
+            manufacturer="SUNFER",
+            model="01V-CL",
+            price_per_panel_eur=None,
+            compatible_roof_types=("arabic_tile",),
+        )
+
+        package = MountingSystemPackage(
+            id="sunfer-test-3-panels",
+            mounting_system_id=mounting.id,
+            model="Kit de 3 paneles",
+            panel_capacity=3,
+            quantity=1,
+            unit_price_eur=100.00,
+        )
+
+        catalog = ComponentCatalog(
+            panels=(panel,),
+            inverters=(inverter,),
+            mounting_systems=(mounting,),
+            mounting_packages=(package,),
+        )
+
+        selection = InstallationComponentSelection(
+            catalog=catalog,
+            panel_id=panel.id,
+            inverter_id=inverter.id,
+            mounting_system_id=mounting.id,
+            mounting_package_ids=(package.id,),
+            mounting_package_panel_count=3,
+            roof_type="arabic_tile",
+        )
+
+        project.component_selection = selection
+
+        page._configure_installation_costs(result=None)
+
+        project.set_installation_cost_configuration.assert_called_once()
+
+        costs = (
+            project.set_installation_cost_configuration.call_args.args[0]
+        )
+
+        assert costs.structure_unit_cost_eur is None
+        assert costs.mounting_system_id == mounting.id
+        assert len(costs.mounting_packages) == 1
+
+        preserved_package = costs.mounting_packages[0]
+        assert preserved_package.id == package.id
+        assert preserved_package.unit_price_eur == pytest.approx(121.00)
+        assert preserved_package.total_price_eur == pytest.approx(121.00)
+
+        assert costs.structure_package_panel_count == 3
+        assert costs.structure_package_cost_eur == pytest.approx(121.00)
+
+    def test_fallback_installation_costs_apply_vat_to_legalization(self):
+        page, project = self.create_page()
+
+        # Forzar explícitamente la ruta de respaldo del presupuesto.
+        project.component_selection = None
+
+        page._configure_installation_costs(result=None)
+
+        project.set_installation_cost_configuration.assert_called_once()
+
+        costs = (
+            project.set_installation_cost_configuration.call_args.args[0]
+        )
+
+        assert LEGALIZATION_ESTIMATE_NET_EUR == pytest.approx(650.00)
+        assert LEGALIZATION_ESTIMATE_EUR == pytest.approx(786.50)
+        assert costs.legalization_cost_eur == pytest.approx(786.50)
+
+        assert costs.panel_unit_cost_eur == pytest.approx(
+            PANEL_COST_GROSS_EUR
+        )
+        assert costs.structure_unit_cost_eur == pytest.approx(
+            STRUCTURE_COST_GROSS_PER_PANEL_EUR
+        )
+        assert costs.installation_cost_eur == pytest.approx(
+            INSTALLATION_LABOUR_GROSS_EUR
+        )
+        assert costs.inverter_unit_cost_eur == pytest.approx(
+            INVERTER_COST_GROSS_EUR
+        )
+        assert costs.electrical_protection_cost_eur == pytest.approx(
+            ELECTRICAL_PROTECTION_GROSS_EUR
+        )
+        assert costs.cabling_cost_eur == pytest.approx(
+            CABLING_AND_ACCESSORIES_GROSS_EUR
+        )
+
+        assert INSTALLATION_VAT_RATE == pytest.approx(0.21)

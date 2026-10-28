@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QGroupBox,
     QScrollArea,
     QHBoxLayout,
+    QTabWidget,
 )
 
 from helios.core.economic_scenarios import default_economic_scenarios
@@ -195,13 +196,8 @@ class EconomicsPage(QWidget):
             cash_flow_group
         )
 
-        self.cash_flow_table = QTableWidget()
-
-        self.cash_flow_table.setMinimumHeight(220)
-
-        cash_flow_layout.addWidget(
-            self.cash_flow_table
-        )
+        self.cash_flow_tabs = QTabWidget()
+        cash_flow_layout.addWidget(self.cash_flow_tabs)
 
         layout.addWidget(
             cash_flow_group
@@ -259,48 +255,103 @@ class EconomicsPage(QWidget):
         )
 
     def update_profitability(self):
+        """Actualiza la rentabilidad de la solución recomendada."""
 
-        economics = (
-            self.project
-            .analyzer
-            .economics_engine
+        solar = getattr(
+            self.project,
+            "solar",
+            None,
         )
 
-        if economics.payback_years is not None:
+        energy_recommendation = getattr(
+            solar,
+            "energy_recommendation",
+            None,
+        )
+
+        battery_recommendation = None
+
+        if energy_recommendation is not None:
+            candidate = getattr(
+                energy_recommendation,
+                "battery_recommendation",
+                None,
+            )
+
+            if (
+                candidate is not None
+                and getattr(
+                    candidate,
+                    "combined_economic_analysis_calculated",
+                    False,
+                )
+            ):
+                battery_recommendation = candidate
+
+        if battery_recommendation is not None:
+            payback = (
+                battery_recommendation
+                .combined_economic_payback_years
+            )
+            npv = (
+                battery_recommendation
+                .combined_economic_npv_eur
+            )
+            irr = (
+                battery_recommendation
+                .combined_economic_irr_percent
+            )
 
             self.payback_label.setText(
-                f"{economics.payback_years:.2f} años"
+                f"{payback:.2f} años"
+                if payback == payback
+                and abs(payback) != float("inf")
+                else "No recuperable en 25 años"
             )
-
-        else:
-
-            self.payback_label.setText(
-                "No recuperable en 25 años"
-            )
-
-        if economics.npv is not None:
 
             self.npv_label.setText(
-                f"{economics.npv:,.2f} €"
+                f"{npv:,.2f} €"
+                if npv == npv
+                and abs(npv) != float("inf")
+                else "N/D"
+            )
+
+            self.irr_label.setText(
+                f"{irr:.2f} %"
+                if irr == irr
+                and abs(irr) != float("inf")
+                else "N/D"
             )
 
         else:
-
-            self.npv_label.setText(
-                "N/D"
+            economics = (
+                self.project
+                .analyzer
+                .economics_engine
             )
 
-        if economics.irr is not None:
+            if economics.payback_years is not None:
+                self.payback_label.setText(
+                    f"{economics.payback_years:.2f} años"
+                )
+            else:
+                self.payback_label.setText(
+                    "No recuperable en 25 años"
+                )
 
-            self.irr_label.setText(
-                f"{economics.irr * 100:.2f} %"
-            )
+            if economics.npv is not None:
+                self.npv_label.setText(
+                    f"{economics.npv:,.2f} €"
+                )
+            else:
+                self.npv_label.setText("N/D")
 
-        else:
-
-            self.irr_label.setText(
-                "N/D"
-            )
+            if economics.irr is not None:
+                self.irr_label.setText(
+                    f"{economics.irr * 100:.2f} %"
+                )
+            else:
+                self.irr_label.setText("N/D")
 
         self.discount_rate_label.setText(
             f"{self.project.economics.configuration.discount_rate * 100:.2f} %"
@@ -314,11 +365,33 @@ class EconomicsPage(QWidget):
             None,
         )
 
-        recommendations = getattr(
+        energy_recommendation = getattr(
             solar,
-            "battery_recommendations",
-            [],
+            "energy_recommendation",
+            None,
         )
+
+        if energy_recommendation is not None:
+            selected_panel_count = (
+                energy_recommendation.panel_count
+            )
+
+            recommendations = [
+                alternative.battery_recommendation
+                for alternative in energy_recommendation.alternatives
+                if (
+                    alternative.panel_count
+                    == selected_panel_count
+                )
+            ]
+        else:
+            # Compatibilidad con el flujo de evaluación
+            # de baterías de la página Solar.
+            recommendations = getattr(
+                solar,
+                "battery_recommendations",
+                [],
+            )
 
         headers = [
             "Capacidad",
@@ -395,71 +468,152 @@ class EconomicsPage(QWidget):
         """Actualiza la tabla económica del almacenamiento."""
 
         self.update_battery_analysis()
-        
-    def update_cash_flow(self):
 
-        cash_flow = (
-            self.project.analyzer
-            .economics_engine
-            .cash_flow
+    def update_cash_flow(self):
+        """Muestra los flujos de caja de las alternativas FV+batería."""
+
+        self.cash_flow_tabs.clear()
+
+        solar = getattr(
+            self.project,
+            "solar",
+            None,
         )
 
-        if cash_flow is None or cash_flow.empty:
+        energy_recommendation = getattr(
+            solar,
+            "energy_recommendation",
+            None,
+        )
 
-            self.cash_flow_table.clear()
-            self.cash_flow_table.setRowCount(0)
-            self.cash_flow_table.setColumnCount(0)
+        if energy_recommendation is not None:
+            selected_panel_count = (
+                energy_recommendation.panel_count
+            )
 
+            recommendations = [
+                alternative.battery_recommendation
+                for alternative in energy_recommendation.alternatives
+                if (
+                    alternative.panel_count
+                    == selected_panel_count
+                )
+            ]
+        else:
+            # Compatibilidad con el flujo anterior de evaluación.
+            recommendations = getattr(
+                solar,
+                "battery_recommendations",
+                [],
+            ) or []
+
+        viable_recommendations = [
+            recommendation
+            for recommendation in recommendations
+            if (
+                recommendation.combined_economic_analysis_calculated
+                and recommendation.combined_economic_npv_eur > 0
+                and recommendation.combined_economic_cash_flows
+                and recommendation.combined_economic_cumulative_cash_flow
+            )
+        ]
+
+        if not viable_recommendations:
+            empty_label = QLabel(
+                "No hay alternativas con VAN combinado positivo "
+                "y flujo de caja disponible."
+            )
+            empty_label.setWordWrap(True)
+
+            self.cash_flow_tabs.addTab(
+                empty_label,
+                "Sin alternativas viables",
+            )
             return
 
-        self.cash_flow_table.setRowCount(
-            len(cash_flow)
+        viable_recommendations.sort(
+            key=lambda recommendation: (
+                recommendation.combined_economic_npv_eur,
+                -recommendation.capacity_kwh,
+            ),
+            reverse=True,
         )
 
-        self.cash_flow_table.setColumnCount(
-            len(cash_flow.columns)
-        )
+        for recommendation in viable_recommendations:
+            cash_flows = (
+                recommendation.combined_economic_cash_flows
+            )
+            cumulative_flows = (
+                recommendation.combined_economic_cumulative_cash_flow
+            )
 
-        headers = {
-            "year": "Año",
-            "self_consumption_savings": "Ahorro autoconsumo",
-            "export_income": "Ingresos excedentes",
-            "maintenance_cost": "Mantenimiento",
-            "cash_flow": "Flujo de caja",
-            "cumulative_cash_flow": "Flujo acumulado",
-        }
+            if len(cash_flows) != len(cumulative_flows):
+                continue
 
-        self.cash_flow_table.setHorizontalHeaderLabels(
-            [
-                headers.get(
-                    column,
-                    str(column)
-                )
-                for column in cash_flow.columns
-            ]
-        )
-
-        for row in range(len(cash_flow)):
-
-            for column in range(len(cash_flow.columns)):
-
-                value = cash_flow.iloc[
-                    row,
-                    column
+            table = QTableWidget(
+                len(cash_flows),
+                3,
+            )
+            table.setMinimumHeight(220)
+            table.setHorizontalHeaderLabels(
+                [
+                    "Año",
+                    "Flujo de caja (€)",
+                    "Flujo acumulado (€)",
                 ]
+            )
 
-                if isinstance(value, float):
-
-                    text = f"{value:,.2f}"
-
-                else:
-
-                    text = str(value)
-
-                self.cash_flow_table.setItem(
-                    row,
-                    column,
-                    QTableWidgetItem(text)
+            for year, (cash_flow, cumulative_flow) in enumerate(
+                zip(cash_flows, cumulative_flows)
+            ):
+                table.setItem(
+                    year,
+                    0,
+                    QTableWidgetItem(str(year)),
+                )
+                table.setItem(
+                    year,
+                    1,
+                    QTableWidgetItem(f"{cash_flow:,.2f}"),
+                )
+                table.setItem(
+                    year,
+                    2,
+                    QTableWidgetItem(f"{cumulative_flow:,.2f}"),
                 )
 
-        self.cash_flow_table.resizeColumnsToContents()
+            table.resizeColumnsToContents()
+
+            capacity = recommendation.capacity_kwh
+            npv = recommendation.combined_economic_npv_eur
+            irr = recommendation.combined_economic_irr_percent
+            payback = recommendation.combined_economic_payback_years
+
+            irr_text = (
+                f"{irr:.2f} %"
+                if irr == irr and abs(irr) != float("inf")
+                else "N/D"
+            )
+            payback_text = (
+                f"{payback:.2f} años"
+                if payback == payback
+                and abs(payback) != float("inf")
+                else "N/D"
+            )
+
+            details = QWidget()
+            details_layout = QVBoxLayout(details)
+
+            details_layout.addWidget(
+                QLabel(
+                    f"VAN combinado: {npv:,.2f} €    |    "
+                    f"TIR: {irr_text}    |    "
+                    f"Recuperación: {payback_text}"
+                )
+            )
+            details_layout.addWidget(table)
+
+            self.cash_flow_tabs.addTab(
+                details,
+                f"{capacity:g} kWh",
+            )

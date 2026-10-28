@@ -18,6 +18,9 @@ from helios.ev.scenario import EVScenario
 class NoFinitePaybackError(ValueError):
     """No existe ninguna batería con un plazo de amortización finito."""
 
+class NoFiniteNPVError(ValueError):
+    """No existe ninguna recomendación con un VAN finito."""
+
 class BatteryOptimizer:
 
     @staticmethod
@@ -26,21 +29,20 @@ class BatteryOptimizer:
         optimization_criterion: str,
     ) -> BatteryRecommendation:
         if not recommendations:
-            raise ValueError(
-                "recommendations must not be empty."
-            )
+            raise ValueError("recommendations must not be empty.")
 
-        if optimization_criterion not in {
+        valid_criteria = {
             "energy",
             "npv",
             "combined_npv",
             "payback",
             "combined_payback",
-        }:
+        }
+        if optimization_criterion not in valid_criteria:
             raise ValueError(
-                "optimization_criterion must be one of: "
-                "'energy', 'npv', 'combined_npv', "
-                "'payback', 'combined_payback'."
+                "optimization_criterion must be one of "
+                "'energy', 'npv', 'payback', 'combined_npv', "
+                "or 'combined_payback'."
             )
 
         if optimization_criterion in {"npv", "payback"}:
@@ -49,21 +51,19 @@ class BatteryOptimizer:
                 for recommendation in recommendations
             ):
                 raise ValueError(
-                    "Economic optimization requires a calculated "
-                    "battery economic analysis for every recommendation."
+                    "Economic analysis must be calculated for all "
+                    "recommendations."
                 )
 
-        if optimization_criterion in {
-            "combined_npv",
-            "combined_payback",
-        }:
+        if optimization_criterion in {"combined_npv", "combined_payback"}:
             if not all(
                 recommendation.combined_economic_analysis_calculated
                 for recommendation in recommendations
             ):
                 raise ValueError(
-                    "Combined economic optimization requires a calculated "
-                    "PV and battery economic analysis for every recommendation."
+                    "Combined economic optimization requires "
+                    "calculated combined economic analysis for "
+                    "all recommendations."
                 )
 
         if optimization_criterion == "energy":
@@ -76,8 +76,18 @@ class BatteryOptimizer:
             )
 
         if optimization_criterion == "npv":
+            eligible = [
+                recommendation
+                for recommendation in recommendations
+                if math.isfinite(recommendation.economic_npv_eur)
+            ]
+            if not eligible:
+                raise NoFiniteNPVError(
+                    "No recommendation has a finite economic NPV."
+                )
+
             return max(
-                recommendations,
+                eligible,
                 key=lambda recommendation: (
                     recommendation.economic_npv_eur,
                     -recommendation.capacity_kwh,
@@ -85,8 +95,20 @@ class BatteryOptimizer:
             )
 
         if optimization_criterion == "combined_npv":
+            eligible = [
+                recommendation
+                for recommendation in recommendations
+                if math.isfinite(
+                    recommendation.combined_economic_npv_eur
+                )
+            ]
+            if not eligible:
+                raise NoFiniteNPVError(
+                    "No recommendation has a finite combined economic NPV."
+                )
+
             return max(
-                recommendations,
+                eligible,
                 key=lambda recommendation: (
                     recommendation.combined_economic_npv_eur,
                     -recommendation.capacity_kwh,
@@ -97,15 +119,11 @@ class BatteryOptimizer:
             eligible = [
                 recommendation
                 for recommendation in recommendations
-                if math.isfinite(
-                    recommendation.economic_payback_years
-                )
+                if math.isfinite(recommendation.economic_payback_years)
             ]
-
             if not eligible:
                 raise NoFinitePaybackError(
-                    "No battery recommendation has a finite "
-                    "economic payback period."
+                    "No recommendation has a finite economic payback."
                 )
 
             return min(
@@ -123,11 +141,9 @@ class BatteryOptimizer:
                 recommendation.combined_economic_payback_years
             )
         ]
-
         if not eligible:
             raise NoFinitePaybackError(
-                "No battery recommendation has a finite "
-                "combined economic payback period."
+                "No recommendation has a finite combined economic payback."
             )
 
         return min(
@@ -200,13 +216,12 @@ class BatteryOptimizer:
             else:
                 annual_cost_with_battery = 0.0
 
-            if annual_cost_without_battery_eur is not None:
-                annual_additional_savings = (
-                    annual_cost_without_battery_eur
-                    - annual_cost_with_battery
-                )
-            else:
-                annual_additional_savings = 0.0
+            annual_additional_savings = (
+                annual_cost_without_battery_eur
+                - annual_cost_with_battery
+                if annual_cost_without_battery_eur is not None
+                else 0.0
+            )
 
             annual_import_savings_eur = None
             annual_export_compensation_lost_eur = None
@@ -240,6 +255,11 @@ class BatteryOptimizer:
                 annual_export_compensation_lost_eur = (
                     annual_export_income_without_battery_eur
                     - annual_export_income_with_battery_eur
+                )
+
+                annual_additional_savings = (
+                    annual_import_savings_eur
+                    - annual_export_compensation_lost_eur
                 )
 
             annual_consumption = float(
@@ -305,6 +325,7 @@ class BatteryOptimizer:
             incremental_savings = 0.0
             marginal_savings_per_kwh = 0.0
             marginal_payback_years = float("inf")
+            marginal_recovered_kwh_per_kwh = 0.0
 
             if recommendations:
                 previous = recommendations[-1]
@@ -315,8 +336,7 @@ class BatteryOptimizer:
                 )
 
                 capacity_increment = (
-                    capacity
-                    - previous.capacity_kwh
+                    capacity - previous.capacity_kwh
                 )
 
                 marginal_recovered_kwh_per_kwh = (
@@ -327,8 +347,7 @@ class BatteryOptimizer:
 
                 incremental_battery_cost = (
                     battery_cost_eur
-                    - previous.capacity_kwh
-                    * battery_cost_per_kwh_eur
+                    - previous.capacity_kwh * battery_cost_per_kwh_eur
                 )
 
                 incremental_savings = (
@@ -337,21 +356,16 @@ class BatteryOptimizer:
                 )
 
                 marginal_savings_per_kwh = (
-                    incremental_savings
-                    / capacity_increment
+                    incremental_savings / capacity_increment
                     if capacity_increment > 0
                     else 0.0
                 )
 
                 marginal_payback_years = (
-                    incremental_battery_cost
-                    / incremental_savings
+                    incremental_battery_cost / incremental_savings
                     if incremental_savings > 0
                     else float("inf")
                 )
-
-            else:
-                marginal_recovered_kwh_per_kwh = 0.0
 
             # ---------------------------------------------------------
             # Lifecycle economic analysis
@@ -399,6 +413,8 @@ class BatteryOptimizer:
             combined_economic_npv_eur = 0.0
             combined_economic_irr_percent = 0.0
             combined_economic_payback_years = float("inf")
+            combined_economic_cash_flows = ()
+            combined_economic_cumulative_cash_flow = ()
 
             if combined_economic_configuration is not None:
                 combined_configuration_for_capacity = replace(
@@ -409,9 +425,13 @@ class BatteryOptimizer:
                     ),
                     annual_import_savings_eur=(
                         annual_import_savings_eur
+                        if annual_import_savings_eur is not None
+                        else combined_economic_configuration.annual_import_savings_eur
                     ),
                     annual_export_compensation_lost_eur=(
                         annual_export_compensation_lost_eur
+                        if annual_export_compensation_lost_eur is not None
+                        else combined_economic_configuration.annual_export_compensation_lost_eur
                     ),
                 )
 
@@ -420,6 +440,13 @@ class BatteryOptimizer:
                         combined_configuration_for_capacity
                     )
                 )
+
+                if economic_configuration is not None:
+                    incremental_result = (
+                        BatteryEconomicModel().calculate(
+                            economic_configuration_for_capacity
+                        )
+                    )
 
                 combined_economic_npv_eur = (
                     combined_economic_result.npv_eur
@@ -431,6 +458,13 @@ class BatteryOptimizer:
                     combined_economic_result.payback_years
                 )
                 combined_economic_analysis_calculated = True
+
+                combined_economic_cash_flows = tuple(
+                    combined_economic_result.cash_flows
+                )
+                combined_economic_cumulative_cash_flow = tuple(
+                    combined_economic_result.cumulative_cash_flow
+                )
 
             recommendations.append(
                 BatteryRecommendation(
@@ -497,6 +531,12 @@ class BatteryOptimizer:
                     ),
                     combined_economic_analysis_calculated=(
                         combined_economic_analysis_calculated
+                    ),
+                    combined_economic_cash_flows=(
+                        combined_economic_cash_flows
+                    ),
+                    combined_economic_cumulative_cash_flow=(
+                        combined_economic_cumulative_cash_flow
                     ),
                 )
             )

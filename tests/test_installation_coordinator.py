@@ -2104,6 +2104,7 @@ class TestInstallationCoordinator:
             max_charge_power_kw=5.0,
             max_discharge_power_kw=5.0,
             export_income_calculator=export_income_calculator,
+            optimization_criterion="energy",
         )
 
         assert len(calls) == 1
@@ -2545,4 +2546,46 @@ class TestInstallationCoordinator:
         )
         assert result.discount_rate == pytest.approx(
             0.06
+        )
+
+    def test_structure_cost_handles_vertical_walkway_with_one_panel_column(
+        self,
+    ):
+        from helios.solar.components_catalog import MountingSystemPackage
+        from helios.solar.installation_layout import InstallationLayout
+
+        package = MountingSystemPackage(
+            id="mounting-test-1-panel",
+            mounting_system_id="mounting-test",
+            model="Kit de un panel",
+            panel_capacity=1,
+            quantity=1,
+            unit_price_eur=100.0,
+        )
+
+        costs = InstallationCostConfiguration(
+            panel_unit_cost_eur=100.0,
+            structure_unit_cost_eur=None,
+            mounting_packages=(package,),
+            mounting_system_id="mounting-test",
+        )
+
+        layout = InstallationLayout(
+            rows=1,
+            columns=1,
+            panel_width_m=1.134,
+            panel_height_m=1.990,
+            orientation="vertical",
+            walkway_width_m=0.45,
+            walkway_position="vertical",
+        )
+
+        evaluation = InstallationEvaluation(
+            candidate=self.candidate(1),
+            available_area_m2=10.0,
+            layout=layout,
+        )
+
+        assert costs.calculate_structure_cost(evaluation) == pytest.approx(
+            100.0
         )

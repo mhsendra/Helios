@@ -48,6 +48,8 @@ class BatteryRecommendation:
     # False significa que el análisis no se ha ejecutado.
     economic_analysis_calculated: bool = False
     combined_economic_analysis_calculated: bool = False
+    combined_economic_cash_flows: tuple[float, ...] = ()
+    combined_economic_cumulative_cash_flow: tuple[float, ...] = ()
 
     @property
     def battery_energy_stored_kwh(self) -> float:

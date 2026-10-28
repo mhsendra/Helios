@@ -2975,3 +2975,31 @@ class TestSolarController:
         assert combined_configuration.installation_cost_eur == pytest.approx(
             installation_cost_eur - 500.0 - 250.0
         )
+
+    def test_combined_installation_cost_rejects_unknown_structure_cost(
+        self,
+    ):
+        installation_cost_configuration = (
+            InstallationCostConfiguration(
+                panel_unit_cost_eur=100.0,
+                structure_unit_cost_eur=None,
+            )
+        )
+
+        evaluation = InstallationEvaluation(
+            candidate=InstallationCandidate(
+                panel_count=10,
+                panel_power_wp=540.0,
+                panel_area_m2=19.5,
+            ),
+            available_area_m2=50.0,
+        )
+
+        with pytest.raises(
+            ValueError,
+            match="falta un coste de estructura aplicable",
+        ):
+            self.controller._calculate_combined_installation_cost(
+                evaluation,
+                installation_cost_configuration,
+            )

@@ -34,11 +34,19 @@ class EconomicsController:
 
         return consumption_scenario, tariff_data
 
-    def calculate_cost_without_pv(self):
+    def calculate_cost_without_pv(
+        self,
+        consumption_scenario=None,
+    ):
         if self._economic_data is None:
             self._economic_data = self._get_economic_data()
 
-        consumption_scenario, tariff_data = self._economic_data
+        default_consumption_scenario, tariff_data = (
+            self._economic_data
+        )
+
+        if consumption_scenario is None:
+            consumption_scenario = default_consumption_scenario
 
         return (
             self.analyzer.economics_engine

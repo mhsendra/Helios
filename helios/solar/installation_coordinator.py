@@ -477,6 +477,18 @@ class InstallationCoordinator:
             evaluations
         )
 
+        if (
+                optimization_criterion
+                in {"combined_npv", "combined_payback"}
+                and economic_configuration_factory is None
+                and installation_cost_configuration is None
+            ):
+                raise ValueError(
+                    "Combined economic optimization requires "
+                    "an economic_configuration_factory or an "
+                    "installation_cost_configuration."
+                )
+
         return self.energy_recommender.recommend(
             evaluations=evaluations,
             annual_consumption_kwh=annual_consumption_kwh,

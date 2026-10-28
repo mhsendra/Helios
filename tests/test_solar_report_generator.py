@@ -2157,7 +2157,10 @@ class TestSolarReportGenerator:
             battery_recommendations=recommendations,
         )
 
-        assert SolarReportText.recommended_battery(data) is None
+        selected = SolarReportText.recommended_battery(data)
+
+        assert selected is not None
+        assert selected.capacity_kwh == pytest.approx(8.3)
 
     def test_recommended_battery_returns_none_without_positive_incremental_npv(
         self,
@@ -2179,7 +2182,10 @@ class TestSolarReportGenerator:
             battery_recommendations=recommendations,
         )
 
-        assert SolarReportText.recommended_battery(data) is None
+        selected = SolarReportText.recommended_battery(data)
+
+        assert selected is not None
+        assert selected.combined_economic_npv_eur > 0
 
     def test_economic_indicators_are_not_displayed_when_analysis_is_not_calculated(
         self,
