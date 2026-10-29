@@ -681,7 +681,7 @@ class TestSolarReportGenerator:
             6,   # Instalación
             4,   # Producción
             6,   # Estadísticas
-            7,   # Balance
+            8,   # Balance
             11,  # Economía
             4,   # Escenarios
             6,   # Baterías: resultados marginales
@@ -928,6 +928,10 @@ class TestSolarReportGenerator:
             [
                 "Energía vertida a red",
                 "4,000.00 kWh",
+            ],
+            [
+                "Pérdidas de batería",
+                "0.00 kWh",
             ],
             [
                 "Energía importada de red",
@@ -1200,6 +1204,7 @@ class TestSolarReportGenerator:
             self_consumption_kwh,
             grid_import_kwh,
             grid_export_kwh,
+            battery_losses_kwh=0.0,
         ):
 
             balance_called["yearly_production_kwh"] = (
@@ -1214,6 +1219,9 @@ class TestSolarReportGenerator:
             balance_called["grid_import_kwh"] = (
                 grid_import_kwh
             )
+            balance_called["battery_losses_kwh"] = (
+                    battery_losses_kwh
+                )
             balance_called["grid_export_kwh"] = (
                 grid_export_kwh
             )
@@ -1244,6 +1252,7 @@ class TestSolarReportGenerator:
             "self_consumption_kwh": 8500.0,
             "grid_import_kwh": 11041.72,
             "grid_export_kwh": 4000.0,
+            "battery_losses_kwh": 0.0,
         }
 
         assert any(
@@ -1646,7 +1655,7 @@ class TestSolarReportGenerator:
             10,  # Instalación manual
             4,   # Producción
             6,   # Estadísticas
-            7,   # Balance
+            8,   # Balance
             11,  # Economía
             4,   # Escenarios
             6,   # Baterías: resultados marginales

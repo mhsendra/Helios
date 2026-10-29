@@ -191,11 +191,67 @@ class SolarReportDataFactory:
         # Battery recommendations
         # ==================================================
 
-        battery_recommendations = getattr(
+        battery_recommendations = []
+
+        energy_recommendation = getattr(
             solar_controller,
-            "battery_recommendations",
-            [],
+            "energy_recommendation",
+            None,
         )
+
+        if energy_recommendation is not None:
+            selected_panel_count = getattr(
+                energy_recommendation,
+                "panel_count",
+                None,
+            )
+
+            alternatives = getattr(
+                energy_recommendation,
+                "alternatives",
+                (),
+            ) or ()
+
+            battery_recommendations = [
+                alternative.battery_recommendation
+                for alternative in alternatives
+                if (
+                    getattr(
+                        alternative,
+                        "panel_count",
+                        None,
+                    )
+                    == selected_panel_count
+                    and getattr(
+                        alternative,
+                        "battery_recommendation",
+                        None,
+                    )
+                    is not None
+                )
+            ]
+
+            if not battery_recommendations:
+                selected_battery = getattr(
+                    energy_recommendation,
+                    "battery_recommendation",
+                    None,
+                )
+
+                if selected_battery is not None:
+                    battery_recommendations = [
+                        selected_battery
+                    ]
+
+        else:
+            battery_recommendations = list(
+                getattr(
+                    solar_controller,
+                    "battery_recommendations",
+                    [],
+                )
+                or []
+            )
 
         battery_report_data = [
             BatteryReportData(
@@ -402,6 +458,14 @@ class SolarReportDataFactory:
 
             grid_export_kwh=(
                 solar_controller.grid_export
+            ),
+
+            yearly_battery_losses_kwh=(
+                float(
+                    energy_balance["battery_losses_kwh"].sum()
+                )
+                if "battery_losses_kwh" in energy_balance.columns
+                else 0.0
             ),
 
             grid_import_kwh=(

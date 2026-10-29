@@ -1204,6 +1204,10 @@ class SolarReportGenerator:
                 f"{data.grid_export_kwh:,.2f} kWh",
             ],
             [
+                "Pérdidas de batería",
+                f"{data.yearly_battery_losses_kwh:,.2f} kWh",
+            ],
+            [
                 "Energía importada de red",
                 f"{data.grid_import_kwh:,.2f} kWh",
             ],
@@ -1265,14 +1269,9 @@ class SolarReportGenerator:
                 data.self_consumption_kwh,
                 data.grid_import_kwh,
                 data.grid_export_kwh,
+                data.yearly_battery_losses_kwh,
             ),
 
-            Spacer(1, 15),
-
-            Paragraph(
-                SolarReportText.energy_balance_analysis(data),
-                styles["BodyText"],
-            ),
         ]
 
         return story

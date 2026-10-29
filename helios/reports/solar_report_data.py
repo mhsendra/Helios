@@ -74,7 +74,6 @@ class SolarReportData:
 
     economic_analysis_calculated: bool
 
-
     # ==================================================
     # Economic assumptions
     # ==================================================
@@ -93,6 +92,7 @@ class SolarReportData:
     # ==================================================
 
     scenario_results: list
+    yearly_battery_losses_kwh: float = 0.0
     battery_recommendations: list[
         BatteryReportData
     ] = field(default_factory=list)

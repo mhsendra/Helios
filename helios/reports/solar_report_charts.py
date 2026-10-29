@@ -1,7 +1,9 @@
 import pandas as pd
 
+import math
+
 from reportlab.graphics.charts.barcharts import VerticalBarChart
-from reportlab.graphics.shapes import Drawing, String
+from reportlab.graphics.shapes import Drawing, String, Rect, Line
 from reportlab.lib import colors
 
 
@@ -456,8 +458,9 @@ class SolarReportCharts:
         self_consumption_kwh: float,
         grid_import_kwh: float,
         grid_export_kwh: float,
+        battery_losses_kwh: float = 0.0,
     ) -> Drawing:
-        """Genera el gráfico de balance energético anual."""
+        """Genera el balance energético anual mediante barras apiladas."""
 
         values = [
             yearly_production_kwh,
@@ -465,6 +468,7 @@ class SolarReportCharts:
             self_consumption_kwh,
             grid_import_kwh,
             grid_export_kwh,
+            battery_losses_kwh,
         ]
 
         if any(value < 0 for value in values):
@@ -479,45 +483,282 @@ class SolarReportCharts:
             "Balance energético anual",
         )
 
-        chart = VerticalBarChart()
+        # Cada barra representa un balance independiente:
+        # 1. Producción FV = autoconsumo + exportación + pérdidas.
+        # 2. Consumo = autoconsumo + importación.
+        production_segments = [
+            ("Autoconsumo", self_consumption_kwh, cls.HELIOS_GREEN_DARK),
+            ("Vertido a red", grid_export_kwh, cls.HELIOS_GOLD),
+            ("Pérdidas batería", battery_losses_kwh, cls.HELIOS_MUTED),
+        ]
 
+        consumption_segments = [
+            ("Autoconsumo", self_consumption_kwh, cls.HELIOS_GREEN_DARK),
+            ("Importación de red", grid_import_kwh, cls.HELIOS_BLUE),
+        ]
+
+        production_total = sum(
+            value for _, value, _ in production_segments
+        )
+        consumption_total = sum(
+            value for _, value, _ in consumption_segments
+        )
+
+        # Área de dibujo.
+        left = 105
+        right = 455
+        bottom = 83
+        top = 225
+        bar_width = 72
+        bar_positions = [190, 365]
+
+        maximum = max(
+            yearly_production_kwh,
+            yearly_consumption_kwh,
+            production_total,
+            consumption_total,
+            1.0,
+        )
+        scale_maximum = maximum * 1.15
+        plot_height = top - bottom
+        scale = plot_height / scale_maximum
+
+        # Eje vertical y líneas de referencia.
+        drawing.add(
+            Line(
+                left,
+                bottom,
+                left,
+                top,
+                strokeColor=cls.HELIOS_BORDER,
+                strokeWidth=0.7,
+            )
+        )
+        drawing.add(
+            Line(
+                left,
+                bottom,
+                right,
+                bottom,
+                strokeColor=cls.HELIOS_BORDER,
+                strokeWidth=0.7,
+            )
+        )
+
+        for tick in range(6):
+            tick_value = scale_maximum * tick / 5
+            y = bottom + tick_value * scale
+
+            drawing.add(
+                Line(
+                    left,
+                    y,
+                    right,
+                    y,
+                    strokeColor=cls.HELIOS_GRID,
+                    strokeWidth=0.5,
+                )
+            )
+            drawing.add(
+                String(
+                    left - 8,
+                    y - 3,
+                    f"{tick_value:,.0f}",
+                    textAnchor="end",
+                    fontName=cls.FONT_AXIS,
+                    fontSize=cls.FONT_AXIS_SIZE,
+                    fillColor=cls.HELIOS_MUTED,
+                )
+            )
+
+        drawing.add(
+            String(
+                25,
+                (bottom + top) / 2,
+                "kWh",
+                fontName=cls.FONT_AXIS,
+                fontSize=cls.FONT_AXIS_SIZE,
+                fillColor=cls.HELIOS_MUTED,
+            )
+        )
+
+        # Dibuja los segmentos apilados de cada barra.
+        for x, segments, total, label in [
+            (
+                bar_positions[0],
+                production_segments,
+                production_total,
+                "Producción FV",
+            ),
+            (
+                bar_positions[1],
+                consumption_segments,
+                consumption_total,
+                "Consumo vivienda",
+            ),
+        ]:
+            current_y = bottom
+
+            for segment_label, segment_value, segment_color in segments:
+                segment_height = segment_value * scale
+
+                if segment_height > 0:
+                    drawing.add(
+                        Rect(
+                            x - bar_width / 2,
+                            current_y,
+                            bar_width,
+                            segment_height,
+                            fillColor=segment_color,
+                            strokeColor=None,
+                        )
+                    )
+
+                    # Etiqueta interna solo si hay espacio suficiente.
+                    if segment_height >= 16:
+                        drawing.add(
+                            String(
+                                x,
+                                current_y + segment_height / 2 - 3,
+                                f"{segment_value:,.0f}",
+                                textAnchor="middle",
+                                fontName=cls.FONT_AXIS,
+                                fontSize=cls.FONT_AXIS_SIZE,
+                                fillColor=colors.white,
+                            )
+                        )
+
+                current_y += segment_height
+
+            drawing.add(
+                String(
+                    x,
+                    current_y + 5,
+                    f"{total:,.0f} kWh",
+                    textAnchor="middle",
+                    fontName=cls.FONT_AXIS,
+                    fontSize=cls.FONT_VALUE_SIZE,
+                    fillColor=cls.HELIOS_BLUE,
+                )
+            )
+
+            drawing.add(
+                String(
+                    x,
+                    bottom - 17,
+                    label,
+                    textAnchor="middle",
+                    fontName=cls.FONT_AXIS,
+                    fontSize=cls.FONT_AXIS_SIZE,
+                    fillColor=cls.HELIOS_MUTED,
+                )
+            )
+
+        # Leyenda inferior.
+        legend_items = [
+            ("Autoconsumo", cls.HELIOS_GREEN_DARK),
+            ("Vertido a red", cls.HELIOS_GOLD),
+            ("Pérdidas batería", cls.HELIOS_MUTED),
+            ("Importación de red", cls.HELIOS_BLUE),
+        ]
+
+        legend_positions = [
+            (95, 35),
+            (205, 35),
+            (325, 35),
+            (95, 19),
+        ]
+
+        for (label, color), (x, y) in zip(
+            legend_items,
+            legend_positions,
+        ):
+            drawing.add(
+                Rect(
+                    x,
+                    y,
+                    8,
+                    8,
+                    fillColor=color,
+                    strokeColor=None,
+                )
+            )
+            drawing.add(
+                String(
+                    x + 12,
+                    y + 1,
+                    label,
+                    fontName=cls.FONT_AXIS,
+                    fontSize=cls.FONT_AXIS_SIZE,
+                    fillColor=cls.HELIOS_MUTED,
+                )
+            )
+
+        return drawing
+
+    @classmethod
+    def pv_production_allocation(
+        cls,
+        yearly_production_kwh: float,
+        self_consumption_kwh: float,
+        grid_export_kwh: float,
+        battery_losses_kwh: float,
+    ) -> Drawing:
+        """Muestra el reparto anual de la producción fotovoltaica."""
+
+        values = [
+            self_consumption_kwh,
+            grid_export_kwh,
+            battery_losses_kwh,
+            yearly_production_kwh,
+        ]
+
+        if any(
+            value < 0 or not math.isfinite(value)
+            for value in values
+        ):
+            raise ValueError(
+                "PV production allocation values must be "
+                "finite and non-negative"
+            )
+
+        drawing = cls._create_drawing()
+
+        cls._add_title(
+            drawing,
+            "Reparto de la producción fotovoltaica",
+        )
+
+        chart = VerticalBarChart()
         chart.x = 45
         chart.y = cls.CHART_Y
         chart.height = cls.CHART_AREA_HEIGHT
         chart.width = 410
 
-        chart.data = [
-            values,
-        ]
+        chart.data = [values]
 
         chart.categoryAxis.categoryNames = [
-            "Producción",
-            "Consumo",
             "Autoconsumo",
-            "Importación",
-            "Exportación",
+            "Excedentes",
+            "Pérdidas batería",
+            "Producción total",
         ]
-
-        maximum = max(values)
 
         cls._configure_value_axis(
             chart,
-            maximum,
+            max(values),
         )
 
         cls._style_chart(chart)
 
-        bar_colors = [
-            cls.HELIOS_GREEN,
-            cls.HELIOS_BLUE,
-            cls.HELIOS_GREEN_DARK,
-            cls.HELIOS_MUTED,
-            cls.HELIOS_GOLD,
-        ]
-
         cls._style_bars(
             chart,
-            bar_colors,
+            [
+                cls.HELIOS_GREEN_DARK,
+                cls.HELIOS_GOLD,
+                cls.HELIOS_MUTED,
+                cls.HELIOS_GREEN,
+            ],
         )
 
         drawing.add(chart)
