@@ -158,11 +158,59 @@ class EconomicsController:
         self.economic_scenarios_report()
         
     def calculate_net_investment(self):
+        """Calcula la inversión usando la instalación seleccionada.
+
+        Prioriza el desglose de costes de la instalación dimensionada.
+        Un presupuesto explícito solo se acepta si no hay una instalación
+        dimensionada con costes de catálogo configurados.
+        """
+        project = getattr(self.analyzer, "project", None)
+        solar_controller = getattr(self.analyzer, "solar", None)
+
+        sizing_result = getattr(
+            solar_controller,
+            "sizing_result",
+            None,
+        )
+        installation_cost_configuration = getattr(
+            project,
+            "installation_cost_configuration",
+            None,
+        )
+
+        if (
+            sizing_result is not None
+            and installation_cost_configuration is not None
+        ):
+            installation_cost = (
+                solar_controller._calculate_combined_installation_cost(
+                    evaluation=sizing_result.evaluation,
+                    installation_cost_configuration=(
+                        installation_cost_configuration
+                    ),
+                )
+            )
+        else:
+            installation_cost = self.configuration.installation_cost
+
+        if installation_cost is None:
+            raise ValueError(
+                "No se puede calcular el VAN/TIR: configura los costes "
+                "del catálogo para la instalación dimensionada o introduce "
+                "un presupuesto explícito."
+            )
+
+        from dataclasses import replace
+
+        configuration = replace(
+            self.configuration,
+            installation_cost=float(installation_cost),
+        )
 
         return (
             self.analyzer.economics_engine
             .calculate_net_investment(
-                self.configuration
+                configuration
             )
         )
               
