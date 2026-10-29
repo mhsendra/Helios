@@ -330,24 +330,19 @@ class BatteryOptimizer:
             if recommendations:
                 previous = recommendations[-1]
 
+                capacity_increment = (
+                    capacity - previous.capacity_kwh
+                )
+
                 marginal_recovered = (
                     annual_discharge
                     - previous.annual_battery_discharge_kwh
                 )
 
-                capacity_increment = (
-                    capacity - previous.capacity_kwh
-                )
-
-                marginal_recovered_kwh_per_kwh = (
-                    marginal_recovered / capacity_increment
-                    if capacity_increment > 0
-                    else 0.0
-                )
-
                 incremental_battery_cost = (
                     battery_cost_eur
-                    - previous.capacity_kwh * battery_cost_per_kwh_eur
+                    - previous.capacity_kwh
+                    * battery_cost_per_kwh_eur
                 )
 
                 incremental_savings = (
@@ -355,16 +350,26 @@ class BatteryOptimizer:
                     - previous.annual_additional_savings_eur
                 )
 
-                marginal_savings_per_kwh = (
-                    incremental_savings / capacity_increment
-                    if capacity_increment > 0
-                    else 0.0
+            else:
+                # La primera batería se compara con FV sola (0 kWh).
+                capacity_increment = capacity
+                marginal_recovered = annual_discharge
+                incremental_battery_cost = battery_cost_eur
+                incremental_savings = annual_additional_savings
+
+            if capacity_increment > 0.0:
+                marginal_recovered_kwh_per_kwh = (
+                    marginal_recovered / capacity_increment
                 )
 
+                marginal_savings_per_kwh = (
+                    incremental_savings / capacity_increment
+                )
+
+            if incremental_savings > 0.0:
                 marginal_payback_years = (
-                    incremental_battery_cost / incremental_savings
-                    if incremental_savings > 0
-                    else float("inf")
+                    incremental_battery_cost
+                    / incremental_savings
                 )
 
             # ---------------------------------------------------------
@@ -440,13 +445,6 @@ class BatteryOptimizer:
                         combined_configuration_for_capacity
                     )
                 )
-
-                if economic_configuration is not None:
-                    incremental_result = (
-                        BatteryEconomicModel().calculate(
-                            economic_configuration_for_capacity
-                        )
-                    )
 
                 combined_economic_npv_eur = (
                     combined_economic_result.npv_eur

@@ -676,9 +676,15 @@ class SolarReportText:
                 f"descuenta este último importe."
             )
 
-        economic_calculated = all(
-            recommendation.economic_analysis_calculated
+        positive_recommendations = [
+            recommendation
             for recommendation in recommendations
+            if recommendation.capacity_kwh > 0.0
+        ]
+
+        economic_calculated = bool(positive_recommendations) and all(
+            recommendation.economic_analysis_calculated
+            for recommendation in positive_recommendations
         )
 
         combined_calculated = all(
@@ -1334,9 +1340,15 @@ class SolarReportText:
                 "para formular una conclusión económica."
             )
 
-        economic_calculated = all(
-            recommendation.economic_analysis_calculated
+        positive_recommendations = [
+            recommendation
             for recommendation in recommendations
+            if recommendation.capacity_kwh > 0.0
+        ]
+
+        economic_calculated = bool(positive_recommendations) and all(
+            recommendation.economic_analysis_calculated
+            for recommendation in positive_recommendations
         )
 
         combined_calculated = all(

@@ -9,23 +9,25 @@ import pytest
 from helios.core.controllers.economics_controller import (
     EconomicsController,
 )
+
+from helios.core.economics_configuration import (
+    EconomicsConfiguration,
+)
+
 from helios.core.economic_scenarios import EconomicScenario
 
 
 class TestEconomicsController:
 
     def setup_method(self):
-
         self.analyzer = MagicMock()
-        self.configuration = MagicMock()
-
-        self.configuration.economic_horizon_years = 25
+        self.configuration = EconomicsConfiguration(
+            installation_cost=10000.0,
+        )
 
         self.analyzer.dataset = MagicMock()
         self.analyzer.solar.energy_balance = MagicMock()
         self.analyzer.economics_engine = MagicMock()
-
-        self.configuration.discount_rate = 0.05
 
         self.controller = EconomicsController(
             self.analyzer,
@@ -317,18 +319,31 @@ class TestEconomicsController:
     # ==========================================================
 
     def test_calculate_net_investment(self):
-
         engine = self.analyzer.economics_engine
-
         engine.calculate_net_investment.return_value = 10000.0
 
         result = self.controller.calculate_net_investment()
 
         assert result == 10000.0
 
-        engine.calculate_net_investment.assert_called_once_with(
-            self.configuration
+        engine.calculate_net_investment.assert_called_once()
+
+        configuration_passed = (
+            engine.calculate_net_investment.call_args.args[0]
         )
+
+        assert isinstance(
+            configuration_passed,
+            EconomicsConfiguration,
+        )
+        assert configuration_passed.installation_cost == 10000.0
+        assert configuration_passed.subsidies == self.configuration.subsidies
+        assert (
+            configuration_passed.tax_deductions
+            == self.configuration.tax_deductions
+        )
+        assert configuration_passed is not self.configuration
+
 
     # ==========================================================
     # Cash flow
