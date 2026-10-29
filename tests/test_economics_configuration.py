@@ -3,7 +3,13 @@ from helios.core.economics_configuration import EconomicsConfiguration
 
 class TestEconomicsConfiguration:
 
-    def test_required_installation_cost(self):
+    def test_installation_cost_is_optional_and_defaults_to_none(self):
+
+        configuration = EconomicsConfiguration()
+
+        assert configuration.installation_cost is None
+
+    def test_explicit_installation_cost_is_preserved(self):
 
         configuration = EconomicsConfiguration(
             installation_cost=12000.0
