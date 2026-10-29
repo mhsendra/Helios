@@ -1,5 +1,9 @@
+from dataclasses import replace
+
 from helios.reports.economics import EconomicsReports
 from helios.core.economic_scenarios import EconomicScenario
+from helios.solar.installation_recommendation import InstallationRecommendation
+from helios.solar.installation_costs import InstallationCostConfiguration
 class EconomicsController:
 
     def __init__(self, analyzer, configuration):
@@ -179,8 +183,11 @@ class EconomicsController:
         )
 
         if (
-            sizing_result is not None
-            and installation_cost_configuration is not None
+            isinstance(sizing_result, InstallationRecommendation)
+            and isinstance(
+                installation_cost_configuration,
+                InstallationCostConfiguration,
+            )
         ):
             installation_cost = (
                 solar_controller._calculate_combined_installation_cost(
@@ -199,8 +206,6 @@ class EconomicsController:
                 "del catálogo para la instalación dimensionada o introduce "
                 "un presupuesto explícito."
             )
-
-        from dataclasses import replace
 
         configuration = replace(
             self.configuration,
