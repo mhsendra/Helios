@@ -920,24 +920,13 @@ class SolarController:
             None,
         )
 
-        # Si no existe un desglose detallado de costes,
-        # reutilizar el coste total configurado en EconomicsConfiguration.
-        # No se estima ni se inventa ningún coste unitario.
-        if installation_cost_configuration is None:
-            configured_installation_cost = (
-                economics_configuration.installation_cost
-            )
-
-            installation_cost_configuration = (
-                InstallationCostConfiguration(
-                    panel_unit_cost_eur=0.0,
-                    installation_cost_eur=(
-                        configured_installation_cost
-                    ),
-                )
-            )
-
-        if self.sizing_result is not None:
+        # La economía combinada solo se calcula cuando existe un
+        # desglose de costes propio de la instalación seleccionada.
+        # Un presupuesto cerrado general no sustituye al catálogo.
+        if (
+            installation_cost_configuration is not None
+            and self.sizing_result is not None
+        ):
             try:
                 combined_economic_configuration = (
                     self._build_combined_economic_configuration(
@@ -958,13 +947,14 @@ class SolarController:
                 if (
                     "coste de la estructura no está confirmado"
                     not in str(error)
+                    and "No se puede comparar económicamente esta instalación"
+                    not in str(error)
                 ):
                     raise
 
-                # Sin el coste de la estructura no puede calcularse
-                # la economía combinada FV + batería. La simulación
-                # energética y la economía incremental de la batería
-                # deben continuar sin inventar ese coste.
+                # Sin costes completos de la instalación FV, la evaluación
+                # energética y la economía incremental de batería continúan,
+                # pero no se publica un VAN combinado ficticio.
                 combined_economic_configuration = None
 
         # ---------------------------------------------------------
