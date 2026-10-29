@@ -842,6 +842,11 @@ class EconomicsEngine:
         configuration
     ) -> float:
 
+        if configuration.installation_cost is None:
+            raise ValueError(
+                "Installation cost is required to calculate net investment."
+            )
+
         self.net_investment = (
             configuration.installation_cost
             - configuration.subsidies
