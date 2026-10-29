@@ -2878,14 +2878,12 @@ class TestSolarController:
             == expected_cost
         )
 
-    def test_evaluate_batteries_uses_economics_installation_cost_when_detailed_configuration_is_missing(
+    def test_evaluate_batteries_does_not_use_closed_budget_when_catalog_costs_are_missing(
         self,
     ):
-        installation_cost_eur = 12490.0
-
         self.analyzer.economics.configuration = (
             EconomicsConfiguration(
-                installation_cost=installation_cost_eur,
+                installation_cost=12490.0,
                 subsidies=500.0,
                 tax_deductions=250.0,
             )
@@ -2907,13 +2905,11 @@ class TestSolarController:
         )
 
         solar_configuration = self._solar_configuration()
-
         production_index = pd.date_range(
             start=f"{solar_configuration.reference_year}-01-01 00:00:00",
             periods=8760,
             freq="h",
         )
-
         production = pd.Series(
             0.5,
             index=production_index,
@@ -2921,10 +2917,6 @@ class TestSolarController:
         )
 
         self.analyzer.solar_engine.configuration = solar_configuration
-
-        self.analyzer.solar_engine.configuration = (
-            self._solar_configuration()
-        )
         self.analyzer.solar_engine.hourly_production = pd.DataFrame(
             {"production_kwh": production}
         )
@@ -2939,7 +2931,6 @@ class TestSolarController:
             candidate=candidate,
             available_area_m2=50.0,
         )
-
         self.controller.sizing_result = InstallationRecommendation(
             evaluation=evaluation,
             annual_consumption_kwh=(
@@ -2949,7 +2940,6 @@ class TestSolarController:
         )
 
         expected_result = [MagicMock()]
-
         with patch(
             "helios.core.controllers.solar_controller.BatteryOptimizer"
         ) as optimizer_class:
@@ -2966,15 +2956,9 @@ class TestSolarController:
         optimizer_kwargs = (
             optimizer_class.return_value.evaluate.call_args.kwargs
         )
-        combined_configuration = optimizer_kwargs[
-            "combined_economic_configuration"
-        ]
 
         assert result == expected_result
-        assert combined_configuration is not None
-        assert combined_configuration.installation_cost_eur == pytest.approx(
-            installation_cost_eur - 500.0 - 250.0
-        )
+        assert optimizer_kwargs["combined_economic_configuration"] is None
 
     def test_combined_installation_cost_rejects_unknown_structure_cost(
         self,
