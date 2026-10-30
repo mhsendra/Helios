@@ -309,6 +309,58 @@ class TestEconomicsPage:
 
         page.calculate.assert_called_once_with()
 
+    def test_calculate_updates_main_window_state_only_after_success(
+        self,
+        app,
+    ):
+        project = self._create_project()
+
+        main_window = Mock()
+        page = EconomicsPage(
+            project,
+            main_window,
+        )
+
+        page.update_summary = Mock()
+        page.update_profitability = Mock()
+        page.update_battery_analysis = Mock()
+        page.update_cash_flow = Mock()
+
+        page.calculate()
+
+        assert [
+            call.args[0]
+            for call in (
+                main_window.set_economics_calculated.call_args_list
+            )
+        ] == [False, True]
+
+    def test_calculate_keeps_main_window_state_invalid_when_scenarios_fail(
+        self,
+        app,
+    ):
+        project = self._create_project()
+
+        project.economics.calculate_scenarios.side_effect = (
+            RuntimeError("scenario calculation failed")
+        )
+
+        main_window = Mock()
+        page = EconomicsPage(
+            project,
+            main_window,
+        )
+
+        with pytest.raises(
+            RuntimeError,
+            match="scenario calculation failed",
+        ):
+            page.calculate()
+
+        main_window.set_economics_calculated.assert_called_once_with(
+            False
+        )
+
     def test_calculate_button_has_expected_text(
         self,
         app,

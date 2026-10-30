@@ -788,15 +788,15 @@ class TestSolarReportGenerator:
             ],
             [
                 "Capacidad",
-                "VAN batería",
-                "TIR batería",
-                "Recuperación económica",
+                "VAN incremental batería",
+                "TIR incremental batería",
+                "Recuperación incremental",
             ],
             [
                 "Capacidad",
-                "VAN conjunto",
-                "TIR conjunta",
-                "Recuperación conjunta",
+                "VAN conjunto FV + batería",
+                "TIR conjunta FV + batería",
+                "Recuperación conjunta FV + batería",
             ],
             [
                 "Hipótesis",
@@ -1661,10 +1661,43 @@ class TestSolarReportGenerator:
             "Glosario y definiciones",
         ]
 
-        positions = [
-            paragraph_text.index(section)
-            for section in expected_sections
-        ]
+        positions = []
+
+        for section in expected_sections:
+            if section == "Instalación fotovoltaica — 8.10 kWp":
+                position = next(
+                    (
+                        index
+                        for index, paragraph in enumerate(
+                            paragraph_text
+                        )
+                        if paragraph.startswith(section)
+                    ),
+                    None,
+                )
+
+                assert position is not None
+
+                if section == "Instalación fotovoltaica — 8.10 kWp":
+                    position = next(
+                        (
+                            index
+                            for index, paragraph in enumerate(paragraph_text)
+                            if paragraph.startswith(section)
+                        ),
+                        None,
+                    )
+
+                    assert position is not None
+
+                    assert (
+                        "Almacenamiento recomendado:"
+                        not in paragraph_text[position]
+                    )
+            else:
+                position = paragraph_text.index(section)
+
+            positions.append(position)
 
         assert positions == sorted(positions)
 
@@ -1825,9 +1858,9 @@ class TestSolarReportGenerator:
         assert economic_rows == [
             [
                 "Capacidad",
-                "VAN batería",
-                "TIR batería",
-                "Recuperación económica",
+                "VAN incremental batería",
+                "TIR incremental batería",
+                "Recuperación incremental",
             ],
             [
                 "5.0 kWh",

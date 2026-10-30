@@ -48,6 +48,8 @@ class MainWindow(QMainWindow):
 
         self.solar_optimized = False
 
+        self.economics_calculated = False
+
         self.configure_window()
 
         self.create_layout()
@@ -157,7 +159,10 @@ class MainWindow(QMainWindow):
 
         self.pages.addWidget(self.solar_page)
 
-        self.economics_page = EconomicsPage(self.project)
+        self.economics_page = EconomicsPage(
+            self.project,
+            self,
+        )
 
         self.pages.addWidget(self.economics_page)
 
@@ -278,6 +283,30 @@ class MainWindow(QMainWindow):
 
         self.navigation.expandAll()
 
+    def set_economics_calculated(self, calculated: bool):
+        """Controla el acceso a Informes tras el análisis económico."""
+
+        self.economics_calculated = bool(
+            calculated
+            and self.solar_optimized
+            and self.solar_production_calculated
+        )
+
+        available = self.economics_calculated
+
+        enabled_color = QColor("#FFFFFF")
+        disabled_color = QColor("#808080")
+
+        self.reports_item.setDisabled(not available)
+        self.reports_item.setForeground(
+            0,
+            enabled_color if available else disabled_color,
+        )
+
+        self.reports_page.set_solar_report_available(
+            available
+        )
+
     def set_project_loaded(self, loaded: bool):
 
         self.project_loaded = loaded
@@ -322,6 +351,7 @@ class MainWindow(QMainWindow):
         self,
         calculated: bool,
     ):
+        """Actualiza el estado de la producción fotovoltaica."""
 
         if calculated and not self.solar_optimized:
             calculated = False
@@ -335,6 +365,13 @@ class MainWindow(QMainWindow):
         self.economics_item.setForeground(
             0,
             enabled_color if calculated else disabled_color,
+        )
+
+        if not calculated:
+            self.economics_calculated = False
+
+        self.set_economics_calculated(
+            self.economics_calculated
         )
 
     def set_solar_configured(self, configured: bool):
@@ -351,6 +388,7 @@ class MainWindow(QMainWindow):
         )
 
     def set_solar_optimized(self, optimized: bool):
+        """Actualiza el estado tras la optimización fotovoltaica."""
 
         self.solar_optimized = optimized
 
@@ -363,18 +401,13 @@ class MainWindow(QMainWindow):
             enabled_color if optimized else disabled_color,
         )
 
-        self.reports_item.setDisabled(not optimized)
-        self.reports_item.setForeground(
-            0,
-            enabled_color if optimized else disabled_color,
-        )
-
-        self.reports_page.set_solar_report_available(
-            optimized
-        )
-
         if not optimized:
+            self.economics_calculated = False
             self.set_solar_production_calculated(False)
+
+        self.set_economics_calculated(
+            self.economics_calculated
+        )
         
     # ==================================================
     # Señales

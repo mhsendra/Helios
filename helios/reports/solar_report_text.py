@@ -160,7 +160,7 @@ class SolarReportText:
 
     @staticmethod
     def executive_summary(data: SolarReportData) -> str:
-        """Genera el resumen ejecutivo del informe solar."""
+        """Genera el resumen ejecutivo de la instalación FV."""
 
         if data is None:
             raise ValueError("report data is required")
@@ -209,10 +209,13 @@ class SolarReportText:
                 f"{data.self_sufficiency_rate_percent:.1f} %."
             )
 
-        if not SolarReportText._primary_economic_analysis_calculated(data):
+        # Los indicadores de este resumen corresponden exclusivamente
+        # a la instalación fotovoltaica, sin incorporar la batería.
+        if not data.economic_analysis_calculated:
             summary += (
-                " El análisis económico no se ha calculado; "
-                "no se presentan estimaciones económicas."
+                " El análisis económico de la instalación fotovoltaica "
+                "no se ha calculado; no se presentan estimaciones "
+                "económicas."
             )
             return summary
 
@@ -225,7 +228,6 @@ class SolarReportText:
                 f"{data.yearly_savings_eur:,.2f} €."
             )
 
-        
         if (
             data.investment_eur is not None
             and math.isfinite(data.investment_eur)
@@ -234,18 +236,14 @@ class SolarReportText:
                 " La inversión inicial estimada es de "
                 f"{data.investment_eur:,.2f} €."
             )
-        
-        
+
         if (
-            SolarReportText._primary_economic_analysis_calculated(data)
-            and SolarReportText._primary_payback_years(data) is not None
-            and math.isfinite(
-                SolarReportText._primary_payback_years(data)
-            )
+            data.payback_years is not None
+            and math.isfinite(data.payback_years)
         ):
             summary += (
                 " El periodo de recuperación de la inversión "
-                f"es de {SolarReportText._primary_payback_years(data):.2f} años."
+                f"fotovoltaica es de {data.payback_years:.2f} años."
             )
 
         return summary
@@ -341,9 +339,14 @@ class SolarReportText:
                     f"{primary_irr:.2f} %"
                 )
 
-            if economic_parts:
+                economic_scope = (
+                    "la opción seleccionada (FV + batería)"
+                    if data.selected_option_available
+                    else "la instalación fotovoltaica"
+                )
+
                 economic_message = (
-                    "✓ Evaluación económica de la opción seleccionada: "
+                    f"✓ Evaluación económica de {economic_scope}: "
                     + "; ".join(economic_parts)
                     + "."
                 )
@@ -604,22 +607,20 @@ class SolarReportText:
     def economic_analysis(
         data: SolarReportData,
     ) -> str:
-        """Interpreta los principales indicadores económicos."""
+        """Interpreta los principales indicadores económicos de la instalación FV."""
 
         if data is None:
             raise ValueError("report data is required")
 
-        selected_option = data.selected_option_available
-
-        if not SolarReportText._primary_economic_analysis_calculated(data):
+        if not data.economic_analysis_calculated:
             message = (
-                "El análisis económico de la instalación no se ha "
-                "calculado. Por tanto, no es posible interpretar "
+                "El análisis económico de la instalación fotovoltaica "
+                "no se ha calculado. Por tanto, no es posible interpretar "
                 "el valor actual neto, la tasa interna de retorno "
-                "ni el periodo de recuperación de la inversión."
+                "ni el periodo de recuperación de la inversión FV."
             )
 
-            if not selected_option and SolarReportText._is_finite_metric(
+            if SolarReportText._is_finite_metric(
                 data.yearly_savings_eur
             ):
                 message += (
@@ -630,38 +631,32 @@ class SolarReportText:
 
             return message
 
-        primary_npv = SolarReportText._primary_npv_eur(data)
-        primary_payback = SolarReportText._primary_payback_years(data)
-        primary_irr = SolarReportText._primary_irr_percent(data)
+        npv = data.net_present_value_eur
+        payback = data.payback_years
+        irr = data.internal_rate_of_return_percent
 
-        npv_is_finite = SolarReportText._is_finite_metric(
-            primary_npv
-        )
-        payback_is_finite = SolarReportText._is_finite_metric(
-            primary_payback
-        )
-        irr_is_finite = SolarReportText._is_finite_metric(
-            primary_irr
-        )
+        npv_is_finite = SolarReportText._is_finite_metric(npv)
+        payback_is_finite = SolarReportText._is_finite_metric(payback)
+        irr_is_finite = SolarReportText._is_finite_metric(irr)
 
         if not npv_is_finite:
             npv_text = (
-                "El valor actual neto no está disponible como indicador "
-                "válido para la opción seleccionada, por lo que no puede "
-                "determinarse su rentabilidad a partir de este resultado."
+                "El valor actual neto de la instalación fotovoltaica "
+                "no está disponible como indicador válido, por lo que "
+                "no puede determinarse su rentabilidad a partir de este resultado."
             )
-        elif primary_npv > 0:
+        elif npv > 0:
             npv_text = (
-                "El valor actual neto de la opción seleccionada alcanza "
-                f"{primary_npv:,.2f} €. "
+                "El valor actual neto de la instalación fotovoltaica alcanza "
+                f"{npv:,.2f} €. "
                 "El valor actual neto es positivo, lo que indica que la "
                 "inversión genera valor por encima del valor exigido, "
                 "una vez tenido en cuenta el valor del dinero en el tiempo."
             )
-        elif primary_npv < 0:
+        elif npv < 0:
             npv_text = (
-                "El valor actual neto de la opción seleccionada alcanza "
-                f"{primary_npv:,.2f} €. "
+                "El valor actual neto de la instalación fotovoltaica alcanza "
+                f"{npv:,.2f} €. "
                 "El valor actual neto es negativo, lo que indica que, "
                 "bajo las hipótesis consideradas, el valor de los ahorros "
                 "futuros no alcanza a compensar la inversión una vez "
@@ -669,7 +664,7 @@ class SolarReportText:
             )
         else:
             npv_text = (
-                "El valor actual neto de la opción seleccionada es "
+                "El valor actual neto de la instalación fotovoltaica es "
                 "aproximadamente nulo, lo que indica que, bajo las "
                 "hipótesis consideradas, los ahorros futuros compensan "
                 "aproximadamente la inversión una vez tenido en cuenta "
@@ -678,65 +673,54 @@ class SolarReportText:
 
         if irr_is_finite:
             irr_text = (
-                "La tasa interna de retorno estimada de la opción "
-                "seleccionada es del "
-                f"{primary_irr:.2f} %."
+                "La tasa interna de retorno estimada de la instalación "
+                "fotovoltaica es del "
+                f"{irr:.2f} %."
             )
         else:
             irr_text = (
                 "No ha sido posible determinar una tasa interna de "
-                "retorno válida para la opción seleccionada."
+                "retorno válida para la instalación fotovoltaica."
             )
 
         if payback_is_finite:
             payback_text = (
-                "El periodo de recuperación de la inversión de la "
-                "opción seleccionada es de "
-                f"{primary_payback:.2f} años."
+                "El periodo de recuperación de la inversión fotovoltaica "
+                "es de "
+                f"{payback:.2f} años."
             )
         else:
             payback_text = (
-                "El periodo de recuperación de la inversión de la "
-                "opción seleccionada no está disponible como "
-                "indicador válido."
+                "El periodo de recuperación de la inversión fotovoltaica "
+                "no está disponible como indicador válido."
             )
 
-        if selected_option:
-            investment = data.selected_investment_eur
-            savings = data.selected_yearly_savings_eur
-
-            investment_label = "La inversión neta de la opción seleccionada"
-            savings_label = (
-                "El ahorro neto estimado del primer año de la opción seleccionada"
-            )
-        else:
-            investment = data.investment_eur
-            savings = data.yearly_savings_eur
-
-            investment_label = "La inversión neta de referencia"
-            savings_label = "El ahorro anual de referencia"
-
-        if SolarReportText._is_finite_metric(investment):
+        if SolarReportText._is_finite_metric(data.investment_eur):
             investment_text = (
-                f"{investment_label} asciende a {investment:,.2f} €."
+                "La inversión neta de la instalación fotovoltaica "
+                f"asciende a {data.investment_eur:,.2f} €."
             )
         else:
             investment_text = (
-                f"{investment_label.lower()} no está disponible."
+                "La inversión neta de la instalación fotovoltaica "
+                "no está disponible."
             )
 
-        if SolarReportText._is_finite_metric(savings):
+        if SolarReportText._is_finite_metric(data.yearly_savings_eur):
             savings_text = (
-                f"{savings_label} es de {savings:,.2f} €."
+                "El ahorro anual estimado de la instalación fotovoltaica "
+                f"es de {data.yearly_savings_eur:,.2f} €."
             )
         else:
             savings_text = (
-                f"{savings_label} no está disponible."
+                "El ahorro anual de la instalación fotovoltaica "
+                "no está disponible."
             )
 
         return (
-            "Los indicadores de VAN, TIR y periodo de recuperación "
-            "corresponden a la opción seleccionada por el optimizador. "
+            "Los indicadores económicos que se presentan a continuación "
+            "corresponden exclusivamente a la instalación fotovoltaica, "
+            "sin incluir el almacenamiento en baterías. "
             f"{investment_text} {savings_text} "
             f"{payback_text} {npv_text} {irr_text}"
         )
@@ -820,28 +804,19 @@ class SolarReportText:
         if not economic_calculated:
             text += (
                 " No se ha realizado el cálculo de rentabilidad "
-                "del almacenamiento para todas las capacidades "
+                "incremental del almacenamiento para todas las capacidades "
                 "evaluadas. Los valores económicos de VAN, TIR y "
                 "recuperación de la inversión no permiten establecer "
-                "una conclusión de rentabilidad. Por tanto, el mayor "
-                "ahorro anual no debe interpretarse por sí solo como "
-                "la capacidad económicamente óptima."
+                "una conclusión sobre la rentabilidad incremental "
+                "de la batería."
             )
-
-            if not combined_calculated:
-                text += (
-                    " Tampoco se ha calculado el VAN conjunto de la "
-                    "instalación fotovoltaica y la batería para todas "
-                    "las capacidades."
-                )
-
-            return text
 
         viable = [
             recommendation
             for recommendation in recommendations
             if (
-                recommendation.economic_npv_eur is not None
+                recommendation.economic_analysis_calculated
+                and recommendation.economic_npv_eur is not None
                 and math.isfinite(recommendation.economic_npv_eur)
                 and recommendation.economic_npv_eur > 0.0
             )
@@ -887,11 +862,11 @@ class SolarReportText:
             text += (
                 f" La capacidad de "
                 f"{best_economic.capacity_kwh:.1f} kWh presenta el "
-                f"mayor VAN de batería, con "
+                f"mayor VAN incremental de la batería, con "
                 f"{best_economic.economic_npv_eur:,.2f} €. "
                 f"Su ahorro adicional anual es de "
                 f"{best_economic.annual_additional_savings_eur:,.2f} € "
-                f"y su recuperación económica estimada es de "
+                f"y su recuperación estimada de la inversión incremental en batería es de "
                 f"{economic_payback}."
             )
 
@@ -911,13 +886,23 @@ class SolarReportText:
                 f"de batería positivo bajo las hipótesis económicas utilizadas."
             )
         else:
-            text += (
-                " Ninguna de las capacidades evaluadas presenta "
-                "un VAN incremental positivo de batería. Esto no "
-                "determina por sí solo la recomendación global: "
-                "debe evaluarse por separado el VAN conjunto de "
-                "la instalación fotovoltaica y la batería."
-            )
+            if economic_calculated:
+                text += (
+                    " Ninguna de las capacidades evaluadas presenta "
+                    "un VAN incremental de la inversión en batería positivo. "
+                    "Esto no determina por sí solo la recomendación global: "
+                    "debe evaluarse por separado el VAN conjunto de "
+                    "la instalación fotovoltaica y la batería."
+                )
+            else:
+                text += (
+                    " No se dispone de evaluaciones incrementales válidas "
+                    "para todas las capacidades de batería. Por tanto, "
+                    "no puede determinarse qué capacidad ofrece la mejor "
+                    "rentabilidad incremental. La evaluación del VAN conjunto "
+                    "de la instalación fotovoltaica y la batería se presenta "
+                    "por separado."
+                )
 
         # El análisis del VAN conjunto se mantiene separado del
         # análisis incremental de la batería.
@@ -996,16 +981,25 @@ class SolarReportText:
                         )
 
                 else:
-                    text += (
-                        " Ninguna capacidad con VAN incremental de batería "
-                        "positivo dispone de un VAN conjunto válido para "
-                        "establecer una recomendación global."
-                        if not viable
-                        else
-                        " Ninguna capacidad con VAN incremental de batería "
-                        "positivo tiene un VAN conjunto finito para "
-                        "comparar las alternativas."
-                    )
+                    if not economic_calculated:
+                        text += (
+                            " No puede establecerse una recomendación conjunta "
+                            "entre las capacidades evaluadas porque faltan "
+                            "evaluaciones económicas incrementales válidas."
+                        )
+                    elif not viable:
+                        text += (
+                            " Ninguna capacidad evaluada presenta un VAN "
+                            "incremental de la inversión en batería positivo. "
+                            "Por tanto, ninguna cumple el criterio económico "
+                            "para recomendar almacenamiento adicional."
+                        )
+                    else:
+                        text += (
+                            " Ninguna capacidad con VAN incremental de batería "
+                            "positivo tiene un VAN conjunto finito para "
+                            "comparar las alternativas."
+                        )
 
                 if (
                     best_combined_overall.capacity_kwh
@@ -1588,7 +1582,7 @@ class SolarReportText:
                         f"constituye la opción recomendada para la "
                         f"inversión conjunta FV + batería, al "
                         f"presentar simultáneamente el mayor VAN "
-                        f"de batería "
+                        f"incremental de la batería "
                         f"({best_economic.economic_npv_eur:,.2f} €) "
                         f"y el mayor VAN conjunto FV + batería "
                         f"({best_combined.combined_economic_npv_eur:,.2f} €) "
@@ -1841,9 +1835,8 @@ class SolarReportText:
             )
         elif primary_npv > 0:
             recommendation = (
-                "Se recomienda la instalación fotovoltaica "
-                "en el escenario analizado. La opción evaluada "
-                "corresponde a la selección del optimizador."
+                "Se recomienda la alternativa de instalación "
+                "seleccionada por el optimizador, en el escenario analizado."
             )
             economic_message = (
                 "El resultado económico es favorable, ya que el "

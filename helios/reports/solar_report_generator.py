@@ -1335,6 +1335,10 @@ class SolarReportGenerator:
                 return "N/D"
             return f"{value:.2f} %"
 
+        economic_analysis_available = (
+            data.economic_analysis_calculated
+        )
+
         economics_data = [
             ["Concepto", "Valor"],
             [
@@ -1368,40 +1372,26 @@ class SolarReportGenerator:
             [
                 "Periodo de retorno",
                 (
-                    format_years(self._primary_payback_years(data))
-                    if (
-                        self._primary_economic_analysis_calculated(data)
-                        and self._primary_payback_years(data) is not None
-                        and math.isfinite(
-                            self._primary_payback_years(data)
-                        )
-                    )
+                    format_years(data.payback_years)
+                    if economic_analysis_available
                     else "N/D"
                 ),
             ],
             [
                 "Valor actual neto (VAN)",
                 (
-                    format_eur(self._primary_npv_eur(data))
-                    if (
-                        self._primary_economic_analysis_calculated(data)
-                        and self._primary_npv_eur(data) is not None
-                        and math.isfinite(self._primary_npv_eur(data))
-                    )
+                    format_eur(data.net_present_value_eur)
+                    if economic_analysis_available
                     else "N/D"
                 ),
             ],
             [
                 "Tasa interna de retorno (TIR)",
                 (
-                    format_percent(self._primary_irr_percent(data))
-                    if (
-                        self._primary_economic_analysis_calculated(data)
-                        and self._primary_irr_percent(data) is not None
-                        and math.isfinite(
-                            self._primary_irr_percent(data)
-                        )
+                    format_percent(
+                        data.internal_rate_of_return_percent
                     )
+                    if economic_analysis_available
                     else "N/D"
                 ),
             ],
@@ -1422,7 +1412,7 @@ class SolarReportGenerator:
         ]
 
         # ==================================================
-        # Rentabilidad económica
+        # Rentabilidad económica de la instalación FV
         # ==================================================
 
         story.extend(
@@ -1448,7 +1438,7 @@ class SolarReportGenerator:
         )
 
         # ==================================================
-        # Escenarios económicos
+        # Escenarios económicos de la instalación FV
         # ==================================================
 
         scenarios_data = [
@@ -1517,6 +1507,7 @@ class SolarReportGenerator:
         )
 
         return story
+
 
     def _build_amortization_section(
         self,
@@ -1751,18 +1742,18 @@ class SolarReportGenerator:
         battery_economic_data = [
             [
                 "Capacidad",
-                "VAN batería",
-                "TIR batería",
-                "Recuperación económica",
+                "VAN incremental batería",
+                "TIR incremental batería",
+                "Recuperación incremental",
             ],
         ]
 
         battery_combined_data = [
             [
                 "Capacidad",
-                "VAN conjunto",
-                "TIR conjunta",
-                "Recuperación conjunta",
+                "VAN conjunto FV + batería",
+                "TIR conjunta FV + batería",
+                "Recuperación conjunta FV + batería",
             ],
         ]
 
@@ -1921,20 +1912,32 @@ class SolarReportGenerator:
 
         battery_economic_data[0] = [
             Paragraph("Capacidad", battery_header_style),
-            Paragraph("VAN<br/>batería", battery_header_style),
-            Paragraph("TIR<br/>batería", battery_header_style),
             Paragraph(
-                "Recuperación<br/>económica",
+                "VAN incremental<br/>batería",
+                battery_header_style,
+            ),
+            Paragraph(
+                "TIR incremental<br/>batería",
+                battery_header_style,
+            ),
+            Paragraph(
+                "Recuperación<br/>incremental",
                 battery_header_style,
             ),
         ]
 
         battery_combined_data[0] = [
             Paragraph("Capacidad", battery_header_style),
-            Paragraph("VAN<br/>conjunto", battery_header_style),
-            Paragraph("TIR<br/>conjunta", battery_header_style),
             Paragraph(
-                "Recuperación<br/>conjunta",
+                "VAN conjunto<br/>FV + batería",
+                battery_header_style,
+            ),
+            Paragraph(
+                "TIR conjunta<br/>FV + batería",
+                battery_header_style,
+            ),
+            Paragraph(
+                "Recuperación<br/>conjunta FV + batería",
                 battery_header_style,
             ),
         ]
@@ -2563,6 +2566,14 @@ class SolarReportGenerator:
             ),
         ]
 
+        recommended_battery = SolarReportText.recommended_battery(data)
+
+        recommended_storage = (
+            f"{recommended_battery.capacity_kwh:.1f} kWh"
+            if recommended_battery is not None
+            else "Sin almacenamiento recomendado"
+        )
+
         story = [
 
             Spacer(1, 38 * mm),
@@ -2597,6 +2608,11 @@ class SolarReportGenerator:
                     f"{data.installed_power_kwp:.2f} kWp"
                     if is_finite(data.installed_power_kwp)
                     else "Instalación fotovoltaica"
+                )
+                + (
+                    f"<br/>Almacenamiento recomendado: {recommended_storage}"
+                    if recommended_battery is not None
+                    else ""
                 ),
                 styles["HeliosCoverSubtitle"],
             ),
@@ -2641,26 +2657,25 @@ class SolarReportGenerator:
             ],
             [
                 Paragraph(
-                    "Periodo de retorno",
+                    "Periodo de retorno FV",
                     styles["HeliosKpiLabel"],
                 ),
                 Paragraph(
-                    "VAN",
+                    "VAN FV",
                     styles["HeliosKpiLabel"],
                 ),
                 Paragraph(
-                    "TIR",
+                    "TIR FV",
                     styles["HeliosKpiLabel"],
                 ),
             ],
             [
                 Paragraph(
                     (
-                        f"{self._primary_payback_years(data):.2f} años"
+                        f"{data.payback_years:.2f} años"
                         if (
-                            self._primary_economic_analysis_calculated(data)
-                            and self._primary_payback_years(data) is not None
-                            and is_finite(self._primary_payback_years(data))
+                            data.economic_analysis_calculated
+                            and is_finite(data.payback_years)
                         )
                         else "N/D"
                     ),
@@ -2668,11 +2683,10 @@ class SolarReportGenerator:
                 ),
                 Paragraph(
                     (
-                        f"{self._primary_npv_eur(data):,.0f} €"
+                        f"{data.net_present_value_eur:,.0f} €"
                         if (
-                            self._primary_economic_analysis_calculated(data)
-                            and self._primary_npv_eur(data) is not None
-                            and is_finite(self._primary_npv_eur(data))
+                            data.economic_analysis_calculated
+                            and is_finite(data.net_present_value_eur)
                         )
                         else "N/D"
                     ),
@@ -2680,11 +2694,12 @@ class SolarReportGenerator:
                 ),
                 Paragraph(
                     (
-                        f"{self._primary_irr_percent(data):.2f} %"
+                        f"{data.internal_rate_of_return_percent:.2f} %"
                         if (
-                            self._primary_economic_analysis_calculated(data)
-                            and self._primary_irr_percent(data) is not None
-                            and is_finite(self._primary_irr_percent(data))
+                            data.economic_analysis_calculated
+                            and is_finite(
+                                data.internal_rate_of_return_percent
+                            )
                         )
                         else "N/D"
                     ),
@@ -2692,6 +2707,59 @@ class SolarReportGenerator:
                 ),
             ],
         ]
+
+        if recommended_battery is not None:
+
+            kpi_data.extend(
+                [
+                    [
+                        Paragraph(
+                            "Periodo de retorno FV + batería",
+                            styles["HeliosKpiLabel"],
+                        ),
+                        Paragraph(
+                            "VAN conjunto FV + batería",
+                            styles["HeliosKpiLabel"],
+                        ),
+                        Paragraph(
+                            "TIR conjunta FV + batería",
+                            styles["HeliosKpiLabel"],
+                        ),
+                    ],
+                    [
+                        Paragraph(
+                            (
+                                f"{recommended_battery.combined_economic_payback_years:.2f} años"
+                                if is_finite(
+                                    recommended_battery.combined_economic_payback_years
+                                )
+                                else "N/D"
+                            ),
+                            styles["HeliosKpiValue"],
+                        ),
+                        Paragraph(
+                            (
+                                f"{recommended_battery.combined_economic_npv_eur:,.0f} €"
+                                if is_finite(
+                                    recommended_battery.combined_economic_npv_eur
+                                )
+                                else "N/D"
+                            ),
+                            styles["HeliosKpiValue"],
+                        ),
+                        Paragraph(
+                            (
+                                f"{recommended_battery.combined_economic_irr_percent:.2f} %"
+                                if is_finite(
+                                    recommended_battery.combined_economic_irr_percent
+                                )
+                                else "N/D"
+                            ),
+                            styles["HeliosKpiValue"],
+                        ),
+                    ],
+                ]
+            )
 
         kpi_table = Table(
             kpi_data,

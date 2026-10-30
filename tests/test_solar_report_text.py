@@ -565,7 +565,7 @@ class TestSolarReportText:
         assert "ahorro marginal por kWh" in text
         assert "periodo de recuperación marginal" in text
         assert "Economía conjunta FV + batería" not in text
-        assert "mayor VAN de batería" in text
+        assert "mayor VAN incremental de la batería" in text
         assert "mayor VAN conjunto del sistema FV + batería" in text
         assert "208.28 €" in text
 
@@ -984,7 +984,11 @@ class TestSolarReportText:
         )
 
         assert "<b>Recomendación final</b>" in text
-        assert "Se recomienda la instalación fotovoltaica" in text
+        assert (
+            "Se recomienda la alternativa de instalación "
+            "seleccionada por el optimizador"
+            in text
+        )
         assert "64.0 %" in text
         assert "valor actual neto es positivo" in text
         assert "12,500 kWh" in text
@@ -1071,7 +1075,7 @@ class TestSolarReportText:
 
         text = SolarReportText.battery_analysis(data)
 
-        assert "mayor VAN de batería" in text
+        assert "mayor VAN incremental de la batería" in text
         assert "30.0 kWh" in text
         assert "mayor VAN conjunto del sistema FV + batería" in text
         assert "3,000.00 €" in text
@@ -1114,6 +1118,43 @@ class TestSolarReportText:
 
         assert "no se ha calculado" in text
         assert "7.50 años" not in text
+
+    def test_executive_summary_uses_pv_economics_when_battery_is_selected(
+        self,
+    ):
+        data = replace(
+            self._report_data(),
+            selected_option_available=True,
+            selected_economic_analysis_calculated=True,
+            selected_payback_years=12.75,
+            selected_net_present_value_eur=35000.0,
+            selected_internal_rate_of_return_percent=9.5,
+        )
+
+        text = SolarReportText.executive_summary(data)
+
+        assert "5.34 años" in text
+        assert "12.75 años" not in text
+        assert "periodo de recuperación de la inversión fotovoltaica" in text
+
+    def test_quick_diagnostic_identifies_combined_economic_scope(
+        self,
+    ):
+        data = replace(
+            self._report_data(),
+            selected_option_available=True,
+            selected_economic_analysis_calculated=True,
+            selected_payback_years=12.75,
+            selected_net_present_value_eur=35000.0,
+            selected_internal_rate_of_return_percent=9.5,
+        )
+
+        text = SolarReportText.quick_diagnostic(data)
+
+        assert "opción seleccionada (FV + batería)" in text
+        assert "35,000.00 €" in text
+        assert "12.75 años" in text
+        assert "9.50 %" in text
 
     def test_quick_diagnostic_does_not_interpret_npv_without_economics(
         self,

@@ -1,7 +1,7 @@
 import pytest
 import pandas as pd
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call
 
 from PySide6.QtWidgets import QApplication
 
@@ -1042,7 +1042,10 @@ class TestSolarOptimizationPage:
         page.start_optimization()
 
         project.solar.recommend_energy.assert_called_once()
-        main_window.set_solar_optimized.assert_called_once_with(True)
+        assert main_window.set_solar_optimized.call_args_list == [
+            call(False),
+            call(True),
+        ]
 
     def test_start_optimization_restores_button_after_error(
         self,

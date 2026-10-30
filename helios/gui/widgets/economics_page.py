@@ -18,12 +18,13 @@ from helios.core.economic_scenarios import default_economic_scenarios
 
 class EconomicsPage(QWidget):
 
-    def __init__(self, project):
+    def __init__(self, project, main_window=None):
 
         super().__init__()
 
         self.project = project
         self.controller = self.project.economics
+        self.main_window = main_window
 
         outer_layout = QVBoxLayout(self)
 
@@ -212,6 +213,11 @@ class EconomicsPage(QWidget):
         )
 
     def calculate(self):
+        """Calcula y actualiza los resultados económicos."""
+
+        # Invalidar el estado anterior antes de recalcular.
+        if self.main_window is not None:
+            self.main_window.set_economics_calculated(False)
 
         self.controller.calculate()
 
@@ -225,6 +231,11 @@ class EconomicsPage(QWidget):
         self.update_profitability()
         self.update_battery_analysis()
         self.update_cash_flow()
+
+        # Solo habilitar Informes si todo el proceso ha terminado
+        # correctamente.
+        if self.main_window is not None:
+            self.main_window.set_economics_calculated(True)
 
     def update_summary(self):
 
