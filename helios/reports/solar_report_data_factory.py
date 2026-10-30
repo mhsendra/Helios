@@ -536,6 +536,10 @@ class SolarReportDataFactory:
                 scenario_results
             ),
 
+            cash_flow=(
+                cash_flow.copy(deep=True)
+            ),
+
             # ==================================================
             # Battery recommendations
             # ==================================================

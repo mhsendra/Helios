@@ -1471,6 +1471,212 @@ class SolarReportGenerator:
 
         return story
 
+    def _build_amortization_section(
+        self,
+        data: SolarReportData,
+        styles,
+    ) -> list:
+        """Construye el detalle anual de amortización de la instalación."""
+
+        cash_flow = data.cash_flow
+
+        if (
+            not data.economic_analysis_calculated
+            or cash_flow is None
+            or cash_flow.empty
+        ):
+            return []
+
+        required_columns = {
+            "year",
+            "self_consumption_savings",
+            "export_income",
+            "maintenance_cost",
+            "cash_flow",
+            "cumulative_cash_flow",
+        }
+
+        if not required_columns.issubset(cash_flow.columns):
+            raise ValueError(
+                "Economic cash flow is missing required columns"
+            )
+
+        cash_flow = cash_flow.sort_values("year").copy()
+
+        def format_eur(value) -> str:
+            if value is None or not math.isfinite(float(value)):
+                return "N/D"
+
+            return f"{float(value):,.2f} €"
+
+        def format_years(value) -> str:
+            if value is None or not math.isfinite(float(value)):
+                return "N/D"
+
+            return f"{float(value):.2f} años"
+
+        def format_percent(value) -> str:
+            if value is None or not math.isfinite(float(value)):
+                return "N/D"
+
+            return f"{float(value):.2f} %"
+
+        header_style = styles["HeliosBodyText"]
+
+        def header(text: str) -> Paragraph:
+            paragraph_style = ParagraphStyle(
+                "AmortizationTableHeader",
+                parent=header_style,
+                fontName="Helvetica-Bold",
+                fontSize=7,
+                leading=8,
+                textColor=colors.white,
+            )
+
+            return Paragraph(
+                text,
+                paragraph_style,
+            )
+
+        table_data = [
+            [
+                header("Año"),
+                header("Ahorro<br/>autoconsumo"),
+                header("Ingresos<br/>excedentes"),
+                header("Mantenimiento"),
+                header("Flujo<br/>neto"),
+                header("Saldo<br/>acumulado"),
+            ]
+        ]
+
+        for row in cash_flow.itertuples(index=False):
+            year = int(row.year)
+
+            year_label = (
+                Paragraph(
+                    "Inversión<br/>inicial",
+                    styles["HeliosBodyText"],
+                )
+                if year == 0
+                else str(year)
+            )
+
+            table_data.append(
+                [
+                    year_label,
+                    format_eur(row.self_consumption_savings),
+                    format_eur(row.export_income),
+                    format_eur(row.maintenance_cost),
+                    format_eur(row.cash_flow),
+                    format_eur(row.cumulative_cash_flow),
+                ]
+            )
+
+        amortization_table = Table(
+            table_data,
+            colWidths=[
+                52,
+                78,
+                76,
+                67,
+                76,
+                91,
+            ],
+            repeatRows=1,
+        )
+
+        self._style_table(
+            amortization_table,
+            HELIOS_PURPLE,
+        )
+
+        # Ajustes exclusivos de esta tabla para aprovechar el ancho disponible.
+        amortization_table.setStyle(
+            TableStyle(
+                [
+                    ("LEFTPADDING", (0, 0), (-1, -1), 3),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 3),
+                    ("TOPPADDING", (0, 0), (-1, -1), 5),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+                    ("FONTSIZE", (1, 1), (-1, -1), 7),
+                ]
+            )
+        )
+
+        final_balance = float(
+            cash_flow.iloc[-1]["cumulative_cash_flow"]
+        )
+
+        summary_data = [
+            ["Indicador", "Resultado"],
+            ["Inversión inicial", format_eur(data.investment_eur)],
+            [
+                "Ahorro bruto anual de referencia",
+                format_eur(data.yearly_savings_eur),
+            ],
+            [
+                "Periodo de retorno",
+                format_years(data.payback_years),
+            ],
+            [
+                "Valor actual neto (VAN)",
+                format_eur(data.net_present_value_eur),
+            ],
+            [
+                "Tasa interna de retorno (TIR)",
+                format_percent(data.internal_rate_of_return_percent),
+            ],
+            [
+                "Saldo acumulado al final del horizonte",
+                format_eur(final_balance),
+            ],
+        ]
+
+        summary_table = Table(
+            summary_data,
+            colWidths=[260, 180],
+        )
+
+        self._style_table(
+            summary_table,
+            HELIOS_PURPLE_LIGHT,
+        )
+
+        return [
+            Spacer(1, 25),
+            self._section_header(
+                "Amortización de la instalación",
+                styles,
+                HELIOS_PURPLE,
+                0,
+            ),
+            Spacer(1, 10),
+            Paragraph(
+                (
+                    "La siguiente tabla muestra la evolución económica "
+                    "anual de la instalación. El año inicial recoge la "
+                    "inversión neta; los años posteriores incorporan el "
+                    "ahorro por autoconsumo, los ingresos por excedentes "
+                    "y los costes de mantenimiento. El saldo acumulado "
+                    "permite identificar cuándo se recupera la inversión."
+                ),
+                styles["HeliosBodyText"],
+            ),
+            Spacer(1, 8),
+            self._keep_table(summary_table),
+            Spacer(1, 12),
+            SolarReportCharts.amortization_cash_flow(
+                cash_flow,
+            ),
+            Spacer(1, 12),
+            Paragraph(
+                "Detalle anual del flujo de caja",
+                styles["HeliosSubsectionTitle"],
+            ),
+            Spacer(1, 6),
+            amortization_table,
+        ]
+
     def _build_battery_section(
         self,
         data: SolarReportData,
@@ -2548,6 +2754,13 @@ class SolarReportGenerator:
 
         story.extend(
             self._build_economic_section(
+                data,
+                styles,
+            )
+        )
+
+        story.extend(
+            self._build_amortization_section(
                 data,
                 styles,
             )

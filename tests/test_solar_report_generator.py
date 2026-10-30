@@ -311,6 +311,34 @@ class TestSolarReportGenerator:
                 ),
             ],
             battery_recommendations=battery_recommendations,
+            cash_flow=pd.DataFrame(
+                [
+                    {
+                        "year": 0,
+                        "self_consumption_savings": 0.0,
+                        "export_income": 0.0,
+                        "maintenance_cost": 0.0,
+                        "cash_flow": -12490.0,
+                        "cumulative_cash_flow": -12490.0,
+                    },
+                    {
+                        "year": 1,
+                        "self_consumption_savings": 1980.0,
+                        "export_income": 334.62,
+                        "maintenance_cost": 150.0,
+                        "cash_flow": 2164.62,
+                        "cumulative_cash_flow": -10325.38,
+                    },
+                    {
+                        "year": 2,
+                        "self_consumption_savings": 1980.0,
+                        "export_income": 334.62,
+                        "maintenance_cost": 153.0,
+                        "cash_flow": 2161.62,
+                        "cumulative_cash_flow": -8163.76,
+                    },
+                ]
+            ),
         )
 
     @staticmethod
@@ -595,7 +623,7 @@ class TestSolarReportGenerator:
             captured["story"]
         )
 
-        assert len(tables) == 12
+        assert len(tables) == 14
 
     def test_economic_assumptions_table_contains_exact_values(
         self,
@@ -616,7 +644,7 @@ class TestSolarReportGenerator:
             captured["story"]
         )
 
-        rows = self._table_rows(tables[10])
+        rows = self._table_rows(tables[12])
 
         assert rows == [
             ["Hipótesis", "Valor"],
@@ -684,6 +712,8 @@ class TestSolarReportGenerator:
             8,   # Balance
             11,  # Economía
             4,   # Escenarios
+            7,   # Resumen de amortización
+            4,   # Detalle anual de amortización
             6,   # Baterías: resultados marginales
             6,   # Baterías: economía
             6,   # Baterías: economía conjunta FV + batería
@@ -723,17 +753,29 @@ class TestSolarReportGenerator:
         ]
 
         assert headers == [
-            ["Concepto", "Valor"],
-            ["Concepto", "Valor"],
-            ["Métrica", "Valor"],
-            ["Concepto", "Valor"],
-            ["Concepto", "Valor"],
+            ["Concepto", "Valor"],  # Instalación
+            ["Concepto", "Valor"],  # Producción
+            ["Métrica", "Valor"],   # Estadísticas
+            ["Concepto", "Valor"],  # Balance
+            ["Concepto", "Valor"],  # Economía
             [
                 "Escenario",
                 "Ahorro anual",
                 "Payback",
                 "VAN",
                 "TIR",
+            ],
+            [
+                "Indicador",
+                "Resultado",
+            ],
+            [
+                "Año",
+                "Ahorro autoconsumo",
+                "Ingresos excedentes",
+                "Mantenimiento",
+                "Flujo neto",
+                "Saldo acumulado",
             ],
             [
                 "Capacidad",
@@ -1645,19 +1687,21 @@ class TestSolarReportGenerator:
             captured["story"]
         )
 
-        assert len(tables) == 12
+        assert len(tables) == 14
 
         assert [
             len(table._cellvalues)
             for table in tables
         ] == [
             4,   # KPI de portada
-            10,  # Instalación manual
+            10,  # Instalación
             4,   # Producción
             6,   # Estadísticas
             8,   # Balance
             11,  # Economía
             4,   # Escenarios
+            7,   # Resumen de amortización
+            4,   # Detalle anual de amortización
             6,   # Baterías: resultados marginales
             6,   # Baterías: economía
             6,   # Baterías: economía conjunta FV + batería
@@ -1710,9 +1754,9 @@ class TestSolarReportGenerator:
             captured["story"]
         )
 
-        operational_table = tables[7]
-        economic_table = tables[8]
-        combined_table = tables[9]
+        operational_table = tables[9]
+        economic_table = tables[10]
+        combined_table = tables[11]
 
         operational_rows = self._table_rows(
             operational_table
@@ -1853,11 +1897,11 @@ class TestSolarReportGenerator:
         )
 
         operational_rows = self._table_rows(
-            tables[7]
+            tables[9]
         )
 
         economic_rows = self._table_rows(
-            tables[8]
+            tables[10]
         )
 
         assert operational_rows[1][-1] == "N/D"
@@ -2263,8 +2307,8 @@ class TestSolarReportGenerator:
         )
 
         tables = self._get_tables(captured["story"])
-        battery_rows = self._table_rows(tables[8])
-        combined_rows = self._table_rows(tables[9])
+        battery_rows = self._table_rows(tables[10])
+        combined_rows = self._table_rows(tables[11])
 
         # Primera capacidad: análisis incremental calculado,
         # pero análisis conjunto pendiente.
@@ -2313,9 +2357,9 @@ class TestSolarReportGenerator:
 
         tables = self._get_tables(captured["story"])
 
-        operational_rows = self._table_rows(tables[7])
-        economic_rows = self._table_rows(tables[8])
-        combined_rows = self._table_rows(tables[9])
+        operational_rows = self._table_rows(tables[9])
+        economic_rows = self._table_rows(tables[10])
+        combined_rows = self._table_rows(tables[11])
 
         actual = {
             "retorno_operativo": operational_rows[1][-1],

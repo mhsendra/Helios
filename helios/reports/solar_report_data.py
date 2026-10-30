@@ -119,3 +119,9 @@ class SolarReportData:
     losses: float | None = None
     pv_technology: str | None = None
     mounting_place: str | None = None
+
+    # ==================================================
+    # Economic cash flow
+    # ==================================================
+
+    cash_flow: pd.DataFrame | None = None

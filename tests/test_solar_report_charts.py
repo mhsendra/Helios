@@ -2,7 +2,7 @@ import pytest
 
 import pandas as pd
 
-from reportlab.graphics.shapes import Drawing
+from reportlab.graphics.shapes import Drawing, Line
 
 from reportlab.graphics.charts.barcharts import VerticalBarChart
 
@@ -711,3 +711,27 @@ class TestSolarReportCharts:
                 monthly_consumption,
                 monthly_production,
             )
+
+    def test_amortization_cash_flow_returns_drawing(self):
+        cash_flow = pd.DataFrame(
+            [
+                {"year": 0, "cumulative_cash_flow": -10000.0},
+                {"year": 1, "cumulative_cash_flow": -7000.0},
+                {"year": 2, "cumulative_cash_flow": -3000.0},
+                {"year": 3, "cumulative_cash_flow": 1000.0},
+            ]
+        )
+
+        drawing = SolarReportCharts.amortization_cash_flow(
+            cash_flow
+        )
+
+        assert isinstance(drawing, Drawing)
+
+        lines = [
+            item
+            for item in drawing.contents
+            if isinstance(item, Line)
+        ]
+
+        assert len(lines) >= 4

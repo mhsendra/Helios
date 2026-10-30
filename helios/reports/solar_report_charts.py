@@ -765,6 +765,229 @@ class SolarReportCharts:
 
         return drawing
 
+    @classmethod
+    def amortization_cash_flow(
+        cls,
+        cash_flow: pd.DataFrame,
+    ) -> Drawing:
+        """Representa la evolución del saldo acumulado de la instalación."""
+
+        required_columns = {
+            "year",
+            "cumulative_cash_flow",
+        }
+
+        if (
+            cash_flow is None
+            or cash_flow.empty
+            or not required_columns.issubset(cash_flow.columns)
+        ):
+            raise ValueError(
+                "amortization cash flow data is incomplete"
+            )
+
+        values = cash_flow[
+            ["year", "cumulative_cash_flow"]
+        ].copy()
+
+        if (
+            values.isna().any().any()
+            or not all(
+                math.isfinite(float(value))
+                for value in values.to_numpy().flatten()
+            )
+        ):
+            raise ValueError(
+                "amortization cash flow values must be finite"
+            )
+
+        values = values.sort_values("year")
+
+        years = values["year"].astype(int).tolist()
+        balances = (
+            values["cumulative_cash_flow"]
+            .astype(float)
+            .tolist()
+        )
+
+        if len(years) < 2:
+            raise ValueError(
+                "amortization cash flow requires at least two years"
+            )
+
+        drawing = cls._create_drawing()
+
+        cls._add_title(
+            drawing,
+            "Evolución de la amortización",
+        )
+
+        left = 78
+        right = 465
+        bottom = 65
+        top = 235
+
+        minimum = min(min(balances), 0.0)
+        maximum = max(max(balances), 0.0)
+
+        if minimum == maximum:
+            maximum += 1.0
+            minimum -= 1.0
+
+        padding = (maximum - minimum) * 0.08
+        minimum -= padding
+        maximum += padding
+
+        def x_position(index: int) -> float:
+            return (
+                left
+                + index * (right - left)
+                / (len(years) - 1)
+            )
+
+        def y_position(value: float) -> float:
+            return (
+                bottom
+                + (value - minimum)
+                * (top - bottom)
+                / (maximum - minimum)
+            )
+
+        # El eje horizontal se sitúa siempre en Y = 0 €.
+        zero_y = y_position(0.0)
+
+        # Eje vertical.
+        drawing.add(
+            Line(
+                left,
+                bottom,
+                left,
+                top,
+                strokeColor=cls.HELIOS_BORDER,
+                strokeWidth=0.8,
+            )
+        )
+
+        # Eje horizontal en el punto de equilibrio.
+        drawing.add(
+            Line(
+                left,
+                zero_y,
+                right,
+                zero_y,
+                strokeColor=cls.HELIOS_MUTED,
+                strokeWidth=1,
+            )
+        )
+
+        # Referencias del eje Y.
+        tick_count = 4
+
+        for tick_index in range(tick_count + 1):
+            value = (
+                minimum
+                + tick_index
+                * (maximum - minimum)
+                / tick_count
+            )
+            y = y_position(value)
+
+            # Evita duplicar la línea del eje horizontal.
+            if abs(value) > 1e-9:
+                drawing.add(
+                    Line(
+                        left,
+                        y,
+                        right,
+                        y,
+                        strokeColor=cls.HELIOS_BORDER,
+                        strokeWidth=0.8,
+                        strokeDashArray=[1, 3],
+                    )
+                )
+
+            drawing.add(
+                String(
+                    left - 8,
+                    y - 3,
+                    f"{value:,.0f} €",
+                    textAnchor="end",
+                    fontName=cls.FONT_AXIS,
+                    fontSize=7,
+                    fillColor=cls.HELIOS_MUTED,
+                )
+            )
+
+        # Curva del saldo acumulado.
+        for index in range(len(years) - 1):
+            drawing.add(
+                Line(
+                    x_position(index),
+                    y_position(balances[index]),
+                    x_position(index + 1),
+                    y_position(balances[index + 1]),
+                    strokeColor=cls.HELIOS_GREEN_DARK,
+                    strokeWidth=2,
+                )
+            )
+
+        # Marcas del eje X.
+        step = max(
+            1,
+            math.ceil((len(years) - 1) / 7),
+        )
+
+        tick_indices = list(range(0, len(years), step))
+
+        if tick_indices[-1] != len(years) - 1:
+            tick_indices.append(len(years) - 1)
+
+        # Coloca los años evitando que salgan del área del gráfico.
+        labels_below = zero_y - bottom >= 22
+        tick_direction = -1 if labels_below else 1
+        label_offset = -15 if labels_below else 7
+
+        for index in tick_indices:
+            x = x_position(index)
+
+            drawing.add(
+                Line(
+                    x,
+                    zero_y,
+                    x,
+                    zero_y + tick_direction * 4,
+                    strokeColor=cls.HELIOS_MUTED,
+                    strokeWidth=0.7,
+                )
+            )
+
+            drawing.add(
+                String(
+                    x,
+                    zero_y + label_offset,
+                    str(years[index]),
+                    textAnchor="middle",
+                    fontName=cls.FONT_AXIS,
+                    fontSize=7,
+                    fillColor=cls.HELIOS_MUTED,
+                )
+            )
+
+        # Etiqueta del eje horizontal.
+        drawing.add(
+            String(
+                (left + right) / 2,
+                25,
+                "Año",
+                textAnchor="middle",
+                fontName=cls.FONT_AXIS,
+                fontSize=8,
+                fillColor=cls.HELIOS_MUTED,
+            )
+        )
+
+        return drawing
+
     # ------------------------------------------------------------------
     # Economic scenarios
     # ------------------------------------------------------------------
