@@ -10,6 +10,7 @@ from helios.core.economic_scenarios import (
 )
 from helios.core.economics import EconomicsEngine
 from helios.core.consumption_scenario import ConsumptionScenario
+from helios.core.economics_configuration import EconomicsConfiguration
 
 
 # ==========================================================
@@ -3244,38 +3245,23 @@ class TestCalculateScenario:
         self.engine.cost_without_pv = 3000.0
 
     def _configuration(self):
-
-        class Configuration:
-            first_year_degradation = 0.01
-            annual_degradation = 0.0035
-
-            annual_electricity_price_growth = 0.02
-            annual_export_price_growth = 0.01
-
-            annual_maintenance_cost = 100.0
-            annual_maintenance_growth = 0.02
-
-            discount_rate = 0.05
-
-        return Configuration()
+        return EconomicsConfiguration(
+            installation_cost=10000.0,
+            subsidies=0.0,
+            tax_deductions=0.0,
+            first_year_degradation=0.01,
+            annual_degradation=0.0035,
+            annual_electricity_price_growth=0.02,
+            annual_export_price_growth=0.01,
+            annual_maintenance_cost=100.0,
+            annual_maintenance_growth=0.02,
+            discount_rate=0.05,
+        )
 
     def _scenario(self):
-
-        class Scenario:
-            name = "Base"
-
-            annual_degradation = None
-            discount_rate = None
-
-            buy_price_factor = 1.0
-            sell_price_factor = 1.0
-
-            annual_maintenance = None
-
-        return Scenario()
+        return EconomicScenario(name="Base")
 
     def _calculate_base_result(self, years=5):
-
         return self.engine.calculate_scenario(
             scenario=self._scenario(),
             configuration=self._configuration(),
@@ -3300,24 +3286,18 @@ class TestCalculateScenario:
         expected = (
             self.engine.self_consumption_savings
             + self.engine.export_income
-        ) * 0.99
-
-        assert result.annual_savings == pytest.approx(
-            expected
         )
+
+        assert result.annual_savings == pytest.approx(expected)
 
     def test_scenario_annual_savings_applies_buy_price_factor(self):
 
         class Scenario:
-
             name = "Buy price factor"
-
             annual_degradation = None
             discount_rate = None
-
             buy_price_factor = 0.90
             sell_price_factor = 1.0
-
             annual_maintenance = None
 
         result = self.engine.calculate_scenario(
@@ -3327,30 +3307,20 @@ class TestCalculateScenario:
         )
 
         expected = (
-            self.engine.self_consumption_savings
-            * 0.99
-            * 0.90
-        ) + (
-            self.engine.export_income
-            * 0.99
+            self.engine.self_consumption_savings * 0.90
+            + self.engine.export_income
         )
 
-        assert result.annual_savings == pytest.approx(
-            expected
-        )
+        assert result.annual_savings == pytest.approx(expected)
 
     def test_scenario_annual_savings_applies_sell_price_factor(self):
 
         class Scenario:
-
             name = "Sell price factor"
-
             annual_degradation = None
             discount_rate = None
-
             buy_price_factor = 1.0
             sell_price_factor = 0.90
-
             annual_maintenance = None
 
         result = self.engine.calculate_scenario(
@@ -3361,29 +3331,19 @@ class TestCalculateScenario:
 
         expected = (
             self.engine.self_consumption_savings
-            * 0.99
-        ) + (
-            self.engine.export_income
-            * 0.99
-            * 0.90
+            + self.engine.export_income * 0.90
         )
 
-        assert result.annual_savings == pytest.approx(
-            expected
-        )
+        assert result.annual_savings == pytest.approx(expected)
 
     def test_scenario_annual_savings_excludes_maintenance(self):
 
         class Scenario:
-
             name = "Maintenance"
-
             annual_degradation = None
             discount_rate = None
-
             buy_price_factor = 1.0
             sell_price_factor = 1.0
-
             annual_maintenance = 500.0
 
         result = self.engine.calculate_scenario(
@@ -3392,165 +3352,76 @@ class TestCalculateScenario:
             years=5,
         )
 
-        expected_gross_savings = (
+        expected = (
             self.engine.self_consumption_savings
             + self.engine.export_income
-        ) * 0.99
-
-        assert result.annual_savings == pytest.approx(
-            expected_gross_savings
         )
 
-    def test_scenario_annual_savings_applies_first_year_degradation(
-        self,
-    ):
+        assert result.annual_savings == pytest.approx(expected)
 
-        scenario = EconomicScenario(
-            name="Base",
-        )
+    def test_scenario_annual_savings_excludes_first_year_degradation(self):
 
-        configuration = self._configuration()
-
-        result = self.engine.calculate_scenario(
-            scenario=scenario,
-            configuration=configuration,
-            years=25,
-        )
+        result = self._calculate_base_result(years=25)
 
         expected = (
             self.engine.self_consumption_savings
             + self.engine.export_income
-        ) * 0.99
-
-        assert result.annual_savings == pytest.approx(
-            expected
         )
 
-    def test_scenario_annual_savings_applies_buy_price_factor_explicit(
-        self,
-    ):
+        assert result.annual_savings == pytest.approx(expected)
 
-        scenario = EconomicScenario(
-            name="Compra -10%",
-            buy_price_factor=0.90,
-        )
-
-        configuration = self._configuration()
+    def test_scenario_annual_savings_applies_buy_price_factor_explicit(self):
 
         result = self.engine.calculate_scenario(
-            scenario=scenario,
-            configuration=configuration,
+            scenario=EconomicScenario(
+                name="Compra -10%",
+                buy_price_factor=0.90,
+            ),
+            configuration=self._configuration(),
+            years=25,
+        )
+
+        expected = (
+            self.engine.self_consumption_savings * 0.90
+            + self.engine.export_income
+        )
+
+        assert result.annual_savings == pytest.approx(expected)
+
+    def test_scenario_annual_savings_applies_sell_price_factor_explicit(self):
+
+        result = self.engine.calculate_scenario(
+            scenario=EconomicScenario(
+                name="Venta -10%",
+                sell_price_factor=0.90,
+            ),
+            configuration=self._configuration(),
             years=25,
         )
 
         expected = (
             self.engine.self_consumption_savings
-            * 0.99
-            * 0.90
-        ) + (
-            self.engine.export_income
-            * 0.99
+            + self.engine.export_income * 0.90
         )
 
-        assert result.annual_savings == pytest.approx(
-            expected
-        )
+        assert result.annual_savings == pytest.approx(expected)
 
-    def test_scenario_annual_savings_applies_sell_price_factor_explicit(
-        self,
-    ):
-
-        scenario = EconomicScenario(
-            name="Venta -10%",
-            sell_price_factor=0.90,
-        )
-
-        configuration = self._configuration()
+    def test_scenario_annual_savings_excludes_degradation_and_maintenance(self):
 
         result = self.engine.calculate_scenario(
-            scenario=scenario,
-            configuration=configuration,
-            years=25,
-        )
-
-        expected = (
-            self.engine.self_consumption_savings
-            * 0.99
-        ) + (
-            self.engine.export_income
-            * 0.99
-            * 0.90
-        )
-
-        assert result.annual_savings == pytest.approx(
-            expected
-        )
-
-    def test_scenario_annual_savings_excludes_maintenance_explicit(
-        self,
-    ):
-
-        scenario = EconomicScenario(
-            name="Base",
-        )
-
-        configuration = self._configuration()
-
-        result = self.engine.calculate_scenario(
-            scenario=scenario,
-            configuration=configuration,
+            scenario=EconomicScenario(name="Base"),
+            configuration=self._configuration(),
             years=25,
         )
 
         expected_gross_savings = (
             self.engine.self_consumption_savings
             + self.engine.export_income
-        ) * 0.99
-
-        expected_net_cash_flow = (
-            expected_gross_savings
-            - 150.0
         )
 
         assert result.annual_savings == pytest.approx(
             expected_gross_savings
         )
-
-        assert result.annual_savings != pytest.approx(
-            expected_net_cash_flow
-        )
-
-    def test_scenario_first_year_cash_flow_still_includes_maintenance(
-        self,
-    ):
-
-        scenario = EconomicScenario(
-            name="Base",
-        )
-
-        configuration = self._configuration()
-
-        result = self.engine.calculate_scenario(
-            scenario=scenario,
-            configuration=configuration,
-            years=25,
-        )
-
-        expected_gross_savings = (
-            self.engine.self_consumption_savings
-            + self.engine.export_income
-        ) * 0.99
-
-        expected_cash_flow = (
-            expected_gross_savings
-            - 100.0
-        )
-
-        assert result.annual_savings == pytest.approx(
-            expected_gross_savings
-        )
-
-        assert expected_cash_flow < result.annual_savings
 
     def test_calculate_scenario_payback_is_correct(self):
 

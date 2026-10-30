@@ -4,7 +4,9 @@ from dataclasses import dataclass
 @dataclass
 class EconomicsConfiguration:
 
-    installation_cost: float
+    # Solo se usa como presupuesto explícito introducido por el usuario.
+    # La aplicación no debe establecer un presupuesto cerrado por defecto.
+    installation_cost: float | None = None
 
     subsidies: float = 0.0
 

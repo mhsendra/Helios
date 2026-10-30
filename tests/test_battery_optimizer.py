@@ -282,12 +282,14 @@ class TestBatteryOptimizer:
             max_discharge_power_kw=5.0,
         )
 
-        assert recommendations[0].incremental_battery_cost_eur == pytest.approx(
-            0.0
+        assert (
+            recommendations[0].incremental_battery_cost_eur
+            == pytest.approx(5.0 * 249.70)
         )
 
-        assert recommendations[1].incremental_battery_cost_eur == pytest.approx(
-            (10.0 - 5.0) * 249.70
+        assert (
+            recommendations[1].incremental_battery_cost_eur
+            == pytest.approx((10.0 - 5.0) * 249.70)
         )
 
     def test_evaluate_calculates_incremental_savings(self):
@@ -304,12 +306,14 @@ class TestBatteryOptimizer:
             cost_calculator=lambda result: 400.0,
         )
 
-        assert recommendations[0].incremental_savings_eur == pytest.approx(
-            0.0
+        assert (
+            recommendations[0].incremental_savings_eur
+            == pytest.approx(600.0)
         )
 
-        assert recommendations[1].incremental_savings_eur == pytest.approx(
-            0.0
+        assert (
+            recommendations[1].incremental_savings_eur
+            == pytest.approx(0.0)
         )
 
     def test_evaluate_preserves_negative_incremental_savings(self):
@@ -369,12 +373,14 @@ class TestBatteryOptimizer:
             cost_calculator=lambda result: 400.0,
         )
 
-        assert recommendations[0].marginal_savings_per_kwh == pytest.approx(
-            0.0
+        assert (
+            recommendations[0].marginal_savings_per_kwh
+            == pytest.approx(600.0 / 5.0)
         )
 
-        assert recommendations[1].marginal_savings_per_kwh == pytest.approx(
-            0.0
+        assert (
+            recommendations[1].marginal_savings_per_kwh
+            == pytest.approx(0.0)
         )
 
     def test_evaluate_calculates_marginal_payback(self):
@@ -391,8 +397,15 @@ class TestBatteryOptimizer:
             cost_calculator=lambda result: 400.0,
         )
 
-        assert recommendations[0].marginal_payback_years == float("inf")
-        assert recommendations[1].marginal_payback_years == float("inf")
+        assert (
+            recommendations[0].marginal_payback_years
+            == pytest.approx((5.0 * 249.70) / 600.0)
+        )
+
+        assert (
+            recommendations[1].marginal_payback_years
+            == float("inf")
+        )
 
     def test_evaluate_calculates_economic_npv(self):
         consumption = make_scenario([1.0] * 8760)

@@ -689,17 +689,20 @@ class EconomicsEngine:
                 * export_price_factor
             )
 
-            # Ahorro bruto del primer año del escenario.
+            # Ahorro anual bruto de referencia del escenario.
             #
-            # No incluye mantenimiento, ya que este valor
-            # representa el ahorro energético/económico bruto.
-            # Los costes de mantenimiento sí se incorporan
-            # al flujo de caja utilizado para payback, VAN y TIR.
+            # Se aplican los factores de precio del escenario,
+            # pero no la degradación de los módulos.
+            # El flujo de caja sí conserva la degradación y
+            # los costes de mantenimiento para calcular
+            # payback, VAN y TIR.
             if year == 1:
 
                 first_year_annual_savings = (
-                    self_consumption_savings
-                    + export_income
+                    self.self_consumption_savings
+                    * electricity_price_factor
+                    + self.export_income
+                    * export_price_factor
                 )
 
             maintenance_cost = (
@@ -841,6 +844,11 @@ class EconomicsEngine:
         self,
         configuration
     ) -> float:
+
+        if configuration.installation_cost is None:
+            raise ValueError(
+                "Installation cost is required to calculate net investment."
+            )
 
         self.net_investment = (
             configuration.installation_cost

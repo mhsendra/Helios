@@ -1019,8 +1019,11 @@ class TestSolarReportText:
         assert "8,500 kWh" in text
         assert "4,000 kWh" in text
         assert "11,042 kWh" in text
-        assert "68.0 %" in text
-        assert "32.0 %" in text
+        assert "se utilizan directamente en la vivienda" in text
+        assert "se vierten a la red" in text
+        assert "quedan cubiertos por la generación solar" in text
+        assert "deben importarse de la red" in text
+        assert "%" not in text
 
     def test_energy_flow_summary_rejects_none(self):
 
@@ -1825,6 +1828,28 @@ class TestSolarReportText:
         ) in text
 
         assert "Las capacidades 30.0 kWh presentan" not in text
+
+    def test_energy_balance_analysis_includes_battery_losses(self):
+        data = replace(
+            self._report_data(),
+            yearly_production_kwh=12004.0,
+            self_consumption_kwh=5549.0,
+            grid_export_kwh=6220.4,
+            yearly_battery_losses_kwh=234.6,
+            yearly_consumption_kwh=8912.0,
+            grid_import_kwh=3363.0,
+        )
+
+        text = SolarReportText.energy_balance_analysis(data)
+
+        assert "235 kWh" in text
+        assert "2.0 %" in text
+        assert (
+            "procesos de carga y descarga de la batería"
+            in text
+        )
+        assert "6,220 kWh" in text
+        assert "3,363 kWh" in text
 
     def test_selected_option_without_economics_does_not_fall_back_to_reference(self):
         data = replace(

@@ -31,9 +31,7 @@ def main():
 
     app.setStyleSheet(DARK_STYLE)
 
-    economics_configuration = EconomicsConfiguration(
-        installation_cost=12490.0
-    )
+    economics_configuration = EconomicsConfiguration()
 
     window = MainWindow(
         economics_configuration

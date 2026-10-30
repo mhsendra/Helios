@@ -386,59 +386,36 @@ class SolarReportText:
     def energy_flow_summary(
         data: SolarReportData,
     ) -> str:
-        """
-        Explica de forma directa cómo se distribuyen la generación
-        fotovoltaica y la demanda eléctrica.
-        """
+        """Resume el reparto de la producción y la demanda eléctrica."""
 
         if data is None:
             raise ValueError("report data is required")
 
-        if data.yearly_production_kwh > 0:
-            self_consumption_of_production = (
-                data.self_consumption_kwh
-                / data.yearly_production_kwh
-                * 100
-            )
-            export_of_production = (
-                data.grid_export_kwh
-                / data.yearly_production_kwh
-                * 100
-            )
-        else:
-            self_consumption_of_production = 0.0
-            export_of_production = 0.0
+        battery_losses_kwh = max(
+            0.0,
+            data.yearly_battery_losses_kwh,
+        )
 
-        if data.yearly_consumption_kwh > 0:
-            solar_share_of_consumption = (
-                data.self_consumption_kwh
-                / data.yearly_consumption_kwh
-                * 100
+        battery_losses_text = ""
+
+        if battery_losses_kwh > 0:
+            battery_losses_text = (
+                f" y {battery_losses_kwh:,.0f} kWh se pierden en los "
+                f"procesos de carga y descarga de la batería"
             )
-            grid_share_of_consumption = (
-                data.grid_import_kwh
-                / data.yearly_consumption_kwh
-                * 100
-            )
-        else:
-            solar_share_of_consumption = 0.0
-            grid_share_of_consumption = 0.0
 
         return (
             f"De los {data.yearly_production_kwh:,.0f} kWh generados "
             f"por la instalación fotovoltaica, "
-            f"{data.self_consumption_kwh:,.0f} kWh "
-            f"({self_consumption_of_production:.1f} %) se utilizan "
+            f"{data.self_consumption_kwh:,.0f} kWh se utilizan "
             f"directamente en la vivienda y "
-            f"{data.grid_export_kwh:,.0f} kWh "
-            f"({export_of_production:.1f} %) se vierten a la red. "
-            f"Desde el punto de vista de la demanda, de los "
+            f"{data.grid_export_kwh:,.0f} kWh se vierten a la red"
+            f"{battery_losses_text}. "
+            f"En cuanto a la demanda, de los "
             f"{data.yearly_consumption_kwh:,.0f} kWh consumidos "
             f"anualmente, {data.self_consumption_kwh:,.0f} kWh "
-            f"({solar_share_of_consumption:.1f} %) quedan cubiertos "
-            f"directamente por la generación solar y "
-            f"{data.grid_import_kwh:,.0f} kWh "
-            f"({grid_share_of_consumption:.1f} %) deben importarse "
+            f"quedan cubiertos por la generación solar y "
+            f"{data.grid_import_kwh:,.0f} kWh deben importarse "
             f"de la red."
         )
 
@@ -487,9 +464,7 @@ class SolarReportText:
     def energy_balance_analysis(
         data: SolarReportData,
     ) -> str:
-        """
-        Interpreta el balance entre generación y consumo.
-        """
+        """Interpreta el balance entre generación y consumo."""
 
         if data is None:
             raise ValueError("report data is required")
@@ -512,13 +487,36 @@ class SolarReportText:
                 "aprovechamiento directo de la energía fotovoltaica."
             )
 
+        battery_losses_kwh = max(
+            0.0,
+            data.yearly_battery_losses_kwh,
+        )
+
+        battery_losses_analysis = ""
+
+        if battery_losses_kwh > 0:
+            battery_losses_percent = (
+                battery_losses_kwh / data.yearly_production_kwh * 100
+                if data.yearly_production_kwh > 0
+                else 0.0
+            )
+
+            battery_losses_analysis = (
+                f" Las pérdidas energéticas asociadas a los procesos "
+                f"de carga y descarga de la batería ascienden a "
+                f"{battery_losses_kwh:,.0f} kWh, equivalentes al "
+                f"{battery_losses_percent:.1f} % de la producción "
+                f"fotovoltaica."
+            )
+
         return (
             f"El consumo eléctrico anual asciende a "
             f"{data.yearly_consumption_kwh:,.0f} kWh. "
             f"De la producción fotovoltaica, "
             f"{data.self_consumption_kwh:,.0f} kWh se consumen "
             f"directamente en la instalación, mientras que "
-            f"{data.grid_export_kwh:,.0f} kWh se vierten a la red. "
+            f"{data.grid_export_kwh:,.0f} kWh se vierten a la red."
+            f"{battery_losses_analysis} "
             f"La energía importada de la red asciende a "
             f"{data.grid_import_kwh:,.0f} kWh. "
             f"La tasa de autoconsumo es del "
@@ -803,9 +801,15 @@ class SolarReportText:
                 f"descuenta este último importe."
             )
 
-        economic_calculated = all(
-            recommendation.economic_analysis_calculated
+        positive_recommendations = [
+            recommendation
             for recommendation in recommendations
+            if recommendation.capacity_kwh > 0.0
+        ]
+
+        economic_calculated = bool(positive_recommendations) and all(
+            recommendation.economic_analysis_calculated
+            for recommendation in positive_recommendations
         )
 
         combined_calculated = all(
@@ -1462,9 +1466,15 @@ class SolarReportText:
                 "para formular una conclusión económica."
             )
 
-        economic_calculated = all(
-            recommendation.economic_analysis_calculated
+        positive_recommendations = [
+            recommendation
             for recommendation in recommendations
+            if recommendation.capacity_kwh > 0.0
+        ]
+
+        economic_calculated = bool(positive_recommendations) and all(
+            recommendation.economic_analysis_calculated
+            for recommendation in positive_recommendations
         )
 
         combined_calculated = all(

@@ -13,6 +13,7 @@ from helios.ev.scenario import EVScenario
 
 from helios.solar.balance import SolarBalanceEngine
 from helios.solar.battery_economic_model import (
+    BatteryEconomicConfiguration,
     BatteryEconomicModel,
     CombinedEconomicConfiguration,
 )
@@ -344,6 +345,32 @@ class TestEnergyRecommender:
 
         assert configuration.installation_cost_eur == pytest.approx(
             12000.0
+        )
+
+        incremental_configuration = optimizer.calls[0][
+            "kwargs"
+        ][
+            "economic_configuration"
+        ]
+
+        assert isinstance(
+            incremental_configuration,
+            BatteryEconomicConfiguration,
+        )
+
+        assert incremental_configuration.years == (
+            configuration.years
+        )
+
+        assert incremental_configuration.discount_rate == pytest.approx(
+            configuration.discount_rate
+        )
+
+        assert (
+            incremental_configuration.annual_maintenance_eur
+            == pytest.approx(
+                configuration.annual_battery_maintenance_eur
+            )
         )
 
     def test_rejects_invalid_optimization_criterion(

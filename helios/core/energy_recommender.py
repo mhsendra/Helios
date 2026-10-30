@@ -5,7 +5,11 @@ import math
 from helios.core.consumption_scenario import ConsumptionScenario
 from helios.core.energy_recommendation import EnergyRecommendation
 from helios.ev.scenario import EVScenario
-from helios.solar.battery_economic_model import CombinedEconomicConfiguration
+from helios.solar.battery_economic_model import (
+    BatteryEconomicConfiguration,
+    BatteryEconomicModel,
+    CombinedEconomicConfiguration,
+)
 from helios.solar.battery_optimizer import (
     BatteryOptimizer,
     NoFinitePaybackError,
@@ -15,11 +19,6 @@ from helios.solar.installation_evaluation import InstallationEvaluation
 from helios.solar.installation_recommendation import InstallationRecommendation
 from helios.solar.production_profile import SolarProductionProfile
 from helios.solar.balance import SolarBalanceEngine
-
-from helios.solar.battery_economic_model import (
-    BatteryEconomicModel,
-    CombinedEconomicConfiguration,
-)
 from helios.solar.battery_recommendation import (
     BatteryRecommendation,
 )
@@ -135,6 +134,49 @@ class EnergyRecommender:
                         "a CombinedEconomicConfiguration."
                     )
 
+                            # Configuración económica independiente de la batería.
+            # Los costes y ahorros específicos de cada capacidad se
+            # incorporan posteriormente en BatteryOptimizer.
+            economic_configuration = None
+
+            if combined_economic_configuration is not None:
+                economic_configuration = BatteryEconomicConfiguration(
+                    battery_cost_eur=0.0,
+                    annual_savings_eur=0.0,
+                    years=combined_economic_configuration.years,
+                    electricity_price_growth=(
+                        combined_economic_configuration
+                        .electricity_price_growth
+                    ),
+                    export_price_growth=(
+                        combined_economic_configuration.export_price_growth
+                    ),
+                    pv_initial_degradation=(
+                        combined_economic_configuration
+                        .pv_initial_degradation
+                    ),
+                    pv_degradation=(
+                        combined_economic_configuration
+                        .pv_degradation
+                    ),
+                    battery_degradation=(
+                        combined_economic_configuration
+                        .battery_degradation
+                    ),
+                    annual_maintenance_eur=(
+                        combined_economic_configuration
+                        .annual_battery_maintenance_eur
+                    ),
+                    maintenance_growth=(
+                        combined_economic_configuration
+                        .maintenance_growth
+                    ),
+                    discount_rate=(
+                        combined_economic_configuration
+                        .discount_rate
+                    ),
+                )
+
             annual_cost_without_battery_eur = None
             annual_export_income_without_battery_eur = None
             baseline_balance = None
@@ -220,6 +262,7 @@ class EnergyRecommender:
                                 annual_cost_without_battery_eur
                             ),
                             cost_calculator=cost_calculator,
+                            economic_configuration=economic_configuration,
                             combined_economic_configuration=(
                                 combined_economic_configuration
                             ),
@@ -255,6 +298,7 @@ class EnergyRecommender:
                                 annual_cost_without_battery_eur
                             ),
                             cost_calculator=cost_calculator,
+                            economic_configuration=economic_configuration,
                             combined_economic_configuration=(
                                 combined_economic_configuration
                             ),
@@ -304,22 +348,6 @@ class EnergyRecommender:
             raise ValueError(
                 "No valid energy recommendation could be generated "
                 f"for optimization criterion '{optimization_criterion}'."
-            )
-
-        # DEBUG: mostrar las alternativas económicas evaluadas.
-        for option in evaluated_options:
-            battery = option.battery_recommendation
-            print(
-                f"Paneles={option.panel_count}, "
-                f"Batería={option.battery_capacity_kwh:.1f} kWh, "
-                f"VAN combinado="
-                f"{battery.combined_economic_npv_eur:.2f} €, "
-                f"TIR combinada="
-                f"{battery.combined_economic_irr_percent:.2f} %, "
-                f"Amortización="
-                f"{battery.combined_economic_payback_years:.2f} años, "
-                f"Análisis calculado="
-                f"{battery.combined_economic_analysis_calculated}"
             )
 
         best_energy_recommendation = evaluated_options[0]

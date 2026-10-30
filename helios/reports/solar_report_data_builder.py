@@ -211,6 +211,12 @@ class SolarReportDataBuilder:
                     grid_export
                 )
 
+            yearly_battery_losses_kwh = (
+                float(balance["battery_losses_kwh"].sum())
+                if "battery_losses_kwh" in balance.columns
+                else 0.0
+            )
+
             grid_import = getattr(
                 solar,
                 "grid_import",
@@ -236,6 +242,9 @@ class SolarReportDataBuilder:
             )
 
         else:
+
+            yearly_battery_losses_kwh = 0.0
+
             self_consumption = getattr(
                 solar,
                 "self_consumption",
@@ -537,14 +546,67 @@ class SolarReportDataBuilder:
         # Recomendaciones de batería
         # ---------------------------------------------------------
 
-        battery_recommendations = list(
-            getattr(
-                solar,
-                "battery_recommendations",
-                [],
-            )
-            or []
+        battery_recommendations = []
+
+        energy_recommendation = getattr(
+            solar,
+            "energy_recommendation",
+            None,
         )
+
+        if energy_recommendation is not None:
+            selected_panel_count = getattr(
+                energy_recommendation,
+                "panel_count",
+                None,
+            )
+
+            alternatives = getattr(
+                energy_recommendation,
+                "alternatives",
+                (),
+            ) or ()
+
+            battery_recommendations = [
+                alternative.battery_recommendation
+                for alternative in alternatives
+                if (
+                    getattr(
+                        alternative,
+                        "panel_count",
+                        None,
+                    )
+                    == selected_panel_count
+                    and getattr(
+                        alternative,
+                        "battery_recommendation",
+                        None,
+                    )
+                    is not None
+                )
+            ]
+
+            if not battery_recommendations:
+                selected_battery = getattr(
+                    energy_recommendation,
+                    "battery_recommendation",
+                    None,
+                )
+
+                if selected_battery is not None:
+                    battery_recommendations = [
+                        selected_battery
+                    ]
+
+        else:
+            battery_recommendations = list(
+                getattr(
+                    solar,
+                    "battery_recommendations",
+                    [],
+                )
+                or []
+            )
 
         battery_report_data = [
             BatteryReportData(
@@ -682,6 +744,9 @@ class SolarReportDataBuilder:
 
             self_consumption_kwh=self_consumption_kwh,
             grid_export_kwh=grid_export_kwh,
+            yearly_battery_losses_kwh=(
+                yearly_battery_losses_kwh
+            ),
             grid_import_kwh=grid_import_kwh,
 
             self_consumption_rate_percent=(
