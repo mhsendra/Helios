@@ -92,8 +92,12 @@ class SolarReportDataFactory:
                 sizing_result.annual_consumption_kwh
             )
 
-            self_sufficiency_rate_percent = (
+            pv_self_sufficiency_rate_percent = (
                 sizing_result.self_sufficiency_percent
+            )
+
+            self_sufficiency_rate_percent = (
+                pv_self_sufficiency_rate_percent
             )
 
         else:
@@ -128,6 +132,10 @@ class SolarReportDataFactory:
 
             self_sufficiency_rate_percent = (
                 statistics["self_sufficiency"]
+            )
+
+            pv_self_sufficiency_rate_percent = (
+                self_sufficiency_rate_percent
             )
 
         # ==================================================
@@ -207,6 +215,14 @@ class SolarReportDataFactory:
             energy_recommendation is not None
             and selected_battery is not None
         )
+
+        if (
+            calculation_mode == "automatic"
+            and selected_battery is not None
+        ):
+            self_sufficiency_rate_percent = float(
+                selected_battery.self_sufficiency_percent
+            )
 
         selected_economic_analysis_calculated = bool(
             selected_option_available
@@ -751,5 +767,8 @@ class SolarReportDataFactory:
 
             mounting_place=(
                 configuration.mounting_place
+            ),
+            pv_self_sufficiency_rate_percent=(
+                pv_self_sufficiency_rate_percent
             ),
         )

@@ -311,15 +311,41 @@ class SolarReportDataBuilder:
         )
 
         if sizing_result is not None:
-            self_sufficiency_rate_percent = float(
+            pv_self_sufficiency_rate_percent = float(
                 sizing_result.self_sufficiency_percent
             )
+
+            self_sufficiency_rate_percent = (
+                pv_self_sufficiency_rate_percent
+            )
+
+            energy_recommendation = getattr(
+                solar,
+                "energy_recommendation",
+                None,
+            )
+
+            selected_battery = getattr(
+                energy_recommendation,
+                "battery_recommendation",
+                None,
+            )
+
+            if selected_battery is not None:
+                self_sufficiency_rate_percent = float(
+                    selected_battery.self_sufficiency_percent
+                )
+
         else:
             self_sufficiency_rate_percent = float(
                 statistics.get(
                     "self_sufficiency",
                     0.0,
                 )
+            )
+
+            pv_self_sufficiency_rate_percent = (
+                self_sufficiency_rate_percent
             )
 
         # ---------------------------------------------------------
@@ -811,4 +837,7 @@ class SolarReportDataBuilder:
             losses=losses,
             pv_technology=pv_technology,
             mounting_place=mounting_place,
+            pv_self_sufficiency_rate_percent=(
+                pv_self_sufficiency_rate_percent
+            ),
         )

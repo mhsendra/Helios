@@ -495,6 +495,38 @@ class TestSolarReportDataFactory:
         assert result.maximum_hourly_production_kwh == 7.85
         assert result.capacity_factor_percent == 17.62
 
+    def test_create_uses_selected_battery_self_sufficiency(
+        self,
+    ):
+        solar_controller = self._solar_controller()
+
+        selected_battery = self._battery_recommendation()
+        selected_battery.self_sufficiency_percent = 72.0
+
+        solar_controller.energy_recommendation = type(
+            "EnergyRecommendation",
+            (),
+            {
+                "panel_count": solar_controller.sizing_result.panel_count,
+                "battery_recommendation": selected_battery,
+                "alternatives": (),
+            },
+        )()
+
+        result = SolarReportDataFactory.create(
+            solar_controller,
+            self._economics_controller(),
+        )
+
+        assert (
+            result.pv_self_sufficiency_rate_percent
+            == 64.0
+        )
+        assert (
+            result.self_sufficiency_rate_percent
+            == 72.0
+        )
+
     def test_create_contains_energy_balance_values(
         self,
     ):

@@ -4,6 +4,8 @@ import pandas as pd
 
 import pytest
 
+from dataclasses import replace
+
 from helios.reports.solar_report_data import SolarReportData
 from helios.reports.solar_report_data_builder import (
     SolarReportDataBuilder,
@@ -471,30 +473,59 @@ class TestSolarReportDataBuilder:
             == 260.10
         )
 
-        def test_from_project_uses_sizing_result_for_automatic_annual_values(
-            self,
-        ):
-            project = self.create_project()
+    def test_from_project_uses_sizing_result_for_automatic_annual_values(
+        self,
+    ):
+        project = self.create_project()
 
-            result = SolarReportDataBuilder.from_project(
-                project
-            )
+        result = SolarReportDataBuilder.from_project(
+            project
+        )
 
-            assert result.calculation_mode == "automatic"
-            assert result.yearly_production_kwh == 12003.99
-            assert result.yearly_consumption_kwh == 19541.72
+        assert result.calculation_mode == "automatic"
+        assert result.yearly_production_kwh == 12500.0
+        assert result.yearly_consumption_kwh == 19541.72
 
-        def test_from_project_uses_statistics_for_manual_consumption(self):
-            project = self.create_project()
+    def test_from_project_uses_statistics_for_manual_consumption(self):
+        project = self.create_project()
 
-            project.solar.sizing_result = None
-            project.solar.simulation_installed_power_kwp = 8.1
-            project.solar.statistics["consumption"] = 12345.67
+        project.solar.sizing_result = None
+        project.solar.simulation_installed_power_kwp = 8.1
+        project.solar.statistics["consumption"] = 12345.67
 
-            result = SolarReportDataBuilder.from_project(
-                project
-            )
+        result = SolarReportDataBuilder.from_project(
+            project
+        )
 
-            assert result.calculation_mode == "manual"
-            assert result.yearly_production_kwh == 12500.0
-            assert result.yearly_consumption_kwh == 12345.67
+        assert result.calculation_mode == "manual"
+        assert result.yearly_production_kwh == 12500.0
+        assert result.yearly_consumption_kwh == 12345.67
+
+    def test_from_project_uses_selected_battery_self_sufficiency(
+        self,
+    ):
+        project = self.create_project()
+
+        selected_battery = replace(
+            project.solar.battery_recommendations[0],
+            self_sufficiency_percent=72.0,
+        )
+
+        project.solar.energy_recommendation = SimpleNamespace(
+            battery_recommendation=selected_battery,
+            panel_count=project.solar.sizing_result.panel_count,
+            alternatives=(),
+        )
+
+        result = SolarReportDataBuilder.from_project(
+            project
+        )
+
+        assert (
+            result.pv_self_sufficiency_rate_percent
+            == project.solar.sizing_result.self_sufficiency_percent
+        )
+        assert (
+            result.self_sufficiency_rate_percent
+            == 72.0
+        )

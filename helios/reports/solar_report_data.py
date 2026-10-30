@@ -146,3 +146,6 @@ class SolarReportData:
     # ==================================================
 
     cash_flow: pd.DataFrame | None = None
+
+    # Autosuficiencia FV directa, sin aportación de batería.
+    pv_self_sufficiency_rate_percent: float | None = None
