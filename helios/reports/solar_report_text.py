@@ -29,6 +29,24 @@ class SolarReportText:
         return data.net_present_value_eur
 
     @staticmethod
+    def _primary_investment_eur(
+        data: SolarReportData,
+    ) -> float | None:
+        if data.selected_option_available:
+            return data.selected_investment_eur
+
+        return data.investment_eur
+
+    @staticmethod
+    def _primary_yearly_savings_eur(
+        data: SolarReportData,
+    ) -> float | None:
+        if data.selected_option_available:
+            return data.selected_yearly_savings_eur
+
+        return data.yearly_savings_eur
+
+    @staticmethod
     def _primary_payback_years(
         data: SolarReportData,
     ) -> float | None:
@@ -160,7 +178,7 @@ class SolarReportText:
 
     @staticmethod
     def executive_summary(data: SolarReportData) -> str:
-        """Genera el resumen ejecutivo de la instalación FV."""
+        """Genera el resumen ejecutivo de la instalación propuesta."""
 
         if data is None:
             raise ValueError("report data is required")
@@ -209,41 +227,51 @@ class SolarReportText:
                 f"{data.self_sufficiency_rate_percent:.1f} %."
             )
 
-        # Los indicadores de este resumen corresponden exclusivamente
-        # a la instalación fotovoltaica, sin incorporar la batería.
-        if not data.economic_analysis_calculated:
+        primary_analysis_calculated = (
+            SolarReportText._primary_economic_analysis_calculated(data)
+        )
+
+        if not primary_analysis_calculated:
             summary += (
-                " El análisis económico de la instalación fotovoltaica "
+                " El análisis económico de la instalación propuesta "
                 "no se ha calculado; no se presentan estimaciones "
                 "económicas."
             )
             return summary
 
-        if (
-            data.yearly_savings_eur is not None
-            and math.isfinite(data.yearly_savings_eur)
-        ):
+        primary_savings = (
+            SolarReportText._primary_yearly_savings_eur(data)
+        )
+        primary_investment = (
+            SolarReportText._primary_investment_eur(data)
+        )
+        primary_payback = (
+            SolarReportText._primary_payback_years(data)
+        )
+
+        if SolarReportText._is_finite_metric(primary_savings):
             summary += (
                 " El ahorro anual estimado es de "
-                f"{data.yearly_savings_eur:,.2f} €."
+                f"{primary_savings:,.2f} €."
             )
 
-        if (
-            data.investment_eur is not None
-            and math.isfinite(data.investment_eur)
-        ):
+        if SolarReportText._is_finite_metric(primary_investment):
             summary += (
                 " La inversión inicial estimada es de "
-                f"{data.investment_eur:,.2f} €."
+                f"{primary_investment:,.2f} €."
             )
 
-        if (
-            data.payback_years is not None
-            and math.isfinite(data.payback_years)
-        ):
+        if SolarReportText._is_finite_metric(primary_payback):
+            installation_scope = (
+                "de la instalación fotovoltaica y la batería"
+                if data.selected_option_available
+                and data.selected_battery_capacity_kwh is not None
+                else "de la instalación fotovoltaica"
+            )
+
             summary += (
                 " El periodo de recuperación de la inversión "
-                f"fotovoltaica es de {data.payback_years:.2f} años."
+                f"{installation_scope} es de {primary_payback:.2f} años."
             )
 
         return summary

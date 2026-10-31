@@ -1119,23 +1119,54 @@ class TestSolarReportText:
         assert "no se ha calculado" in text
         assert "7.50 años" not in text
 
-    def test_executive_summary_uses_pv_economics_when_battery_is_selected(
+    def test_executive_summary_uses_combined_economics_when_battery_is_selected(
         self,
     ):
         data = replace(
             self._report_data(),
             selected_option_available=True,
             selected_economic_analysis_calculated=True,
+            selected_investment_eur=18000.0,
+            selected_yearly_savings_eur=2800.0,
             selected_payback_years=12.75,
             selected_net_present_value_eur=35000.0,
             selected_internal_rate_of_return_percent=9.5,
+            selected_battery_capacity_kwh=8.3,
         )
 
         text = SolarReportText.executive_summary(data)
 
+        assert "2,800.00 €" in text
+        assert "18,000.00 €" in text
+        assert "12.75 años" in text
+
+        assert "2,338.00 €" not in text
+        assert "12,490.00 €" not in text
+        assert "5.34 años" not in text
+
+        assert (
+            "de la instalación fotovoltaica y la batería"
+            in text
+        )
+
+    def test_executive_summary_uses_pv_economics_without_battery(
+        self,
+    ):
+        data = replace(
+            self._report_data(),
+            selected_option_available=False,
+            selected_battery_capacity_kwh=None,
+        )
+
+        text = SolarReportText.executive_summary(data)
+
+        assert "2,338.00 €" in text
+        assert "12,490.00 €" in text
         assert "5.34 años" in text
-        assert "12.75 años" not in text
-        assert "periodo de recuperación de la inversión fotovoltaica" in text
+        assert (
+            "de la instalación fotovoltaica es de 5.34 años"
+            in text
+        )
 
     def test_quick_diagnostic_identifies_combined_economic_scope(
         self,
