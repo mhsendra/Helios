@@ -131,6 +131,7 @@ class NumberedCanvas(canvas.Canvas):
         super().__init__(*args, **kwargs)
         self._saved_page_states = []
 
+
     def showPage(self):
         """Guarda el estado de la página actual."""
 
@@ -138,20 +139,19 @@ class NumberedCanvas(canvas.Canvas):
             self.__dict__.copy()
         )
 
+        self._doc.pageCounter += 1
         self._startPage()
 
     def save(self):
         """Genera las páginas definitivas con encabezado y pie."""
 
         total_pages = len(self._saved_page_states)
+        self._doc.pageCounter = 1
 
         for page_state in self._saved_page_states:
-
             self.__dict__.update(page_state)
 
-            self._draw_header_footer(
-                total_pages
-            )
+            self._draw_header_footer(total_pages)
 
             canvas.Canvas.showPage(self)
 
@@ -357,7 +357,6 @@ class ExecutiveKpiGrid(Flowable):
                 y + 7 * mm,
                 value,
             )
-
 class BatteryRecommendationBlock(Flowable):
     """Bloque visual con la recomendación económica de almacenamiento."""
 
@@ -965,14 +964,27 @@ class SolarReportGenerator:
         data: SolarReportData,
         styles,
     ) -> list:
+        heading = Paragraph(
+            "Situación energética actual",
+            styles["HeliosSectionTitle"],
+        )
+
+        # Metadatos utilizados por afterFlowable para el índice PDF
+        # y los marcadores de navegación.
+        heading._toc_level = 0
+        heading._toc_key = f"helios-section-{id(heading)}"
+
         return [
             Spacer(1, 6),
             self._keep_section_content(
-                self._section_header(
-                    "Situación energética actual",
-                    styles,
-                    HELIOS_GOLD,
-                    0,
+                Spacer(1, 6 * mm),
+                heading,
+                HRFlowable(
+                    width="100%",
+                    thickness=1,
+                    color=colors.HexColor(HELIOS_GOLD),
+                    spaceBefore=1,
+                    spaceAfter=7,
                 ),
                 Spacer(1, 10),
                 Paragraph(
@@ -1161,30 +1173,32 @@ class SolarReportGenerator:
             HELIOS_GREEN_DARK,
         )
 
+        installation_heading = self._section_header(
+            "Instalación fotovoltaica",
+            styles,
+            HELIOS_BLUE,
+            toc_level=0,
+        )
+
+        production_heading = self._section_header(
+            "Producción solar",
+            styles,
+            HELIOS_GREEN,
+            toc_level=1,
+        )
+
         story = [
             self._keep_section_content(
-                self._section_header(
-                    "Instalación fotovoltaica",
-                    styles,
-                    HELIOS_BLUE,
-                    0,
-                ),
+                installation_heading,
                 Spacer(1, 10),
-                self._keep_table(installation_table),
+                installation_table,
             ),
 
             Spacer(1, 12),
 
-            self._keep_section_content(
-                self._section_header(
-                    "Producción solar",
-                    styles,
-                    HELIOS_GREEN,
-                    1,
-                ),
-                Spacer(1, 10),
-                self._keep_table(production_table),
-            ),
+            production_heading,
+            Spacer(1, 10),
+            self._keep_table(production_table),
 
             Spacer(1, 15),
 
@@ -1417,18 +1431,15 @@ class SolarReportGenerator:
 
         story.extend(
             [
-                self._keep_section_content(
-                    self._section_header(
-                        "Rentabilidad económica",
-                        styles,
-                        HELIOS_PURPLE,
-                        0,
-                    ),
-                    Spacer(1, 10),
-                    self._keep_table(
-                        economics_table
-                    ),
+                Spacer(1, 15),
+                self._section_header(
+                    "Rentabilidad económica",
+                    styles,
+                    HELIOS_PURPLE,
+                    0,
                 ),
+                Spacer(1, 10),
+                economics_table,
                 Spacer(1, 15),
                 Paragraph(
                     SolarReportText.economic_analysis(data),
@@ -1803,13 +1814,11 @@ class SolarReportGenerator:
                         (
                             f"<b>{recommendation.annual_additional_savings_eur:,.2f} €</b>"
                             "<br/>"
-                            f"<font size='6'>"
-                            f"Menor importación: "
+                            "Menor importación: "
                             f"{recommendation.annual_import_savings_eur:,.2f} €"
                             "<br/>"
-                            f"Compensación perdida: "
+                            "Compensación perdida: "
                             f"{recommendation.annual_export_compensation_lost_eur:,.2f} €"
-                            f"</font>"
                         )
                         if (
                             recommendation.annual_import_savings_eur is not None
@@ -1821,8 +1830,8 @@ class SolarReportGenerator:
                         ParagraphStyle(
                             name="BatterySavingsBreakdown",
                             parent=styles["Normal"],
-                            fontSize=7,
-                            leading=8,
+                            fontSize=10,
+                            leading=12,
                             alignment=TA_CENTER,
                         ),
                     ),
@@ -2092,38 +2101,37 @@ class SolarReportGenerator:
                 repeatRows=1,
             )
             self._style_table(cash_flow_table, HELIOS_PURPLE)
-            battery_cash_flow_tables.extend(
-                [
+            battery_cash_flow_tables.append(
+                self._keep_section_content(
                     Spacer(1, 8),
                     Paragraph(
                         (
                             f"Flujo de caja conjunto FV + batería "
-                            f"({recommendation.capacity_kwh:g} kWh) "
-                            f"— VAN: "
+                            f"({recommendation.capacity_kwh:g} kWh) — VAN: "
                             f"{recommendation.combined_economic_npv_eur:,.2f} €"
                         ),
                         styles["HeliosSubsectionTitle"],
                     ),
                     Spacer(1, 5),
-                    self._keep_table(cash_flow_table),
-                ]
+                    cash_flow_table,
+                )
             )
 
         recommended_battery = SolarReportText.recommended_battery(
             data
         )
 
-        return [
-            Spacer(1, 25),
+        battery_header = self._section_header(
+            "Evaluación económica de baterías",
+            styles,
+            HELIOS_PURPLE,
+            0,
+        )
 
+        return [
             self._keep_section_content(
-                self._section_header(
-                    "Evaluación económica de baterías",
-                    styles,
-                    HELIOS_PURPLE,
-                    0,
-                ),
-                Spacer(1, 10),
+                *battery_header._content,
+                Spacer(1, 4),
                 BatteryRecommendationBlock(
                     recommended_battery,
                     width=174 * mm,
@@ -2140,23 +2148,26 @@ class SolarReportGenerator:
             ),
 
             Spacer(1, 12),
+
             self._keep_table(
                 battery_operational_table
             ),
+
             Spacer(1, 12),
+
             self._keep_table(
                 battery_economic_table
             ),
-                        Spacer(1, 12),
+
+            Spacer(1, 12),
+
             self._keep_section_content(
                 Paragraph(
                     "Economía conjunta FV + batería",
                     styles["HeliosSubsectionTitle"],
                 ),
                 Spacer(1, 6),
-            ),
-            self._keep_table(
-                battery_combined_table
+                self._keep_table(battery_combined_table),
             ),
 
             *battery_cash_flow_tables,
@@ -2255,15 +2266,13 @@ class SolarReportGenerator:
             ),
 
             Spacer(1, 10),
-            self._keep_section_content(
+           self._keep_section_content(
                 Paragraph(
                     "Hipótesis económicas",
                     styles["HeliosSubsectionTitle"],
                 ),
                 Spacer(1, 6),
-                self._keep_table(
-                    economic_assumptions_table
-                ),
+                economic_assumptions_table,
             ),
             Spacer(1, 12),
             Paragraph(

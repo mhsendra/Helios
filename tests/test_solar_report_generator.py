@@ -7,6 +7,7 @@ import pytest
 from helios.reports.solar_report_data import SolarReportData
 from helios.reports.solar_report_generator import (
     SolarReportGenerator,
+    BatteryRecommendationBlock,
 )
 from helios.reports.solar_report_charts import SolarReportCharts
 
@@ -1393,9 +1394,102 @@ class TestSolarReportGenerator:
             captured["story"]
         )
 
+        energy_blocks = [
+            item
+            for item in captured["story"]
+            if (
+                isinstance(item, KeepTogether)
+                and any(
+                    getattr(child, "text", None)
+                    == "Situación energética actual"
+                    for child in item._content
+                )
+            )
+        ]
+
+        assert len(energy_blocks) == 1
+
+        energy_block = energy_blocks[0]
+
+        # El bloque no debe contener otro KeepTogether anidado.
+        assert not any(
+            isinstance(child, KeepTogether)
+            for child in energy_block._content
+        )
+
+        heading = next(
+            child
+            for child in energy_block._content
+            if getattr(child, "text", None)
+            == "Situación energética actual"
+        )
+
+        assert heading._toc_level == 0
+        assert heading._toc_key.startswith(
+            "helios-section-"
+        )
+
         assert (
             "El consumo eléctrico anual de referencia asciende a"
             in text
+        )
+
+                # La recomendación de baterías no debe contener
+        # KeepTogether anidados.
+        battery_blocks = [
+            item
+            for item in captured["story"]
+            if (
+                isinstance(item, KeepTogether)
+                and any(
+                    getattr(child, "text", None)
+                    == "Evaluación económica de baterías"
+                    for child in item._content
+                )
+            )
+        ]
+
+        assert len(battery_blocks) == 1
+
+        battery_block = battery_blocks[0]
+
+        assert not any(
+            isinstance(child, KeepTogether)
+            for child in battery_block._content
+        )
+
+        assert any(
+            isinstance(child, BatteryRecommendationBlock)
+            for child in battery_block._content
+        )
+
+        # Las hipótesis económicas deben mantener el subtítulo
+        # unido a la tabla, sin un KeepTogether anidado.
+        economic_assumptions_blocks = [
+            item
+            for item in captured["story"]
+            if (
+                isinstance(item, KeepTogether)
+                and any(
+                    getattr(child, "text", None)
+                    == "Hipótesis económicas"
+                    for child in item._content
+                )
+            )
+        ]
+
+        assert len(economic_assumptions_blocks) == 1
+
+        assumptions_block = economic_assumptions_blocks[0]
+
+        assert not any(
+            isinstance(child, KeepTogether)
+            for child in assumptions_block._content
+        )
+
+        assert any(
+            type(child).__name__ == "Table"
+            for child in assumptions_block._content
         )
 
         assert (
