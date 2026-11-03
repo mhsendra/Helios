@@ -68,55 +68,56 @@ class TestInstallationCandidate:
     # ==================================================
 
     @pytest.mark.parametrize(
-        "value",
+        "panel_power_wp",
         [
             0,
             -1,
             -0.01,
-        ]
+            float("nan"),
+            float("inf"),
+            float("-inf"),
+        ],
     )
     def test_rejects_invalid_panel_power(
         self,
-        value
+        panel_power_wp,
     ):
-
         with pytest.raises(
             ValueError,
-            match="Panel power must be greater than zero."
+            match="Panel power must be greater than zero.",
         ):
-
             InstallationCandidate(
-                panel_count=15,
-                panel_power_wp=value,
-                panel_area_m2=2.5764,
+                panel_count=10,
+                panel_power_wp=panel_power_wp,
+                panel_area_m2=2.0,
             )
-
     # ==================================================
     # panel_area_m2 validation
     # ==================================================
 
     @pytest.mark.parametrize(
-        "value",
+        "panel_area_m2",
         [
             0,
             -1,
             -0.01,
-        ]
+            float("nan"),
+            float("inf"),
+            float("-inf"),
+        ],
     )
     def test_rejects_invalid_panel_area(
         self,
-        value
+        panel_area_m2,
     ):
-
         with pytest.raises(
             ValueError,
-            match="Panel area must be greater than zero."
+            match="Panel area must be greater than zero.",
         ):
-
             InstallationCandidate(
-                panel_count=15,
+                panel_count=10,
                 panel_power_wp=540,
-                panel_area_m2=value,
+                panel_area_m2=panel_area_m2,
             )
 
     # ==================================================

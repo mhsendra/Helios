@@ -52,9 +52,8 @@ class SolarManager:
         installed_power_kwp: float = 1.0,
     ) -> pd.DataFrame:
 
-        # ✔ Si la GUI no pasa la potencia instalada, usar la de la configuración
         if installed_power_kwp is None:
-            installed_power_kwp = configuration.installed_power_kwp
+            installed_power_kwp = 1.0
 
         self.installed_power_kwp = installed_power_kwp
 
@@ -111,16 +110,9 @@ class SolarManager:
             )
 
         if (
-            not isinstance(installed_power_kwp, (int, float))
+            isinstance(installed_power_kwp, bool)
+            or not isinstance(installed_power_kwp, (int, float))
             or not math.isfinite(installed_power_kwp)
-            or installed_power_kwp <= 0
-        ):
-            raise ValueError(
-                "installed_power_kwp must be greater than zero."
-            )
-
-        if (
-            not pd.notna(installed_power_kwp)
             or installed_power_kwp <= 0
         ):
             raise ValueError(

@@ -1,3 +1,4 @@
+import math
 from dataclasses import dataclass
 
 
@@ -48,7 +49,10 @@ class InstallationCandidate:
                 "Panel power must be a number."
             )
 
-        if self.panel_power_wp <= 0:
+        if (
+            not math.isfinite(self.panel_power_wp)
+            or self.panel_power_wp <= 0
+        ):
 
             raise ValueError(
                 "Panel power must be greater than zero."
@@ -73,7 +77,10 @@ class InstallationCandidate:
                 "Panel area must be a number."
             )
 
-        if self.panel_area_m2 <= 0:
+        if (
+            not math.isfinite(self.panel_area_m2)
+            or self.panel_area_m2 <= 0
+        ):
 
             raise ValueError(
                 "Panel area must be greater than zero."

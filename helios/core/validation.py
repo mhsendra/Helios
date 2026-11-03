@@ -4,6 +4,7 @@ class ValidationEngine:
     def __init__(self):
         self.gap_summary = None
         self.duplicates = None
+        self.missing_hours_validation = None
 
     def calculate_gap_summary(
     self,

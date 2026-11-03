@@ -679,3 +679,30 @@ class TestValidationController:
         )
 
         reporter.duplicates.assert_not_called()
+
+    def test_find_missing_hours_stores_result_in_validation_engine(
+        self
+    ):
+
+        date = pd.Timestamp("2026-06-15")
+
+        hours = list(range(1, 24))
+
+        self.analyzer.dataset = pd.DataFrame(
+            {
+                "Hora": hours
+            },
+            index=[date] * len(hours)
+        )
+
+        result = self.controller.find_missing_hours()
+
+        assert result == {
+            "valid": False,
+            "errors": 1,
+        }
+
+        assert (
+            self.analyzer.validation_engine.missing_hours_validation
+            == result
+        )

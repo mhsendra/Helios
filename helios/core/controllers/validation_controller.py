@@ -33,10 +33,16 @@ class ValidationController:
             if missing or extra:
                 errors += 1
 
-        return {
+        result = {
             "valid": errors == 0,
-            "errors": errors
+            "errors": errors,
         }
+
+        self.analyzer.validation_engine.missing_hours_validation = (
+            result
+        )
+
+        return result
     # ==================================================
     # Duplicados
     # ==================================================

@@ -711,7 +711,15 @@ class TestSolarManager:
 
     @pytest.mark.parametrize(
         "installed_power_kwp",
-        [0.0, -1.0, float("nan"), float("inf")],
+        [
+            0.0,
+            -1.0,
+            float("nan"),
+            float("inf"),
+            float("-inf"),
+            True,
+            False,
+        ],
     )
     def test_set_hourly_production_from_dataframe_rejects_invalid_power(
         self,
@@ -804,3 +812,42 @@ class TestSolarManager:
                 ),
                 5.0,
             )
+    def test_calculate_hourly_production_defaults_to_one_kwp_when_power_is_none(
+        self,
+    ):
+        configuration = SolarConfiguration(
+            latitude=41.62,
+            longitude=2.09,
+            tilt=30,
+            azimuth=0,
+        )
+
+        hourly_dataframe = pd.DataFrame(
+            {
+                "production_kwh": [1.0] * 8760,
+            },
+            index=pd.date_range(
+                "2023-01-01",
+                periods=8760,
+                freq="h",
+            ),
+        )
+
+        self.manager.client.fetch = lambda configuration: object()
+        self.manager.parser.parse = lambda response: hourly_dataframe.copy()
+
+        self.manager.calculate_hourly_production(
+            configuration,
+            installed_power_kwp=None,
+        )
+
+        assert self.manager.installed_power_kwp == pytest.approx(1.0)
+        assert self.manager.hourly_production is not None
+        assert (
+            self.manager.hourly_production["production_kwh"].iloc[0]
+            == pytest.approx(1.0)
+        )
+        assert (
+            self.manager.hourly_production["production_kwh"].sum()
+            == pytest.approx(8760.0)
+        )
