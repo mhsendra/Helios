@@ -2835,7 +2835,7 @@ class TestSolarController:
         )
 
         economic_configuration_factory = (
-            call_kwargs["economic_configuration_factory"]
+            call_kwargs["economic_configuration_factory_with_baseline"]
         )
 
         candidate = InstallationCandidate(
@@ -2857,10 +2857,22 @@ class TestSolarController:
             installed_power_kwp=5.0,
         )
 
+        baseline_balance = pd.DataFrame(
+            {
+                "consumption_kwh": [1.0] * 8760,
+                "production_kwh": [0.5] * 8760,
+                "grid_import_kwh": [0.5] * 8760,
+                "grid_export_kwh": [0.0] * 8760,
+                "self_consumption_kwh": [0.5] * 8760,
+            },
+            index=consumption_scenario.hourly_consumption.index,
+        )
+
         economic_configuration = (
             economic_configuration_factory(
                 evaluation,
                 production_profile,
+                baseline_balance,
             )
         )
 

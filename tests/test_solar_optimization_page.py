@@ -997,11 +997,11 @@ class TestSolarOptimizationPage:
         page.show_optimization_result.assert_called_once_with(
             installation
         )
-        project.solar.calculate.assert_called_once_with(
-            page.project.solar_configuration,
+        project.solar.calculate_recommended_production.assert_called_once_with(
             installed_power_kwp=installation.installed_power_kwp,
         )
 
+        project.solar.calculate.assert_not_called()
         assert page.status_label.text() == "Optimización conjunta completada"
         assert page.optimize_button.isEnabled() is True
 

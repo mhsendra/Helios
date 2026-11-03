@@ -111,6 +111,13 @@ class SolarController:
         # Recomendación energética integral FV + batería + EV.
         self.energy_recommendation: EnergyRecommendation | None = None
 
+        # Datos PVGIS obtenidos durante la última recomendación
+        # energética. Se reutilizan para calcular la instalación
+        # ganadora sin volver a consultar PVGIS.
+        self._recommended_base_profile: SolarProductionProfile | None = None
+        self._recommended_hourly_dataframe = None
+        self._recommended_solar_configuration: SolarConfiguration | None = None
+
     # ==================================================
     # Propiedades de producción
     # ==================================================
@@ -431,6 +438,9 @@ class SolarController:
             self.installation_configuration = None
             self._battery_recommendations = []
             self.energy_recommendation = None
+            self._recommended_base_profile = None
+            self._recommended_hourly_dataframe = None
+            self._recommended_solar_configuration = None
             
     def invalidate_energy_balance(self) -> None:
         """
@@ -499,6 +509,61 @@ class SolarController:
             configuration,
             float(installed_power_kwp),
         )
+
+    def calculate_recommended_production(
+        self,
+        installed_power_kwp: float,
+    ) -> None:
+        """
+        Calcula la producción de la instalación recomendada
+        reutilizando los datos horarios obtenidos durante
+        recommend_energy().
+
+        No realiza una nueva consulta a PVGIS.
+        """
+
+        configuration = self.configuration
+
+        if configuration is None:
+            raise ValueError(
+                "A solar configuration is required "
+                "before calculating production."
+            )
+
+        if (
+            self._recommended_base_profile is None
+            or self._recommended_hourly_dataframe is None
+            or self._recommended_solar_configuration is None
+        ):
+            raise RuntimeError(
+                "No cached PVGIS production data is available. "
+                "Run recommend_energy() first."
+            )
+
+        if (
+            configuration
+            != self._recommended_solar_configuration
+        ):
+            raise RuntimeError(
+                "Cached PVGIS production data belongs to "
+                "a different solar configuration."
+            )
+
+        # Reutilizar el DataFrame de PVGIS de 1 kWp.
+        self.analyzer.solar_engine.manager.set_hourly_production_from_dataframe(
+            configuration=configuration,
+            hourly_dataframe=(
+                self._recommended_hourly_dataframe
+            ),
+            installed_power_kwp=installed_power_kwp,
+        )
+
+        # Reproducir exactamente el flujo de calculate().
+        self.calculate_daily_production()
+        self.calculate_monthly_production()
+        self.calculate_yearly_production()
+        self.calculate_energy_balance()
+        self.calculate_statistics()
 
     def calculate_daily_production(self):
 
@@ -626,34 +691,19 @@ class SolarController:
         evaluation: InstallationEvaluation,
         production_profile: SolarProductionProfile,
         consumption_scenario: ConsumptionScenario,
+        baseline_balance,
         installation_cost_configuration: InstallationCostConfiguration,
         ev_scenario: EVScenario | None,
         battery_economic_parameters: BatteryEconomicParameters,
     ) -> CombinedEconomicConfiguration:
         """Construye la configuración económica de FV sin batería
-        que servirá como base común para comparar las alternativas FV
-        y FV + batería.
+        utilizando el balance de referencia ya calculado.
         """
         economics_controller = self.analyzer.economics
         economics_configuration = economics_controller.configuration
-        project = self.analyzer.project
 
-        if not isinstance(ev_scenario, EVScenario):
-            ev_scenario = None
-
-            if getattr(project, "ev_configuration", None) is not None:
-                candidate_ev_scenario = project.build_ev_scenario()
-
-                if isinstance(candidate_ev_scenario, EVScenario):
-                    ev_scenario = candidate_ev_scenario
-
-        # Balance de referencia: FV sin batería.
-        baseline_balance = SolarBalanceEngine.calculate(
-            consumption_scenario,
-            production_profile,
-            None,
-            ev_scenario,
-        )
+        # El balance FV sin batería se calcula en EnergyRecommender
+        # y se comparte con todos los consumidores económicos.
 
         # El coste de referencia sin FV debe representar la misma
         # demanda que el balance FV, incluida la del vehículo eléctrico.
@@ -929,20 +979,20 @@ class SolarController:
         ):
             try:
                 combined_economic_configuration = (
-                    self._build_combined_economic_configuration(
-                        evaluation=self.sizing_result.evaluation,
-                        production_profile=production_profile,
-                        consumption_scenario=consumption_scenario,
-                        installation_cost_configuration=(
-                            installation_cost_configuration
-                        ),
-                        ev_scenario=ev_scenario,
-                        battery_economic_parameters=(
-                            battery_economic_parameters
-                        ),
-                    )
+                self._build_combined_economic_configuration(
+                    evaluation=self.sizing_result.evaluation,
+                    production_profile=production_profile,
+                    consumption_scenario=consumption_scenario,
+                    baseline_balance=baseline_balance,
+                    installation_cost_configuration=(
+                        installation_cost_configuration
+                    ),
+                    ev_scenario=ev_scenario,
+                    battery_economic_parameters=(
+                        battery_economic_parameters
+                    ),
                 )
-
+            )
             except ValueError as error:
                 if (
                     "coste de la estructura no está confirmado"
@@ -1188,6 +1238,13 @@ class SolarController:
         InstallationCoordinator.recommend_energy().
         """
 
+        # Invalidar cualquier caché anterior. Si la nueva
+        # recomendación falla, no se podrán reutilizar datos
+        # pertenecientes a una ejecución previa.
+        self._recommended_base_profile = None
+        self._recommended_hourly_dataframe = None
+        self._recommended_solar_configuration = None
+
         if not isinstance(
             configuration,
             InstallationConfiguration,
@@ -1283,15 +1340,17 @@ class SolarController:
             cost_per_kwh_eur=battery_cost_per_kwh_eur,
         )
 
-        def economic_configuration_factory(
+        def economic_configuration_factory_with_baseline(
             evaluation: InstallationEvaluation,
             production_profile: SolarProductionProfile,
+            baseline_balance,
         ) -> CombinedEconomicConfiguration:
             return (
                 self._build_combined_economic_configuration(
                     evaluation=evaluation,
                     production_profile=production_profile,
                     consumption_scenario=consumption_scenario,
+                    baseline_balance=baseline_balance,
                     installation_cost_configuration=(
                         installation_cost_configuration
                     ),
@@ -1339,8 +1398,8 @@ class SolarController:
             battery_cost_per_kwh_eur=(
                 battery_cost_per_kwh_eur
             ),
-            economic_configuration_factory=(
-                economic_configuration_factory
+            economic_configuration_factory_with_baseline=(
+                economic_configuration_factory_with_baseline
             ),
             cost_calculator=(
                 self.analyzer.economics.calculate_cost_with_balance
@@ -1361,6 +1420,24 @@ class SolarController:
             min_soc=min_soc,
             max_soc=max_soc,
             initial_soc=initial_soc,
+        )
+
+        # Guardar los datos PVGIS únicamente después de que la
+        # recomendación haya terminado correctamente.
+        hourly_dataframe = production_service.hourly_dataframe
+
+        if hourly_dataframe is None:
+            raise RuntimeError(
+                "PVGIS hourly dataframe is not available "
+                "after energy recommendation."
+            )
+
+        self._recommended_base_profile = base_profile
+        self._recommended_hourly_dataframe = (
+            hourly_dataframe.copy(deep=True)
+        )
+        self._recommended_solar_configuration = (
+            solar_configuration
         )
 
         self.energy_recommendation = result
@@ -1434,3 +1511,7 @@ class SolarController:
         self.installation_configuration = None
         self._battery_recommendations = []
         self.energy_recommendation = None
+
+        self._recommended_base_profile = None
+        self._recommended_hourly_dataframe = None
+        self._recommended_solar_configuration = None

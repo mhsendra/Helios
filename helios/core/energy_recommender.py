@@ -68,6 +68,17 @@ class EnergyRecommender:
             ]
             | None
         ) = None,
+        economic_configuration_factory_with_baseline: (
+            Callable[
+                [
+                    InstallationEvaluation,
+                    SolarProductionProfile,
+                    object,
+                ],
+                CombinedEconomicConfiguration,
+            ]
+            | None
+        ) = None,
         cost_calculator: Callable[[object], float] | None = None,
         export_income_calculator: (
             Callable[[object], float] | None
@@ -96,16 +107,59 @@ class EnergyRecommender:
             panel_count = evaluation.panel_count
             production_profile = production_profiles[panel_count]
 
-            combined_economic_configuration = None
+            if (
+                economic_configuration_factory is not None
+                and economic_configuration_factory_with_baseline is not None
+            ):
+                raise ValueError(
+                    "Only one economic configuration factory can be provided."
+                )
 
-            if economic_configuration_factory is not None:
+            combined_economic_configuration = None
+            baseline_balance = None
+
+            needs_baseline_balance = (
+                economic_configuration_factory_with_baseline is not None
+                or cost_calculator is not None
+                or export_income_calculator is not None
+                or (
+                    optimization_criterion
+                    in {"combined_npv", "combined_payback"}
+                    and economic_configuration_factory is not None
+                )
+            )
+
+            if needs_baseline_balance:
+                baseline_balance = SolarBalanceEngine.calculate(
+                    consumption_scenario,
+                    production_profile,
+                    None,
+                    ev_scenario,
+                )
+
+            factory = (
+                economic_configuration_factory_with_baseline
+                if economic_configuration_factory_with_baseline is not None
+                else economic_configuration_factory
+            )
+
+            if factory is not None:
                 try:
-                    combined_economic_configuration = (
-                        economic_configuration_factory(
+                    if (
+                        economic_configuration_factory_with_baseline
+                        is not None
+                    ):
+                        combined_economic_configuration = factory(
+                            evaluation,
+                            production_profile,
+                            baseline_balance,
+                        )
+                    else:
+                        combined_economic_configuration = factory(
                             evaluation,
                             production_profile,
                         )
-                    )
+
                 except ValueError as exc:
                     # Una candidata sin coste de estructura confirmado
                     # no debe impedir evaluar las demás instalaciones.
@@ -130,7 +184,7 @@ class EnergyRecommender:
                     CombinedEconomicConfiguration,
                 ):
                     raise TypeError(
-                        "economic_configuration_factory must return "
+                        "The economic configuration factory must return "
                         "a CombinedEconomicConfiguration."
                     )
 
@@ -179,23 +233,6 @@ class EnergyRecommender:
 
             annual_cost_without_battery_eur = None
             annual_export_income_without_battery_eur = None
-            baseline_balance = None
-
-            if (
-                cost_calculator is not None
-                or export_income_calculator is not None
-                or (
-                    optimization_criterion
-                    in {"combined_npv", "combined_payback"}
-                    and combined_economic_configuration is not None
-                )
-            ):
-                baseline_balance = SolarBalanceEngine.calculate(
-                    consumption_scenario,
-                    production_profile,
-                    None,
-                    ev_scenario,
-                )
 
             if cost_calculator is not None:
                 annual_cost_without_battery_eur = float(

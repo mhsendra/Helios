@@ -1308,10 +1308,129 @@ class TestEnergyRecommender:
         )
         assert balance_calls == [None]
 
+    def test_reuses_baseline_balance_in_economic_configuration_factory(
+        self,
+        monkeypatch,
+    ):
+        consumption = _consumption_scenario()
+        evaluation = _evaluation(
+            panel_count=15,
+            installed_power_kwp=8.1,
+        )
+        profile = _production_profile(
+            installed_power_kwp=8.1,
+            annual_production_kwh=12000.0,
+        )
+
+        baseline_marker = pd.DataFrame(
+            {
+                "consumption_kwh": [1.0] * 8760,
+                "production_kwh": [1.369863] * 8760,
+                "grid_import_kwh": [0.5] * 8760,
+                "grid_export_kwh": [0.5] * 8760,
+                "self_consumption_kwh": [0.5] * 8760,
+            },
+            index=consumption.hourly_consumption.index,
+        )
+        balance_calls = []
+        factory_calls = []
+
+        def fake_calculate(
+            consumption_scenario,
+            production_profile,
+            battery_configuration=None,
+            ev_scenario=None,
+        ):
+            balance_calls.append(
+                (
+                    consumption_scenario,
+                    production_profile,
+                    battery_configuration,
+                    ev_scenario,
+                )
+            )
+            assert consumption_scenario is consumption
+            assert production_profile is profile
+            assert battery_configuration is None
+            return baseline_marker
+
+        monkeypatch.setattr(
+            SolarBalanceEngine,
+            "calculate",
+            staticmethod(fake_calculate),
+        )
+
+        economic_configuration = CombinedEconomicConfiguration(
+            installation_cost_eur=10000.0,
+            battery_cost_eur=0.0,
+            annual_pv_savings_eur=1000.0,
+            annual_battery_additional_savings_eur=0.0,
+            annual_pv_maintenance_eur=0.0,
+        )
+
+        def factory_with_baseline(
+            received_evaluation,
+            received_profile,
+            baseline_balance,
+        ):
+            factory_calls.append(
+                (
+                    received_evaluation,
+                    received_profile,
+                    baseline_balance,
+                )
+            )
+            assert baseline_balance is baseline_marker
+            return economic_configuration
+
+        def cost_calculator(balance):
+            assert balance is baseline_marker
+            return 500.0
+
+        def export_income_calculator(balance):
+            assert balance is baseline_marker
+            return 100.0
+
+        recommender = EnergyRecommender(
+            battery_optimizer=FakeBatteryOptimizer(
+                {
+                    8.1: _battery_recommendation(
+                        8.3,
+                        4200.0,
+                    )
+                }
+            )
+        )
+
+        recommender.recommend(
+            evaluations=[evaluation],
+            annual_consumption_kwh=8760.0,
+            consumption_scenario=consumption,
+            production_profiles={15: profile},
+            candidate_capacities_kwh=[8.3],
+            max_charge_power_kw=5.0,
+            max_discharge_power_kw=5.0,
+            economic_configuration_factory_with_baseline=(
+                factory_with_baseline
+            ),
+            cost_calculator=cost_calculator,
+            export_income_calculator=export_income_calculator,
+            optimization_criterion="combined_npv",
+        )
+
+        assert len(balance_calls) == 1
+        assert len(factory_calls) == 1
+        assert factory_calls[0] == (
+            evaluation,
+            profile,
+            baseline_marker,
+        )
+
     @pytest.mark.parametrize(
     "optimization_criterion",
     ["combined_npv", "combined_payback"],
     )
+
     def test_combined_criterion_can_select_pv_without_battery(
         self,
         optimization_criterion,

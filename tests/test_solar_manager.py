@@ -598,3 +598,209 @@ class TestSolarManager:
                 configuration,
                 installed_power_kwp=0.0,
             )
+
+    def test_set_hourly_production_from_dataframe_scales_only_production(self):
+        configuration = SolarConfiguration(
+            latitude=41.6167,
+            longitude=2.0833,
+            tilt=30,
+            azimuth=0,
+            reference_year=2025,
+            losses=14.0,
+            pv_technology="crystSi",
+            mounting_place="building",
+        )
+
+        index = pd.date_range(
+            "2025-01-01 00:00:00",
+            periods=8760,
+            freq="h",
+        )
+
+        original = pd.DataFrame(
+            {
+                "production_kwh": 1.5,
+                "irradiance": 200.0,
+                "temperature": 18.0,
+                "wind_speed": 3.0,
+                "interpolated": False,
+            },
+            index=index,
+        )
+
+        expected_meteorological_data = original[
+            [
+                "irradiance",
+                "temperature",
+                "wind_speed",
+                "interpolated",
+            ]
+        ].copy()
+
+        result = self.manager.set_hourly_production_from_dataframe(
+            configuration,
+            original,
+            installed_power_kwp=8.1,
+        )
+
+        pd.testing.assert_series_equal(
+            result["production_kwh"],
+            original["production_kwh"] * 8.1,
+        )
+
+        pd.testing.assert_frame_equal(
+            result[
+                [
+                    "irradiance",
+                    "temperature",
+                    "wind_speed",
+                    "interpolated",
+                ]
+            ],
+            expected_meteorological_data,
+        )
+
+        # El DataFrame original no debe modificarse.
+        assert (original["production_kwh"] == 1.5).all()
+
+        assert result is self.manager.hourly_production
+        assert result is not original
+        assert self.manager.configuration is configuration
+        assert self.manager.installed_power_kwp == 8.1
+
+    def test_set_hourly_production_from_dataframe_invalidates_previous_results(self):
+        configuration = SolarConfiguration(
+            latitude=41.6167,
+            longitude=2.0833,
+            tilt=30,
+            azimuth=0,
+            reference_year=2025,
+            losses=14.0,
+            pv_technology="crystSi",
+            mounting_place="building",
+        )
+
+        index = pd.date_range(
+            "2025-01-01 00:00:00",
+            periods=8760,
+            freq="h",
+        )
+
+        self.manager.daily_production = MagicMock()
+        self.manager.monthly_production = MagicMock()
+        self.manager.yearly_production = MagicMock()
+        self.manager.energy_balance = MagicMock()
+        self.manager.statistics = MagicMock()
+
+        dataframe = pd.DataFrame(
+            {"production_kwh": 1.0},
+            index=index,
+        )
+
+        self.manager.set_hourly_production_from_dataframe(
+            configuration,
+            dataframe,
+            installed_power_kwp=5.0,
+        )
+
+        assert self.manager.daily_production is None
+        assert self.manager.monthly_production is None
+        assert self.manager.yearly_production is None
+        assert self.manager.energy_balance is None
+        assert self.manager.statistics is None
+
+    @pytest.mark.parametrize(
+        "installed_power_kwp",
+        [0.0, -1.0, float("nan"), float("inf")],
+    )
+    def test_set_hourly_production_from_dataframe_rejects_invalid_power(
+        self,
+        installed_power_kwp,
+    ):
+        configuration = SolarConfiguration(
+            latitude=41.6167,
+            longitude=2.0833,
+            tilt=30,
+            azimuth=0,
+            reference_year=2025,
+            losses=14.0,
+            pv_technology="crystSi",
+            mounting_place="building",
+        )
+
+        dataframe = pd.DataFrame(
+            {
+                "production_kwh": 1.0,
+            },
+            index=pd.date_range(
+                "2025-01-01",
+                periods=8760,
+                freq="h",
+            ),
+        )
+
+        with pytest.raises(
+            ValueError,
+            match="installed_power_kwp must be greater than zero.",
+        ):
+            self.manager.set_hourly_production_from_dataframe(
+                configuration,
+                dataframe,
+                installed_power_kwp,
+            )
+
+    def test_set_hourly_production_from_dataframe_rejects_invalid_dataframe(self):
+        configuration = SolarConfiguration(
+            latitude=41.6167,
+            longitude=2.0833,
+            tilt=30,
+            azimuth=0,
+            reference_year=2025,
+            losses=14.0,
+            pv_technology="crystSi",
+            mounting_place="building",
+        )
+
+        with pytest.raises(
+            TypeError,
+            match="hourly_dataframe must be a pandas DataFrame.",
+        ):
+            self.manager.set_hourly_production_from_dataframe(
+                configuration,
+                [],
+                5.0,
+            )
+
+        with pytest.raises(
+            ValueError,
+            match="Hourly dataframe must contain production_kwh.",
+        ):
+            self.manager.set_hourly_production_from_dataframe(
+                configuration,
+                pd.DataFrame(
+                    {"irradiance": 100.0},
+                    index=pd.date_range(
+                        "2025-01-01",
+                        periods=8760,
+                        freq="h",
+                    ),
+                ),
+                5.0,
+            )
+
+        with pytest.raises(
+            ValueError,
+            match="Hourly dataframe must contain exactly 8760 rows.",
+        ):
+            self.manager.set_hourly_production_from_dataframe(
+                configuration,
+                pd.DataFrame(
+                    {"production_kwh": [1.0]},
+                    index=pd.date_range(
+                        "2025-01-01",
+                        periods=1,
+                        freq="h",
+                    ),
+                ),
+                5.0,
+            )

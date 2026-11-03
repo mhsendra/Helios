@@ -1,3 +1,4 @@
+
 import pandas as pd
 
 from helios.solar.PVGIS_production import PVGISProductionService
@@ -18,11 +19,17 @@ class PVGISProductionProfileService:
             else PVGISProductionService()
         )
 
+        # DataFrame completo de PVGIS, conservado para reutilizar
+        # las columnas meteorológicas junto con la producción.
+        self.hourly_dataframe: pd.DataFrame | None = None
+
     def get_production_profile(
         self,
         configuration: SolarConfiguration,
     ) -> SolarProductionProfile:
-        """Obtiene de PVGIS un perfil horario normalizado a 1 kWp."""
+        """Obtiene un perfil horario normalizado a 1 kWp."""
+
+        self.hourly_dataframe = None
 
         if not isinstance(
             configuration,
@@ -95,7 +102,16 @@ class PVGISProductionProfileService:
                 )
             ]
 
-        hourly_production.index = expected_index
+        # Normalizar el índice del DataFrame completo, no solo
+        # el de la serie de producción.
+        dataframe = dataframe.copy()
+        dataframe.index = expected_index
+
+        hourly_production = dataframe[
+            "production_kwh"
+        ].copy()
+
+        self.hourly_dataframe = dataframe.copy()
 
         return SolarProductionProfile(
             hourly_production=hourly_production,
