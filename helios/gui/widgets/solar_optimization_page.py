@@ -1758,9 +1758,9 @@ class SolarOptimizationPage(QWidget):
                 energy_recommendation
             )
 
-            # Calcular la producción mostrada para la instalación elegida.
-            self.project.solar.calculate(
-                self.project.solar_configuration,
+            # Calcular la producción de la instalación elegida
+            # reutilizando los datos PVGIS de la recomendación.
+            self.project.solar.calculate_recommended_production(
                 installed_power_kwp=result.installed_power_kwp,
             )
 

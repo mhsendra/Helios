@@ -7,6 +7,9 @@ from helios.solar.battery import BatteryEngine
 from helios.solar.battery_configuration import BatteryConfiguration
 from helios.solar.production_profile import SolarProductionProfile
 
+from helios.solar.temporal_alignment import (
+    align_hourly_series_by_month_day_hour,
+)
 
 class SolarBalanceEngine:
     @staticmethod
@@ -67,20 +70,11 @@ class SolarBalanceEngine:
 
         production = production_profile.hourly_production
 
-        production_lookup = production.copy()
-        production_lookup.index = (
-            production_lookup.index.strftime("%m-%d-%H")
-        )
-
-        profile_key = consumption.index.strftime("%m-%d-%H")
-
         aligned_production = (
-            pd.Series(
-                profile_key,
-                index=consumption.index,
+            align_hourly_series_by_month_day_hour(
+                consumption.index,
+                production,
             )
-            .map(production_lookup)
-            .fillna(0.0)
         )
 
         balance = pd.DataFrame(

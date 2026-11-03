@@ -228,6 +228,17 @@ class InstallationCoordinator:
             ]
             | None
         ) = None,
+        economic_configuration_factory_with_baseline: (
+            Callable[
+                [
+                    InstallationEvaluation,
+                    SolarProductionProfile,
+                    object,
+                ],
+                CombinedEconomicConfiguration,
+            ]
+            | None
+        ) = None,
         installation_cost_configuration: (
             InstallationCostConfiguration | None
         ) = None,
@@ -330,16 +341,6 @@ class InstallationCoordinator:
             )
 
         if (
-            annual_pv_savings_calculator is not None
-            and not callable(
-                annual_pv_savings_calculator
-            )
-        ):
-            raise TypeError(
-                "annual_pv_savings_calculator must be callable."
-            )
-
-        if (
             economics_configuration is not None
             and not isinstance(
                 economics_configuration,
@@ -352,8 +353,29 @@ class InstallationCoordinator:
             )
 
         if (
+            annual_pv_savings_calculator is not None
+            and not callable(
+                annual_pv_savings_calculator
+            )
+        ):
+            raise TypeError(
+                "annual_pv_savings_calculator must be callable."
+            )
+
+        if (
+            economic_configuration_factory is not None
+            and economic_configuration_factory_with_baseline is not None
+        ):
+            raise ValueError(
+                "Only one economic configuration factory can be provided."
+            )
+
+        if (
             installation_cost_configuration is not None
-            and economic_configuration_factory is not None
+            and (
+                economic_configuration_factory is not None
+                or economic_configuration_factory_with_baseline is not None
+            )
         ):
             raise ValueError(
                 "installation_cost_configuration and "
@@ -362,7 +384,10 @@ class InstallationCoordinator:
 
         if (
             economics_configuration is not None
-            and economic_configuration_factory is not None
+            and (
+                economic_configuration_factory is not None
+                or economic_configuration_factory_with_baseline is not None
+            )
         ):
             raise ValueError(
                 "economics_configuration and "
@@ -478,16 +503,19 @@ class InstallationCoordinator:
         )
 
         if (
-                optimization_criterion
-                in {"combined_npv", "combined_payback"}
-                and economic_configuration_factory is None
-                and installation_cost_configuration is None
-            ):
-                raise ValueError(
-                    "Combined economic optimization requires "
-                    "an economic_configuration_factory or an "
-                    "installation_cost_configuration."
-                )
+            optimization_criterion in {
+                "combined_npv",
+                "combined_payback",
+            }
+            and economic_configuration_factory is None
+            and economic_configuration_factory_with_baseline is None
+            and installation_cost_configuration is None
+        ):
+            raise ValueError(
+                "Combined economic optimization requires "
+                "an economic_configuration_factory or an "
+                "installation_cost_configuration."
+            )
 
         return self.energy_recommender.recommend(
             evaluations=evaluations,
@@ -508,6 +536,9 @@ class InstallationCoordinator:
             ),
             economic_configuration_factory=(
                 economic_configuration_factory
+            ),
+            economic_configuration_factory_with_baseline=(
+                economic_configuration_factory_with_baseline
             ),
             cost_calculator=cost_calculator,
             export_income_calculator=export_income_calculator,

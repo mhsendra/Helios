@@ -1,11 +1,16 @@
 
 from dataclasses import dataclass
 
+import numpy as np
 import pandas as pd
 
 from helios.core.consumption_scenario import ConsumptionScenario
 from helios.solar.battery_configuration import BatteryConfiguration
 from helios.solar.production_profile import SolarProductionProfile
+
+from helios.solar.temporal_alignment import (
+    align_hourly_series_by_month_day_hour,
+)
 
 
 @dataclass
@@ -34,20 +39,20 @@ class BatteryEngine:
                 "Production profile must contain 8760 hours."
             )
 
-        production_lookup = production.copy()
-        production_lookup.index = (
-            production_lookup.index.strftime("%m-%d-%H")
+        aligned_production = (
+            align_hourly_series_by_month_day_hour(
+                consumption.index,
+                production,
+            )
         )
 
-        profile_key = consumption.index.strftime("%m-%d-%H")
-
-        aligned_production = (
-            pd.Series(
-                profile_key,
-                index=consumption.index,
-            )
-            .map(production_lookup)
-            .fillna(0.0)
+        consumption_values = consumption.to_numpy(
+            dtype=float,
+            copy=False,
+        )
+        production_values = aligned_production.to_numpy(
+            dtype=float,
+            copy=False,
         )
 
         min_energy = (
@@ -60,11 +65,44 @@ class BatteryEngine:
             configuration.capacity_kwh * configuration.initial_soc
         )
 
-        rows = []
+        hour_count = len(consumption_values)
 
-        for timestamp in consumption.index:
-            consumption_kwh = consumption.loc[timestamp]
-            production_kwh = aligned_production.loc[timestamp]
+        direct_self_consumption_values = np.zeros(
+            hour_count,
+            dtype=float,
+        )
+        self_consumption_values = np.zeros(
+            hour_count,
+            dtype=float,
+        )
+        battery_charge_values = np.zeros(
+            hour_count,
+            dtype=float,
+        )
+        battery_discharge_values = np.zeros(
+            hour_count,
+            dtype=float,
+        )
+        grid_import_values = np.zeros(
+            hour_count,
+            dtype=float,
+        )
+        grid_export_values = np.zeros(
+            hour_count,
+            dtype=float,
+        )
+        battery_soc_values = np.zeros(
+            hour_count,
+            dtype=float,
+        )
+        battery_losses_values = np.zeros(
+            hour_count,
+            dtype=float,
+        )
+
+        for hour in range(hour_count):
+            consumption_kwh = consumption_values[hour]
+            production_kwh = production_values[hour]
 
             direct_self_consumption = min(
                 consumption_kwh,
@@ -144,26 +182,33 @@ class BatteryEngine:
                 stored_energy / configuration.capacity_kwh
             )
 
-            rows.append(
-                {
-                    "consumption_kwh": consumption_kwh,
-                    "production_kwh": production_kwh,
-                    "direct_self_consumption_kwh": (
-                        direct_self_consumption
-                    ),
-                    "self_consumption_kwh": self_consumption,
-                    "battery_charge_kwh": battery_charge,
-                    "battery_discharge_kwh": battery_discharge,
-                    "grid_import_kwh": grid_import,
-                    "grid_export_kwh": grid_export,
-                    "battery_soc": soc,
-                    "battery_losses_kwh": battery_losses,
-                }
+            direct_self_consumption_values[hour] = (
+                direct_self_consumption
             )
+            self_consumption_values[hour] = self_consumption
+            battery_charge_values[hour] = battery_charge
+            battery_discharge_values[hour] = battery_discharge
+            grid_import_values[hour] = grid_import
+            grid_export_values[hour] = grid_export
+            battery_soc_values[hour] = soc
+            battery_losses_values[hour] = battery_losses
 
-        return BatteryResult(
-            hourly_data=pd.DataFrame(
-                rows,
-                index=consumption.index,
-            )
+        hourly_data = pd.DataFrame(
+            {
+                "consumption_kwh": consumption_values,
+                "production_kwh": production_values,
+                "direct_self_consumption_kwh": (
+                    direct_self_consumption_values
+                ),
+                "self_consumption_kwh": self_consumption_values,
+                "battery_charge_kwh": battery_charge_values,
+                "battery_discharge_kwh": battery_discharge_values,
+                "grid_import_kwh": grid_import_values,
+                "grid_export_kwh": grid_export_values,
+                "battery_soc": battery_soc_values,
+                "battery_losses_kwh": battery_losses_values,
+            },
+            index=consumption.index,
         )
+
+        return BatteryResult(hourly_data=hourly_data)

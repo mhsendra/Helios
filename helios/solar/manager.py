@@ -1,5 +1,7 @@
 import pandas as pd
 
+import math
+
 from helios.reports.solar_reports import SolarReports
 
 from helios.solar.balance import SolarBalanceEngine
@@ -70,6 +72,75 @@ class SolarManager:
         # ✔ Escalar la producción por la potencia instalada real
         self.hourly_production["production_kwh"] *= installed_power_kwp
 
+    def set_hourly_production_from_dataframe(
+        self,
+        configuration: SolarConfiguration,
+        hourly_dataframe: pd.DataFrame,
+        installed_power_kwp: float,
+    ) -> pd.DataFrame:
+        """
+        Reutiliza datos horarios ya obtenidos de PVGIS.
+
+        Escala únicamente production_kwh para la potencia instalada.
+        Las columnas meteorológicas se conservan sin modificaciones.
+        """
+
+        if not isinstance(configuration, SolarConfiguration):
+            raise TypeError(
+                "configuration must be a SolarConfiguration."
+            )
+
+        if not isinstance(hourly_dataframe, pd.DataFrame):
+            raise TypeError(
+                "hourly_dataframe must be a pandas DataFrame."
+            )
+
+        if "production_kwh" not in hourly_dataframe.columns:
+            raise ValueError(
+                "Hourly dataframe must contain production_kwh."
+            )
+
+        if len(hourly_dataframe) != 8760:
+            raise ValueError(
+                "Hourly dataframe must contain exactly 8760 rows."
+            )
+
+        if not isinstance(hourly_dataframe.index, pd.DatetimeIndex):
+            raise TypeError(
+                "Hourly dataframe must have a DatetimeIndex."
+            )
+
+        if (
+            not isinstance(installed_power_kwp, (int, float))
+            or not math.isfinite(installed_power_kwp)
+            or installed_power_kwp <= 0
+        ):
+            raise ValueError(
+                "installed_power_kwp must be greater than zero."
+            )
+
+        if (
+            not pd.notna(installed_power_kwp)
+            or installed_power_kwp <= 0
+        ):
+            raise ValueError(
+                "installed_power_kwp must be greater than zero."
+            )
+
+        # Invalida resultados derivados de la configuración anterior.
+        self.set_configuration(configuration)
+
+        # Trabajar siempre sobre una copia para no modificar
+        # los datos originales conservados por el servicio PVGIS.
+        dataframe = hourly_dataframe.copy(deep=True)
+
+        # El DataFrame de origen está normalizado a 1 kWp.
+        dataframe["production_kwh"] *= installed_power_kwp
+
+        self.installed_power_kwp = float(installed_power_kwp)
+        self.hourly_production = dataframe
+
+        return self.hourly_production
 
     def calculate_daily_production(self):
     

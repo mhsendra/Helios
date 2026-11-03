@@ -9,6 +9,10 @@ from helios.solar.installation_evaluation import (
 from helios.core.consumption_scenario import ConsumptionScenario
 from helios.solar.production_profile import SolarProductionProfile
 
+from helios.solar.temporal_alignment import (
+    align_hourly_series_by_month_day_hour,
+)
+
 @dataclass(frozen=True)
 class InstallationRecommendation:
 
@@ -123,17 +127,11 @@ class InstallationRecommendation:
 
             production = self.production_profile.hourly_production
 
-            production_lookup = production.copy()
-            production_lookup.index = (
-                production_lookup.index.strftime("%m-%d-%H")
-            )
-
-            profile_key = consumption.index.strftime("%m-%d-%H")
-
             aligned_production = (
-                pd.Series(profile_key, index=consumption.index)
-                .map(production_lookup)
-                .fillna(0.0)
+                align_hourly_series_by_month_day_hour(
+                    consumption.index,
+                    production,
+                )
             )
 
             return float(

@@ -6,6 +6,10 @@ from helios.ev.scenario import EVScenario
 from helios.solar.production_profile import SolarProductionProfile
 from helios.ev.solar_charging_strategy import SolarChargingStrategy
 
+from helios.solar.temporal_alignment import (
+    align_hourly_series_by_month_day_hour,
+)
+
 def _distribute_daily_energy_in_window(
         profile: pd.Series,
         daily_energy: pd.Series,
@@ -179,22 +183,11 @@ class SolarSurplusChargingStrategy(SolarChargingStrategy):
 
         production = production_profile.hourly_production
 
-        production_lookup = production.copy()
-        production_lookup.index = (
-            production_lookup.index.strftime("%m-%d-%H")
-        )
-
-        profile_key = domestic_consumption.index.strftime(
-            "%m-%d-%H"
-        )
-
         aligned_production = (
-            pd.Series(
-                profile_key,
-                index=domestic_consumption.index,
+            align_hourly_series_by_month_day_hour(
+                domestic_consumption.index,
+                production,
             )
-            .map(production_lookup)
-            .fillna(0.0)
         )
 
         surplus = (
@@ -344,22 +337,11 @@ class SolarNightChargingStrategy(SolarChargingStrategy):
 
         production = production_profile.hourly_production
 
-        production_lookup = production.copy()
-        production_lookup.index = (
-            production_lookup.index.strftime("%m-%d-%H")
-        )
-
-        profile_key = domestic_consumption.index.strftime(
-            "%m-%d-%H"
-        )
-
         aligned_production = (
-            pd.Series(
-                profile_key,
-                index=domestic_consumption.index,
+            align_hourly_series_by_month_day_hour(
+                domestic_consumption.index,
+                production,
             )
-            .map(production_lookup)
-            .fillna(0.0)
         )
 
         surplus = (

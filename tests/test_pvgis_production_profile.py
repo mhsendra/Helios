@@ -304,3 +304,46 @@ class TestPVGISProductionProfile:
             (result.hourly_production.index.month == 2)
             & (result.hourly_production.index.day == 29)
         ).any()
+
+    def test_service_preserves_complete_hourly_dataframe(self):
+        service = self.service()
+
+        service.get_production_profile(
+            self.configuration()
+        )
+
+        dataframe = service.hourly_dataframe
+
+        assert isinstance(dataframe, pd.DataFrame)
+        assert len(dataframe) == 8760
+
+        assert {
+            "production_kwh",
+            "irradiance",
+            "temperature",
+            "wind_speed",
+            "interpolated",
+        }.issubset(dataframe.columns)
+
+    def test_service_normalizes_dataframe_index_to_reference_year(self):
+        service = self.service()
+
+        service.get_production_profile(
+            self.configuration()
+        )
+
+        dataframe = service.hourly_dataframe
+
+        assert dataframe.index[0] == pd.Timestamp(
+            "2025-01-01 00:00:00"
+        )
+        assert dataframe.index[-1] == pd.Timestamp(
+            "2025-12-31 23:00:00"
+        )
+        assert dataframe.index.equals(
+            pd.date_range(
+                "2025-01-01 00:00:00",
+                "2025-12-31 23:00:00",
+                freq="h",
+            )
+        )
