@@ -221,3 +221,19 @@ class TestPVGISClient:
             get.assert_called_once()
             response.raise_for_status.assert_called_once_with()
             save.assert_not_called()
+
+    def test_init_uses_user_data_path_for_cache(self, tmp_path):
+        expected_path = tmp_path / "cache" / "solar"
+
+        with patch(
+            "helios.solar.pvgis.user_data_path",
+            return_value=expected_path,
+        ) as user_data_path_mock:
+
+            client = PVGISClient()
+
+        user_data_path_mock.assert_called_once_with(
+            "cache/solar"
+        )
+
+        assert client.cache_directory == expected_path

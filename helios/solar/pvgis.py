@@ -1,26 +1,16 @@
-from pathlib import Path
 
 import requests
 
 from helios.solar.configuration import SolarConfiguration
 from helios.solar.cache import PVGISCache
+from helios.utils.paths import user_data_path
 
 
 class PVGISClient:
 
     def __init__(self):
+        self.cache_directory = user_data_path("cache/solar")
 
-        self.cache_directory = (
-            Path("data")
-            / "cache"
-            / "solar"
-        )
-
-        self.cache_directory.mkdir(
-            parents=True,
-            exist_ok=True
-        )
-    
     def fetch(
         self,
         configuration: SolarConfiguration
