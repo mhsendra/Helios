@@ -71,7 +71,7 @@ class TestConsumptionAnalyzer:
         with pd.ExcelWriter(file_path) as writer:
             dataframe.to_excel(
                 writer,
-                sheet_name="18_06_2025",
+                sheet_name="Datos de consumo",
                 index=False
             )
 
@@ -86,6 +86,180 @@ class TestConsumptionAnalyzer:
             "Hora",
             "AE_kWh",
         ]
+
+    def test_load_excel_normalizes_edistribucion_format(
+        self,
+        tmp_path
+    ):
+
+        file_path = tmp_path / "edistribucion.xlsx"
+
+        dataframe = pd.DataFrame(
+            {
+                "CUPS": ["ES0031408727401001YH0F"],
+                "Fecha": pd.to_datetime(
+                    ["2025-01-01"]
+                ),
+                "Hora": [1],
+                "AE_kWh": [1.5],
+                "REAL/ESTIMADO": ["E"],
+            }
+        )
+
+        with pd.ExcelWriter(file_path) as writer:
+            dataframe.to_excel(
+                writer,
+                sheet_name="Consumo",
+                index=False
+            )
+
+        analyzer = ConsumptionAnalyzer({})
+
+        analyzer.load_excel(file_path)
+
+        assert len(analyzer.dataset) == 1
+        assert list(analyzer.dataset.columns) == [
+            "Fecha",
+            "Hora",
+            "AE_kWh",
+        ]
+        assert analyzer.dataset.loc[0, "AE_kWh"] == 1.5
+
+    def test_load_excel_prioritizes_edistribucion_sheet(
+        self,
+        tmp_path
+    ):
+
+        file_path = tmp_path / "multiple_sheets.xlsx"
+
+        normalized_dataframe = pd.DataFrame(
+            {
+                "Fecha": pd.to_datetime(
+                    ["2025-01-01"]
+                ),
+                "Hora": [1],
+                "AE_kWh": [1.0],
+            }
+        )
+
+        edistribucion_dataframe = pd.DataFrame(
+            {
+                "CUPS": ["ES0031408727401001YH0F"],
+                "Fecha": pd.to_datetime(
+                    ["2025-01-02"]
+                ),
+                "Hora": [2],
+                "AE_kWh": [2.0],
+                "REAL/ESTIMADO": ["R"],
+            }
+        )
+
+        with pd.ExcelWriter(file_path) as writer:
+            normalized_dataframe.to_excel(
+                writer,
+                sheet_name="Primera",
+                index=False
+            )
+            edistribucion_dataframe.to_excel(
+                writer,
+                sheet_name="Segunda",
+                index=False
+            )
+
+        analyzer = ConsumptionAnalyzer({})
+
+        analyzer.load_excel(file_path)
+
+        assert len(analyzer.dataset) == 1
+        assert analyzer.dataset.loc[0, "AE_kWh"] == 2.0
+        assert analyzer.dataset.loc[0, "Fecha"] == pd.Timestamp(
+            "2025-01-02"
+        )
+
+    def test_load_excel_uses_first_normalized_sheet_when_no_edistribucion(
+        self,
+        tmp_path
+    ):
+
+        file_path = tmp_path / "normalized_sheets.xlsx"
+
+        first_dataframe = pd.DataFrame(
+            {
+                "Fecha": pd.to_datetime(
+                    ["2025-01-01"]
+                ),
+                "Hora": [1],
+                "AE_kWh": [1.0],
+            }
+        )
+
+        second_dataframe = pd.DataFrame(
+            {
+                "Fecha": pd.to_datetime(
+                    ["2025-01-02"]
+                ),
+                "Hora": [2],
+                "AE_kWh": [2.0],
+            }
+        )
+
+        with pd.ExcelWriter(file_path) as writer:
+            pd.DataFrame(
+                {"Otra columna": [0]}
+            ).to_excel(
+                writer,
+                sheet_name="No válida",
+                index=False
+            )
+
+            first_dataframe.to_excel(
+                writer,
+                sheet_name="Primera válida",
+                index=False
+            )
+
+            second_dataframe.to_excel(
+                writer,
+                sheet_name="Segunda válida",
+                index=False
+            )
+
+        analyzer = ConsumptionAnalyzer({})
+
+        analyzer.load_excel(file_path)
+
+        assert len(analyzer.dataset) == 1
+        assert analyzer.dataset.loc[0, "AE_kWh"] == 1.0
+        assert analyzer.dataset.loc[0, "Fecha"] == pd.Timestamp(
+            "2025-01-01"
+        )
+
+    def test_load_excel_raises_error_without_valid_sheet(
+        self,
+        tmp_path
+    ):
+
+        file_path = tmp_path / "invalid.xlsx"
+
+        with pd.ExcelWriter(file_path) as writer:
+            pd.DataFrame(
+                {
+                    "Fecha": ["2025-01-01"],
+                    "Consumo": [1.5],
+                }
+            ).to_excel(
+                writer,
+                sheet_name="Datos",
+                index=False
+            )
+
+        analyzer = ConsumptionAnalyzer({})
+
+        with pytest.raises(
+            ValueError,
+            match="no contiene ninguna hoja",
+        ):
+            analyzer.load_excel(file_path)
 
     # ==================================================
     # DATA CLEANING

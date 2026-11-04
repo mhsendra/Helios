@@ -2,6 +2,8 @@ from pathlib import Path
 
 import math
 
+from helios.utils.paths import resource_path
+
 from helios.reports.solar_report_charts import SolarReportCharts
 from helios.reports.solar_report_data import SolarReportData
 from helios.reports.solar_report_text import SolarReportText
@@ -44,7 +46,7 @@ HELIOS_BORDER = "#d0d7de"
 HELIOS_BACKGROUND = "#f8f9fa"
 HELIOS_KPI_BACKGROUND = "#f4f6f8"
 
-HELIOS_ASSETS = Path(__file__).resolve().parents[2] / "assets"
+HELIOS_ASSETS = resource_path("assets")
 
 HELIOS_LOGO = HELIOS_ASSETS / "Logo_Helios.png"
 HELIOS_FONTS = HELIOS_ASSETS / "fonts"

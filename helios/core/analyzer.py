@@ -98,8 +98,82 @@ class ConsumptionAnalyzer:
     # ==================================================
 
     def load_excel(self, path: str | Path):
-        """Carga el dataset desde Excel."""
-        self.dataset = pd.read_excel(path, sheet_name="18_06_2025")
+        """Carga y normaliza el dataset desde Excel.
+
+        Admite:
+        - Formato completo de e-distribución (5 columnas).
+        - Formato normalizado de Helios (3 columnas).
+        """
+
+        edistribucion_columns = {
+            "CUPS",
+            "Fecha",
+            "Hora",
+            "AE_kWh",
+            "REAL/ESTIMADO",
+        }
+
+        required_columns = {
+            "Fecha",
+            "Hora",
+            "AE_kWh",
+        }
+
+        with pd.ExcelFile(path) as excel_file:
+            sheet_columns = {}
+
+            # Inspeccionar las columnas de todas las hojas.
+            for sheet_name in excel_file.sheet_names:
+                header = pd.read_excel(
+                    excel_file,
+                    sheet_name=sheet_name,
+                    nrows=0,
+                )
+                sheet_columns[sheet_name] = set(header.columns)
+
+            # Prioridad 1: formato completo de e-distribución.
+            selected_sheet = next(
+                (
+                    sheet_name
+                    for sheet_name, columns in sheet_columns.items()
+                    if edistribucion_columns.issubset(columns)
+                ),
+                None,
+            )
+
+            # Prioridad 2: formato normalizado de tres columnas.
+            if selected_sheet is None:
+                selected_sheet = next(
+                    (
+                        sheet_name
+                        for sheet_name, columns in sheet_columns.items()
+                        if required_columns.issubset(columns)
+                    ),
+                    None,
+                )
+
+            if selected_sheet is None:
+                details = "; ".join(
+                    f"{name}: {sorted(columns)}"
+                    for name, columns in sheet_columns.items()
+                )
+                raise ValueError(
+                    "El archivo Excel no contiene ninguna hoja con "
+                    "el formato de e-distribución (5 columnas) ni "
+                    "con el formato normalizado de Helios "
+                    f"(3 columnas). Hojas encontradas: {details}"
+                )
+
+            # Leer únicamente la hoja seleccionada.
+            dataset = pd.read_excel(
+                excel_file,
+                sheet_name=selected_sheet,
+            )
+
+            # Normalizar ambos formatos.
+            self.dataset = dataset[
+                ["Fecha", "Hora", "AE_kWh"]
+            ].copy()
 
     def clean_data(self):
         """Marca huecos y clasifica gaps."""
