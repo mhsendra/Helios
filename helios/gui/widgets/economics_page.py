@@ -1,3 +1,5 @@
+import pandas as pd
+
 from PySide6.QtCore import Qt
 
 from PySide6.QtWidgets import (
@@ -514,15 +516,96 @@ class EconomicsPage(QWidget):
 
         cash_flow_options = []
 
+        solar = self.project.solar
+
+        energy_recommendation = getattr(
+            solar,
+            "energy_recommendation",
+            None,
+        )
+
+        if energy_recommendation is not None:
+            selected_panel_count = (
+                energy_recommendation.panel_count
+            )
+
+            recommendations = [
+                recommendation
+                for recommendation in (
+                    energy_recommendation.alternatives
+                )
+                if recommendation.panel_count == selected_panel_count
+            ]
+        else:
+            recommendations = (
+                solar.battery_recommendations or []
+            )
+
+        no_battery_recommendation = None
+
+        for recommendation in recommendations:
+            battery = getattr(
+                recommendation,
+                "battery_recommendation",
+                recommendation,
+            )
+
+            if getattr(battery, "capacity_kwh", None) == 0:
+                no_battery_recommendation = battery
+                break
+
         # ---------------------------------------------------------
         # Flujo de caja de la instalación FV sin batería
         # ---------------------------------------------------------
 
-        solar_cash_flow = getattr(
-            economics,
-            "cash_flow",
-            None,
-        )
+        solar_cash_flow = None
+        solar_npv = None
+
+        # Priorizar el flujo de caja de la alternativa FV sin batería.
+        if no_battery_recommendation is not None:
+
+            battery = no_battery_recommendation
+
+            cash_flows = (
+                battery.combined_economic_cash_flows
+            )
+
+            cumulative_cash_flows = (
+                battery.combined_economic_cumulative_cash_flow
+            )
+
+            if (
+                cash_flows
+                and cumulative_cash_flows
+                and len(cash_flows) == len(cumulative_cash_flows)
+            ):
+                solar_cash_flow = pd.DataFrame(
+                    {
+                        "year": range(len(cash_flows)),
+                        "cash_flow": cash_flows,
+                        "cumulative_cash_flow": (
+                            cumulative_cash_flows
+                        ),
+                    }
+                )
+
+                solar_npv = (
+                    battery.combined_economic_npv_eur
+                )
+
+        # Compatibilidad con proyectos sin alternativa FV de 0 kWh.
+        if solar_cash_flow is None:
+            solar_cash_flow = getattr(
+                economics,
+                "cash_flow",
+                None,
+            )
+
+            solar_npv = getattr(
+                economics,
+                "npv",
+                None,
+            )
 
         required_columns = {
             "year",
@@ -535,12 +618,6 @@ class EconomicsPage(QWidget):
             and not solar_cash_flow.empty
             and required_columns.issubset(solar_cash_flow.columns)
         ):
-            solar_npv = getattr(
-                economics,
-                "npv",
-                None,
-            )
-
             solar_npv_is_valid = (
                 solar_npv is not None
                 and solar_npv == solar_npv
@@ -568,25 +645,6 @@ class EconomicsPage(QWidget):
         # Alternativas de instalación FV + batería
         # ---------------------------------------------------------
 
-        solar = self.project.solar
-
-        energy_recommendation = getattr(
-            solar,
-            "energy_recommendation",
-            None,
-        )
-
-        recommendations = []
-
-        if energy_recommendation is not None:
-            recommendations = (
-                energy_recommendation.alternatives
-            )
-        else:
-            recommendations = (
-                solar.battery_recommendations or []
-            )
-
         viable_recommendations = []
 
         for recommendation in recommendations:
@@ -601,7 +659,8 @@ class EconomicsPage(QWidget):
             )
 
             if (
-                battery.combined_economic_analysis_calculated
+                battery.capacity_kwh > 0
+                and battery.combined_economic_analysis_calculated
                 and battery.combined_economic_npv_eur > 0
                 and battery.combined_economic_cash_flows
                 and battery.combined_economic_cumulative_cash_flow

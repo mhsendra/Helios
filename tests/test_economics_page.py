@@ -2,6 +2,8 @@ import pytest
 
 import pandas as pd
 
+from types import SimpleNamespace
+
 from unittest.mock import Mock
 
 from PySide6.QtWidgets import QApplication, QTableWidget
@@ -886,7 +888,6 @@ class TestEconomicsPage:
             ),
         )
 
-
     def test_update_cash_flow_displays_viable_combined_alternative(
         self,
         app,
@@ -1002,3 +1003,157 @@ class TestEconomicsPage:
 
         assert page.cash_flow_tabs.count() == 1
         assert page.cash_flow_tabs.tabText(0) == "Sin alternativas viables"
+
+    def test_update_cash_flow_uses_no_battery_recommendation_for_solar_tab(
+        self,
+        app,
+    ):
+
+        project = self._create_project()
+
+        economics = project.analyzer.economics_engine
+
+        # Flujo del motor económico: deliberadamente distinto
+        # del flujo de la alternativa FV sin batería.
+        economics.cash_flow = pd.DataFrame(
+            {
+                "year": [0, 1, 2],
+                "cash_flow": [-15000.0, 2000.0, 2100.0],
+                "cumulative_cash_flow": [
+                    -15000.0,
+                    -13000.0,
+                    -10900.0,
+                ],
+            }
+        )
+        economics.npv = 9999.0
+
+        no_battery = self._create_combined_recommendation(
+            capacity_kwh=0.0,
+            npv_eur=700.0,
+            cash_flows=(-8000.0, 900.0, 950.0),
+            cumulative_cash_flows=(
+                -8000.0,
+                -7100.0,
+                -6150.0,
+            ),
+        )
+
+        battery = self._create_combined_recommendation(
+            capacity_kwh=5.0,
+            npv_eur=1200.0,
+        )
+
+        project.solar.energy_recommendation = SimpleNamespace(
+            panel_count=15,
+            alternatives=(
+                SimpleNamespace(
+                    panel_count=15,
+                    battery_recommendation=no_battery,
+                ),
+                SimpleNamespace(
+                    panel_count=15,
+                    battery_recommendation=battery,
+                ),
+            ),
+        )
+
+        page = EconomicsPage(project)
+        page.update_cash_flow()
+
+        solar_tabs = [
+            index
+            for index in range(page.cash_flow_tabs.count())
+            if page.cash_flow_tabs.tabText(index).startswith(
+                "FV sin batería"
+            )
+        ]
+
+        assert len(solar_tabs) == 1
+
+        solar_tab = page.cash_flow_tabs.widget(
+            solar_tabs[0]
+        )
+
+        assert isinstance(solar_tab, QTableWidget)
+
+        assert page.cash_flow_tabs.tabText(solar_tabs[0]) == (
+            "FV sin batería (VAN FV: 700.00 €)"
+        )
+
+        assert solar_tab.item(0, 1).text() == "-8,000.00"
+        assert solar_tab.item(1, 1).text() == "900.00"
+        assert solar_tab.item(2, 2).text() == "-6,150.00"
+
+        # La alternativa de 0 kWh no debe aparecer también
+        # como una pestaña de batería.
+        assert not any(
+            page.cash_flow_tabs.tabText(index).startswith(
+                "Batería 0.0 kWh"
+            )
+            for index in range(page.cash_flow_tabs.count())
+        )
+
+    def test_update_cash_flow_only_shows_selected_panel_count(
+        self,
+        app,
+    ):
+        project = self._create_project()
+
+        no_battery = self._create_combined_recommendation(
+            capacity_kwh=0.0,
+            npv_eur=700.0,
+        )
+
+        selected_battery = self._create_combined_recommendation(
+            capacity_kwh=5.0,
+            npv_eur=1200.0,
+        )
+
+        other_installation_battery = (
+            self._create_combined_recommendation(
+                capacity_kwh=8.3,
+                npv_eur=5000.0,
+            )
+        )
+
+        project.solar.energy_recommendation = SimpleNamespace(
+            panel_count=15,
+            alternatives=(
+                SimpleNamespace(
+                    panel_count=10,
+                    battery_recommendation=(
+                        other_installation_battery
+                    ),
+                ),
+                SimpleNamespace(
+                    panel_count=15,
+                    battery_recommendation=no_battery,
+                ),
+                SimpleNamespace(
+                    panel_count=15,
+                    battery_recommendation=selected_battery,
+                ),
+            ),
+        )
+
+        page = EconomicsPage(project)
+        page.update_cash_flow()
+
+        tab_names = [
+            page.cash_flow_tabs.tabText(index)
+            for index in range(page.cash_flow_tabs.count())
+        ]
+
+        assert len(tab_names) == 2
+
+        assert tab_names[0] == (
+            "Batería 5.0 kWh (VAN combinado: 1,200.00 €)"
+        )
+
+        assert tab_names[1].startswith("FV sin batería")
+
+        assert not any(
+            "8.3 kWh" in name
+            for name in tab_names
+        )

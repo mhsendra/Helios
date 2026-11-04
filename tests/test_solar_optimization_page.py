@@ -896,10 +896,20 @@ class TestSolarOptimizationPage:
     def test_start_optimization_rejects_missing_scenario(
         self,
     ):
-
         page, project = self.create_page(
             self.create_solar_configuration()
         )
+
+        # Simular resultados de una optimización anterior.
+        page.result_panel_count_label.setText("15")
+        page.result_production_label.setText("12.345 kWh")
+        page.combined_economic_label.setText(
+            "Evaluación combinada anterior"
+        )
+        page.battery_table.setRowCount(1)
+
+        # Simular una posición manual del paso de mantenimiento.
+        page.walkway_slider.setValue(37)
 
         project.analyzer.calculate_representative_consumption_scenario.return_value = (
             None
@@ -907,6 +917,7 @@ class TestSolarOptimizationPage:
 
         page.start_optimization()
 
+        # La optimización debe informar del error.
         assert (
             page.status_label.text()
             == (
@@ -915,9 +926,23 @@ class TestSolarOptimizationPage:
             )
         )
 
+        assert page.optimize_button.isEnabled() is True
+
+        # Los resultados anteriores deben quedar eliminados.
+        assert page.result_panel_count_label.text() == "-"
+        assert page.result_production_label.text() == "-"
+        assert page.battery_table.rowCount() == 0
         assert (
-            page.optimize_button.isEnabled()
-            is True
+            page.combined_economic_label.text()
+            == "Evaluación combinada FV + batería pendiente."
+        )
+
+        # La configuración manual debe conservarse.
+        assert page.walkway_slider.value() == 37
+        assert page.walkway_position_label.text() == "37 %"
+        assert (
+            page.roof_layout_widget.walkway_offset_percent
+            == 37
         )
 
     def test_start_optimization_rejects_zero_consumption(
@@ -1064,6 +1089,66 @@ class TestSolarOptimizationPage:
         assert (
             page.optimize_button.isEnabled()
             is True
+        )
+
+    def test_clear_optimization_result_preserves_manual_configuration(
+        self,
+    ):
+        page, _ = self.create_page(
+            self.create_solar_configuration()
+        )
+
+        # Datos introducidos manualmente.
+        page.available_area_spinbox.setValue(42.5)
+        page.roof_width_spinbox.setValue(6.5)
+        page.roof_height_spinbox.setValue(6.2)
+        page.panel_width_spinbox.setValue(1.134)
+        page.panel_height_spinbox.setValue(1.990)
+        page.panel_power_spinbox.setValue(540)
+        page.min_panels_spinbox.setValue(4)
+        page.max_panels_checkbox.setChecked(True)
+        page.max_panels_spinbox.setValue(16)
+
+        page.maintenance_required_checkbox.setChecked(True)
+        page.maintenance_width_spinbox.setValue(0.45)
+
+        page.walkway_slider.setValue(37)
+
+        # Simular resultados anteriores.
+        page.result_panel_count_label.setText("15")
+        page.combined_economic_label.setText(
+            "VAN combinado anterior: 5.000 €"
+        )
+
+        page.clear_optimization_result()
+
+        # Los datos manuales deben permanecer intactos.
+        assert page.available_area_spinbox.value() == 42.5
+        assert page.roof_width_spinbox.value() == 6.5
+        assert page.roof_height_spinbox.value() == 6.2
+        assert page.panel_width_spinbox.value() == 1.134
+        assert page.panel_height_spinbox.value() == 1.990
+        assert page.panel_power_spinbox.value() == 540
+        assert page.min_panels_spinbox.value() == 4
+        assert page.max_panels_checkbox.isChecked()
+        assert page.max_panels_spinbox.value() == 16
+
+        assert page.maintenance_required_checkbox.isChecked()
+        assert page.maintenance_width_spinbox.value() == 0.45
+
+        # También debe conservarse la posición manual del paso.
+        assert page.walkway_slider.value() == 37
+        assert page.walkway_position_label.text() == "37 %"
+        assert (
+            page.roof_layout_widget.walkway_offset_percent
+            == 37
+        )
+
+        # Los resultados anteriores sí deben desaparecer.
+        assert page.result_panel_count_label.text() == "-"
+        assert (
+            page.combined_economic_label.text()
+            == "Evaluación combinada FV + batería pendiente."
         )
 
     # ==========================================================

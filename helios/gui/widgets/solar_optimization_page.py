@@ -1680,12 +1680,15 @@ class SolarOptimizationPage(QWidget):
         if self.main_window is not None:
             self.main_window.set_solar_optimized(False)
 
+        # Eliminar todos los resultados anteriores sin modificar
+        # los controles ni la configuración introducida manualmente.
+        self.clear_optimization_result()
+
         self.optimize_button.setEnabled(False)
         self.status_label.setText(
             "Buscando la mejor combinación FV + batería..."
         )
 
-        self.battery_table.setRowCount(0)
         self.battery_status_label.setText(
             "Evaluación económica conjunta en curso."
         )
@@ -1816,10 +1819,6 @@ class SolarOptimizationPage(QWidget):
             )
 
             if self.main_window is not None:
-
-                # Sincronizar la configuración y la potencia instalada.
-                self.main_window.solar_page.load_saved_configuration()
-
                 self.main_window.set_solar_optimized(True)
 
             self.status_label.setText(
@@ -1841,6 +1840,7 @@ class SolarOptimizationPage(QWidget):
     # ==================================================
 
     def clear_optimization_result(self):
+        """Limpia los resultados sin modificar la configuración manual."""
 
         labels = [
             self.result_panel_count_label,
@@ -1866,17 +1866,31 @@ class SolarOptimizationPage(QWidget):
 
         self.battery_table.setRowCount(0)
 
+        # Conservar la posición manual del paso de mantenimiento.
+        walkway_position = self.walkway_slider.value()
+
         self.roof_layout_widget.clear()
+        self.roof_layout_widget.set_walkway_offset(
+            walkway_position
+        )
 
         self.walkway_slider.setEnabled(False)
 
-        self.walkway_position_label.setText("50 %")
+        # Conservar la posición manual del paso de mantenimiento.
+        self.walkway_position_label.setText(
+            f"{self.walkway_slider.value()} %"
+        )
 
         self.layout_info_label.setText(
             "No hay una instalación calculada."
         )
+
         self.battery_status_label.setText(
             "No hay una evaluación de baterías disponible."
+        )
+
+        self.combined_economic_label.setText(
+            "Evaluación combinada FV + batería pendiente."
         )
 
     def reset(self):
