@@ -115,9 +115,18 @@ class HeliosProject:
 
     def set_battery_configuration(
         self,
-        configuration: BatteryConfiguration,
+        configuration: BatteryConfiguration | None,
     ) -> None:
-        
+        """Establece o elimina la configuración de batería del proyecto."""
+
+        if (
+            configuration is not None
+            and not isinstance(configuration, BatteryConfiguration)
+        ):
+            raise TypeError(
+                "configuration must be a BatteryConfiguration or None."
+            )
+
         self.battery_configuration = configuration
         self.solar.invalidate_energy_balance()
 

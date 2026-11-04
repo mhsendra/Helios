@@ -877,12 +877,18 @@ class SolarReportGenerator:
     ) -> list:
         """Construye el resumen ejecutivo y evita mostrar KPI no válidos."""
 
+        annual_savings_value = (
+            data.selected_yearly_savings_eur
+            if data.selected_option_available
+            else data.yearly_savings_eur
+        )
+
         annual_savings = (
-            f"{data.yearly_savings_eur:,.2f} €/año"
+            f"{annual_savings_value:,.2f} €/año"
             if (
-                data.economic_analysis_calculated
-                and data.yearly_savings_eur is not None
-                and math.isfinite(data.yearly_savings_eur)
+                self._primary_economic_analysis_calculated(data)
+                and annual_savings_value is not None
+                and math.isfinite(annual_savings_value)
             )
             else "N/D"
         )

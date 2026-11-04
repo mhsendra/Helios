@@ -899,10 +899,17 @@ class TestEconomicsPage:
         page.update_cash_flow()
 
         assert page.cash_flow_tabs.count() == 1
-        assert page.cash_flow_tabs.tabText(0) == "5 kWh"
+        assert page.cash_flow_tabs.tabText(0) == (
+           "Batería 5.0 kWh (VAN combinado: 1,000.00 €)"
+        )
 
         details = page.cash_flow_tabs.widget(0)
-        table = details.findChild(QTableWidget)
+
+        table = (
+            details
+            if isinstance(details, QTableWidget)
+            else details.findChild(QTableWidget)
+        )
 
         assert table is not None
         assert table.rowCount() == 3
@@ -944,8 +951,12 @@ class TestEconomicsPage:
         page.update_cash_flow()
 
         assert page.cash_flow_tabs.count() == 2
-        assert page.cash_flow_tabs.tabText(0) == "8.3 kWh"
-        assert page.cash_flow_tabs.tabText(1) == "5 kWh"
+        assert page.cash_flow_tabs.tabText(0) == (
+            "Batería 8.3 kWh (VAN combinado: 2,500.00 €)"
+        )
+        assert page.cash_flow_tabs.tabText(1) == (
+            "Batería 5.0 kWh (VAN combinado: 1,000.00 €)"
+        )
 
 
     def test_update_cash_flow_excludes_nonviable_alternatives(

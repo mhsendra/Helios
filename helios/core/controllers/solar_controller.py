@@ -441,6 +441,24 @@ class SolarController:
             self._recommended_base_profile = None
             self._recommended_hourly_dataframe = None
             self._recommended_solar_configuration = None
+
+    def reset(self) -> None:
+        """
+        Reinicia los resultados de la última simulación solar.
+
+        Conserva la configuración solar del proyecto.
+        """
+
+        self.analyzer.solar_engine.reset()
+
+        self.sizing_result = None
+        self.installation_configuration = None
+        self._battery_recommendations = []
+        self.energy_recommendation = None
+
+        self._recommended_base_profile = None
+        self._recommended_hourly_dataframe = None
+        self._recommended_solar_configuration = None
             
     def invalidate_energy_balance(self) -> None:
         """

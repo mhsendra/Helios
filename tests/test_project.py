@@ -277,21 +277,6 @@ def test_project_set_solar_configuration_replaces_previous_configuration():
         is not configuration_1
     )
 
-def test_project_set_battery_configuration():
-    project = HeliosProject(
-        EconomicsConfiguration(installation_cost=12490.0)
-    )
-
-    configuration = BatteryConfiguration(
-        capacity_kwh=16.6,
-        max_charge_power_kw=8.0,
-        max_discharge_power_kw=8.0,
-    )
-
-    project.set_battery_configuration(configuration)
-
-    assert project.battery_configuration is configuration
-
 def test_project_links_analyzer_back_to_project():
 
     project = create_project()
@@ -331,16 +316,21 @@ def test_project_set_battery_configuration():
     )
 
     solar = MagicMock()
-
     project.analyzer.solar = solar
 
-    project.set_battery_configuration(
-        configuration
-    )
+    project.set_battery_configuration(configuration)
 
     assert project.battery_configuration is configuration
 
     solar.invalidate_energy_balance.assert_called_once_with()
+
+    project.set_battery_configuration(None)
+
+    assert project.battery_configuration is None
+
+    assert (
+        solar.invalidate_energy_balance.call_count == 2
+    )
 
 def test_project_set_ev_configuration():
 

@@ -3,7 +3,6 @@ from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
     QFormLayout,
-    QDoubleSpinBox,
     QSpinBox,
     QComboBox,
     QPushButton,

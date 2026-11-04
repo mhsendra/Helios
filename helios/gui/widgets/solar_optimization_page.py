@@ -1691,6 +1691,18 @@ class SolarOptimizationPage(QWidget):
         )
 
         try:
+            # Eliminar los resultados de la optimización anterior.
+            self.project.solar.reset()
+
+            # Eliminar también la configuración de batería anterior.
+            self.project.set_battery_configuration(None)
+
+            if self.main_window is not None:
+                # Eliminar resultados visibles de la optimización anterior.
+                self.main_window.solar_page.reset()
+                self.main_window.economics_page.reset()
+                self.main_window.set_solar_production_calculated(False)
+
             configuration = self.get_installation_configuration()
 
             selection = getattr(
@@ -1804,6 +1816,10 @@ class SolarOptimizationPage(QWidget):
             )
 
             if self.main_window is not None:
+
+                # Sincronizar la configuración y la potencia instalada.
+                self.main_window.solar_page.load_saved_configuration()
+
                 self.main_window.set_solar_optimized(True)
 
             self.status_label.setText(
@@ -2077,6 +2093,7 @@ class SolarOptimizationPage(QWidget):
                 result.evaluation
             )
         )
+
         installation_cost = (
             installation_economics.installation_cost_eur
         )
@@ -2094,26 +2111,35 @@ class SolarOptimizationPage(QWidget):
                 * self._battery_cost_per_kwh_eur()
             )
 
+            battery_configuration = BatteryConfiguration(
+                capacity_kwh=battery_recommendation.capacity_kwh,
+                max_charge_power_kw=5.0,
+                max_discharge_power_kw=5.0,
+                charge_efficiency=0.95,
+                discharge_efficiency=0.95,
+                min_soc=0.10,
+                max_soc=0.90,
+                initial_soc=0.10,
+            )
+
+        else:
+            battery_configuration = None
+
         self.project.economics.configuration.installation_cost = (
             installation_cost + battery_cost
         )
 
-        if has_battery:
-            self.project.set_battery_configuration(
-                BatteryConfiguration(
-                    capacity_kwh=battery_recommendation.capacity_kwh,
-                    max_charge_power_kw=5.0,
-                    max_discharge_power_kw=5.0,
-                    charge_efficiency=0.95,
-                    discharge_efficiency=0.95,
-                    min_soc=0.10,
-                    max_soc=0.90,
-                    initial_soc=0.10,
-                )
-            )
-            self.project.solar.calculate_energy_balance()
+        # La configuración siempre debe corresponder a la
+        # recomendación actual, no a una simulación anterior.
+        self.project.set_battery_configuration(
+            battery_configuration
+        )
+
+        # Recalcular también cuando la recomendación sea 0 kWh.
+        self.project.solar.calculate_energy_balance()
 
         self.project.economics._economic_data = None
+
         self.project.analyzer.economics_engine.economic_analysis_calculated = (
             False
         )
