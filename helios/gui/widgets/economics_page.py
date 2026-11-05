@@ -1,5 +1,7 @@
 import pandas as pd
 
+import math
+
 from PySide6.QtCore import Qt
 
 from PySide6.QtWidgets import (
@@ -476,6 +478,39 @@ class EconomicsPage(QWidget):
                 )
             )
 
+            economic_analysis_calculated = getattr(
+                recommendation,
+                "economic_analysis_calculated",
+                False,
+            )
+
+            if economic_analysis_calculated:
+                economic_npv = recommendation.economic_npv_eur
+                economic_irr = recommendation.economic_irr_percent
+                economic_payback = recommendation.economic_payback_years
+
+                npv_text = (
+                    f"{economic_npv:,.2f} €"
+                    if math.isfinite(economic_npv)
+                    else "N/D"
+                )
+
+                irr_text = (
+                    f"{economic_irr:.2f} %"
+                    if math.isfinite(economic_irr)
+                    else "N/D"
+                )
+
+                payback_text = (
+                    f"{economic_payback:.2f} años"
+                    if math.isfinite(economic_payback)
+                    else "No recuperable"
+                )
+            else:
+                npv_text = "N/D"
+                irr_text = "N/D"
+                payback_text = "N/D"
+
             values = [
                 f"{recommendation.capacity_kwh:.1f} kWh",
                 f"{recommendation.annual_cost_with_battery_eur:,.2f} €",
@@ -484,9 +519,9 @@ class EconomicsPage(QWidget):
                 f"{recommendation.incremental_savings_eur:,.2f} €",
                 f"{recommendation.marginal_savings_per_kwh:,.2f} €/kWh",
                 marginal_payback,
-                f"{recommendation.economic_npv_eur:,.2f} €",
-                f"{recommendation.economic_irr_percent:.2f} %",
-                f"{recommendation.economic_payback_years:.2f} años",
+                npv_text,
+                irr_text,
+                payback_text,
             ]
 
             for column, value in enumerate(values):
