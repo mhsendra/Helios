@@ -1,5 +1,6 @@
 import numpy as np
 import numpy_financial as npf
+import math
 import pandas as pd
 import pytest
 
@@ -1944,6 +1945,36 @@ class TestEconomicsCashFlow:
 
     def test_cash_flow_payback_not_reached_sets_none(self):
 
+        self.engine.net_investment = 10000.0
+        self.engine.self_consumption_savings = 100.0
+        self.engine.export_income = 0.0
+        self.engine.annual_savings = 100.0
+
+        result = self.engine.calculate_cash_flow(
+            self._configuration(),
+            years=2,
+        )
+
+        assert result.iloc[-1]["cumulative_cash_flow"] < 0
+        assert self.engine.payback_years is None
+
+    def test_cash_flow_recalculation_clears_previous_payback(self):
+
+        # Primera simulación: la inversión se recupera.
+        self.engine.net_investment = 1000.0
+        self.engine.self_consumption_savings = 1200.0
+        self.engine.export_income = 0.0
+        self.engine.annual_savings = 1200.0
+
+        self.engine.calculate_cash_flow(
+            self._configuration(),
+            years=2,
+        )
+
+        assert self.engine.payback_years is not None
+        assert math.isfinite(self.engine.payback_years)
+
+        # Segunda simulación: no se recupera la inversión.
         self.engine.net_investment = 10000.0
         self.engine.self_consumption_savings = 100.0
         self.engine.export_income = 0.0

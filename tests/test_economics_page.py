@@ -235,6 +235,212 @@ class TestEconomicsPage:
             "5.00 %"
         )
 
+    def test_update_profitability_uses_combined_recommendation(
+        self,
+        app,
+    ):
+        project = self._create_project()
+
+        # Valores del motor económico: deben quedar desplazados
+        # cuando existe una recomendación combinada válida.
+        economics = project.analyzer.economics_engine
+        economics.payback_years = 5.34
+        economics.npv = 22071.16
+        economics.irr = 0.188
+
+        recommendation = self._create_combined_recommendation(
+            npv_eur=12500.50,
+            irr_percent=8.75,
+            payback_years=11.25,
+            calculated=True,
+        )
+
+        project.solar.energy_recommendation = SimpleNamespace(
+            battery_recommendation=recommendation,
+        )
+
+        page = EconomicsPage(project)
+        page.update_profitability()
+
+        assert page.payback_label.text() == "11.25 años"
+        assert page.npv_label.text() == "12,500.50 €"
+        assert page.irr_label.text() == "8.75 %"
+
+        # El tipo de descuento sigue procediendo de la
+        # configuración económica del proyecto.
+        assert page.discount_rate_label.text() == "5.00 %"
+
+    def test_update_profitability_falls_back_when_combined_analysis_is_not_calculated(
+        self,
+        app,
+    ):
+        project = self._create_project()
+
+        economics = project.analyzer.economics_engine
+        economics.payback_years = 5.34
+        economics.npv = 22071.16
+        economics.irr = 0.188
+
+        recommendation = self._create_combined_recommendation(
+            npv_eur=12500.50,
+            irr_percent=8.75,
+            payback_years=11.25,
+            calculated=False,
+        )
+
+        project.solar.energy_recommendation = SimpleNamespace(
+            battery_recommendation=recommendation,
+        )
+
+        page = EconomicsPage(project)
+        page.update_profitability()
+
+        assert page.payback_label.text() == "5.34 años"
+        assert page.npv_label.text() == "22,071.16 €"
+        assert page.irr_label.text() == "18.80 %"
+        assert page.discount_rate_label.text() == "5.00 %"
+
+    def test_update_profitability_handles_nan_combined_values(
+        self,
+        app,
+    ):
+        project = self._create_project()
+
+        recommendation = self._create_combined_recommendation(
+            npv_eur=float("nan"),
+            irr_percent=float("nan"),
+            payback_years=float("nan"),
+            calculated=True,
+        )
+
+        project.solar.energy_recommendation = SimpleNamespace(
+            battery_recommendation=recommendation,
+        )
+
+        page = EconomicsPage(project)
+        page.update_profitability()
+
+        assert page.payback_label.text() == "No recuperable en 25 años"
+        assert page.npv_label.text() == "N/D"
+        assert page.irr_label.text() == "N/D"
+
+    @pytest.mark.parametrize(
+        "value",
+        [
+            float("inf"),
+            float("-inf"),
+        ],
+    )
+    def test_update_profitability_handles_infinite_combined_values(
+        self,
+        app,
+        value,
+    ):
+        project = self._create_project()
+
+        recommendation = self._create_combined_recommendation(
+            npv_eur=value,
+            irr_percent=value,
+            payback_years=value,
+            calculated=True,
+        )
+
+        project.solar.energy_recommendation = SimpleNamespace(
+            battery_recommendation=recommendation,
+        )
+
+        page = EconomicsPage(project)
+        page.update_profitability()
+
+        assert page.payback_label.text() == "No recuperable en 25 años"
+        assert page.npv_label.text() == "N/D"
+        assert page.irr_label.text() == "N/D"
+
+    def test_update_profitability_refreshes_values_when_recommendation_changes(
+        self,
+        app,
+    ):
+        project = self._create_project()
+
+        first_recommendation = self._create_combined_recommendation(
+            npv_eur=12500.50,
+            irr_percent=8.75,
+            payback_years=11.25,
+            calculated=True,
+        )
+
+        project.solar.energy_recommendation = SimpleNamespace(
+            battery_recommendation=first_recommendation,
+        )
+
+        page = EconomicsPage(project)
+        page.update_profitability()
+
+        assert page.payback_label.text() == "11.25 años"
+        assert page.npv_label.text() == "12,500.50 €"
+        assert page.irr_label.text() == "8.75 %"
+
+        second_recommendation = self._create_combined_recommendation(
+            npv_eur=18500.75,
+            irr_percent=12.40,
+            payback_years=8.50,
+            calculated=True,
+        )
+
+        project.solar.energy_recommendation = SimpleNamespace(
+            battery_recommendation=second_recommendation,
+        )
+
+        page.update_profitability()
+
+        assert page.payback_label.text() == "8.50 años"
+        assert page.npv_label.text() == "18,500.75 €"
+        assert page.irr_label.text() == "12.40 %"
+
+    def test_update_profitability_clears_combined_values_when_analysis_becomes_unavailable(
+        self,
+        app,
+    ):
+        project = self._create_project()
+
+        economics = project.analyzer.economics_engine
+        economics.payback_years = 5.34
+        economics.npv = 22071.16
+        economics.irr = 0.188
+
+        first_recommendation = self._create_combined_recommendation(
+            npv_eur=12500.50,
+            irr_percent=8.75,
+            payback_years=11.25,
+            calculated=True,
+        )
+
+        project.solar.energy_recommendation = SimpleNamespace(
+            battery_recommendation=first_recommendation,
+        )
+
+        page = EconomicsPage(project)
+        page.update_profitability()
+
+        assert page.payback_label.text() == "11.25 años"
+
+        second_recommendation = self._create_combined_recommendation(
+            npv_eur=18500.75,
+            irr_percent=12.40,
+            payback_years=8.50,
+            calculated=False,
+        )
+
+        project.solar.energy_recommendation = SimpleNamespace(
+            battery_recommendation=second_recommendation,
+        )
+
+        page.update_profitability()
+
+        assert page.payback_label.text() == "5.34 años"
+        assert page.npv_label.text() == "22,071.16 €"
+        assert page.irr_label.text() == "18.80 %"
+
     # ==================================================
     # Calculate
     # ==================================================
@@ -778,6 +984,7 @@ class TestEconomicsPage:
                 economic_npv_eur=260.10,
                 economic_irr_percent=6.80,
                 economic_payback_years=12.47,
+                economic_analysis_calculated=True,
             ),
         ]
 
@@ -807,6 +1014,153 @@ class TestEconomicsPage:
             "6.80 %",
             "12.47 años",
         ]
+
+    def test_battery_table_only_shows_selected_panel_count(
+        self,
+        app,
+    ):
+        project = self._create_project()
+
+        selected_battery = self._create_combined_recommendation(
+            capacity_kwh=8.3,
+        )
+
+        other_battery = self._create_combined_recommendation(
+            capacity_kwh=5.0,
+        )
+
+        project.solar.energy_recommendation = SimpleNamespace(
+            panel_count=15,
+            alternatives=(
+                SimpleNamespace(
+                    panel_count=15,
+                    battery_recommendation=selected_battery,
+                ),
+                SimpleNamespace(
+                    panel_count=10,
+                    battery_recommendation=other_battery,
+                ),
+            ),
+        )
+
+        page = EconomicsPage(project)
+        page.update_battery_analysis()
+
+        table = page.battery_table
+
+        assert table.rowCount() == 1
+        assert table.columnCount() == 10
+        assert table.item(0, 0).text() == "8.3 kWh"
+
+    def test_battery_table_clears_previous_recommendations(
+        self,
+        app,
+    ):
+        project = self._create_project()
+
+        project.solar.battery_recommendations = [
+            self._create_combined_recommendation(
+                capacity_kwh=8.3,
+            ),
+        ]
+
+        page = EconomicsPage(project)
+        page.update_battery_analysis()
+
+        assert page.battery_table.rowCount() == 1
+
+        project.solar.battery_recommendations = []
+
+        page.update_battery_analysis()
+
+        assert page.battery_table.rowCount() == 0
+        assert page.battery_table.columnCount() == 10
+
+    def test_battery_table_marks_uncalculated_economics_as_unavailable(
+        self,
+        app,
+    ):
+        project = self._create_project()
+
+        project.solar.battery_recommendations = [
+            BatteryRecommendation(
+                capacity_kwh=5.0,
+                max_charge_power_kw=5.0,
+                max_discharge_power_kw=5.0,
+                annual_consumption_kwh=1000.0,
+                annual_production_kwh=1200.0,
+                annual_surplus_kwh=500.0,
+                annual_export_kwh=100.0,
+                annual_grid_import_kwh=200.0,
+                annual_battery_charge_kwh=300.0,
+                annual_battery_discharge_kwh=250.0,
+                self_consumption_kwh=900.0,
+                self_sufficiency_percent=90.0,
+                equivalent_cycles=30.0,
+                annual_cost_with_battery_eur=320.0,
+                annual_additional_savings_eur=100.0,
+                incremental_battery_cost_eur=1500.0,
+                incremental_savings_eur=100.0,
+                marginal_savings_per_kwh=20.0,
+                economic_npv_eur=0.0,
+                economic_irr_percent=0.0,
+                economic_payback_years=float("inf"),
+                economic_analysis_calculated=False,
+            ),
+        ]
+
+        page = EconomicsPage(project)
+        page.update_battery_analysis()
+
+        table = page.battery_table
+
+        assert table.rowCount() == 1
+
+        # Los indicadores operativos siguen disponibles.
+        assert table.item(0, 0).text() == "5.0 kWh"
+        assert table.item(0, 1).text() == "320.00 €"
+
+        # No se presentan los valores predeterminados como resultados.
+        assert table.item(0, 7).text() == "N/D"
+        assert table.item(0, 8).text() == "N/D"
+        assert table.item(0, 9).text() == "N/D"
+
+    def test_battery_table_handles_non_finite_economic_results(
+        self,
+        app,
+    ):
+        project = self._create_project()
+
+        project.solar.battery_recommendations = [
+            BatteryRecommendation(
+                capacity_kwh=5.0,
+                max_charge_power_kw=5.0,
+                max_discharge_power_kw=5.0,
+                annual_consumption_kwh=1000.0,
+                annual_production_kwh=1200.0,
+                annual_surplus_kwh=500.0,
+                annual_export_kwh=100.0,
+                annual_grid_import_kwh=200.0,
+                annual_battery_charge_kwh=300.0,
+                annual_battery_discharge_kwh=250.0,
+                self_consumption_kwh=900.0,
+                self_sufficiency_percent=90.0,
+                equivalent_cycles=30.0,
+                economic_npv_eur=1200.0,
+                economic_irr_percent=float("nan"),
+                economic_payback_years=float("inf"),
+                economic_analysis_calculated=True,
+            ),
+        ]
+
+        page = EconomicsPage(project)
+        page.update_battery_analysis()
+
+        table = page.battery_table
+
+        assert table.item(0, 7).text() == "1,200.00 €"
+        assert table.item(0, 8).text() == "N/D"
+        assert table.item(0, 9).text() == "No recuperable"
 
     def test_refresh_battery_analysis_updates_table(
         self,
@@ -840,6 +1194,7 @@ class TestEconomicsPage:
                 economic_npv_eur=260.10,
                 economic_irr_percent=6.80,
                 economic_payback_years=12.47,
+                economic_analysis_calculated=True,
             ),
         ]
 
@@ -1156,4 +1511,214 @@ class TestEconomicsPage:
         assert not any(
             "8.3 kWh" in name
             for name in tab_names
+        )
+
+    def test_update_cash_flow_falls_back_to_economics_when_no_battery_cash_flow_is_valid(
+        self,
+        app,
+    ):
+        project = self._create_project()
+
+        economics = project.analyzer.economics_engine
+        economics.cash_flow = pd.DataFrame(
+            {
+                "year": [0, 1, 2],
+                "cash_flow": [-15000.0, 2000.0, 2100.0],
+                "cumulative_cash_flow": [
+                    -15000.0,
+                    -13000.0,
+                    -10900.0,
+                ],
+            }
+        )
+        economics.npv = 9999.0
+
+        no_battery = self._create_combined_recommendation(
+            capacity_kwh=0.0,
+            npv_eur=700.0,
+            cash_flows=(-8000.0, 900.0),
+            cumulative_cash_flows=(-8000.0,),
+        )
+
+        project.solar.energy_recommendation = SimpleNamespace(
+            panel_count=15,
+            alternatives=(
+                SimpleNamespace(
+                    panel_count=15,
+                    battery_recommendation=no_battery,
+                ),
+            ),
+        )
+
+        page = EconomicsPage(project)
+        page.update_cash_flow()
+
+        assert page.cash_flow_tabs.count() == 1
+        assert page.cash_flow_tabs.tabText(0) == (
+            "FV sin batería (VAN FV: 9,999.00 €)"
+        )
+
+        table = page.cash_flow_tabs.widget(0)
+
+        assert isinstance(table, QTableWidget)
+        assert table.rowCount() == 3
+
+        # Año
+        assert table.item(0, 0).text() == "0"
+        assert table.item(1, 0).text() == "1"
+        assert table.item(2, 0).text() == "2"
+
+        # Flujo de caja
+        assert table.item(0, 1).text() == "-15,000.00"
+        assert table.item(1, 1).text() == "2,000.00"
+        assert table.item(2, 1).text() == "2,100.00"
+
+        # Flujo acumulado
+        assert table.item(0, 2).text() == "-15,000.00"
+        assert table.item(1, 2).text() == "-13,000.00"
+        assert table.item(2, 2).text() == "-10,900.00"
+
+    @pytest.mark.parametrize(
+        "npv_eur",
+        [
+            float("nan"),
+            float("inf"),
+            float("-inf"),
+        ],
+    )
+    def test_update_cash_flow_handles_non_finite_solar_npv(
+        self,
+        app,
+        npv_eur,
+    ):
+        project = self._create_project()
+
+        no_battery = self._create_combined_recommendation(
+            capacity_kwh=0.0,
+            npv_eur=npv_eur,
+            cash_flows=(-8000.0, 900.0, 1000.0),
+            cumulative_cash_flows=(
+                -8000.0,
+                -7100.0,
+                -6100.0,
+            ),
+        )
+
+        battery = self._create_combined_recommendation(
+            capacity_kwh=8.3,
+            npv_eur=1500.0,
+            cash_flows=(-10000.0, 2000.0, 2500.0),
+            cumulative_cash_flows=(
+                -10000.0,
+                -8000.0,
+                -5500.0,
+            ),
+        )
+
+        project.solar.energy_recommendation = SimpleNamespace(
+            panel_count=15,
+            alternatives=(
+                SimpleNamespace(
+                    panel_count=15,
+                    battery_recommendation=no_battery,
+                ),
+                SimpleNamespace(
+                    panel_count=15,
+                    battery_recommendation=battery,
+                ),
+            ),
+        )
+
+        page = EconomicsPage(project)
+        page.update_cash_flow()
+
+        assert page.cash_flow_tabs.count() == 2
+
+        assert page.cash_flow_tabs.tabText(0) == (
+            "Batería 8.3 kWh (VAN combinado: 1,500.00 €)"
+        )
+
+        assert page.cash_flow_tabs.tabText(1) == (
+            "FV sin batería (VAN FV: N/D)"
+        )
+
+    def test_update_cash_flow_ignores_empty_solar_cash_flows(
+        self,
+        app,
+    ):
+        project = self._create_project()
+
+        economics = project.analyzer.economics_engine
+        economics.cash_flow = pd.DataFrame(
+            columns=[
+                "year",
+                "cash_flow",
+                "cumulative_cash_flow",
+            ]
+        )
+        economics.npv = 9999.0
+
+        no_battery = self._create_combined_recommendation(
+            capacity_kwh=0.0,
+            npv_eur=700.0,
+            cash_flows=(),
+            cumulative_cash_flows=(),
+        )
+
+        project.solar.energy_recommendation = SimpleNamespace(
+            panel_count=15,
+            alternatives=(
+                SimpleNamespace(
+                    panel_count=15,
+                    battery_recommendation=no_battery,
+                ),
+            ),
+        )
+
+        page = EconomicsPage(project)
+        page.update_cash_flow()
+
+        assert page.cash_flow_tabs.count() == 1
+        assert page.cash_flow_tabs.tabText(0) == (
+            "Sin alternativas viables"
+        )
+
+    def test_update_cash_flow_ignores_solar_cash_flow_with_missing_columns(
+        self,
+        app,
+    ):
+        project = self._create_project()
+
+        economics = project.analyzer.economics_engine
+        economics.cash_flow = pd.DataFrame(
+            {
+                "year": [0, 1, 2],
+                "cash_flow": [-15000.0, 2000.0, 2100.0],
+            }
+        )
+        economics.npv = 9999.0
+
+        no_battery = self._create_combined_recommendation(
+            capacity_kwh=0.0,
+            npv_eur=700.0,
+            cash_flows=(),
+            cumulative_cash_flows=(),
+        )
+
+        project.solar.energy_recommendation = SimpleNamespace(
+            panel_count=15,
+            alternatives=(
+                SimpleNamespace(
+                    panel_count=15,
+                    battery_recommendation=no_battery,
+                ),
+            ),
+        )
+
+        page = EconomicsPage(project)
+        page.update_cash_flow()
+
+        assert page.cash_flow_tabs.count() == 1
+        assert page.cash_flow_tabs.tabText(0) == (
+            "Sin alternativas viables"
         )
