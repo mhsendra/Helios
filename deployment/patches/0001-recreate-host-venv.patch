@@ -1,0 +1,13 @@
+diff --git a/pythonforandroid/build.py b/pythonforandroid/build.py
+index d88fdb1f..5c116e19 100644
+--- a/pythonforandroid/build.py
++++ b/pythonforandroid/build.py
+@@ -868,7 +868,7 @@ def run_pymodules_install(ctx, arch, modules, project_dir=None,
+     # Use our hostpython to create the virtualenv
+     host_python = sh.Command(ctx.hostpython)
+     with current_directory(join(ctx.build_dir)):
+-        shprint(host_python, '-m', 'venv', 'venv')
++        shprint(host_python, '-m', 'venv', '--clear', 'venv')
+ 
+         # Prepare base environment and upgrade pip:
+         base_env = dict(copy.copy(os.environ))

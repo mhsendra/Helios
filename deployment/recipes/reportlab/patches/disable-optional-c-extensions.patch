@@ -1,0 +1,12 @@
+--- a/setup.py
++++ b/setup.py
+@@ -467,6 +467,9 @@
+         shutil.copyfile(fn,pjoin(PACKAGE_DIR['reportlab'],dst))
+         reportlab_files.append(dst)
+     get_fonts(PACKAGE_DIR, reportlab_files)
++    # Android: use ReportLab's Python implementations instead of
++    # optional C extensions incompatible with modern Python.
++    EXT_MODULES = []
+     try:
+         setup(
+             name="reportlab",

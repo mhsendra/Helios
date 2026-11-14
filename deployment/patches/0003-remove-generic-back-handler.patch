@@ -1,0 +1,37 @@
+diff --git a/pythonforandroid/bootstraps/qt/build/src/main/java/org/kivy/android/PythonActivity.java b/pythonforandroid/bootstraps/qt/build/src/main/java/org/kivy/android/PythonActivity.java
+index 01bdd968..e6fb2cbf 100644
+--- a/pythonforandroid/bootstraps/qt/build/src/main/java/org/kivy/android/PythonActivity.java
++++ b/pythonforandroid/bootstraps/qt/build/src/main/java/org/kivy/android/PythonActivity.java
+@@ -5,10 +5,7 @@ import android.content.Intent;
+ import android.content.pm.PackageManager;
+ import android.os.Bundle;
+ import android.os.PowerManager;
+-import android.os.SystemClock;
+ import android.util.Log;
+-import android.view.KeyEvent;
+-import android.widget.Toast;
+ import java.io.File;
+ import java.util.ArrayList;
+ import java.util.Collections;
+@@ -118,21 +115,6 @@ public class PythonActivity extends QtActivity {
+         android.os.Process.killProcess(android.os.Process.myPid());
+     }
+ 
+-    long lastBackClick = SystemClock.elapsedRealtime();
+-
+-    @Override
+-    public boolean onKeyDown(int keyCode, KeyEvent event) {
+-        // If it wasn't the Back key or there's no web page history, bubble up to the default
+-        // system behavior (probably exit the activity)
+-        if (SystemClock.elapsedRealtime() - lastBackClick > 2000) {
+-            lastBackClick = SystemClock.elapsedRealtime();
+-            Toast.makeText(this, "Click again to close the app", Toast.LENGTH_LONG).show();
+-            return true;
+-        }
+-
+-        lastBackClick = SystemClock.elapsedRealtime();
+-        return super.onKeyDown(keyCode, event);
+-    }
+ 
+     // ----------------------------------------------------------------------------
+     // Listener interface for onNewIntent

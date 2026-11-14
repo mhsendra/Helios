@@ -1,0 +1,102 @@
+--- a/src/reportlab/__init__.py
++++ b/src/reportlab/__init__.py
+@@ -5,7 +5,9 @@
+ __version__=Version
+ __date__='20160217'
+ 
+-import sys, os, imp
++import sys, os
++import importlib.util
++import importlib.machinery
+ 
+ if sys.version_info[0:2]!=(2, 7) and sys.version_info<(3, 3):
+     raise ImportError("""reportlab requires Python 2.7+ or 3.3+; 3.0-3.2 are not supported.""")
+@@ -36,8 +38,20 @@
+ 
+ def _fake_import(fn,name):
+     if os.path.isfile(fn):
+-        with open(fn,'rb') as f:
+-            imp.load_source(name,fn,f)
++        loader = importlib.machinery.SourceFileLoader(name, fn)
++        spec = importlib.util.spec_from_loader(name, loader)
++        module = importlib.util.module_from_spec(spec)
++        previous = sys.modules.get(name)
++        sys.modules[name] = module
++        try:
++            loader.exec_module(module)
++        except BaseException:
++            if previous is None:
++                sys.modules.pop(name, None)
++            else:
++                sys.modules[name] = previous
++            raise
++        return module
+ 
+ try:
+     import reportlab_mods   #application specific modifications can be anywhere on python path
+--- a/src/reportlab/lib/utils.py
++++ b/src/reportlab/lib/utils.py
+@@ -4,8 +4,10 @@
+ __version__='3.3.0'
+ __doc__='''Gazillions of miscellaneous internal utility functions'''
+ 
+-import os, sys, imp, time, types
+-from base64 import decodestring as base64_decodestring, encodestring as base64_encodestring
++import os, sys, time, types
++import importlib.machinery
++import importlib.util
++from base64 import decodebytes as base64_decodestring, encodebytes as base64_encodestring
+ from reportlab import isPy3
+ from reportlab.lib.logger import warnOnce
+ from reportlab.lib.rltempfile import get_rl_tempfile, get_rl_tempdir, _rl_getuid
+@@ -712,19 +714,25 @@
+     return time_mktime((((d>>9)&0x7f)+1980,(d>>5)&0xf,d&0x1f,(s>>11)&0x1f,(s>>5)&0x3f,(s&0x1f)<<1,0,0,0))
+ 
+ def rl_get_module(name,dir):
+-    if name in sys.modules:
+-        om = sys.modules[name]
+-        del sys.modules[name]
+-    else:
+-        om = None
++    previous = sys.modules.pop(name, None)
+     try:
+-        f = None
+-        try:
+-            f, p, desc= imp.find_module(name,[dir])
+-            return imp.load_module(name,f,p,desc)
+-        except:
++        try:
++            spec = importlib.machinery.PathFinder.find_spec(name, [dir])
++            if spec is None or spec.loader is None:
++                raise ImportError(name)
++
++            module = importlib.util.module_from_spec(spec)
++            sys.modules[name] = module
++            try:
++                spec.loader.exec_module(module)
++            except BaseException:
++                sys.modules.pop(name, None)
++                raise
++
++            return module
++        except Exception:
+             if isCompactDistro():
+-                #attempt a load from inside the zip archive
++                # attempt a load from inside the zip archive
+                 import zipimport
+                 dir = _startswith_rl(dir)
+                 dir = (dir=='.' or not dir) and _archive or os.path.join(_archive,dir.replace('/',os.sep))
+@@ -732,9 +740,10 @@
+                 return zi.load_module(name)
+             raise ImportError('%s[%s]' % (name,dir))
+     finally:
+-        if om: sys.modules[name] = om
+-        del om
+-        if f: f.close()
++        if previous is not None:
++            sys.modules[name] = previous
++        else:
++            sys.modules.pop(name, None)
+ 
+ def _isPILImage(im):
+     try:
