@@ -614,3 +614,50 @@ class TestMainWindow:
 
         assert not self.window.load_item.isDisabled()
         assert self.window.solar_optimization_item.isDisabled()
+
+    def test_navigation_tree_matches_permissions_after_state_changes(self):
+        items = (
+            self.window.configuration_item,
+            self.window.load_item,
+            self.window.solar_optimization_item,
+            self.window.validation_item,
+            self.window.statistics_item,
+            self.window.profiles_item,
+            self.window.comparisons_item,
+            self.window.indicators_item,
+            self.window.tariffs_item,
+            self.window.solar_item,
+            self.window.economics_item,
+            self.window.reports_item,
+            self.window.charts_item,
+        )
+
+        def assert_navigation_synced():
+            for item in items:
+                page_id = item.text(0)
+                expected_enabled = self.window.is_page_enabled(page_id)
+
+                assert item.isDisabled() is (not expected_enabled), page_id
+
+        assert_navigation_synced()
+
+        self.window.set_solar_configured(True)
+        assert_navigation_synced()
+
+        self.window.set_project_loaded(True)
+        assert_navigation_synced()
+
+        self.window.set_solar_optimized(True)
+        assert_navigation_synced()
+
+        self.window.set_solar_production_calculated(True)
+        assert_navigation_synced()
+
+        self.window.set_economics_calculated(True)
+        assert_navigation_synced()
+
+        self.window.set_solar_optimized(False)
+        assert_navigation_synced()
+
+        self.window.set_project_loaded(False)
+        assert_navigation_synced()

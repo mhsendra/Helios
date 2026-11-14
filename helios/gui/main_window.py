@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
 
+from helios.gui.navigation_state import is_page_available
 from helios.gui.widgets.load_data_page import LoadDataPage
 from helios.gui.widgets.validation_page import ValidationPage
 from helios.gui.widgets.statistics_page import StatisticsPage
@@ -292,59 +293,18 @@ class MainWindow(QMainWindow):
             and self.solar_production_calculated
         )
 
-        available = self.economics_calculated
-
-        enabled_color = QColor("#FFFFFF")
-        disabled_color = QColor("#808080")
-
-        self.reports_item.setDisabled(not available)
-        self.reports_item.setForeground(
-            0,
-            enabled_color if available else disabled_color,
-        )
+        self.refresh_navigation_state()
 
         self.reports_page.set_solar_report_available(
-            available
+            self.economics_calculated
         )
 
     def set_project_loaded(self, loaded: bool):
+        """Actualiza la carga del proyecto e invalida resultados solares."""
 
-        self.project_loaded = loaded
+        self.project_loaded = bool(loaded)
 
-        enabled_color = QColor("#FFFFFF")
-        disabled_color = QColor("#808080")
-
-        items = [
-            self.validation_item,
-            self.statistics_item,
-            self.profiles_item,
-            self.comparisons_item,
-            self.indicators_item,
-            self.tariffs_item,
-            self.solar_item,
-            self.reports_item,
-            self.charts_item,
-        ]
-
-        for item in items:
-
-            item.setDisabled(not loaded)
-
-            item.setForeground(
-                0,
-                enabled_color if loaded else disabled_color,
-            )
-
-        # La optimización solar requiere que los datos
-        # hayan sido cargados y analizados.
-        self.solar_optimization_item.setDisabled(not loaded)
-        self.solar_optimization_item.setForeground(
-            0,
-            enabled_color if loaded else disabled_color,
-        )
-
-        # Cargar un nuevo dataset invalida
-        # cualquier cálculo solar anterior.
+        # Cargar nuevos datos invalida los cálculos solares anteriores.
         self.set_solar_optimized(False)
 
     def set_solar_production_calculated(
@@ -353,21 +313,11 @@ class MainWindow(QMainWindow):
     ):
         """Actualiza el estado de la producción fotovoltaica."""
 
-        if calculated and not self.solar_optimized:
-            calculated = False
-
-        self.solar_production_calculated = calculated
-
-        enabled_color = QColor("#FFFFFF")
-        disabled_color = QColor("#808080")
-
-        self.economics_item.setDisabled(not calculated)
-        self.economics_item.setForeground(
-            0,
-            enabled_color if calculated else disabled_color,
+        self.solar_production_calculated = bool(
+            calculated and self.solar_optimized
         )
 
-        if not calculated:
+        if not self.solar_production_calculated:
             self.economics_calculated = False
 
         self.set_economics_calculated(
@@ -375,33 +325,16 @@ class MainWindow(QMainWindow):
         )
 
     def set_solar_configured(self, configured: bool):
-
-        self.solar_configured = configured
-
-        enabled_color = QColor("#FFFFFF")
-        disabled_color = QColor("#808080")
-
-        self.load_item.setDisabled(not configured)
-        self.load_item.setForeground(
-            0,
-            enabled_color if configured else disabled_color,
-        )
+        """Actualiza el estado de la configuración fotovoltaica."""
+        self.solar_configured = bool(configured)
+        self.refresh_navigation_state()
 
     def set_solar_optimized(self, optimized: bool):
         """Actualiza el estado tras la optimización fotovoltaica."""
 
-        self.solar_optimized = optimized
+        self.solar_optimized = bool(optimized)
 
-        enabled_color = QColor("#FFFFFF")
-        disabled_color = QColor("#808080")
-
-        self.solar_item.setDisabled(not optimized)
-        self.solar_item.setForeground(
-            0,
-            enabled_color if optimized else disabled_color,
-        )
-
-        if not optimized:
+        if not self.solar_optimized:
             self.economics_calculated = False
             self.set_solar_production_calculated(False)
 
@@ -423,13 +356,10 @@ class MainWindow(QMainWindow):
     # Slots
     # ==================================================
 
-    def is_page_enabled(self, page_id: str) -> bool:
-        """Comprueba si una página está habilitada."""
+    def refresh_navigation_state(self) -> None:
+        """Sincroniza el árbol de escritorio con los permisos del modelo."""
 
-        if page_id not in self.page_map:
-            return False
-
-        for item in (
+        navigation_items = (
             self.configuration_item,
             self.load_item,
             self.solar_optimization_item,
@@ -443,11 +373,31 @@ class MainWindow(QMainWindow):
             self.economics_item,
             self.reports_item,
             self.charts_item,
-        ):
-            if item.text(0) == page_id:
-                return not item.isDisabled()
+        )
 
-        return False
+        enabled_color = QColor("#FFFFFF")
+        disabled_color = QColor("#808080")
+
+        for item in navigation_items:
+            enabled = self.is_page_enabled(item.text(0))
+
+            item.setDisabled(not enabled)
+            item.setForeground(
+                0,
+                enabled_color if enabled else disabled_color,
+            )
+
+    def is_page_enabled(self, page_id: str) -> bool:
+        """Consulta los permisos de navegación independientes de la interfaz."""
+
+        return is_page_available(
+            page_id,
+            solar_configured=self.solar_configured,
+            project_loaded=self.project_loaded,
+            solar_optimized=self.solar_optimized,
+            solar_production_calculated=self.solar_production_calculated,
+            economics_calculated=self.economics_calculated,
+        )
 
     def navigate_to(self, page_id: str) -> None:
         """Navega a una página habilitada mediante su identificador."""
