@@ -9,8 +9,7 @@ description = "Herramienta de análisis, simulación y optimización energética
 requires-python = ">=3.11"
 dependencies = [
     "pandas>=2.3",
-    "numpy>=2.5",
-    "numpy-financial>=1.0",
+    "numpy>=2.3",
     "matplotlib>=3.10",
     "requests>=2.32",
     "PySide6>=6.9",
@@ -22,3 +21,12 @@ dependencies = [
 where = ["."]
 include = ["helios", "helios.*"]
 exclude = ["tests", "tests.*"]
+
+[tool.setuptools.package-data]
+helios = ["resources/**/*.json", "resources/**/*.png", "resources/**/*.ttf"]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=8.0",
+    "numpy-financial>=1.0",
+]

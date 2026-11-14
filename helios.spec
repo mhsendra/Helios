@@ -17,8 +17,8 @@ if not resources_path.is_dir():
     )
 
 datas = [
-    (str(assets_path), "assets"),
     (str(resources_path), "helios/resources"),
+    (str(assets_path / "android"), "assets/android"),
 ]
 
 a = Analysis(

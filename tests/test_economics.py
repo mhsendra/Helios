@@ -2564,8 +2564,7 @@ class TestEconomicsIRR:
             raise ValueError("IRR calculation failed")
 
         monkeypatch.setattr(
-            npf,
-            "irr",
+            "helios.core.economics.calculate_irr",
             failing_irr,
         )
 
@@ -2588,8 +2587,7 @@ class TestEconomicsIRR:
         )
 
         monkeypatch.setattr(
-            npf,
-            "irr",
+            "helios.core.economics.calculate_irr",
             lambda cash_flows: None,
         )
 

@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-import numpy_financial as npf
+from helios.core.financial import irr as calculate_irr
 
 @dataclass(frozen=True)
 class BatteryEconomicConfiguration:
@@ -208,7 +208,7 @@ class BatteryEconomicModel:
         # IRR
         # -------------------------------------------------------------
         try:
-            irr = npf.irr(cash_flows)
+            irr = calculate_irr(cash_flows)
 
             irr_percent = (
                 float(irr) * 100
@@ -404,7 +404,7 @@ class BatteryEconomicModel:
         )
 
         try:
-            irr = npf.irr(cash_flows)
+            irr = calculate_irr(cash_flows)
 
             irr_percent = (
                 float(irr) * 100

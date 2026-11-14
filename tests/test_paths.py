@@ -30,9 +30,9 @@ def test_resource_path_uses_project_root_in_development(
         raising=False,
     )
 
-    result = paths.resource_path("assets/Logo_Helios.png")
+    result = paths.resource_path("helios/resources/images/Logo_Helios.png")
 
-    assert result == project_root / "assets" / "Logo_Helios.png"
+    assert result == project_root / "helios" / "resources" / "images" / "Logo_Helios.png"
 
 
 def test_resource_path_uses_pyinstaller_directory(monkeypatch):
@@ -41,9 +41,9 @@ def test_resource_path_uses_pyinstaller_directory(monkeypatch):
     monkeypatch.setattr(paths.sys, "frozen", True, raising=False)
     monkeypatch.setattr(paths.sys, "_MEIPASS", str(bundle_directory), raising=False)
 
-    result = paths.resource_path("assets/Logo_Helios.png")
+    result = paths.resource_path("helios/resources/images/Logo_Helios.png")
 
-    assert result == bundle_directory / "assets" / "Logo_Helios.png"
+    assert result == bundle_directory / "helios" / "resources" / "images" / "Logo_Helios.png"
 
 
 def test_resource_path_preserves_absolute_paths(tmp_path):

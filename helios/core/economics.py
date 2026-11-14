@@ -1,5 +1,5 @@
 import pandas as pd
-import numpy_financial as npf
+from helios.core.financial import irr as calculate_irr
 from dataclasses import dataclass
 from helios.core.economic_scenarios import EconomicScenarioResult
 from helios.core.consumption_scenario import ConsumptionScenario
@@ -802,7 +802,7 @@ class EconomicsEngine:
         # TIR
         # --------------------------------------------------
 
-        irr = npf.irr(
+        irr = calculate_irr(
             cash_flow
         )
 
@@ -1187,7 +1187,7 @@ class EconomicsEngine:
             )
 
         try:
-            irr = npf.irr(cash_flows)
+            irr = calculate_irr(cash_flows)
         except Exception as exc:
             raise RuntimeError(
                 "Unable to calculate IRR."

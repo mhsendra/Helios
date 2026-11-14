@@ -46,10 +46,10 @@ HELIOS_BORDER = "#d0d7de"
 HELIOS_BACKGROUND = "#f8f9fa"
 HELIOS_KPI_BACKGROUND = "#f4f6f8"
 
-HELIOS_ASSETS = resource_path("assets")
+HELIOS_RESOURCES = resource_path("helios/resources")
 
-HELIOS_LOGO = HELIOS_ASSETS / "Logo_Helios.png"
-HELIOS_FONTS = HELIOS_ASSETS / "fonts"
+HELIOS_LOGO = HELIOS_RESOURCES / "images" / "Logo_Helios.png"
+HELIOS_FONTS = HELIOS_RESOURCES / "fonts"
 
 pdfmetrics.registerFont(
     TTFont(
