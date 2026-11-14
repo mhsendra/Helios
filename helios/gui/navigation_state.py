@@ -19,6 +19,29 @@ ALL_PAGES = frozenset({
     "Informes",
 }) | ANALYSIS_PAGES
 
+INPUT_PAGES = (
+    "Configuración solar",
+    "Cargar datos",
+    "Optimización solar",
+)
+
+RESULT_PAGES = (
+    "Validación",
+    "Estadísticas",
+    "Perfiles",
+    "Comparativas",
+    "Indicadores",
+    "Tarifas",
+    "Solar",
+    "Economía",
+    "Informes",
+    "Gráficas",
+)
+
+NAVIGATION_SECTIONS = {
+    "Entrada de datos": INPUT_PAGES,
+    "Resultados": RESULT_PAGES,
+}
 
 def is_page_available(
     page_id: str,

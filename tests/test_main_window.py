@@ -3,7 +3,9 @@ from unittest.mock import MagicMock
 from PySide6.QtWidgets import QApplication, QTreeWidgetItem
 
 from helios.gui.main_window import MainWindow
+from helios.gui.navigation_state import NAVIGATION_SECTIONS
 from helios.core.economics_configuration import EconomicsConfiguration
+from helios.gui.main_window import MainWindow
 
 
 class TestMainWindow:
@@ -661,3 +663,216 @@ class TestMainWindow:
 
         self.window.set_project_loaded(False)
         assert_navigation_synced()
+
+    def test_android_layout_initialization(self, monkeypatch):
+        """Comprueba la estructura inicial de la interfaz Android."""
+
+        monkeypatch.setattr(
+            "helios.gui.main_window.is_android",
+            lambda: True,
+        )
+
+        window = MainWindow(self.economics_configuration)
+
+        try:
+            assert window.centralWidget() is not None
+            assert window.android_navigation_container is not None
+            assert window.android_navigation_layout is not None
+
+            assert window.pages.count() == 13
+            assert window.navigation.isHidden()
+            assert window.pages.currentWidget() is window.solar_config_page
+
+            # Cabecera Android.
+            assert window.android_header is not None
+            assert window.android_title.text() == "HELIOS"
+
+            # Selector de secciones.
+            selector = window.android_section_selector
+
+            assert selector.count() == 2
+            assert selector.itemText(0) == "Entrada de datos"
+            assert selector.itemText(1) == "Resultados"
+            assert selector.currentIndex() == 0
+
+            # Todos los botones de navegación Android.
+
+            expected_pages = tuple(
+                page_id
+                for section_pages in NAVIGATION_SECTIONS.values()
+                for page_id in section_pages
+            )
+
+            assert len(expected_pages) == 13
+            assert tuple(window.android_navigation_buttons) == expected_pages
+
+            for page_id in expected_pages:
+                button = window.android_navigation_buttons[page_id]
+
+                assert button.text() == page_id
+                assert button.parent() is window.android_navigation_container
+
+                # Inicialmente solo se muestra Entrada de datos.
+                if page_id in NAVIGATION_SECTIONS["Entrada de datos"]:
+                    assert not button.isHidden()
+                else:
+                    assert button.isHidden()
+
+        finally:
+            window.close()
+
+    def test_android_navigation_buttons(self, monkeypatch):
+        """Comprueba la navegación Android y sus permisos."""
+
+        monkeypatch.setattr(
+            "helios.gui.main_window.is_android",
+            lambda: True,
+        )
+
+        window = MainWindow(self.economics_configuration)
+
+        try:
+            buttons = window.android_navigation_buttons
+
+            # 1. Estado inicial.
+            assert window.pages.currentWidget() is window.solar_config_page
+
+            assert buttons["Configuración solar"].isEnabled()
+            assert not buttons["Cargar datos"].isEnabled()
+            assert not buttons["Optimización solar"].isEnabled()
+
+            # Una página deshabilitada no permite navegar.
+            buttons["Cargar datos"].click()
+
+            assert window.pages.currentWidget() is window.solar_config_page
+
+            # 2. Configuración solar completada.
+            window.set_solar_configured(True)
+
+            assert buttons["Cargar datos"].isEnabled()
+            assert not buttons["Optimización solar"].isEnabled()
+
+            buttons["Cargar datos"].click()
+
+            assert window.pages.currentWidget() is window.load_page
+
+            # 3. Proyecto cargado.
+            window.set_project_loaded(True)
+
+            assert buttons["Optimización solar"].isEnabled()
+
+            buttons["Optimización solar"].click()
+
+            assert window.pages.currentWidget() is window.solar_optimization_page
+
+            # 4. Regreso a la configuración solar.
+            buttons["Configuración solar"].click()
+
+            assert window.pages.currentWidget() is window.solar_config_page
+
+        finally:
+            window.close()
+
+    def test_android_section_selector(self, monkeypatch):
+        """Comprueba el cambio entre secciones Android."""
+
+        monkeypatch.setattr(
+            "helios.gui.main_window.is_android",
+            lambda: True,
+        )
+
+        window = MainWindow(self.economics_configuration)
+
+        try:
+            selector = window.android_section_selector
+            buttons = window.android_navigation_buttons
+
+            input_pages = (
+                "Configuración solar",
+                "Cargar datos",
+                "Optimización solar",
+            )
+
+            result_pages = (
+                "Validación",
+                "Estadísticas",
+                "Perfiles",
+                "Comparativas",
+                "Indicadores",
+                "Tarifas",
+                "Solar",
+                "Economía",
+                "Informes",
+                "Gráficas",
+            )
+
+            initial_page = window.pages.currentWidget()
+
+            # Cambiamos a Resultados.
+            selector.setCurrentText("Resultados")
+
+            for page_id in input_pages:
+                assert buttons[page_id].isHidden()
+
+            for page_id in result_pages:
+                assert not buttons[page_id].isHidden()
+
+            # El cambio de sección no modifica la página.
+            assert window.pages.currentWidget() is initial_page
+
+            # Regresamos a Entrada de datos.
+            selector.setCurrentText("Entrada de datos")
+
+            for page_id in input_pages:
+                assert not buttons[page_id].isHidden()
+
+            for page_id in result_pages:
+                assert buttons[page_id].isHidden()
+
+            assert window.pages.currentWidget() is initial_page
+
+        finally:
+            window.close()
+
+    def test_android_section_sync_with_navigation(self, monkeypatch):
+        """Sincroniza la sección Android con la página seleccionada."""
+
+        monkeypatch.setattr(
+            "helios.gui.main_window.is_android",
+            lambda: True,
+        )
+
+        window = MainWindow(self.economics_configuration)
+
+        try:
+            selector = window.android_section_selector
+
+            # Estado inicial.
+            assert selector.currentText() == "Entrada de datos"
+            assert window.pages.currentWidget() is window.solar_config_page
+
+            # Habilitamos el acceso a las páginas de resultados.
+            window.set_solar_configured(True)
+            window.set_project_loaded(True)
+
+            # Navegar a Resultados actualiza el selector.
+            window.navigate_to("Estadísticas")
+
+            assert window.pages.currentWidget() is window.statistics_page
+            assert selector.currentText() == "Resultados"
+
+            # Regresar a Entrada de datos actualiza el selector.
+            window.navigate_to("Configuración solar")
+
+            assert window.pages.currentWidget() is window.solar_config_page
+            assert selector.currentText() == "Entrada de datos"
+
+            # Una página bloqueada no debe cambiar la sección.
+            window.set_project_loaded(False)
+            window.navigate_to("Estadísticas")
+
+            assert window.pages.currentWidget() is window.solar_config_page
+            assert selector.currentText() == "Entrada de datos"
+
+        finally:
+            window.close()

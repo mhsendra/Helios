@@ -1,7 +1,10 @@
 import pytest
 
-from helios.gui.navigation_state import is_page_available
-
+from helios.gui.navigation_state import (
+    ALL_PAGES,
+    NAVIGATION_SECTIONS,
+    is_page_available,
+)
 
 DEFAULT_STATE = {
     "solar_configured": False,
@@ -62,3 +65,21 @@ def test_page_availability(page_id, changes, expected):
     state = {**DEFAULT_STATE, **changes}
 
     assert is_page_available(page_id, **state) is expected
+
+def test_navigation_sections_cover_all_pages_without_duplicates():
+    """Cada página debe pertenecer a una única sección."""
+
+    pages = [
+        page_id
+        for section_pages in NAVIGATION_SECTIONS.values()
+        for page_id in section_pages
+    ]
+
+    assert len(pages) == len(ALL_PAGES)
+    assert len(pages) == len(set(pages))
+    assert set(pages) == ALL_PAGES
+
+    assert tuple(NAVIGATION_SECTIONS) == (
+        "Entrada de datos",
+        "Resultados",
+    )

@@ -7,12 +7,17 @@ from PySide6.QtWidgets import (
     QStackedWidget,
     QSplitter,
     QPushButton,
+    QVBoxLayout,
+    QLabel,
+    QComboBox,
+    QPushButton,
 )
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
 
-from helios.gui.navigation_state import is_page_available
+from helios.utils.platform import is_android
+from helios.gui.navigation_state import (is_page_available, NAVIGATION_SECTIONS)
 from helios.gui.widgets.load_data_page import LoadDataPage
 from helios.gui.widgets.validation_page import ValidationPage
 from helios.gui.widgets.statistics_page import StatisticsPage
@@ -80,31 +85,118 @@ class MainWindow(QMainWindow):
     # ==================================================
 
     def create_layout(self):
+        """Construye la interfaz según la plataforma."""
+        if is_android():
+            self.create_android_layout()
+        else:
+            self.create_desktop_layout()
 
+    def create_desktop_layout(self):
+        """Construye la interfaz de escritorio existente."""
         central = QWidget()
-
         self.setCentralWidget(central)
 
         layout = QHBoxLayout(central)
 
         splitter = QSplitter(Qt.Horizontal)
-
         layout.addWidget(splitter)
 
         self.navigation = QTreeWidget()
-
         self.navigation.setHeaderHidden(True)
-
         self.navigation.setMinimumWidth(240)
-
         splitter.addWidget(self.navigation)
 
         self.pages = QStackedWidget()
-
         splitter.addWidget(self.pages)
 
         splitter.setStretchFactor(0, 1)
         splitter.setStretchFactor(1, 5)
+
+    def create_android_layout(self):
+        """Construye el contenedor principal de Android."""
+        central = QWidget()
+        self.setCentralWidget(central)
+
+        layout = QVBoxLayout(central)
+
+        # Contenedor reservado para la navegación Android.
+        self.android_navigation_container = QWidget()
+        self.android_navigation_layout = QVBoxLayout(
+            self.android_navigation_container
+        )
+
+        # Cabecera principal de Android.
+        self.android_header = QWidget()
+        header_layout = QVBoxLayout(self.android_header)
+
+        self.android_title = QLabel("HELIOS")
+        self.android_title.setAlignment(Qt.AlignCenter)
+
+        header_layout.addWidget(self.android_title)
+
+        self.android_section_selector = QComboBox()
+        self.android_section_selector.addItems([
+            "Entrada de datos",
+            "Resultados",
+        ])
+
+        header_layout.addWidget(self.android_section_selector)
+
+        self.android_navigation_layout.addWidget(self.android_header)
+
+        self.android_section_selector.currentTextChanged.connect(
+            self.change_android_section
+        )
+
+        # Botones de navegación Android.
+        self.android_navigation_buttons = {}
+
+        for section, page_ids in NAVIGATION_SECTIONS.items():
+            for page_id in page_ids:
+                button = QPushButton(page_id)
+
+                button.clicked.connect(
+                    lambda checked=False, page=page_id: self.navigate_to(page)
+                )
+
+                self.android_navigation_buttons[page_id] = button
+                self.android_navigation_layout.addWidget(button)
+
+                # Inicialmente solo mostramos Entrada de datos.
+                button.setVisible(section == "Entrada de datos")
+
+        layout.addWidget(self.android_navigation_container)
+
+        # Las páginas existentes se siguen reutilizando.
+        self.pages = QStackedWidget()
+        layout.addWidget(self.pages, 1)
+
+        # Adaptador temporal para build_navigation().
+        self.navigation = QTreeWidget()
+        self.navigation.setHeaderHidden(True)
+        self.navigation.hide()
+
+    def change_android_section(self, section: str):
+        """Muestra los botones de la sección Android seleccionada."""
+
+        if section not in NAVIGATION_SECTIONS:
+            return
+
+        visible_pages = NAVIGATION_SECTIONS[section]
+
+        for page_id, button in self.android_navigation_buttons.items():
+            button.setVisible(page_id in visible_pages)
+
+    def sync_android_section(self, page_id: str):
+        """Sincroniza el selector Android con la página activa."""
+
+        if not hasattr(self, "android_section_selector"):
+            return
+
+        for section, page_ids in NAVIGATION_SECTIONS.items():
+            if page_id in page_ids:
+                self.android_section_selector.setCurrentText(section)
+                return
 
     # ==================================================
     # Páginas
@@ -387,6 +479,12 @@ class MainWindow(QMainWindow):
                 enabled_color if enabled else disabled_color,
             )
 
+        # Sincroniza también los botones de navegación Android.
+        for page_id, button in getattr(
+            self, "android_navigation_buttons", {}
+        ).items():
+            button.setEnabled(self.is_page_enabled(page_id))
+
     def is_page_enabled(self, page_id: str) -> bool:
         """Consulta los permisos de navegación independientes de la interfaz."""
 
@@ -417,6 +515,8 @@ class MainWindow(QMainWindow):
             self.solar_page.load_saved_configuration()
 
         self.pages.setCurrentWidget(page)
+
+        self.sync_android_section(page_id)
 
     def change_page(self, item):
         """Adaptador de navegación para el árbol de escritorio."""
