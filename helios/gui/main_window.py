@@ -423,14 +423,39 @@ class MainWindow(QMainWindow):
     # Slots
     # ==================================================
 
-    def change_page(self, item):
+    def is_page_enabled(self, page_id: str) -> bool:
+        """Comprueba si una página está habilitada."""
 
-        if item.isDisabled():
+        if page_id not in self.page_map:
+            return False
+
+        for item in (
+            self.configuration_item,
+            self.load_item,
+            self.solar_optimization_item,
+            self.validation_item,
+            self.statistics_item,
+            self.profiles_item,
+            self.comparisons_item,
+            self.indicators_item,
+            self.tariffs_item,
+            self.solar_item,
+            self.economics_item,
+            self.reports_item,
+            self.charts_item,
+        ):
+            if item.text(0) == page_id:
+                return not item.isDisabled()
+
+        return False
+
+    def navigate_to(self, page_id: str) -> None:
+        """Navega a una página habilitada mediante su identificador."""
+
+        if not self.is_page_enabled(page_id):
             return
 
-        page = self.page_map.get(
-            item.text(0)
-        )
+        page = self.page_map.get(page_id)
 
         if page is None:
             return
@@ -442,6 +467,14 @@ class MainWindow(QMainWindow):
             self.solar_page.load_saved_configuration()
 
         self.pages.setCurrentWidget(page)
+
+    def change_page(self, item):
+        """Adaptador de navegación para el árbol de escritorio."""
+
+        if item.isDisabled():
+            return
+
+        self.navigate_to(item.text(0))
 
     def update_project_pages(self):
 

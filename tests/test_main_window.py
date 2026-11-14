@@ -363,6 +363,36 @@ class TestMainWindow:
     ):
 
         assert not self.window.configuration_item.isDisabled()
+
+    def test_navigate_to_enabled_page(self):
+        """Permite navegar directamente a una página habilitada."""
+
+        self.window.navigate_to("Configuración solar")
+
+        assert (
+            self.window.pages.currentWidget()
+            is self.window.solar_config_page
+        )
+
+
+    def test_navigate_to_disabled_page(self):
+        """Impide navegar directamente a una página bloqueada."""
+
+        initial_page = self.window.pages.currentWidget()
+
+        self.window.navigate_to("Economía")
+
+        assert self.window.pages.currentWidget() is initial_page
+
+
+    def test_navigate_to_unknown_page(self):
+        """Ignora identificadores de página desconocidos."""
+
+        initial_page = self.window.pages.currentWidget()
+
+        self.window.navigate_to("Página inexistente")
+
+        assert self.window.pages.currentWidget() is initial_page
     
     # ==================================================
     # Actualización de páginas
