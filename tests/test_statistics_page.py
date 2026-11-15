@@ -2,7 +2,15 @@ from unittest.mock import MagicMock
 
 import pandas as pd
 
-from PySide6.QtWidgets import QApplication
+import pytest
+
+from PySide6.QtCore import Qt
+
+from PySide6.QtWidgets import (
+    QApplication,
+    QFormLayout,
+    QScrollArea,
+)
 
 from helios.gui.widgets.statistics_page import StatisticsPage
 
@@ -478,3 +486,118 @@ class TestStatisticsPage:
             self.page.min_time_label.text()
             == "11/03/2024 04:15"
         )
+
+    @pytest.mark.parametrize(
+        "android",
+        [False, True],
+        ids=["windows", "android"],
+    )
+    def test_form_layout_by_platform(
+        self,
+        monkeypatch,
+        android,
+    ):
+        monkeypatch.setattr(
+            "helios.gui.widgets.statistics_page.is_android",
+            lambda: android,
+        )
+
+        page = StatisticsPage(self.project)
+
+        forms = page.findChildren(QFormLayout)
+
+        assert len(forms) == 1
+
+        form = forms[0]
+
+        assert form.rowCount() == 7
+
+        expected_policy = (
+            QFormLayout.WrapAllRows
+            if android
+            else QFormLayout.DontWrapRows
+        )
+
+        assert form.rowWrapPolicy() == expected_policy
+
+    @pytest.mark.parametrize(
+        "android",
+        [False, True],
+        ids=["windows", "android"],
+    )
+    def test_scroll_area_by_platform(
+        self,
+        monkeypatch,
+        android,
+    ):
+        monkeypatch.setattr(
+            "helios.gui.widgets.statistics_page.is_android",
+            lambda: android,
+        )
+
+        page = StatisticsPage(self.project)
+
+        if android:
+            assert isinstance(page.scroll_area, QScrollArea)
+            assert page.scroll_area.widgetResizable()
+
+            assert (
+                page.scroll_area.horizontalScrollBarPolicy()
+                == Qt.ScrollBarAlwaysOff
+            )
+
+            assert page.scroll_area.widget() is not None
+
+        else:
+            assert page.scroll_area is None
+
+    def test_android_vertical_scrolling(
+        self,
+        monkeypatch,
+    ):
+        monkeypatch.setattr(
+            "helios.gui.widgets.statistics_page.is_android",
+            lambda: True,
+        )
+
+        page = StatisticsPage(self.project)
+        page.resize(400, 600)
+        page.show()
+
+        # Forzar contenido suficientemente alto.
+        page.max_time_label.setText(
+            "Fecha de máximo consumo con información "
+            "adicional del período analizado. " * 30
+        )
+        page.max_time_label.setWordWrap(True)
+
+        self.app.processEvents()
+
+        scroll = page.scroll_area
+        content = scroll.widget()
+
+        viewport_width = scroll.viewport().width()
+        content_width = content.width()
+
+        vertical = scroll.verticalScrollBar()
+        horizontal = scroll.horizontalScrollBar()
+
+        print(
+            "\nGeometría StatisticsPage Android:",
+            f"pagina={page.width()}",
+            f"viewport={viewport_width}",
+            f"contenido={content_width}",
+            f"scroll_vertical={vertical.maximum()}",
+            f"scroll_horizontal={horizontal.maximum()}",
+        )
+
+        assert content_width <= viewport_width
+        assert vertical.maximum() > 0
+        assert horizontal.maximum() == 0
+
+        vertical.setValue(vertical.maximum())
+        self.app.processEvents()
+
+        assert vertical.value() == vertical.maximum()
+
+        page.close()
