@@ -1,13 +1,27 @@
+from PySide6.QtCore import Qt
+
 from PySide6.QtWidgets import (
     QWidget,
     QLabel,
     QVBoxLayout,
     QGroupBox,
-    QFormLayout
+    QFormLayout,
+    QScrollArea,
 )
 
+from helios.utils.platform import is_android
 
 class IndicatorsPage(QWidget):
+
+    def create_form_layout(self, group):
+        form = QFormLayout(group)
+
+        if is_android():
+            form.setRowWrapPolicy(
+                QFormLayout.WrapAllRows
+            )
+
+        return form
 
     def __init__(self, project):
 
@@ -16,7 +30,26 @@ class IndicatorsPage(QWidget):
         self.project = project
         self.analyzer = project.analyzer
 
-        layout = QVBoxLayout(self)
+        if is_android():
+            outer_layout = QVBoxLayout(self)
+            outer_layout.setContentsMargins(0, 0, 0, 0)
+
+            scroll = QScrollArea()
+            scroll.setWidgetResizable(True)
+            scroll.setHorizontalScrollBarPolicy(
+                Qt.ScrollBarAlwaysOff
+            )
+
+            content = QWidget()
+            layout = QVBoxLayout(content)
+
+            scroll.setWidget(content)
+            outer_layout.addWidget(scroll)
+
+            self.scroll_area = scroll
+        else:
+            layout = QVBoxLayout(self)
+            self.scroll_area = None
 
         title = QLabel("<h2>Indicadores</h2>")
         layout.addWidget(title)
@@ -26,7 +59,7 @@ class IndicatorsPage(QWidget):
         # ==========================================================
 
         consumption_group = QGroupBox("Indicadores de consumo")
-        consumption_layout = QFormLayout(consumption_group)
+        consumption_layout = self.create_form_layout(consumption_group)
 
         self.kpi_total_year_label = QLabel("-")
         self.kpi_avg_month_label = QLabel("-")
@@ -47,7 +80,7 @@ class IndicatorsPage(QWidget):
         # ==========================================================
 
         stability_group = QGroupBox("Indicadores de estabilidad")
-        stability_layout = QFormLayout(stability_group)
+        stability_layout = self.create_form_layout(stability_group)
 
         self.kpi_stable_month_label = QLabel("-")
         self.kpi_volatile_month_label = QLabel("-")
@@ -66,7 +99,7 @@ class IndicatorsPage(QWidget):
         # ==========================================================
 
         anomalies_group = QGroupBox("Indicadores de anomalías")
-        anomalies_layout = QFormLayout(anomalies_group)
+        anomalies_layout = self.create_form_layout(anomalies_group)
 
         self.kpi_anomaly_count_label = QLabel("-")
         self.kpi_worst_anomaly_label = QLabel("-")
@@ -83,7 +116,7 @@ class IndicatorsPage(QWidget):
         # ==========================================================
 
         trends_group = QGroupBox("Indicadores de tendencia")
-        trends_layout = QFormLayout(trends_group)
+        trends_layout = self.create_form_layout(trends_group)
 
         self.kpi_year_trend_label = QLabel("-")
         self.kpi_max_increase_label = QLabel("-")

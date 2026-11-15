@@ -1,9 +1,12 @@
+import pytest
+
 from unittest.mock import MagicMock
 
-from PySide6.QtWidgets import QApplication
+from PySide6.QtCore import Qt
+
+from PySide6.QtWidgets import QApplication, QFormLayout, QGroupBox, QScrollArea
 
 from helios.gui.widgets.indicators_page import IndicatorsPage
-
 
 class TestIndicatorsPage:
 
@@ -466,3 +469,128 @@ class TestIndicatorsPage:
         self.page.update_data()
 
         assert self.page.kpi_total_year_label.text() == "-"
+
+    @pytest.mark.parametrize(
+        "android",
+        [False, True],
+        ids=["windows", "android"],
+    )
+    def test_form_layouts_by_platform(
+        self,
+        monkeypatch,
+        android,
+    ):
+        monkeypatch.setattr(
+            "helios.gui.widgets.indicators_page.is_android",
+            lambda: android,
+        )
+
+        page = IndicatorsPage(self.project)
+
+        groups = page.findChildren(QGroupBox)
+
+        assert len(groups) == 4
+
+        expected_rows = [5, 4, 3, 3]
+
+        for group, rows in zip(groups, expected_rows):
+            form = group.layout()
+
+            assert isinstance(form, QFormLayout)
+            assert form.rowCount() == rows
+
+            expected_policy = (
+                QFormLayout.WrapAllRows
+                if android
+                else QFormLayout.DontWrapRows
+            )
+
+            assert form.rowWrapPolicy() == expected_policy
+
+    @pytest.mark.parametrize(
+        "android",
+        [False, True],
+        ids=["windows", "android"],
+    )
+    def test_scroll_area_by_platform(
+        self,
+        monkeypatch,
+        android,
+    ):
+        monkeypatch.setattr(
+            "helios.gui.widgets.indicators_page.is_android",
+            lambda: android,
+        )
+
+        page = IndicatorsPage(self.project)
+
+        if android:
+            assert isinstance(page.scroll_area, QScrollArea)
+            assert page.scroll_area.widgetResizable()
+
+            assert (
+                page.scroll_area.horizontalScrollBarPolicy()
+                == Qt.ScrollBarAlwaysOff
+            )
+
+            content = page.scroll_area.widget()
+            assert content is not None
+
+            groups = content.findChildren(QGroupBox)
+            assert len(groups) == 4
+
+        else:
+            assert page.scroll_area is None
+
+            groups = page.findChildren(QGroupBox)
+            assert len(groups) == 4
+
+    def test_android_vertical_scrolling(
+        self,
+        monkeypatch,
+    ):
+        monkeypatch.setattr(
+            "helios.gui.widgets.indicators_page.is_android",
+            lambda: True,
+        )
+
+        page = IndicatorsPage(self.project)
+        page.resize(400, 600)
+        page.show()
+
+        # Simular un indicador con texto largo.
+        page.kpi_worst_anomaly_label.setText(
+            "Anomalía detectada con desviación "
+            "significativa durante el período analizado. " * 20
+        )
+        page.kpi_worst_anomaly_label.setWordWrap(True)
+
+        self.app.processEvents()
+
+        scroll = page.scroll_area
+
+        viewport_width = scroll.viewport().width()
+        content_width = scroll.widget().width()
+
+        vertical = scroll.verticalScrollBar()
+        horizontal = scroll.horizontalScrollBar()
+
+        print(
+            "\nGeometría IndicatorsPage Android:",
+            f"pagina={page.width()}",
+            f"viewport={viewport_width}",
+            f"contenido={content_width}",
+            f"scroll_vertical={vertical.maximum()}",
+            f"scroll_horizontal={horizontal.maximum()}",
+        )
+
+        assert content_width <= viewport_width
+        assert vertical.maximum() > 0
+        assert horizontal.maximum() == 0
+
+        vertical.setValue(vertical.maximum())
+        self.app.processEvents()
+
+        assert vertical.value() == vertical.maximum()
+
+        page.close()
