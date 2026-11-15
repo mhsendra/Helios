@@ -12,9 +12,13 @@ from PySide6.QtWidgets import (
     QTableWidget,
     QAbstractItemView,
     QTableWidgetItem,
+    QScrollArea,
+    QHeaderView,
 )
 
 import pandas as pd
+
+from helios.utils.platform import is_android
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
@@ -102,25 +106,64 @@ class SolarPage(QWidget):
 
     def build_configuration_tab(self):
 
-        layout = QVBoxLayout(
-            self.configuration_tab
-        )
+        if is_android():
 
-        layout.addWidget(
-            self.create_installation_group()
-        )
+            scroll = QScrollArea(
+                self.configuration_tab
+            )
 
-        layout.addWidget(
-            self.create_location_group()
-        )
+            scroll.setWidgetResizable(True)
+            scroll.setFrameShape(
+                QScrollArea.NoFrame
+            )
 
-        layout.addStretch()
+            container = QWidget()
+            content_layout = QVBoxLayout(container)
+
+            content_layout.addWidget(
+                self.create_installation_group()
+            )
+
+            content_layout.addWidget(
+                self.create_location_group()
+            )
+
+            content_layout.addStretch()
+
+            scroll.setWidget(container)
+
+            layout = QVBoxLayout(
+                self.configuration_tab
+            )
+
+            layout.addWidget(scroll)
+
+        else:
+
+            layout = QVBoxLayout(
+                self.configuration_tab
+            )
+
+            layout.addWidget(
+                self.create_installation_group()
+            )
+
+            layout.addWidget(
+                self.create_location_group()
+            )
+
+            layout.addStretch()
 
     def create_installation_group(self):
 
         group = QGroupBox("Instalación")
 
         layout = QFormLayout(group)
+
+        if is_android():
+            layout.setRowWrapPolicy(
+                QFormLayout.WrapAllRows
+            )
 
         self.pv_technology_combobox = QComboBox()
         self.system_losses_spinbox = QDoubleSpinBox()
@@ -167,6 +210,11 @@ class SolarPage(QWidget):
         group = QGroupBox("Ubicación")
 
         layout = QFormLayout(group)
+
+        if is_android():
+            layout.setRowWrapPolicy(
+                QFormLayout.WrapAllRows
+            )
 
         self.latitude_spinbox = QDoubleSpinBox()
         self.longitude_spinbox = QDoubleSpinBox()
@@ -329,23 +377,61 @@ class SolarPage(QWidget):
 
     def build_production_tab(self):
 
-        layout = QVBoxLayout(
-            self.production_tab
-        )
+        if is_android():
 
-        layout.addWidget(
-            self.create_production_status_group()
-        )
+            scroll = QScrollArea(
+                self.production_tab
+            )
 
-        layout.addWidget(
-            self.create_production_summary_group()
-        )
+            scroll.setWidgetResizable(True)
+            scroll.setFrameShape(
+                QScrollArea.NoFrame
+            )
 
-        layout.addWidget(
-            self.create_monthly_production_group()
-        )
+            container = QWidget()
+            content_layout = QVBoxLayout(container)
 
-        layout.addStretch()
+            content_layout.addWidget(
+                self.create_production_status_group()
+            )
+
+            content_layout.addWidget(
+                self.create_production_summary_group()
+            )
+
+            content_layout.addWidget(
+                self.create_monthly_production_group()
+            )
+
+            content_layout.addStretch()
+
+            scroll.setWidget(container)
+
+            layout = QVBoxLayout(
+                self.production_tab
+            )
+
+            layout.addWidget(scroll)
+
+        else:
+
+            layout = QVBoxLayout(
+                self.production_tab
+            )
+
+            layout.addWidget(
+                self.create_production_status_group()
+            )
+
+            layout.addWidget(
+                self.create_production_summary_group()
+            )
+
+            layout.addWidget(
+                self.create_monthly_production_group()
+            )
+
+            layout.addStretch()
 
     def create_production_status_group(self):
 
@@ -807,17 +893,52 @@ class SolarPage(QWidget):
 
     def build_balance_tab(self):
 
-        layout = QVBoxLayout(
-            self.balance_tab
-        )
+        if is_android():
 
-        layout.addWidget(
-            self.create_balance_summary_group()
-        )
+            scroll = QScrollArea(
+                self.balance_tab
+            )
 
-        layout.addWidget(
-            self.create_balance_table()
-        )
+            scroll.setWidgetResizable(True)
+            scroll.setFrameShape(
+                QScrollArea.NoFrame
+            )
+
+            container = QWidget()
+            content_layout = QVBoxLayout(container)
+
+            content_layout.addWidget(
+                self.create_balance_summary_group()
+            )
+
+            content_layout.addWidget(
+                self.create_balance_table()
+            )
+
+            content_layout.addStretch()
+
+            scroll.setWidget(container)
+
+            layout = QVBoxLayout(
+                self.balance_tab
+            )
+
+            layout.addWidget(scroll)
+
+        else:
+
+            layout = QVBoxLayout(
+                self.balance_tab
+            )
+
+            layout.addWidget(
+                self.create_balance_summary_group()
+            )
+
+            layout.addWidget(
+                self.create_balance_table()
+            )
+
 
     def create_balance_summary_group(self):
 
@@ -926,9 +1047,24 @@ class SolarPage(QWidget):
             True
         )
 
-        table.horizontalHeader().setStretchLastSection(
-            True
-        )
+        header = table.horizontalHeader()
+
+        if is_android():
+            header.setStretchLastSection(False)
+
+            for column in range(4):
+                header.setSectionResizeMode(
+                    column,
+                    QHeaderView.ResizeToContents
+                )
+
+            table.setHorizontalScrollBarPolicy(
+                Qt.ScrollBarAsNeeded
+            )
+
+        else:
+            header.setStretchLastSection(True)
+
 
         table.horizontalHeader().setDefaultAlignment(
             Qt.AlignCenter
@@ -1129,15 +1265,17 @@ class SolarPage(QWidget):
 
     def build_statistics_tab(self):
 
-        layout = QVBoxLayout(
-            self.statistics_tab
-        )
-
         group = QGroupBox(
             "Indicadores técnicos"
         )
 
         form = QFormLayout(group)
+
+        if is_android():
+            form.setRowWrapPolicy(
+                QFormLayout.WrapAllRows
+            )
+
 
         self.stats_annual_production_label = (
             QLabel("-")
@@ -1238,9 +1376,39 @@ class SolarPage(QWidget):
             self.stats_total_consumption_label,
         )
 
-        layout.addWidget(group)
+        if is_android():
 
-        layout.addStretch()
+            scroll = QScrollArea(
+                self.statistics_tab
+            )
+
+            scroll.setWidgetResizable(True)
+            scroll.setFrameShape(
+                QScrollArea.NoFrame
+            )
+
+            container = QWidget()
+            content_layout = QVBoxLayout(container)
+
+            content_layout.addWidget(group)
+            content_layout.addStretch()
+
+            scroll.setWidget(container)
+
+            layout = QVBoxLayout(
+                self.statistics_tab
+            )
+
+            layout.addWidget(scroll)
+
+        else:
+
+            layout = QVBoxLayout(
+                self.statistics_tab
+            )
+
+            layout.addWidget(group)
+            layout.addStretch()
 
     def update_statistics(self):
 

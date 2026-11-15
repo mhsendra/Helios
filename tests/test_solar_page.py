@@ -1,8 +1,18 @@
 import pandas as pd
 
+import pytest
+
 from unittest.mock import MagicMock
 
-from PySide6.QtWidgets import QApplication
+from PySide6.QtCore import Qt
+
+from PySide6.QtWidgets import (
+    QApplication,
+    QFormLayout,
+    QGroupBox,
+    QScrollArea,
+    QHeaderView,
+)
 
 from helios.gui.widgets.solar_page import SolarPage
 
@@ -184,6 +194,117 @@ class TestSolarPage:
             self.page.mounting_place_combobox.itemData(1)
             == "building"
         )
+
+    @pytest.mark.parametrize("android", [False, True])
+    def test_configuration_layout_by_platform(
+        self,
+        monkeypatch,
+        android,
+    ):
+
+        monkeypatch.setattr(
+            "helios.gui.widgets.solar_page.is_android",
+            lambda: android,
+        )
+
+        page = SolarPage(self.project)
+
+        try:
+            scroll_areas = (
+                page.configuration_tab.findChildren(
+                    QScrollArea
+                )
+            )
+
+            if android:
+                assert len(scroll_areas) == 1
+            else:
+                assert len(scroll_areas) == 0
+
+            groups = (
+                page.configuration_tab.findChildren(
+                    QGroupBox
+                )
+            )
+
+            assert len(groups) == 2
+
+            expected_policy = (
+                QFormLayout.WrapAllRows
+                if android
+                else QFormLayout.DontWrapRows
+            )
+
+            for group in groups:
+                form = group.layout()
+
+                assert isinstance(
+                    form,
+                    QFormLayout
+                )
+
+                assert (
+                    form.rowWrapPolicy()
+                    == expected_policy
+                )
+
+            assert (
+                page.installed_power_spinbox.value()
+                == 1.0
+            )
+
+        finally:
+            page.close()
+
+    def test_android_configuration_vertical_scrolling(
+        self,
+        monkeypatch,
+    ):
+        """Comprueba el desplazamiento vertical en Android."""
+
+        monkeypatch.setattr(
+            "helios.gui.widgets.solar_page.is_android",
+            lambda: True,
+        )
+
+        page = SolarPage(self.project)
+
+        try:
+            page.resize(400, 350)
+            page.show()
+
+            QApplication.processEvents()
+
+            scroll = (
+                page.configuration_tab.findChild(
+                    QScrollArea
+                )
+            )
+
+            assert scroll is not None
+
+            scrollbar = scroll.verticalScrollBar()
+
+            assert (
+                scroll.widget().height()
+                > scroll.viewport().height()
+            )
+
+            assert scrollbar.maximum() > 0
+
+            scrollbar.setValue(
+                scrollbar.maximum()
+            )
+
+            QApplication.processEvents()
+
+            assert (
+                scrollbar.value()
+                == scrollbar.maximum()
+            )
+
+        finally:
+            page.close()
 
     # ==================================================
     # Estado de producción
@@ -1455,3 +1576,325 @@ class TestSolarPage:
         self.page.load_saved_configuration()
 
         assert self.page.installed_power_spinbox.value() == 8.10
+
+    @pytest.mark.parametrize("android", [False, True])
+    def test_production_layout_by_platform(
+        self,
+        monkeypatch,
+        android,
+    ):
+
+        monkeypatch.setattr(
+            "helios.gui.widgets.solar_page.is_android",
+            lambda: android,
+        )
+
+        page = SolarPage(self.project)
+
+        try:
+            scroll_areas = (
+                page.production_tab.findChildren(
+                    QScrollArea
+                )
+            )
+
+            assert len(scroll_areas) == (
+                1 if android else 0
+            )
+
+            groups = (
+                page.production_tab.findChildren(
+                    QGroupBox
+                )
+            )
+
+            assert len(groups) == 3
+
+            assert (
+                page.monthly_production_table.columnCount()
+                == 2
+            )
+
+            assert (
+                page.calculate_production_button.text()
+                == "Calcular producción"
+            )
+
+        finally:
+            page.close()
+
+    def test_android_monthly_production_table_geometry(
+        self,
+        monkeypatch,
+    ):
+        """Inspecciona la geometría de la tabla mensual en Android."""
+
+        monkeypatch.setattr(
+            "helios.gui.widgets.solar_page.is_android",
+            lambda: True,
+        )
+
+        page = SolarPage(self.project)
+
+        try:
+            page.monthly_production_table.setRowCount(13)
+
+            page.resize(400, 350)
+            page.show()
+
+            QApplication.processEvents()
+
+            table = page.monthly_production_table
+            scroll = page.production_tab.findChild(
+                QScrollArea
+            )
+
+            print(
+                "\nTabla mensual:",
+                f"altura={table.height()}",
+                f"viewport={table.viewport().height()}",
+                f"filas={table.rowCount()}",
+                f"altura_filas={sum(table.rowHeight(i) for i in range(13))}",
+                f"scroll_tabla={table.verticalScrollBar().maximum()}",
+                f"scroll_pagina={scroll.verticalScrollBar().maximum()}",
+            )
+
+            assert table.rowCount() == 13
+            assert scroll is not None
+
+        finally:
+            page.close()
+
+    @pytest.mark.parametrize("android", [False, True])
+    def test_balance_layout_by_platform(
+        self,
+        monkeypatch,
+        android,
+    ):
+        """Comprueba la estructura de Balance según la plataforma."""
+
+        monkeypatch.setattr(
+            "helios.gui.widgets.solar_page.is_android",
+            lambda: android,
+        )
+
+        page = SolarPage(self.project)
+
+        try:
+            scroll_areas = page.balance_tab.findChildren(
+                QScrollArea
+            )
+
+            assert len(scroll_areas) == (
+                1 if android else 0
+            )
+
+            groups = page.balance_tab.findChildren(
+                QGroupBox
+            )
+
+            assert len(groups) == 2
+
+            assert page.balance_table.columnCount() == 4
+
+        finally:
+            page.close()
+
+    @pytest.mark.parametrize("android", [False, True])
+    def test_balance_table_columns_by_platform(
+        self,
+        monkeypatch,
+        android,
+    ):
+        """Comprueba el ajuste de columnas de Balance."""
+
+        monkeypatch.setattr(
+            "helios.gui.widgets.solar_page.is_android",
+            lambda: android,
+        )
+
+        page = SolarPage(self.project)
+
+        try:
+            table = page.balance_table
+            header = table.horizontalHeader()
+
+            assert table.columnCount() == 4
+
+            if android:
+                assert not header.stretchLastSection()
+
+                for column in range(4):
+                    assert (
+                        header.sectionResizeMode(column)
+                        == QHeaderView.ResizeToContents
+                    )
+
+                assert (
+                    table.horizontalScrollBarPolicy()
+                    == Qt.ScrollBarAsNeeded
+                )
+
+            else:
+                assert header.stretchLastSection()
+
+        finally:
+            page.close()
+
+    def test_android_balance_table_horizontal_scrolling(
+        self,
+        monkeypatch,
+    ):
+        """Comprueba el desplazamiento horizontal de Balance."""
+
+        monkeypatch.setattr(
+            "helios.gui.widgets.solar_page.is_android",
+            lambda: True,
+        )
+
+        page = SolarPage(self.project)
+
+        try:
+            page.resize(400, 600)
+
+            # Balance está deshabilitada inicialmente.
+            page.set_results_available(True)
+
+            page.tabs.setCurrentWidget(
+                page.balance_tab
+            )
+
+            page.show()
+            QApplication.processEvents()
+
+            table = page.balance_table
+            scrollbar = table.horizontalScrollBar()
+
+            total_width = sum(
+                table.columnWidth(column)
+                for column in range(table.columnCount())
+            )
+
+            assert table.isVisible()
+            assert total_width > table.viewport().width()
+            assert scrollbar.maximum() > 0
+
+            scrollbar.setValue(scrollbar.maximum())
+            QApplication.processEvents()
+
+            assert scrollbar.value() == scrollbar.maximum()
+
+        finally:
+            page.close()
+
+    @pytest.mark.parametrize("android", [False, True])
+    def test_statistics_layout_by_platform(
+        self,
+        monkeypatch,
+        android,
+    ):
+        """Comprueba la estructura de Estadísticas."""
+
+        monkeypatch.setattr(
+            "helios.gui.widgets.solar_page.is_android",
+            lambda: android,
+        )
+
+        page = SolarPage(self.project)
+
+        try:
+            scroll_areas = (
+                page.statistics_tab.findChildren(
+                    QScrollArea
+                )
+            )
+
+            assert len(scroll_areas) == (
+                1 if android else 0
+            )
+
+            groups = (
+                page.statistics_tab.findChildren(
+                    QGroupBox
+                )
+            )
+
+            assert len(groups) == 1
+
+            form = groups[0].layout()
+
+            assert isinstance(
+                form,
+                QFormLayout
+            )
+
+            expected_policy = (
+                QFormLayout.WrapAllRows
+                if android
+                else QFormLayout.DontWrapRows
+            )
+
+            assert (
+                form.rowWrapPolicy()
+                == expected_policy
+            )
+
+            assert form.rowCount() == 11
+
+        finally:
+            page.close()
+
+    def test_android_statistics_vertical_scrolling(
+        self,
+        monkeypatch,
+    ):
+        """Comprueba el desplazamiento vertical de Estadísticas."""
+
+        monkeypatch.setattr(
+            "helios.gui.widgets.solar_page.is_android",
+            lambda: True,
+        )
+
+        page = SolarPage(self.project)
+
+        try:
+            page.set_results_available(True)
+
+            page.tabs.setCurrentWidget(
+                page.statistics_tab
+            )
+
+            page.resize(400, 350)
+            page.show()
+
+            QApplication.processEvents()
+
+            scroll = page.statistics_tab.findChild(
+                QScrollArea
+            )
+
+            assert scroll is not None
+            assert scroll.isVisible()
+
+            scrollbar = scroll.verticalScrollBar()
+
+            assert (
+                scroll.widget().height()
+                > scroll.viewport().height()
+            )
+
+            assert scrollbar.maximum() > 0
+
+            scrollbar.setValue(
+                scrollbar.maximum()
+            )
+
+            QApplication.processEvents()
+
+            assert (
+                scrollbar.value()
+                == scrollbar.maximum()
+            )
+
+        finally:
+            page.close()
