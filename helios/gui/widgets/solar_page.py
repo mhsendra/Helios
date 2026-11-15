@@ -441,6 +441,11 @@ class SolarPage(QWidget):
 
         layout = QFormLayout(group)
 
+        if is_android():
+            layout.setRowWrapPolicy(
+                QFormLayout.WrapAllRows
+            )
+
         self.source_label = QLabel("-")
         self.database_label = QLabel("-")
         self.reference_year_label = QLabel("-")
@@ -488,6 +493,11 @@ class SolarPage(QWidget):
         group = QGroupBox("Resumen")
 
         layout = QFormLayout(group)
+
+        if is_android():
+            layout.setRowWrapPolicy(
+                QFormLayout.WrapAllRows
+            )
 
         self.production_annual_label = QLabel("-")
         self.production_specific_label = QLabel("-")
@@ -947,6 +957,11 @@ class SolarPage(QWidget):
         )
 
         layout = QFormLayout(group)
+
+        if is_android():
+            layout.setRowWrapPolicy(
+                QFormLayout.WrapAllRows
+            )
 
         self.balance_total_consumption_label = (
             QLabel("-")

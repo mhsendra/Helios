@@ -1898,3 +1898,48 @@ class TestSolarPage:
 
         finally:
             page.close()
+
+    @pytest.mark.parametrize(
+        "android",
+        [False, True],
+        ids=["windows", "android"],
+    )
+    @pytest.mark.parametrize(
+        "method_name, expected_rows",
+        [
+            ("create_production_status_group", 6),
+            ("create_production_summary_group", 3),
+            ("create_balance_summary_group", 6),
+        ],
+    )
+    def test_production_balance_forms_by_platform(
+        self,
+        monkeypatch,
+        android,
+        method_name,
+        expected_rows,
+    ):
+        monkeypatch.setattr(
+            "helios.gui.widgets.solar_page.is_android",
+            lambda: android,
+        )
+
+        page = SolarPage(self.project)
+
+        try:
+            group = getattr(page, method_name)()
+            form = group.layout()
+
+            assert isinstance(form, QFormLayout)
+
+            expected_policy = (
+                QFormLayout.WrapAllRows
+                if android
+                else QFormLayout.DontWrapRows
+            )
+
+            assert form.rowWrapPolicy() == expected_policy
+            assert form.rowCount() == expected_rows
+
+        finally:
+            page.close()
