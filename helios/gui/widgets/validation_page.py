@@ -1,10 +1,14 @@
+from PySide6.QtCore import Qt
+
 from PySide6.QtWidgets import (
     QWidget,
     QLabel,
     QVBoxLayout,
-    QFormLayout
+    QFormLayout,
+    QScrollArea,
 )
 
+from helios.utils.platform import is_android
 
 class ValidationPage(QWidget):
 
@@ -14,12 +18,36 @@ class ValidationPage(QWidget):
 
         self.project = project
 
-        layout = QVBoxLayout(self)
+        if is_android():
+            outer_layout = QVBoxLayout(self)
+            outer_layout.setContentsMargins(0, 0, 0, 0)
+
+            scroll = QScrollArea()
+            scroll.setWidgetResizable(True)
+            scroll.setHorizontalScrollBarPolicy(
+                Qt.ScrollBarAlwaysOff
+            )
+
+            content = QWidget()
+            layout = QVBoxLayout(content)
+
+            scroll.setWidget(content)
+            outer_layout.addWidget(scroll)
+
+            self.scroll_area = scroll
+        else:
+            layout = QVBoxLayout(self)
+            self.scroll_area = None
 
         title = QLabel("<h2>Validación del proyecto</h2>")
         layout.addWidget(title)
 
         form = QFormLayout()
+
+        if is_android():
+            form.setRowWrapPolicy(
+                QFormLayout.WrapAllRows
+            )
 
         self.quality_label = QLabel("-")
         self.coverage_label = QLabel("-")
