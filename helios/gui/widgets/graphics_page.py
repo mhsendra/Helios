@@ -5,7 +5,10 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QGridLayout,
     QGroupBox,
+    QScrollArea,
 )
+
+from helios.utils.platform import is_android
 
 
 class GraphicsPage(QWidget):
@@ -16,7 +19,20 @@ class GraphicsPage(QWidget):
 
         self.project = project
 
-        layout = QVBoxLayout(self)
+        if is_android():
+            outer_layout = QVBoxLayout(self)
+
+            self.scroll_area = QScrollArea()
+            self.scroll_area.setWidgetResizable(True)
+
+            content = QWidget()
+            layout = QVBoxLayout(content)
+
+            self.scroll_area.setWidget(content)
+            outer_layout.addWidget(self.scroll_area)
+
+        else:
+            layout = QVBoxLayout(self)
 
         # ==================================================
         # Título
@@ -54,35 +70,25 @@ class GraphicsPage(QWidget):
             "Perfil estacional"
         )
 
-        profiles_layout.addWidget(
-            self.hourly_button,
-            0,
-            0
-        )
+        if is_android():
+            # Android: botones en una sola columna.
+            for row, button in enumerate([
+                self.hourly_button,
+                self.weekday_button,
+                self.workday_weekend_button,
+                self.monthly_profile_button,
+                self.seasonal_button,
+            ]):
+                profiles_layout.addWidget(button, row, 0)
 
-        profiles_layout.addWidget(
-            self.weekday_button,
-            0,
-            1
-        )
+        else:
+            # Windows: mantener las dos columnas originales.
+            profiles_layout.addWidget(self.hourly_button, 0, 0)
+            profiles_layout.addWidget(self.weekday_button, 0, 1)
+            profiles_layout.addWidget(self.workday_weekend_button, 1, 0)
+            profiles_layout.addWidget(self.monthly_profile_button, 1, 1)
+            profiles_layout.addWidget(self.seasonal_button, 2, 0)
 
-        profiles_layout.addWidget(
-            self.workday_weekend_button,
-            1,
-            0
-        )
-
-        profiles_layout.addWidget(
-            self.monthly_profile_button,
-            1,
-            1
-        )
-
-        profiles_layout.addWidget(
-            self.seasonal_button,
-            2,
-            0
-        )
 
         profiles_group.setLayout(
             profiles_layout
@@ -110,23 +116,17 @@ class GraphicsPage(QWidget):
             "Comparativa anual"
         )
 
-        comparisons_layout.addWidget(
-            self.monthly_comparison_button,
-            0,
-            0
-        )
-
-        comparisons_layout.addWidget(
-            self.weekly_comparison_button,
-            0,
-            1
-        )
-
-        comparisons_layout.addWidget(
-            self.yearly_comparison_button,
-            1,
-            0
-        )
+        if is_android():
+            for row, button in enumerate([
+                self.monthly_comparison_button,
+                self.weekly_comparison_button,
+                self.yearly_comparison_button,
+            ]):
+                comparisons_layout.addWidget(button, row, 0)
+        else:
+            comparisons_layout.addWidget(self.monthly_comparison_button, 0, 0)
+            comparisons_layout.addWidget(self.weekly_comparison_button, 0, 1)
+            comparisons_layout.addWidget(self.yearly_comparison_button, 1, 0)
 
         comparisons_group.setLayout(
             comparisons_layout
@@ -152,17 +152,12 @@ class GraphicsPage(QWidget):
             "Variación semanal"
         )
 
-        variations_layout.addWidget(
-            self.monthly_variation_button,
-            0,
-            0
-        )
-
-        variations_layout.addWidget(
-            self.weekly_variation_button,
-            0,
-            1
-        )
+        if is_android():
+            variations_layout.addWidget(self.monthly_variation_button, 0, 0)
+            variations_layout.addWidget(self.weekly_variation_button, 1, 0)
+        else:
+            variations_layout.addWidget(self.monthly_variation_button, 0, 0)
+            variations_layout.addWidget(self.weekly_variation_button, 0, 1)
 
         variations_group.setLayout(
             variations_layout

@@ -6,15 +6,11 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLineEdit,
     QFileDialog,
-    QMessageBox,
-    QGroupBox,
-    QFormLayout,
-    QDoubleSpinBox,
-    QComboBox,
-    QSpinBox,
 )
 
 from pathlib import Path
+
+from helios.utils.platform import is_android
 
 class LoadDataPage(QWidget):
 
@@ -29,7 +25,10 @@ class LoadDataPage(QWidget):
 
         layout.addWidget(QLabel("Archivo de consumo"))
 
-        row = QHBoxLayout()
+        if is_android():
+            row = QVBoxLayout()
+        else:
+            row = QHBoxLayout()
 
         self.path_edit = QLineEdit()
         self.path_edit.setReadOnly(True)

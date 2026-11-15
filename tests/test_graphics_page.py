@@ -1,13 +1,6 @@
 import pytest
 
-from PySide6.QtWidgets import QApplication
-
-from helios.gui.widgets.graphics_page import GraphicsPage
-
-
-import pytest
-
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QGridLayout, QScrollArea
 
 from helios.gui.widgets.graphics_page import GraphicsPage
 
@@ -148,6 +141,79 @@ class TestGraphicsPage:
 
         assert page.monthly_variation_button is not None
         assert page.weekly_variation_button is not None
+
+    @pytest.mark.parametrize("android", [False, True])
+    def test_layout_by_platform(self, app, monkeypatch, android):
+        """Comprueba la disposición de los grupos en cada plataforma."""
+
+        monkeypatch.setattr(
+            "helios.gui.widgets.graphics_page.is_android",
+            lambda: android,
+        )
+
+        _, page = self.create_page()
+
+        try:
+            if android:
+                assert isinstance(page.scroll_area, QScrollArea)
+                content = page.scroll_area.widget()
+                layout = content.layout()
+            else:
+                assert not hasattr(page, "scroll_area")
+                layout = page.layout()
+
+            expected_columns = 1 if android else 2
+
+            # Los tres grupos deben conservarse.
+            groups = [
+                layout.itemAt(1).widget(),
+                layout.itemAt(2).widget(),
+                layout.itemAt(3).widget(),
+            ]
+
+            for group in groups:
+                grid = group.layout()
+
+                assert isinstance(grid, QGridLayout)
+                assert grid.columnCount() == expected_columns
+
+            # Comprobar la posición de los botones.
+            profiles_grid = groups[0].layout()
+
+            if android:
+                assert profiles_grid.getItemPosition(1)[:2] == (1, 0)
+            else:
+                assert profiles_grid.getItemPosition(1)[:2] == (0, 1)
+
+        finally:
+            page.close()
+
+    def test_android_vertical_scrolling(self, app, monkeypatch):
+        """Comprueba el desplazamiento vertical en Android."""
+
+        monkeypatch.setattr(
+            "helios.gui.widgets.graphics_page.is_android",
+            lambda: True,
+        )
+
+        _, page = self.create_page()
+
+        try:
+            # Simular una pantalla Android de altura reducida.
+            page.resize(400, 350)
+            page.show()
+
+            QApplication.processEvents()
+
+            scroll_area = page.scroll_area
+            scrollbar = scroll_area.verticalScrollBar()
+
+            assert scroll_area.isVisible()
+            assert scroll_area.widgetResizable()
+            assert scrollbar.maximum() > 0
+
+        finally:
+            page.close()
 
     def test_button_texts(self, app):
 

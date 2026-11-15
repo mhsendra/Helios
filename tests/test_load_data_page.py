@@ -4,12 +4,15 @@ import pandas as pd
 
 import pytest
 
-from PySide6.QtWidgets import QApplication
-
 from helios.gui.widgets.load_data_page import LoadDataPage
 
 from helios.solar.configuration import SolarConfiguration
 
+from PySide6.QtWidgets import (
+    QApplication,
+    QHBoxLayout,
+    QVBoxLayout,
+)
 
 class TestLoadDataPage:
 
@@ -63,6 +66,45 @@ class TestLoadDataPage:
             self.page.info_label.text()
             == "Ningún archivo cargado"
         )
+
+    @pytest.mark.parametrize(
+        ("android", "expected_layout"),
+        [
+            (False, QHBoxLayout),
+            (True, QVBoxLayout),
+        ],
+    )
+    def test_load_data_layout_by_platform(
+        self,
+        monkeypatch,
+        android,
+        expected_layout,
+    ):
+        monkeypatch.setattr(
+            "helios.gui.widgets.load_data_page.is_android",
+            lambda: android,
+        )
+
+        app = QApplication.instance() or QApplication([])
+
+        # La construcción de la página no utiliza estos objetos.
+        page = LoadDataPage(
+            project=None,
+            main_window=None,
+        )
+
+        try:
+            main_layout = page.layout()
+            file_row = main_layout.itemAt(1).layout()
+
+            assert isinstance(file_row, expected_layout)
+            assert file_row.count() == 2
+
+            assert file_row.itemAt(0).widget() is page.path_edit
+            assert file_row.itemAt(1).widget() is page.browse_button
+
+        finally:
+            page.close()
 
     # ==================================================
     # browse_file
