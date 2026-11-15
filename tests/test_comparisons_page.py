@@ -3,10 +3,14 @@ from unittest.mock import MagicMock
 import pandas as pd
 
 import pytest 
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import (
+    QApplication,
+    QFormLayout,
+    QGroupBox,
+    QScrollArea,
+)
 
 from helios.gui.widgets.comparisons_page import ComparisonsPage
-
 
 class TestComparisonsPage:
 
@@ -45,6 +49,66 @@ class TestComparisonsPage:
         assert self.page.tabs.tabText(2) == "Mensual"
         assert self.page.tabs.tabText(3) == "Anual"
         assert self.page.tabs.tabText(4) == "Insights"
+
+    @pytest.mark.parametrize(
+        "android",
+        [False, True],
+        ids=["windows", "android"],
+    )
+    def test_form_layouts_by_platform(
+        self,
+        monkeypatch,
+        android,
+    ):
+        monkeypatch.setattr(
+            "helios.gui.widgets.comparisons_page.is_android",
+            lambda: android,
+        )
+
+        page = ComparisonsPage(self.project)
+
+        expected_policy = (
+            QFormLayout.WrapAllRows
+            if android
+            else QFormLayout.DontWrapRows
+        )
+
+        expected_rows = [7, 6, 4, 8, 1]
+
+        assert page.tabs.count() == 5
+
+        total_forms = 0
+        total_rows = 0
+
+        for tab_index, expected_row_count in enumerate(
+            expected_rows
+        ):
+            tab = page.tabs.widget(tab_index)
+
+            groups = tab.findChildren(QGroupBox)
+
+            forms = [
+                group.layout()
+                for group in groups
+                if isinstance(group.layout(), QFormLayout)
+            ]
+
+            assert sum(
+                form.rowCount()
+                for form in forms
+            ) == expected_row_count
+
+            for form in forms:
+                assert form.rowWrapPolicy() == expected_policy
+
+            total_forms += len(forms)
+            total_rows += sum(
+                form.rowCount()
+                for form in forms
+            )
+
+        assert total_forms == 10
+        assert total_rows == 26
 
     def test_labels_start_with_dash(self):
 
@@ -781,3 +845,164 @@ class TestComparisonsPage:
             self.page.stab_2026_label.text()
             != "-"
         )
+
+    @pytest.mark.parametrize(
+        "android",
+        [False, True],
+        ids=["windows", "android"],
+    )
+    def test_tab_scroll_areas_by_platform(
+        self,
+        monkeypatch,
+        android,
+    ):
+        monkeypatch.setattr(
+            "helios.gui.widgets.comparisons_page.is_android",
+            lambda: android,
+        )
+
+        page = ComparisonsPage(self.project)
+
+        assert page.tabs.count() == 5
+
+        expected_titles = [
+            "Resumen",
+            "Semanal",
+            "Mensual",
+            "Anual",
+            "Insights",
+        ]
+
+        for index, title in enumerate(expected_titles):
+            assert page.tabs.tabText(index) == title
+
+            tab = page.tabs.widget(index)
+
+            if android:
+                assert isinstance(tab, QScrollArea)
+                assert tab.widgetResizable()
+                assert tab.widget() is not None
+            else:
+                assert not isinstance(tab, QScrollArea)
+
+    def test_android_summary_tab_vertical_scrolling(
+        self,
+        monkeypatch,
+    ):
+        monkeypatch.setattr(
+            "helios.gui.widgets.comparisons_page.is_android",
+            lambda: True,
+        )
+
+        page = ComparisonsPage(self.project)
+        page.resize(400, 600)
+        page.show()
+
+        # Utilizar la pestaña Resumen.
+        page.tabs.setCurrentIndex(0)
+
+        scroll = page.tabs.widget(0)
+
+        assert isinstance(scroll, QScrollArea)
+
+        # Simular resultados largos, como los que pueden
+        # aparecer en un análisis real.
+        page.summary_anomalies_label.setText(
+            "Anomalías detectadas durante el análisis. " * 30
+        )
+
+        self.app.processEvents()
+
+        viewport_width = scroll.viewport().width()
+        content_width = scroll.widget().width()
+
+        vertical_scrollbar = scroll.verticalScrollBar()
+        horizontal_scrollbar = scroll.horizontalScrollBar()
+
+        print(
+            "\nGeometría Android:",
+            f"pagina={page.width()}",
+            f"viewport={viewport_width}",
+            f"contenido={content_width}",
+            f"scroll_vertical={vertical_scrollbar.maximum()}",
+            f"scroll_horizontal={horizontal_scrollbar.maximum()}",
+        )
+
+        # El contenido debe ajustarse al ancho disponible.
+        assert content_width <= viewport_width
+
+        # El contenido largo debe permitir desplazamiento vertical.
+        assert vertical_scrollbar.maximum() > 0
+
+        # No debe existir desplazamiento horizontal.
+        assert horizontal_scrollbar.maximum() == 0
+
+        # Debe ser posible llegar al final.
+        vertical_scrollbar.setValue(
+            vertical_scrollbar.maximum()
+        )
+        self.app.processEvents()
+
+        assert (
+            vertical_scrollbar.value()
+            == vertical_scrollbar.maximum()
+        )
+
+        page.close()
+
+    def test_android_yearly_tab_vertical_scrolling(
+        self,
+        monkeypatch,
+    ):
+        monkeypatch.setattr(
+            "helios.gui.widgets.comparisons_page.is_android",
+            lambda: True,
+        )
+
+        page = ComparisonsPage(self.project)
+        page.resize(400, 600)
+        page.show()
+
+        # Seleccionar la pestaña Anual.
+        page.tabs.setCurrentIndex(3)
+
+        scroll = page.tabs.widget(3)
+
+        assert isinstance(scroll, QScrollArea)
+
+        self.app.processEvents()
+
+        viewport_width = scroll.viewport().width()
+        content_width = scroll.widget().width()
+
+        vertical_scrollbar = scroll.verticalScrollBar()
+        horizontal_scrollbar = scroll.horizontalScrollBar()
+
+        print(
+            "\nGeometría Anual Android:",
+            f"pagina={page.width()}",
+            f"viewport={viewport_width}",
+            f"contenido={content_width}",
+            f"scroll_vertical={vertical_scrollbar.maximum()}",
+            f"scroll_horizontal={horizontal_scrollbar.maximum()}",
+        )
+
+        assert content_width <= viewport_width
+        assert horizontal_scrollbar.maximum() == 0
+
+        # Si el contenido supera la altura visible,
+        # debe poder desplazarse hasta el final.
+        if scroll.widget().height() > scroll.viewport().height():
+            assert vertical_scrollbar.maximum() > 0
+
+            vertical_scrollbar.setValue(
+                vertical_scrollbar.maximum()
+            )
+            self.app.processEvents()
+
+            assert (
+                vertical_scrollbar.value()
+                == vertical_scrollbar.maximum()
+            )
+
+        page.close()

@@ -4,9 +4,13 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QGroupBox,
     QFormLayout,
-    QTabWidget
+    QTabWidget,
+    QScrollArea,
 )
 
+from PySide6.QtCore import Qt
+
+from helios.utils.platform import is_android
 
 class ComparisonsPage(QWidget):
 
@@ -33,6 +37,30 @@ class ComparisonsPage(QWidget):
 
         layout.addStretch()
 
+    def create_form_layout(self, group):
+        form = QFormLayout(group)
+
+        if is_android():
+            form.setRowWrapPolicy(
+                QFormLayout.WrapAllRows
+            )
+
+        return form
+
+    def add_tab(self, page, title):
+        if not is_android():
+            self.tabs.addTab(page, title)
+            return
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarAlwaysOff
+        )
+        scroll.setWidget(page)
+
+        self.tabs.addTab(scroll, title)
+
     # ==========================================================
     # TABS
     # ==========================================================
@@ -43,7 +71,7 @@ class ComparisonsPage(QWidget):
         v = QVBoxLayout(page)
 
         summary_group = QGroupBox("Resumen general")
-        summary_layout = QFormLayout(summary_group)
+        summary_layout = self.create_form_layout(summary_group)
 
         self.summary_year_max_label = QLabel("-")
         self.summary_year_min_label = QLabel("-")
@@ -65,7 +93,7 @@ class ComparisonsPage(QWidget):
         v.addWidget(summary_group)
         v.addStretch()
 
-        self.tabs.addTab(page, "Resumen")
+        self.add_tab(page, "Resumen")
 
     def build_weekly_tab(self):
 
@@ -73,7 +101,7 @@ class ComparisonsPage(QWidget):
         v = QVBoxLayout(page)
 
         weekly_group = QGroupBox("Comparativa semanal")
-        weekly_layout = QFormLayout(weekly_group)
+        weekly_layout = self.create_form_layout(weekly_group)
 
         self.week_max_label = QLabel("-")
         self.week_min_label = QLabel("-")
@@ -84,7 +112,7 @@ class ComparisonsPage(QWidget):
         v.addWidget(weekly_group)
 
         insights_group = QGroupBox("Insights semanales")
-        insights_layout = QFormLayout(insights_group)
+        insights_layout = self.create_form_layout(insights_group)
 
         self.week_peak_label = QLabel("-")
         self.week_valley_label = QLabel("-")
@@ -95,7 +123,7 @@ class ComparisonsPage(QWidget):
         v.addWidget(insights_group)
 
         weekstab_group = QGroupBox("Estabilidad semanal")
-        weekstab_layout = QFormLayout(weekstab_group)
+        weekstab_layout = self.create_form_layout(weekstab_group)
 
         self.most_stable_week_label = QLabel("-")
         self.most_volatile_week_label = QLabel("-")
@@ -107,7 +135,7 @@ class ComparisonsPage(QWidget):
 
         v.addStretch()
 
-        self.tabs.addTab(page, "Semanal")
+        self.add_tab(page, "Semanal")
 
     def build_monthly_tab(self):
 
@@ -115,7 +143,7 @@ class ComparisonsPage(QWidget):
         v = QVBoxLayout(page)
 
         monthly_group = QGroupBox("Comparativa mensual")
-        monthly_layout = QFormLayout(monthly_group)
+        monthly_layout = self.create_form_layout(monthly_group)
 
         self.month_max_label = QLabel("-")
         self.month_min_label = QLabel("-")
@@ -136,7 +164,7 @@ class ComparisonsPage(QWidget):
         v.addWidget(anomalies_group)
 
         monthstab_group = QGroupBox("Estabilidad mensual")
-        monthstab_layout = QFormLayout(monthstab_group)
+        monthstab_layout = self.create_form_layout(monthstab_group)
 
         self.most_stable_month_label = QLabel("-")
         self.most_volatile_month_label = QLabel("-")
@@ -148,7 +176,7 @@ class ComparisonsPage(QWidget):
 
         v.addStretch()
 
-        self.tabs.addTab(page, "Mensual")
+        self.add_tab(page, "Mensual")
 
     def build_yearly_tab(self):
 
@@ -156,7 +184,7 @@ class ComparisonsPage(QWidget):
         v = QVBoxLayout(page)
 
         yearly_group = QGroupBox("Comparativa anual")
-        yearly_layout = QFormLayout(yearly_group)
+        yearly_layout = self.create_form_layout(yearly_group)
 
         self.year_max_label = QLabel("-")
         self.year_min_label = QLabel("-")
@@ -167,7 +195,7 @@ class ComparisonsPage(QWidget):
         v.addWidget(yearly_group)
 
         trends_group = QGroupBox("Tendencias interanuales")
-        trends_layout = QFormLayout(trends_group)
+        trends_layout = self.create_form_layout(trends_group)
 
         self.trend_2024_label = QLabel("-")
         self.trend_2025_label = QLabel("-")
@@ -180,7 +208,7 @@ class ComparisonsPage(QWidget):
         v.addWidget(trends_group)
 
         stability_group = QGroupBox("Estabilidad anual")
-        stability_layout = QFormLayout(stability_group)
+        stability_layout = self.create_form_layout(stability_group)
 
         self.stab_2024_label = QLabel("-")
         self.stab_2025_label = QLabel("-")
@@ -194,7 +222,7 @@ class ComparisonsPage(QWidget):
 
         v.addStretch()
 
-        self.tabs.addTab(page, "Anual")
+        self.add_tab(page, "Anual")
 
     def build_insights_tab(self):
 
@@ -202,7 +230,7 @@ class ComparisonsPage(QWidget):
         v = QVBoxLayout(page)
 
         insights_group = QGroupBox("Resumen avanzado")
-        insights_layout = QFormLayout(insights_group)
+        insights_layout = self.create_form_layout(insights_group)
 
         self.insights_text_label = QLabel("-")
         self.insights_text_label.setWordWrap(True)
@@ -212,7 +240,7 @@ class ComparisonsPage(QWidget):
         v.addWidget(insights_group)
         v.addStretch()
 
-        self.tabs.addTab(page, "Insights")
+        self.add_tab(page, "Insights")
 
     # ==========================================================
     # UPDATE DATA
