@@ -1,5 +1,7 @@
 from dataclasses import replace
 
+from helios.utils.platform import is_android
+
 from PySide6.QtCore import Qt, QRectF
 from PySide6.QtWidgets import (
     QWidget,
@@ -134,7 +136,11 @@ class RoofLayoutWidget(QWidget):
         self.walkway_offset_percent = 50
 
         self.setMinimumHeight(360)
-        self.setMinimumWidth(500)
+
+        if is_android():
+            self.setMinimumWidth(0)
+        else:
+            self.setMinimumWidth(500)
 
         self.setSizePolicy(
             QSizePolicy.Expanding,
@@ -437,7 +443,11 @@ class RoofLayoutWidget(QWidget):
         left_margin = 70
         right_margin = 35
         top_margin = 35
-        bottom_margin = 60
+
+        if is_android():
+            bottom_margin = 85
+        else:
+            bottom_margin = 60
 
         available_width = (
             self.width() - left_margin - right_margin
@@ -556,22 +566,32 @@ class RoofLayoutWidget(QWidget):
         )
 
         if self.walkway_width > 0:
+
+            if is_android():
+                walkway_legend_x = roof_x
+                walkway_legend_y = legend_y + 22
+            else:
+                walkway_legend_x = roof_x + 110
+                walkway_legend_y = legend_y
+
             painter.setBrush(QColor("#f6c453"))
             painter.setPen(Qt.NoPen)
+
             painter.drawRect(
                 QRectF(
-                    roof_x + 110,
-                    legend_y,
+                    walkway_legend_x,
+                    walkway_legend_y,
                     14,
                     14,
                 )
             )
 
             painter.setPen(QColor("#444444"))
+
             painter.drawText(
                 QRectF(
-                    roof_x + 130,
-                    legend_y - 2,
+                    walkway_legend_x + 20,
+                    walkway_legend_y - 2,
                     160,
                     20,
                 ),
@@ -635,36 +655,71 @@ class SolarOptimizationPage(QWidget):
         configuration_layout.setHorizontalSpacing(10)
         configuration_layout.setVerticalSpacing(10)
 
-        configuration_layout.addWidget(
-            self.create_installation_group(),
-            0,
-            0,
-        )
+        installation_group = self.create_installation_group()
+        panel_group = self.create_panel_group()
+        maintenance_group = self.create_maintenance_group()
+        action_group = self.create_action_group()
 
-        configuration_layout.addWidget(
-            self.create_panel_group(),
-            0,
-            1,
-        )
+        if is_android():
 
-        configuration_layout.addWidget(
-            self.create_maintenance_group(),
-            1,
-            0,
-            1,
-            2,
-        )
+            configuration_layout.addWidget(
+                installation_group,
+                0,
+                0,
+            )
 
-        configuration_layout.addWidget(
-            self.create_action_group(),
-            2,
-            0,
-            1,
-            2,
-        )
+            configuration_layout.addWidget(
+                panel_group,
+                1,
+                0,
+            )
 
-        configuration_layout.setColumnStretch(0, 1)
-        configuration_layout.setColumnStretch(1, 1)
+            configuration_layout.addWidget(
+                maintenance_group,
+                2,
+                0,
+            )
+
+            configuration_layout.addWidget(
+                action_group,
+                3,
+                0,
+            )
+
+            configuration_layout.setColumnStretch(0, 1)
+
+        else:
+
+            configuration_layout.addWidget(
+                installation_group,
+                0,
+                0,
+            )
+
+            configuration_layout.addWidget(
+                panel_group,
+                0,
+                1,
+            )
+
+            configuration_layout.addWidget(
+                maintenance_group,
+                1,
+                0,
+                1,
+                2,
+            )
+
+            configuration_layout.addWidget(
+                action_group,
+                2,
+                0,
+                1,
+                2,
+            )
+
+            configuration_layout.setColumnStretch(0, 1)
+            configuration_layout.setColumnStretch(1, 1)
 
         layout.addWidget(configuration_widget)
 
@@ -720,6 +775,11 @@ class SolarOptimizationPage(QWidget):
 
         layout = QFormLayout(group)
 
+        if is_android():
+            layout.setRowWrapPolicy(
+                QFormLayout.WrapAllRows
+            )
+
         self.available_area_spinbox = LocalizedDoubleSpinBox()
         self.roof_width_spinbox = LocalizedDoubleSpinBox()
         self.roof_height_spinbox = LocalizedDoubleSpinBox()
@@ -752,6 +812,11 @@ class SolarOptimizationPage(QWidget):
         )
 
         layout = QFormLayout(group)
+
+        if is_android():
+            layout.setRowWrapPolicy(
+                QFormLayout.WrapAllRows
+            )
 
         self.panel_width_spinbox = LocalizedDoubleSpinBox()
         self.panel_height_spinbox = LocalizedDoubleSpinBox()
@@ -829,6 +894,11 @@ class SolarOptimizationPage(QWidget):
 
         layout = QFormLayout(group)
 
+        if is_android():
+            layout.setRowWrapPolicy(
+                QFormLayout.WrapAllRows
+            )
+
         self.maintenance_required_checkbox = QCheckBox(
             "Requiere paso de mantenimiento"
         )
@@ -880,6 +950,11 @@ class SolarOptimizationPage(QWidget):
 
         layout = QFormLayout(group)
 
+        if is_android():
+            layout.setRowWrapPolicy(
+                QFormLayout.WrapAllRows
+            )
+
         self.status_label = QLabel(
             "Pendiente de datos"
         )
@@ -910,11 +985,19 @@ class SolarOptimizationPage(QWidget):
             "Resultado de la instalación recomendada"
         )
 
-        main_layout = QHBoxLayout(group)
+        if is_android():
+            main_layout = QVBoxLayout(group)
+        else:
+            main_layout = QHBoxLayout(group)
 
         data_widget = QWidget()
 
         data_layout = QFormLayout(data_widget)
+
+        if is_android():
+            data_layout.setRowWrapPolicy(
+                QFormLayout.WrapAllRows
+            )
 
         self.result_panel_count_label = QLabel("-")
         self.result_power_label = QLabel("-")
@@ -1015,7 +1098,10 @@ class SolarOptimizationPage(QWidget):
 
         layout_widget = QWidget()
 
-        layout_widget.setMinimumWidth(350)
+        if is_android():
+            layout_widget.setMinimumWidth(0)
+        else:
+            layout_widget.setMinimumWidth(350)
 
         layout_widget_layout = QVBoxLayout(
             layout_widget
@@ -1181,9 +1267,27 @@ class SolarOptimizationPage(QWidget):
             QTableWidget.SingleSelection
         )
 
-        self.battery_table.horizontalHeader().setSectionResizeMode(
-            QHeaderView.Stretch
-        )
+        header = self.battery_table.horizontalHeader()
+
+        if is_android():
+            header.setStretchLastSection(False)
+
+            for column in range(
+                self.battery_table.columnCount()
+            ):
+                header.setSectionResizeMode(
+                    column,
+                    QHeaderView.ResizeToContents,
+                )
+
+            self.battery_table.setHorizontalScrollBarPolicy(
+                Qt.ScrollBarAsNeeded
+            )
+
+        else:
+            header.setSectionResizeMode(
+                QHeaderView.Stretch
+            )
 
         self.battery_table.verticalHeader().setVisible(False)
         self.battery_table.setMinimumHeight(220)

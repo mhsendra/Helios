@@ -3,7 +3,19 @@ import pandas as pd
 
 from unittest.mock import MagicMock, call
 
-from PySide6.QtWidgets import QApplication
+from PySide6.QtCore import Qt
+
+from PySide6.QtWidgets import (
+    QApplication,
+    QGridLayout,
+    QGroupBox,
+    QScrollArea,
+    QFormLayout,
+    QVBoxLayout,
+    QHBoxLayout,
+    QHeaderView,
+    QTableWidgetItem,
+)
 
 from helios.gui.widgets.solar_optimization_page import (
     SolarOptimizationPage,
@@ -111,6 +123,96 @@ class TestSolarOptimizationPage:
         )
 
         return page, project
+
+    @pytest.mark.parametrize(
+    "android, expected_positions",
+    [
+        (
+            False,
+            [
+                (0, 0),
+                (0, 1),
+                (1, 0),
+                (2, 0),
+            ],
+        ),
+        (
+            True,
+            [
+                (0, 0),
+                (1, 0),
+                (2, 0),
+                (3, 0),
+            ],
+        ),
+    ],
+)
+    def test_configuration_layout_by_platform(
+        self,
+        monkeypatch,
+        android,
+        expected_positions,
+    ):
+        """Comprueba la distribución de configuración por plataforma."""
+
+        monkeypatch.setattr(
+            "helios.gui.widgets.solar_optimization_page.is_android",
+            lambda: android,
+        )
+
+        page, _ = self.create_page()
+
+        try:
+            assert isinstance(
+                page.scroll_area,
+                QScrollArea,
+            )
+
+            assert page.scroll_area.widgetResizable()
+
+            content = page.scroll_area.widget()
+            content_layout = content.layout()
+
+            configuration_widget = content_layout.itemAt(
+                1
+            ).widget()
+
+            configuration_layout = configuration_widget.layout()
+
+            assert isinstance(
+                configuration_layout,
+                QGridLayout,
+            )
+
+            expected_titles = [
+                "Superficie disponible",
+                "Características del panel",
+                "Paso de mantenimiento",
+                "Optimización",
+            ]
+
+            for title, (row, column) in zip(
+                expected_titles,
+                expected_positions,
+            ):
+                item = configuration_layout.itemAtPosition(
+                    row,
+                    column,
+                )
+
+                assert item is not None
+
+                widget = item.widget()
+
+                assert isinstance(
+                    widget,
+                    QGroupBox,
+                )
+
+                assert widget.title() == title
+
+        finally:
+            page.close()
 
     # ==========================================================
     # INICIALIZACIÓN
@@ -1641,3 +1743,470 @@ class TestSolarOptimizationPage:
         )
 
         assert INSTALLATION_VAT_RATE == pytest.approx(0.21)
+
+    @pytest.mark.parametrize(
+        "android",
+        [False, True],
+    )
+    def test_configuration_form_layouts_by_platform(
+        self,
+        monkeypatch,
+        android,
+    ):
+        """Comprueba la disposición de los formularios."""
+
+        monkeypatch.setattr(
+            "helios.gui.widgets.solar_optimization_page.is_android",
+            lambda: android,
+        )
+
+        page, _ = self.create_page()
+
+        try:
+            content_layout = (
+                page.scroll_area.widget().layout()
+            )
+
+            configuration_widget = (
+                content_layout.itemAt(1).widget()
+            )
+
+            configuration_layout = (
+                configuration_widget.layout()
+            )
+
+            expected_rows = [3, 7, 3, 2]
+
+            for index, expected_row_count in enumerate(
+                expected_rows
+            ):
+                group = (
+                    configuration_layout.itemAt(
+                        index
+                    ).widget()
+                )
+
+                form = group.layout()
+
+                assert isinstance(
+                    form,
+                    QFormLayout,
+                )
+
+                assert form.rowCount() == expected_row_count
+
+                expected_policy = (
+                    QFormLayout.WrapAllRows
+                    if android
+                    else QFormLayout.DontWrapRows
+                )
+
+                assert (
+                    form.rowWrapPolicy()
+                    == expected_policy
+                )
+
+        finally:
+            page.close()
+
+    @pytest.mark.parametrize(
+        "android",
+        [False, True],
+    )
+    def test_result_layout_by_platform(
+        self,
+        monkeypatch,
+        android,
+    ):
+        """Comprueba la disposición de los resultados."""
+
+        monkeypatch.setattr(
+            "helios.gui.widgets.solar_optimization_page.is_android",
+            lambda: android,
+        )
+
+        page, _ = self.create_page()
+
+        try:
+            content_layout = (
+                page.scroll_area.widget().layout()
+            )
+
+            result_group = (
+                content_layout.itemAt(2).widget()
+            )
+
+            main_layout = result_group.layout()
+
+            if android:
+                assert isinstance(
+                    main_layout,
+                    QVBoxLayout,
+                )
+            else:
+                assert isinstance(
+                    main_layout,
+                    QHBoxLayout,
+                )
+
+            data_widget = (
+                main_layout.itemAt(0).widget()
+            )
+
+            data_layout = data_widget.layout()
+
+            assert isinstance(
+                data_layout,
+                QFormLayout,
+            )
+
+            assert data_layout.rowCount() == 16
+
+            expected_policy = (
+                QFormLayout.WrapAllRows
+                if android
+                else QFormLayout.DontWrapRows
+            )
+
+            assert (
+                data_layout.rowWrapPolicy()
+                == expected_policy
+            )
+
+            layout_widget = (
+                main_layout.itemAt(1).widget()
+            )
+
+            assert (
+                layout_widget.findChild(
+                    RoofLayoutWidget
+                )
+                is page.roof_layout_widget
+            )
+
+        finally:
+            page.close()
+
+    @pytest.mark.parametrize(
+        "android, expected_roof_width, expected_layout_width",
+        [
+            (False, 500, 350),
+            (True, 0, 0),
+        ],
+    )
+    def test_roof_minimum_width_by_platform(
+        self,
+        monkeypatch,
+        android,
+        expected_roof_width,
+        expected_layout_width,
+    ):
+        """Comprueba las anchuras mínimas según la plataforma."""
+
+        monkeypatch.setattr(
+            "helios.gui.widgets.solar_optimization_page.is_android",
+            lambda: android,
+        )
+
+        page, _ = self.create_page()
+
+        try:
+            assert (
+                page.roof_layout_widget.minimumWidth()
+                == expected_roof_width
+            )
+
+            content_layout = (
+                page.scroll_area.widget().layout()
+            )
+
+            result_group = (
+                content_layout.itemAt(2).widget()
+            )
+
+            result_layout = result_group.layout()
+
+            layout_widget = (
+                result_layout.itemAt(1).widget()
+            )
+
+            assert (
+                layout_widget.minimumWidth()
+                == expected_layout_width
+            )
+
+        finally:
+            page.close()
+
+    def test_android_roof_geometry_at_mobile_width(
+        self,
+        monkeypatch,
+    ):
+        """Comprueba el dibujo del tejado en una pantalla estrecha."""
+
+        monkeypatch.setattr(
+            "helios.gui.widgets.solar_optimization_page.is_android",
+            lambda: True,
+        )
+
+        page, _ = self.create_page()
+
+        try:
+            page.resize(400, 600)
+            page.show()
+
+            QApplication.processEvents()
+
+            scroll = page.scroll_area
+            content = scroll.widget()
+            roof = page.roof_layout_widget
+
+            print(
+                "\nGeometría Android:",
+                f"pagina={page.width()}",
+                f"viewport={scroll.viewport().width()}",
+                f"contenido={content.width()}",
+                f"tejado={roof.width()}",
+                f"scroll_horizontal="
+                f"{scroll.horizontalScrollBar().maximum()}",
+            )
+
+            assert roof.isVisible()
+            assert roof.width() > 0
+
+            assert (
+                content.width()
+                <= scroll.viewport().width()
+            )
+
+            assert (
+                scroll.horizontalScrollBar().maximum()
+                == 0
+            )
+
+        finally:
+            page.close()
+
+    @pytest.mark.parametrize(
+        "android",
+        [False, True],
+    )
+    def test_battery_table_columns_by_platform(
+        self,
+        monkeypatch,
+        android,
+    ):
+        """Comprueba la distribución de columnas por plataforma."""
+
+        monkeypatch.setattr(
+            "helios.gui.widgets.solar_optimization_page.is_android",
+            lambda: android,
+        )
+
+        page, _ = self.create_page()
+
+        try:
+            table = page.battery_table
+            header = table.horizontalHeader()
+
+            assert table.columnCount() == 5
+
+            expected_mode = (
+                QHeaderView.ResizeToContents
+                if android
+                else QHeaderView.Stretch
+            )
+
+            for column in range(5):
+                assert (
+                    header.sectionResizeMode(column)
+                    == expected_mode
+                )
+
+            if android:
+                assert (
+                    table.horizontalScrollBarPolicy()
+                    == Qt.ScrollBarAsNeeded
+                )
+
+                assert not header.stretchLastSection()
+
+        finally:
+            page.close()
+
+    def test_android_battery_table_horizontal_scrolling(
+        self,
+        monkeypatch,
+    ):
+        """Comprueba el desplazamiento horizontal de baterías."""
+
+        monkeypatch.setattr(
+            "helios.gui.widgets.solar_optimization_page.is_android",
+            lambda: True,
+        )
+
+        page, _ = self.create_page()
+
+        try:
+            page.resize(400, 600)
+            page.show()
+
+            QApplication.processEvents()
+
+            table = page.battery_table
+            header = table.horizontalHeader()
+            scrollbar = table.horizontalScrollBar()
+
+            total_columns_width = sum(
+                header.sectionSize(column)
+                for column in range(table.columnCount())
+            )
+
+            print(
+                "\nTabla baterías Android:",
+                f"ancho_tabla={table.width()}",
+                f"viewport={table.viewport().width()}",
+                f"columnas={total_columns_width}",
+                f"scroll_max={scrollbar.maximum()}",
+            )
+
+            assert table.isVisible()
+
+            assert (
+                total_columns_width
+                > table.viewport().width()
+            )
+
+            assert scrollbar.maximum() > 0
+
+            scrollbar.setValue(
+                scrollbar.maximum()
+            )
+
+            QApplication.processEvents()
+
+            assert (
+                scrollbar.value()
+                == scrollbar.maximum()
+            )
+
+        finally:
+            page.close()
+
+    def test_android_battery_table_full_horizontal_scrolling(
+        self,
+        monkeypatch,
+    ):
+        """Comprueba el acceso a todas las columnas en Android."""
+
+        monkeypatch.setattr(
+            "helios.gui.widgets.solar_optimization_page.is_android",
+            lambda: True,
+        )
+
+        page, _ = self.create_page()
+
+        try:
+            table = page.battery_table
+
+            table.setRowCount(1)
+
+            values = [
+                "15 paneles",
+                "16,6 kWh",
+                "12.500,00 €",
+                "8,50 %",
+                "9,5 años",
+            ]
+
+            for column, value in enumerate(values):
+                table.setItem(
+                    0,
+                    column,
+                    QTableWidgetItem(value),
+                )
+
+            page.resize(400, 600)
+            page.show()
+
+            QApplication.processEvents()
+
+            header = table.horizontalHeader()
+            scrollbar = table.horizontalScrollBar()
+
+            total_width = sum(
+                header.sectionSize(column)
+                for column in range(table.columnCount())
+            )
+
+            viewport_width = table.viewport().width()
+
+            print(
+                "\nTabla con datos:",
+                f"viewport={viewport_width}",
+                f"columnas={total_width}",
+                f"scroll_max={scrollbar.maximum()}",
+            )
+
+            assert total_width > viewport_width
+
+            assert scrollbar.maximum() > 0
+
+            scrollbar.setValue(
+                scrollbar.maximum()
+            )
+
+            QApplication.processEvents()
+
+            last_column = table.visualRect(
+                table.model().index(0, 4)
+            )
+
+            assert last_column.right() <= viewport_width
+
+        finally:
+            page.close()
+
+    def test_android_roof_paint_with_walkway(
+        self,
+        monkeypatch,
+    ):
+        """Comprueba el renderizado del tejado con pasillo."""
+
+        monkeypatch.setattr(
+            "helios.gui.widgets.solar_optimization_page.is_android",
+            lambda: True,
+        )
+
+        widget = RoofLayoutWidget()
+
+        try:
+            widget.set_layout_data(
+                roof_width=6.5,
+                roof_height=6.5,
+                panel_width=1.13,
+                panel_height=2.38,
+                rows=2,
+                columns=3,
+                orientation="vertical",
+                walkway_width=0.5,
+                walkway_position="vertical",
+            )
+
+            widget.resize(282, 360)
+            widget.show()
+
+            QApplication.processEvents()
+
+            assert widget.width() == 282
+
+            # Fuerza el renderizado, incluido el bloque de leyendas.
+            image = widget.grab().toImage()
+
+            assert not image.isNull()
+
+            assert image.width() > 0
+            assert image.height() > 0
+
+        finally:
+            widget.close()
