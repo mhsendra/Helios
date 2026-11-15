@@ -87,6 +87,9 @@ def test_user_data_path_resolves_platform_directory(
         monkeypatch.delenv(variable, raising=False)
 
     for variable, value in environment.items():
+        if variable == "XDG_DATA_HOME":
+            value = str(tmp_path / ".local" / "share")
+
         monkeypatch.setenv(variable, value)
 
     if platform == "win32":
@@ -96,7 +99,7 @@ def test_user_data_path_resolves_platform_directory(
         expected_path = tmp_path / "Library" / "Application Support" / "Helios"
         monkeypatch.setattr(Path, "home", lambda: tmp_path)
     elif "XDG_DATA_HOME" in environment:
-        expected_path = Path(environment["XDG_DATA_HOME"]) / "Helios"
+        expected_path = tmp_path / ".local" / "share" / "Helios"
     else:
         expected_path = tmp_path / ".local" / "share" / "Helios"
         monkeypatch.setattr(Path, "home", lambda: tmp_path)

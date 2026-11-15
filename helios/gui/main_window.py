@@ -118,6 +118,7 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central)
 
         layout = QVBoxLayout(central)
+        self.android_main_layout = layout
 
         # Contenedor reservado para la navegación Android.
         self.android_navigation_container = QWidget()
@@ -165,7 +166,21 @@ class MainWindow(QMainWindow):
                 # Inicialmente solo mostramos Entrada de datos.
                 button.setVisible(section == "Entrada de datos")
 
-        layout.addWidget(self.android_navigation_container)
+        # La navegación pertenece al widget central, pero no ocupa
+        # espacio permanente dentro del layout principal.
+        self.android_navigation_container.setParent(central)
+        self.android_navigation_container.hide()
+
+        # Botón para abrir la navegación en orientación horizontal.
+        self.android_menu_button = QPushButton("☰")
+        self.android_menu_button.clicked.connect(
+            self.toggle_android_navigation
+        )
+        self.android_menu_button.setAccessibleName("Abrir menú de navegación")
+        self.android_menu_button.setFixedSize(48, 48)
+        self.android_menu_button.hide()
+
+        layout.addWidget(self.android_menu_button)
 
         # Las páginas existentes se siguen reutilizando.
         self.pages = QStackedWidget()
@@ -187,6 +202,19 @@ class MainWindow(QMainWindow):
         for page_id, button in self.android_navigation_buttons.items():
             button.setVisible(page_id in visible_pages)
 
+        # Actualizar la geometría del menú superpuesto.
+        self.android_navigation_layout.invalidate()
+        self.android_navigation_layout.activate()
+
+        self.update_android_orientation()
+
+    def is_android_landscape(self) -> bool:
+        """Indica si la ventana Android está en orientación horizontal."""
+        return (
+            is_android()
+            and self.width() > self.height()
+        )
+
     def sync_android_section(self, page_id: str):
         """Sincroniza el selector Android con la página activa."""
 
@@ -197,6 +225,69 @@ class MainWindow(QMainWindow):
             if page_id in page_ids:
                 self.android_section_selector.setCurrentText(section)
                 return
+
+    def resizeEvent(self, event):
+        """Actualiza la disposición Android al cambiar el tamaño."""
+        super().resizeEvent(event)
+
+        if not is_android():
+            return
+
+        if not hasattr(self, "android_navigation_container"):
+            return
+
+        self.update_android_orientation()
+
+    def update_android_orientation(self):
+        """Actualiza la navegación según la orientación Android."""
+        landscape = self.is_android_landscape()
+
+        central = self.centralWidget()
+        navigation = self.android_navigation_container
+
+        # La navegación nunca reserva espacio en el layout.
+        self.android_main_layout.setContentsMargins(0, 0, 0, 0)
+
+        if landscape:
+            # Horizontal: panel lateral izquierdo.
+            panel_width = min(280, central.width())
+
+            navigation.setGeometry(
+                0,
+                0,
+                panel_width,
+                central.height(),
+            )
+        else:
+            # Vertical: panel superior superpuesto.
+            navigation.setGeometry(
+                0,
+                0,
+                central.width(),
+                min(navigation.sizeHint().height(), central.height()),
+            )
+
+        # Cerrar el menú únicamente cuando cambia la orientación.
+        if getattr(self, "_android_was_landscape", None) != landscape:
+            navigation.hide()
+
+        self.android_menu_button.show()
+        self.android_menu_button.raise_()
+
+        self._android_was_landscape = landscape
+
+        self.android_main_layout.invalidate()
+        self.android_main_layout.activate()
+
+    def toggle_android_navigation(self):
+        """Abre o cierra la navegación Android."""
+        navigation = self.android_navigation_container
+
+        navigation.setVisible(navigation.isHidden())
+
+        if navigation.isVisible():
+            navigation.raise_()
+            self.android_menu_button.raise_()
 
     # ==================================================
     # Páginas

@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QTextEdit,
     QFileDialog,
     QMessageBox,
+    QScrollArea,
 )
 
 from helios.reports.solar_report_data_factory import (
@@ -21,6 +22,8 @@ from helios.reports.solar_report_generator import (
     SolarReportGenerator,
 )
 
+from helios.utils.platform import is_android
+
 class ReportsPage(QWidget):
 
     def __init__(self, project):
@@ -29,7 +32,22 @@ class ReportsPage(QWidget):
 
         self.project = project
 
-        layout = QVBoxLayout(self)
+        if is_android():
+            outer_layout = QVBoxLayout(self)
+
+            scroll_area = QScrollArea()
+            scroll_area.setWidgetResizable(True)
+
+            content = QWidget()
+            layout = QVBoxLayout(content)
+
+            scroll_area.setWidget(content)
+            outer_layout.addWidget(scroll_area)
+
+            self.scroll_area = scroll_area
+
+        else:
+            layout = QVBoxLayout(self)
 
         # ==================================================
         # Título
@@ -345,52 +363,35 @@ class ReportsPage(QWidget):
 
         groups_layout = QGridLayout()
 
-        groups_layout.addWidget(
+        groups = [
             profiles_group,
-            0,
-            0
-        )
-
-        groups_layout.addWidget(
             indicators_group,
-            0,
-            1
-        )
-
-        groups_layout.addWidget(
             comparisons_group,
-            1,
-            0
-        )
-
-        groups_layout.addWidget(
             statistics_group,
-            1,
-            1
-        )
-
-        groups_layout.addWidget(
             tariffs_group,
-            2,
-            0
-        )
-
-        groups_layout.addWidget(
             economics_group,
-            2,
-            1
-        )
-
-        groups_layout.addWidget(
             solar_report_group,
-            3,
-            0,
-            1,
-            2
-        )
+        ]
 
-        groups_layout.setColumnStretch(0, 1)
-        groups_layout.setColumnStretch(1, 1)
+        if is_android():
+            # Android: grupos en una sola columna.
+            for row, group in enumerate(groups):
+                groups_layout.addWidget(group, row, 0)
+
+            groups_layout.setColumnStretch(0, 1)
+
+        else:
+            # Escritorio: conservar la distribución original.
+            groups_layout.addWidget(profiles_group, 0, 0)
+            groups_layout.addWidget(indicators_group, 0, 1)
+            groups_layout.addWidget(comparisons_group, 1, 0)
+            groups_layout.addWidget(statistics_group, 1, 1)
+            groups_layout.addWidget(tariffs_group, 2, 0)
+            groups_layout.addWidget(economics_group, 2, 1)
+            groups_layout.addWidget(solar_report_group, 3, 0, 1, 2)
+
+            groups_layout.setColumnStretch(0, 1)
+            groups_layout.setColumnStretch(1, 1)
 
         layout.addLayout(
             groups_layout

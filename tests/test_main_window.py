@@ -876,3 +876,445 @@ class TestMainWindow:
 
         finally:
             window.close()
+
+    def test_android_orientation_detection(self, monkeypatch):
+        """Comprueba la detección de orientación Android."""
+
+        monkeypatch.setattr(
+            "helios.gui.main_window.is_android",
+            lambda: True,
+        )
+
+        window = MainWindow(self.economics_configuration)
+
+        try:
+            # Orientación vertical.
+            window.resize(400, 800)
+
+            assert not window.is_android_landscape()
+
+            # Orientación horizontal.
+            window.resize(800, 400)
+
+            assert window.is_android_landscape()
+
+            # Dimensiones iguales: no se considera horizontal.
+            window.resize(600, 600)
+
+            assert not window.is_android_landscape()
+
+            # Fuera de Android, no debe detectar modo Android horizontal.
+            monkeypatch.setattr(
+                "helios.gui.main_window.is_android",
+                lambda: False,
+            )
+
+            window.resize(800, 400)
+
+            assert not window.is_android_landscape()
+
+        finally:
+            window.close()
+
+    def test_android_orientation_updates_navigation(self, monkeypatch):
+        """Comprueba la navegación al cambiar de orientación."""
+
+        monkeypatch.setattr(
+            "helios.gui.main_window.is_android",
+            lambda: True,
+        )
+
+        window = MainWindow(self.economics_configuration)
+
+        try:
+            # Orientación vertical.
+            window.resize(400, 800)
+            window.update_android_orientation()
+
+            assert not window.is_android_landscape()
+            assert window.android_navigation_container.isHidden()
+            assert not window.android_menu_button.isHidden()
+
+            # Orientación horizontal.
+            window.resize(800, 400)
+            window.update_android_orientation()
+
+            assert window.is_android_landscape()
+            assert window.android_navigation_container.isHidden()
+
+            # Volver a orientación vertical.
+            window.resize(400, 800)
+            window.update_android_orientation()
+
+            assert not window.is_android_landscape()
+            assert window.android_navigation_container.isHidden()
+            assert not window.android_menu_button.isHidden()
+
+            # La página activa debe conservarse.
+            assert window.pages.currentIndex() == 0
+
+        finally:
+            window.close()
+
+    def test_android_orientation_updates_automatically(self, monkeypatch):
+        """Comprueba que resizeEvent actualiza la navegación Android."""
+        monkeypatch.setattr(
+            "helios.gui.main_window.is_android",
+            lambda: True,
+        )
+
+        window = MainWindow(self.economics_configuration)
+
+        try:
+            window.resize(400, 800)
+            window.show()
+
+            assert window.android_navigation_container.isHidden()
+            assert not window.android_menu_button.isHidden()
+
+            window.resize(800, 400)
+
+            assert window.android_navigation_container.isHidden()
+
+            window.resize(400, 800)
+
+            assert window.android_navigation_container.isHidden()
+            assert not window.android_menu_button.isHidden()
+            assert window.pages.currentIndex() == 0
+
+        finally:
+            window.close()
+
+    def test_android_menu_button_visibility(self, monkeypatch):
+        """Comprueba la visibilidad del botón de menú según la orientación."""
+        monkeypatch.setattr(
+            "helios.gui.main_window.is_android",
+            lambda: True,
+        )
+
+        window = MainWindow(self.economics_configuration)
+
+        try:
+            window.resize(400, 800)
+            window.show()
+
+            # Vertical: navegación cerrada, botón visible.
+            assert window.android_navigation_container.isHidden()
+            assert not window.android_menu_button.isHidden()
+
+            # Horizontal: navegación oculta, botón visible.
+            window.resize(800, 400)
+
+            assert window.android_navigation_container.isHidden()
+            assert not window.android_menu_button.isHidden()
+
+            # Volver a vertical.
+            window.resize(400, 800)
+
+            assert window.android_navigation_container.isHidden()
+            assert not window.android_menu_button.isHidden()
+
+            # La página activa se conserva.
+            assert window.pages.currentIndex() == 0
+
+        finally:
+            window.close()
+
+    def test_android_menu_button_toggle(self, monkeypatch):
+        """Comprueba la apertura y el cierre del menú Android."""
+        monkeypatch.setattr(
+            "helios.gui.main_window.is_android",
+            lambda: True,
+        )
+
+        window = MainWindow(self.economics_configuration)
+
+        try:
+            window.resize(800, 400)
+            window.show()
+
+            # Inicialmente, el menú está cerrado.
+            assert window.android_navigation_container.isHidden()
+            assert not window.android_menu_button.isHidden()
+
+            # Primer clic: abrir el menú.
+            print(
+                "ANTES:",
+                window.width(),
+                window.height(),
+                window.is_android_landscape(),
+            )
+
+            window.android_menu_button.click()
+
+            print(
+                "DESPUÉS:",
+                window.width(),
+                window.height(),
+                window.is_android_landscape(),
+                window.android_navigation_container.isHidden(),
+            )
+
+            assert not window.android_navigation_container.isHidden()
+
+            # Segundo clic: cerrar el menú.
+            window.android_menu_button.click()
+
+            assert window.android_navigation_container.isHidden()
+
+            # La página activa no debe cambiar.
+            assert window.pages.currentIndex() == 0
+
+        finally:
+            window.close()
+
+    def test_android_landscape_navigation_overlay(self, monkeypatch):
+        """Comprueba que el menú lateral no desplaza las páginas."""
+        monkeypatch.setattr(
+            "helios.gui.main_window.is_android",
+            lambda: True,
+        )
+
+        window = MainWindow(self.economics_configuration)
+
+        try:
+            window.resize(1000, 600)
+            window.show()
+
+            central = window.centralWidget()
+            navigation = window.android_navigation_container
+
+            # El menú comienza cerrado.
+            assert window.is_android_landscape()
+            assert navigation.isHidden()
+
+            # El panel debe ser hijo del widget central.
+            assert navigation.parentWidget() is central
+
+            # Comprobar la geometría prevista.
+            assert navigation.x() == 0
+            assert navigation.y() == 0
+            assert navigation.width() == 280
+            assert navigation.height() == central.height()
+
+            # Guardar la geometría de las páginas.
+            pages_geometry = window.pages.geometry()
+
+            # Abrir el menú.
+            window.android_menu_button.click()
+
+            assert not navigation.isHidden()
+
+            # El menú no debe desplazar ni redimensionar las páginas.
+            assert window.pages.geometry() == pages_geometry
+
+            # Cerrar el menú.
+            window.android_menu_button.click()
+
+            assert navigation.isHidden()
+            assert window.pages.geometry() == pages_geometry
+
+        finally:
+            window.close()
+
+    def test_android_portrait_navigation_does_not_overlap_pages(
+        self, monkeypatch
+    ):
+        """Comprueba que la navegación vertical no tapa las páginas."""
+        monkeypatch.setattr(
+            "helios.gui.main_window.is_android",
+            lambda: True,
+        )
+
+        window = MainWindow(self.economics_configuration)
+
+        try:
+            window.resize(400, 800)
+            window.show()
+
+            central = window.centralWidget()
+            navigation = window.android_navigation_container
+            pages = window.pages
+
+            assert not window.is_android_landscape()
+            assert navigation.isHidden()
+            assert not window.android_menu_button.isHidden()
+
+            # La navegación debe ocupar el ancho disponible.
+            assert navigation.x() == 0
+            assert navigation.y() == 0
+            assert navigation.width() == central.width()
+
+            # La navegación oculta no debe reservar espacio.
+            assert window.android_main_layout.contentsMargins().top() == 0
+
+            # Las páginas deben comenzar debajo del botón del menú.
+            assert pages.geometry().top() >= window.android_menu_button.geometry().bottom()
+
+            # La página activa debe conservarse.
+            assert pages.currentIndex() == 0
+
+        finally:
+            window.close()
+
+    def test_android_rotation_with_open_navigation(self, monkeypatch):
+        """Comprueba la rotación con el menú lateral abierto."""
+        monkeypatch.setattr(
+            "helios.gui.main_window.is_android",
+            lambda: True,
+        )
+
+        window = MainWindow(self.economics_configuration)
+
+        try:
+            window.resize(1000, 600)
+            window.show()
+
+            navigation = window.android_navigation_container
+            pages = window.pages
+
+            # Horizontal: abrir el menú lateral.
+            assert window.is_android_landscape()
+            window.android_menu_button.click()
+
+            assert not navigation.isHidden()
+            assert pages.currentIndex() == 0
+
+            # Girar a vertical.
+            window.resize(400, 800)
+
+            assert not window.is_android_landscape()
+            assert navigation.isHidden()
+            assert not window.android_menu_button.isHidden()
+
+            # La navegación oculta no debe reservar espacio.
+            assert window.android_main_layout.contentsMargins().top() == 0
+
+            # Las páginas deben comenzar debajo del botón del menú.
+            assert (
+                pages.geometry().top()
+                >= window.android_menu_button.geometry().bottom()
+            )
+
+
+            # Volver a horizontal.
+            window.resize(1000, 600)
+
+            assert window.is_android_landscape()
+
+            # El menú debe comenzar cerrado tras la rotación.
+            assert navigation.isHidden()
+            assert not window.android_menu_button.isHidden()
+
+            # Se conserva la página activa.
+            assert pages.currentIndex() == 0
+
+        finally:
+            window.close()
+
+    def test_android_portrait_results_navigation_height(self, monkeypatch):
+        """Comprueba el espacio y desplazamiento de Informes en Android."""
+        monkeypatch.setattr(
+            "helios.gui.main_window.is_android",
+            lambda: True,
+        )
+        monkeypatch.setattr(
+            "helios.gui.widgets.reports_page.is_android",
+            lambda: True,
+        )
+
+        window = MainWindow(self.economics_configuration)
+
+        try:
+            window.resize(400, 800)
+            window.show()
+
+            reports_page = window.pages.widget(10)
+            window.pages.setCurrentWidget(reports_page)
+
+            window.android_section_selector.setCurrentText("Resultados")
+            window.update_android_orientation()
+
+            QApplication.processEvents()
+
+            navigation = window.android_navigation_container
+            pages = window.pages
+            scroll_area = reports_page.scroll_area
+
+            # La ventana mantiene las dimensiones solicitadas.
+            assert window.width() == 400
+            assert window.height() == 800
+
+            # Informes está visible y dispone de espacio suficiente.
+            assert pages.currentWidget() is reports_page
+            assert reports_page.isVisible()
+            assert pages.height() > 600
+
+            # El contenido de Informes permite desplazamiento vertical.
+            assert scroll_area.verticalScrollBar().maximum() > 0
+
+            # El menú está cerrado y no reserva espacio.
+            assert navigation.isHidden()
+            assert not window.android_menu_button.isHidden()
+            assert window.android_main_layout.contentsMargins().top() == 0
+
+            # Las páginas comienzan debajo del botón de menú.
+            assert (
+                pages.geometry().top()
+                >= window.android_menu_button.geometry().bottom()
+            )
+
+        finally:
+            window.close()
+
+
+    def test_android_navigation_resizes_when_section_changes(
+        self, monkeypatch
+    ):
+        """Comprueba que el menú ajusta su altura al cambiar de sección."""
+        monkeypatch.setattr(
+            "helios.gui.main_window.is_android",
+            lambda: True,
+        )
+
+        window = MainWindow(self.economics_configuration)
+
+        try:
+            window.resize(400, 800)
+            window.show()
+
+            navigation = window.android_navigation_container
+
+            # Abrir el menú en orientación vertical.
+            window.android_menu_button.click()
+            QApplication.processEvents()
+
+            assert not navigation.isHidden()
+
+            # Medir la altura de Entrada de datos.
+            window.android_section_selector.setCurrentText("Entrada de datos")
+            QApplication.processEvents()
+            input_height = navigation.height()
+
+            # Cambiar a Resultados sin cerrar el menú.
+            window.android_section_selector.setCurrentText("Resultados")
+            QApplication.processEvents()
+            results_height = navigation.height()
+
+            assert not navigation.isHidden()
+
+            # La altura debe ajustarse al contenido de cada sección.
+            assert results_height == min(
+                navigation.sizeHint().height(),
+                window.centralWidget().height(),
+            )
+
+            # Volver a Entrada de datos.
+            window.android_section_selector.setCurrentText("Entrada de datos")
+            QApplication.processEvents()
+
+            assert not navigation.isHidden()
+            assert navigation.height() == input_height
+
+        finally:
+            window.close()
