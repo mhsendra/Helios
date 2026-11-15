@@ -12,6 +12,8 @@ from PySide6.QtWidgets import (
     QGroupBox,
 )
 
+from helios.utils.platform import is_android
+
 from helios.solar.configuration import SolarConfiguration
 
 from helios.gui.widgets.localized_double_spinbox import (
@@ -25,6 +27,16 @@ class SolarConfigPage(QWidget):
     Esta página únicamente define y guarda la configuración solar
     utilizada por PVGIS y por la simulación fotovoltaica.
     """
+
+    def create_form_layout(self, group):
+        form = QFormLayout(group)
+
+        if is_android():
+            form.setRowWrapPolicy(
+                QFormLayout.WrapAllRows
+            )
+
+        return form
 
     def __init__(
         self,
@@ -117,7 +129,7 @@ class SolarConfigPage(QWidget):
             "Configuración solar"
         )
 
-        layout = QFormLayout(group)
+        layout = self.create_form_layout(group)
 
         self.latitude_spinbox = LocalizedDoubleSpinBox()
         self.longitude_spinbox = LocalizedDoubleSpinBox()
@@ -184,7 +196,7 @@ class SolarConfigPage(QWidget):
             "Configuración"
         )
 
-        layout = QFormLayout(group)
+        layout = self.create_form_layout(group)
 
         self.status_label = QLabel(
             "Configuración pendiente"

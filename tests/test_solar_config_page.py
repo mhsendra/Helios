@@ -2,7 +2,13 @@ import pytest
 
 from unittest.mock import MagicMock
 
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import (
+    QApplication,
+    QFormLayout,
+    QGroupBox,
+)
+
+from PySide6.QtCore import Qt
 
 from helios.gui.widgets.solar_config_page import (
     SolarConfigPage,
@@ -465,3 +471,112 @@ class TestSolarConfigPage:
 
         assert page.tilt_spinbox.value() == 30
         assert page.reference_year_spinbox.value() == 2023
+
+    @pytest.mark.parametrize(
+        "android",
+        [False, True],
+        ids=["windows", "android"],
+    )
+    def test_form_layouts_by_platform(
+        self,
+        monkeypatch,
+        android,
+    ):
+        monkeypatch.setattr(
+            "helios.gui.widgets.solar_config_page.is_android",
+            lambda: android,
+        )
+
+        page, _ = self.create_page()
+
+        groups = page.findChildren(QGroupBox)
+
+        assert len(groups) == 2
+
+        expected_groups = [
+            ("Configuración solar", 8),
+            ("Configuración", 2),
+        ]
+
+        expected_policy = (
+            QFormLayout.WrapAllRows
+            if android
+            else QFormLayout.DontWrapRows
+        )
+
+        for group, (title, rows) in zip(
+            groups,
+            expected_groups,
+        ):
+            assert group.title() == title
+
+            form = group.layout()
+
+            assert isinstance(form, QFormLayout)
+            assert form.rowCount() == rows
+            assert form.rowWrapPolicy() == expected_policy
+
+    def test_android_vertical_scrolling(
+        self,
+        monkeypatch,
+    ):
+        monkeypatch.setattr(
+            "helios.gui.widgets.solar_config_page.is_android",
+            lambda: True,
+        )
+
+        page, _ = self.create_page()
+        page.resize(400, 600)
+        page.show()
+
+        self.app.processEvents()
+
+        scroll = page.scroll_area
+        content = scroll.widget()
+
+        assert scroll.widgetResizable()
+        assert (
+            scroll.horizontalScrollBarPolicy()
+            == Qt.ScrollBarAlwaysOff
+        )
+
+        viewport_width = scroll.viewport().width()
+        content_width = content.width()
+
+        vertical = scroll.verticalScrollBar()
+        horizontal = scroll.horizontalScrollBar()
+
+        print(
+            "\nGeometría SolarConfigPage Android:",
+            f"pagina={page.width()}",
+            f"viewport={viewport_width}",
+            f"contenido={content_width}",
+            f"scroll_vertical={vertical.maximum()}",
+            f"scroll_horizontal={horizontal.maximum()}",
+        )
+
+        assert content_width <= viewport_width
+        assert horizontal.maximum() == 0
+
+        # Desplazarse hasta el final del formulario.
+        vertical.setValue(vertical.maximum())
+        self.app.processEvents()
+
+        button = page.save_configuration_button
+
+        # Convertir la posición del botón a coordenadas
+        # del área visible del scroll.
+        button_top = button.mapTo(
+            scroll.viewport(),
+            button.rect().topLeft(),
+        ).y()
+
+        button_bottom = button.mapTo(
+            scroll.viewport(),
+            button.rect().bottomLeft(),
+        ).y()
+
+        assert button_top >= 0
+        assert button_bottom < scroll.viewport().height()
+
+        page.close()
