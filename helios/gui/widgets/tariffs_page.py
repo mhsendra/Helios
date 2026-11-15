@@ -7,6 +7,8 @@ from PySide6.QtWidgets import (
     QHeaderView,
 )
 
+from PySide6.QtCore import Qt
+from helios.utils.platform import is_android
 
 class TariffsPage(QWidget):
 
@@ -50,11 +52,25 @@ class TariffsPage(QWidget):
 
         header = self.period_table.horizontalHeader()
 
-        for column in range(5):
-            header.setSectionResizeMode(
-                column,
-                QHeaderView.Stretch
+        if is_android():
+            # Android: conservar la anchura necesaria para cada columna.
+            for column in range(5):
+                header.setSectionResizeMode(
+                    column,
+                    QHeaderView.ResizeToContents
+                )
+
+            self.period_table.setHorizontalScrollBarPolicy(
+                Qt.ScrollBarAsNeeded
             )
+
+        else:
+            # Windows: mantener el comportamiento original.
+            for column in range(5):
+                header.setSectionResizeMode(
+                    column,
+                    QHeaderView.Stretch
+                )
 
         self.period_table.setRowCount(4)
 

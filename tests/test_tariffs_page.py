@@ -1,6 +1,7 @@
 import pytest
 
-from PySide6.QtWidgets import QApplication
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QApplication, QHeaderView
 
 from helios.gui.widgets.tariffs_page import TariffsPage
 
@@ -96,6 +97,103 @@ class TestTariffsPage:
         )
 
         assert page.sell_price_label.text() == "0.06 €/kWh"
+
+    @pytest.mark.parametrize(
+        ("android", "expected_mode"),
+        [
+            (False, QHeaderView.Stretch),
+            (True, QHeaderView.ResizeToContents),
+        ],
+    )
+    def test_table_layout_by_platform(
+        self,
+        app,
+        monkeypatch,
+        android,
+        expected_mode,
+    ):
+        """Comprueba el ajuste de columnas según la plataforma."""
+
+        monkeypatch.setattr(
+            "helios.gui.widgets.tariffs_page.is_android",
+            lambda: android,
+        )
+
+        project = self.create_project()
+        page = TariffsPage(project)
+
+        try:
+            table = page.period_table
+            header = table.horizontalHeader()
+
+            assert table.columnCount() == 5
+            assert table.rowCount() == 4
+
+            # Comprobar el modo de ajuste de las cinco columnas.
+            for column in range(5):
+                assert (
+                    header.sectionResizeMode(column)
+                    == expected_mode
+                )
+
+            if android:
+                assert (
+                    table.horizontalScrollBarPolicy()
+                    == Qt.ScrollBarAsNeeded
+                )
+
+            # Verificar que los datos se conservan.
+            assert table.item(0, 0).text() == "Punta"
+            assert table.item(3, 0).text() == "Total"
+            assert table.item(3, 4).text() == "924.00 €"
+
+        finally:
+            page.close()
+
+    def test_android_table_horizontal_scrolling(
+        self,
+        app,
+        monkeypatch,
+    ):
+        """Comprueba el desplazamiento horizontal de la tabla Android."""
+
+        monkeypatch.setattr(
+            "helios.gui.widgets.tariffs_page.is_android",
+            lambda: True,
+        )
+
+        project = self.create_project()
+        page = TariffsPage(project)
+
+        try:
+            page.resize(400, 800)
+            page.show()
+
+            QApplication.processEvents()
+
+            table = page.period_table
+            scrollbar = table.horizontalScrollBar()
+
+            assert table.isVisible()
+            assert table.width() <= 400
+
+            # El contenido debe superar la anchura disponible.
+            total_width = sum(
+                table.columnWidth(column)
+                for column in range(table.columnCount())
+            )
+
+            assert total_width > table.viewport().width()
+            assert scrollbar.maximum() > 0
+
+            # Comprobar que puede desplazarse hasta el final.
+            scrollbar.setValue(scrollbar.maximum())
+            QApplication.processEvents()
+
+            assert scrollbar.value() == scrollbar.maximum()
+
+        finally:
+            page.close()
 
     # ==================================================
     # Actualización de períodos
