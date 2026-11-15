@@ -6,7 +6,18 @@ from types import SimpleNamespace
 
 from unittest.mock import Mock
 
-from PySide6.QtWidgets import QApplication, QTableWidget
+from PySide6.QtCore import Qt
+
+from PySide6.QtWidgets import (
+    QApplication,
+    QTableWidget,
+    QFormLayout,
+    QHBoxLayout,
+    QVBoxLayout,
+    QGroupBox,
+    QPushButton,
+    QTableWidgetItem,
+)
 
 from helios.gui.widgets.economics_page import EconomicsPage
 
@@ -81,6 +92,77 @@ class TestEconomicsPage:
         assert page.discount_rate_label.text() == "-"
 
         assert page.cash_flow_tabs.count() == 0
+
+    @pytest.mark.parametrize(
+        "android",
+        [False, True],
+        ids=["windows", "android"],
+    )
+    def test_overview_layout_by_platform(
+        self,
+        app,
+        monkeypatch,
+        android,
+    ):
+        monkeypatch.setattr(
+            "helios.gui.widgets.economics_page.is_android",
+            lambda: android,
+        )
+
+        project = self._create_project()
+        page = EconomicsPage(project)
+
+        content = page.scroll_area.widget()
+        main_layout = content.layout()
+
+        # Título en posición 0 y resumen en posición 1.
+        overview_widget = main_layout.itemAt(1).widget()
+        overview_layout = overview_widget.layout()
+
+        if android:
+            assert isinstance(
+                overview_layout,
+                QVBoxLayout,
+            )
+        else:
+            assert isinstance(
+                overview_layout,
+                QHBoxLayout,
+            )
+
+        # Los dos grupos y el botón siguen presentes.
+        assert overview_layout.count() == 3
+
+        summary_group = overview_layout.itemAt(0).widget()
+        profitability_group = overview_layout.itemAt(1).widget()
+        calculate_button = overview_layout.itemAt(2).widget()
+
+        assert isinstance(summary_group, QGroupBox)
+        assert isinstance(profitability_group, QGroupBox)
+        assert isinstance(calculate_button, QPushButton)
+
+        assert summary_group.title() == "Resumen económico"
+        assert profitability_group.title() == "Rentabilidad"
+        assert calculate_button is page.calculate_button
+
+        # Verificar formularios.
+        summary_form = summary_group.layout()
+        profitability_form = profitability_group.layout()
+
+        assert isinstance(summary_form, QFormLayout)
+        assert isinstance(profitability_form, QFormLayout)
+
+        assert summary_form.rowCount() == 6
+        assert profitability_form.rowCount() == 4
+
+        expected_policy = (
+            QFormLayout.WrapAllRows
+            if android
+            else QFormLayout.DontWrapRows
+        )
+
+        assert summary_form.rowWrapPolicy() == expected_policy
+        assert profitability_form.rowWrapPolicy() == expected_policy
 
     # ==================================================
     # Resumen económico
@@ -1722,3 +1804,230 @@ class TestEconomicsPage:
         assert page.cash_flow_tabs.tabText(0) == (
             "Sin alternativas viables"
         )
+
+    def test_android_battery_table_horizontal_scrolling(
+        self,
+        app,
+        monkeypatch,
+    ):
+        monkeypatch.setattr(
+            "helios.gui.widgets.economics_page.is_android",
+            lambda: True,
+        )
+
+        project = self._create_project()
+        page = EconomicsPage(project)
+
+        page.resize(400, 600)
+        page.show()
+
+        # Crear las diez columnas sin necesitar recomendaciones.
+        page.update_battery_analysis()
+
+        app.processEvents()
+
+        table = page.battery_table
+        scrollbar = table.horizontalScrollBar()
+
+        assert table.columnCount() == 10
+
+        assert table.horizontalScrollBarPolicy() == (
+            Qt.ScrollBarAsNeeded
+        )
+
+        assert scrollbar.maximum() > 0
+
+        # Comprobar que podemos desplazarnos hasta la última columna.
+        scrollbar.setValue(scrollbar.maximum())
+        app.processEvents()
+
+        last_column = table.columnCount() - 1
+
+        assert table.visualRect(
+            table.model().index(0, last_column)
+        ).isValid() is False or (
+            table.horizontalHeader().sectionViewportPosition(
+                last_column
+            ) + table.columnWidth(last_column)
+            <= table.viewport().width()
+        )
+
+        page.close()
+
+    def test_android_battery_table_full_horizontal_scrolling(
+        self,
+        app,
+        monkeypatch,
+    ):
+        monkeypatch.setattr(
+            "helios.gui.widgets.economics_page.is_android",
+            lambda: True,
+        )
+
+        project = self._create_project()
+        page = EconomicsPage(project)
+
+        page.resize(400, 600)
+        page.show()
+
+        # Crear las columnas mediante el método real.
+        page.update_battery_analysis()
+
+        table = page.battery_table
+
+        # Introducir una fila de prueba sin alterar los cálculos.
+        table.setRowCount(1)
+
+        for column in range(table.columnCount()):
+            table.setItem(
+                0,
+                column,
+                QTableWidgetItem(f"Valor {column}"),
+            )
+
+        table.resizeColumnsToContents()
+        app.processEvents()
+
+        scrollbar = table.horizontalScrollBar()
+
+        assert table.columnCount() == 10
+        assert scrollbar.maximum() > 0
+
+        # Desplazarse al extremo derecho.
+        scrollbar.setValue(scrollbar.maximum())
+        app.processEvents()
+
+        last_column = table.columnCount() - 1
+
+        header = table.horizontalHeader()
+
+        last_column_end = (
+            header.sectionViewportPosition(last_column)
+            + header.sectionSize(last_column)
+        )
+
+        print(
+            "\nGeometría Android:",
+            f"tabla={table.width()}",
+            f"viewport={table.viewport().width()}",
+            f"columnas={sum(table.columnWidth(i) for i in range(10))}",
+            f"scroll_max={scrollbar.maximum()}",
+            f"ultima_columna_fin={last_column_end}",
+        )
+
+        assert last_column_end <= table.viewport().width()
+
+        page.close()
+
+    @pytest.mark.parametrize(
+        "scenario",
+        ["solar", "battery"],
+        ids=["solar", "battery"],
+    )
+
+    def test_android_cash_flow_table_horizontal_scrolling(
+        self,
+        app,
+        monkeypatch,
+        scenario,
+    ):
+        monkeypatch.setattr(
+            "helios.gui.widgets.economics_page.is_android",
+            lambda: True,
+        )
+
+        project = self._create_project()
+
+        if scenario == "solar":
+            project.analyzer.economics_engine.cash_flow = (
+                pd.DataFrame(
+                    {
+                        "year": [0, 1, 2],
+                        "cash_flow": [-8000.0, 900.0, 950.0],
+                        "cumulative_cash_flow": [
+                            -8000.0,
+                            -7100.0,
+                            -6150.0,
+                        ],
+                    }
+                )
+            )
+            project.analyzer.economics_engine.npv = 700.0
+
+            project.solar.battery_recommendations = []
+
+        else:
+            recommendation = (
+                self._create_combined_recommendation()
+            )
+
+            project.solar.battery_recommendations = [
+                recommendation
+            ]
+
+        page = EconomicsPage(project)
+        page.resize(400, 600)
+        page.show()
+
+        page.update_cash_flow()
+        app.processEvents()
+
+        assert page.cash_flow_tabs.count() == 1
+
+        details = page.cash_flow_tabs.widget(0)
+
+        table = (
+            details
+            if isinstance(details, QTableWidget)
+            else details.findChild(QTableWidget)
+        )
+
+        assert table is not None
+        assert table.columnCount() == 3
+        assert table.rowCount() == 3
+
+        # Seleccionar la pestaña y garantizar su visibilidad.
+        page.cash_flow_tabs.setCurrentIndex(0)
+        page.scroll_area.ensureWidgetVisible(
+            page.cash_flow_tabs
+        )
+        app.processEvents()
+
+        header = table.horizontalHeader()
+
+        total_width = sum(
+            header.sectionSize(i)
+            for i in range(table.columnCount())
+        )
+
+        viewport_width = table.viewport().width()
+
+        scrollbar = table.horizontalScrollBar()
+
+        print(
+            f"\nEscenario: {scenario}",
+            f"tabla={table.width()}",
+            f"viewport={viewport_width}",
+            f"columnas={total_width}",
+            f"scroll_max={scrollbar.maximum()}",
+        )
+
+        # El desplazamiento debe estar disponible
+        # cuando las columnas superan el ancho visible.
+        if total_width > viewport_width:
+            assert scrollbar.maximum() > 0
+
+        # Comprobar acceso a la última columna.
+        scrollbar.setValue(scrollbar.maximum())
+        app.processEvents()
+
+        last_column = table.columnCount() - 1
+
+        last_column_end = (
+            header.sectionViewportPosition(last_column)
+            + header.sectionSize(last_column)
+        )
+
+        assert last_column_end <= viewport_width
+
+        page.close()

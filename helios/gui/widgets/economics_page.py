@@ -2,6 +2,8 @@ import pandas as pd
 
 import math
 
+from helios.utils.platform import is_android
+
 from PySide6.QtCore import Qt
 
 from PySide6.QtWidgets import (
@@ -56,6 +58,11 @@ class EconomicsPage(QWidget):
             summary_group
         )
 
+        if is_android():
+            summary_layout.setRowWrapPolicy(
+                QFormLayout.WrapAllRows
+            )
+
         self.cost_without_pv_label = QLabel("-")
         self.cost_with_pv_label = QLabel("-")
         self.annual_savings_label = QLabel("-")
@@ -95,7 +102,10 @@ class EconomicsPage(QWidget):
 
         overview_widget = QWidget()
 
-        overview_layout = QHBoxLayout(overview_widget)
+        if is_android():
+            overview_layout = QVBoxLayout(overview_widget)
+        else:
+            overview_layout = QHBoxLayout(overview_widget)
         overview_layout.setContentsMargins(0, 0, 0, 0)
         overview_layout.setSpacing(10)
 
@@ -115,6 +125,10 @@ class EconomicsPage(QWidget):
         profitability_layout = QFormLayout(
             profitability_group
         )
+        if is_android():
+            profitability_layout.setRowWrapPolicy(
+                QFormLayout.WrapAllRows
+            )
 
         self.payback_label = QLabel("-")
         self.npv_label = QLabel("-")
@@ -178,6 +192,10 @@ class EconomicsPage(QWidget):
         )
 
         self.battery_table = QTableWidget()
+
+        self.battery_table.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarAsNeeded
+        )
 
         self.battery_table.setMinimumHeight(220)
 
@@ -533,9 +551,6 @@ class EconomicsPage(QWidget):
                 )
 
         self.battery_table.resizeColumnsToContents()
-        self.battery_table.setHorizontalScrollBarPolicy(
-            Qt.ScrollBarAsNeeded
-        )
 
     def refresh_battery_analysis(self):
         """Actualiza la tabla económica del almacenamiento."""
