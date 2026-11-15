@@ -1,7 +1,9 @@
 from unittest.mock import MagicMock
 
+import pytest
+
 import pandas as pd
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication,QGroupBox,QFormLayout, QScrollArea
 
 from helios.gui.widgets.profiles_page import ProfilesPage
 
@@ -452,3 +454,91 @@ class TestProfilesPage:
 
         assert self.page.season_max_label.text() == "Verano"
         assert self.page.season_min_label.text() == "Primavera"
+
+    @pytest.mark.parametrize(
+        "android",
+        [False, True],
+        ids=["windows", "android"],
+    )
+    def test_form_layouts_by_platform(
+        self,
+        monkeypatch,
+        android,
+    ):
+        monkeypatch.setattr(
+            "helios.gui.widgets.profiles_page.is_android",
+            lambda: android,
+        )
+
+        page = ProfilesPage(self.project)
+
+        groups = page.findChildren(QGroupBox)
+
+        assert len(groups) == 4
+
+        expected_rows = [2, 2, 2, 2]
+
+        for group, rows in zip(groups, expected_rows):
+            form = group.layout()
+
+            assert isinstance(form, QFormLayout)
+            assert form.rowCount() == rows
+
+            expected_policy = (
+                QFormLayout.WrapAllRows
+                if android
+                else QFormLayout.DontWrapRows
+            )
+
+            assert form.rowWrapPolicy() == expected_policy
+
+    def test_android_vertical_scrolling(
+        self,
+        monkeypatch,
+    ):
+        monkeypatch.setattr(
+            "helios.gui.widgets.profiles_page.is_android",
+            lambda: True,
+        )
+
+        page = ProfilesPage(self.project)
+        page.resize(400, 600)
+        page.show()
+
+        scroll = page.scroll_area
+        assert isinstance(scroll, QScrollArea)
+
+        # Forzar contenido suficientemente alto para
+        # comprobar el desplazamiento vertical.
+        page.hour_max_label.setText(
+            "Perfil horario con información adicional. " * 30
+        )
+        page.hour_max_label.setWordWrap(True)
+
+        self.app.processEvents()
+
+        viewport_width = scroll.viewport().width()
+        content_width = scroll.widget().width()
+
+        vertical = scroll.verticalScrollBar()
+        horizontal = scroll.horizontalScrollBar()
+
+        print(
+            "\nGeometría ProfilesPage Android:",
+            f"pagina={page.width()}",
+            f"viewport={viewport_width}",
+            f"contenido={content_width}",
+            f"scroll_vertical={vertical.maximum()}",
+            f"scroll_horizontal={horizontal.maximum()}",
+        )
+
+        assert content_width <= viewport_width
+        assert vertical.maximum() > 0
+        assert horizontal.maximum() == 0
+
+        vertical.setValue(vertical.maximum())
+        self.app.processEvents()
+
+        assert vertical.value() == vertical.maximum()
+
+        page.close()

@@ -1,13 +1,26 @@
+from PySide6.QtCore import Qt
+
 from PySide6.QtWidgets import (
     QWidget,
     QLabel,
     QVBoxLayout,
     QGroupBox,
-    QFormLayout
+    QFormLayout,
+    QScrollArea,
 )
-
+from helios.utils.platform import is_android
 
 class ProfilesPage(QWidget):
+
+    def create_form_layout(self, group):
+        form = QFormLayout(group)
+
+        if is_android():
+            form.setRowWrapPolicy(
+                QFormLayout.WrapAllRows
+            )
+
+        return form
 
     def __init__(self, project):
 
@@ -15,7 +28,26 @@ class ProfilesPage(QWidget):
 
         self.project = project
 
-        layout = QVBoxLayout(self)
+        if is_android():
+            outer_layout = QVBoxLayout(self)
+            outer_layout.setContentsMargins(0, 0, 0, 0)
+
+            scroll = QScrollArea()
+            scroll.setWidgetResizable(True)
+            scroll.setHorizontalScrollBarPolicy(
+                Qt.ScrollBarAlwaysOff
+            )
+
+            content = QWidget()
+            layout = QVBoxLayout(content)
+
+            scroll.setWidget(content)
+            outer_layout.addWidget(scroll)
+
+            self.scroll_area = scroll
+        else:
+            layout = QVBoxLayout(self)
+            self.scroll_area = None
 
         title = QLabel("<h2>Perfiles de consumo</h2>")
         layout.addWidget(title)
@@ -26,7 +58,7 @@ class ProfilesPage(QWidget):
 
         hourly_group = QGroupBox("Perfil horario")
 
-        hourly_layout = QFormLayout(hourly_group)
+        hourly_layout = self.create_form_layout(hourly_group)
 
         self.hour_max_label = QLabel("-")
         self.hour_min_label = QLabel("-")
@@ -49,7 +81,7 @@ class ProfilesPage(QWidget):
 
         weekday_group = QGroupBox("Perfil semanal")
 
-        weekday_layout = QFormLayout(weekday_group)
+        weekday_layout = self.create_form_layout(weekday_group)
 
         self.weekday_max_label = QLabel("-")
         self.weekday_min_label = QLabel("-")
@@ -72,7 +104,7 @@ class ProfilesPage(QWidget):
 
         monthly_group = QGroupBox("Perfil mensual")
 
-        monthly_layout = QFormLayout(monthly_group)
+        monthly_layout = self.create_form_layout(monthly_group)
 
         self.month_max_label = QLabel("-")
         self.month_min_label = QLabel("-")
@@ -95,7 +127,7 @@ class ProfilesPage(QWidget):
 
         seasonal_group = QGroupBox("Perfil estacional")
 
-        seasonal_layout = QFormLayout(seasonal_group)
+        seasonal_layout = self.create_form_layout(seasonal_group)
 
         self.season_max_label = QLabel("-")
         self.season_min_label = QLabel("-")
