@@ -1,0 +1,33 @@
+diff --git a/pythonforandroid/build.py b/pythonforandroid/build.py
+--- a/pythonforandroid/build.py
++++ b/pythonforandroid/build.py
+@@ -662,6 +662,29 @@
+                         ctx_site_packages_dir, f
+                     ))
+
++            # Refresh the local Helios package even when its directory
++            # already exists in the Android distribution.
++            # Keep all third-party scientific packages untouched.
++            info('Refreshing Helios package in Android site-packages...')
++            for package_name in ('helios', 'helios-1.0.0.dist-info'):
++                source = os.path.join(venv_site_packages_dir, package_name)
++                destination = os.path.join(ctx_site_packages_dir, package_name)
++
++                if not os.path.exists(source):
++                    raise RuntimeError(
++                        'Helios installation missing: ' + source
++                    )
++
++                if os.path.isdir(destination):
++                    shutil.rmtree(destination)
++                elif os.path.exists(destination):
++                    os.remove(destination)
++
++                if os.path.isdir(source):
++                    shutil.copytree(source, destination)
++                else:
++                    shutil.copy2(source, destination)
++
+             # Undo all the changes we did to the venv-site packages:
+             info('Reverting additions to '
+                  'virtualenv\'s site-packages...')

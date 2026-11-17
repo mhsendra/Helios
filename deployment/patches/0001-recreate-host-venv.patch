@@ -1,49 +1,12 @@
 diff --git a/pythonforandroid/build.py b/pythonforandroid/build.py
-index d88fdb1f..ba246afa 100644
 --- a/pythonforandroid/build.py
 +++ b/pythonforandroid/build.py
-@@ -640,7 +640,8 @@ def run_setuppy_install(ctx, project_dir, env=None, arch=None):
-                 "'" + join(
-                     ctx.build_dir, "venv", "bin", "pip"
-                 ).replace("'", "'\"'\"'") + "' " +
--                "install -c ._tmp_p4a_recipe_constraints.txt -v ."
-+                "install --force-reinstall --no-deps "
-+                "-c ._tmp_p4a_recipe_constraints.txt -v ."
-             ).format(ctx.get_site_packages_dir(arch).
-                      replace("'", "'\"'\"'")),
-                     _env=copy.copy(env))
-@@ -662,6 +663,25 @@ def run_setuppy_install(ctx, project_dir, env=None, arch=None):
-                         ctx_site_packages_dir, f
-                     ))
-
-+            # Refresh the application package and its distribution metadata.
-+            # These entries already existed before pip ran, so the generic
-+            # new-additions mechanism above does not copy them back.
-+            for f in os.listdir(venv_site_packages_dir):
-+                if f == "helios" or (
-+                    f.startswith("helios-") and
-+                    f.endswith(".dist-info")
-+                ):
-+                    src = os.path.join(venv_site_packages_dir, f)
-+                    dst = os.path.join(ctx_site_packages_dir, f)
-+                    if os.path.isdir(dst):
-+                        rmdir(dst)
-+                    elif os.path.exists(dst):
-+                        os.remove(dst)
-+                    if os.path.isdir(src):
-+                        shutil.copytree(src, dst)
-+                    else:
-+                        shutil.copy2(src, dst)
-+
-             # Undo all the changes we did to the venv-site packages:
-             info('Reverting additions to '
-                  'virtualenv\'s site-packages...')
-@@ -868,7 +888,7 @@ def run_pymodules_install(ctx, arch, modules, project_dir=None,
-     # Use our hostpython to create the virtualenv
-     host_python = sh.Command(ctx.hostpython)
-     with current_directory(join(ctx.build_dir)):
--        shprint(host_python, '-m', 'venv', 'venv')
-+        shprint(host_python, '-m', 'venv', '--clear', 'venv')
+@@ -875,7 +875,7 @@
+         base_env["PYTHONPATH"] = ctx.get_site_packages_dir(arch)
+         info('Upgrade pip to latest version')
+         shprint(sh.bash, '-c', (
+-            "source venv/bin/activate && pip install -U pip"
++            "venv/bin/python -m pip --version"
+         ), _env=copy.copy(base_env))
  
-         # Prepare base environment and upgrade pip:
-         base_env = dict(copy.copy(os.environ))
+         # Install Cython in case modules need it to build:

@@ -47,6 +47,7 @@ PATCHES=(
     "0001-recreate-host-venv.patch"
     "0002-create-adaptive-icon-directory.patch"
     "0003-remove-generic-back-handler.patch"
+    "0004-refresh-helios-package.patch"
 )
 
 PENDING=()

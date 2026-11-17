@@ -147,7 +147,7 @@ ACTUAL_FILES="$(git -C "$P4A_DIR" diff --name-only | LC_ALL=C sort)"
 EXPECTED_SORTED="$(printf '%s\n' "${EXPECTED_FILES[@]}" | LC_ALL=C sort)"
 
 [[ "$ACTUAL_FILES" == "$EXPECTED_SORTED" ]] ||
-    fail "El conjunto final de archivos modificados no coincide con los tres parches"
+    fail "El conjunto final de archivos modificados no coincide con los cuatro parches"
 
 echo
 echo "========== 4. CONFIGURAR BUILDOZER =========="
@@ -178,4 +178,64 @@ command -v buildozer >/dev/null ||
     fail "Buildozer no está instalado en el entorno seleccionado"
 
 cd "$REPO_ROOT"
-exec buildozer android "$COMMAND" "$@"
+
+python - "$P4A_DIR" "$COMMAND" "$@" <<'HELIOS_BUILDOZER_PY'
+from pathlib import Path
+from tempfile import NamedTemporaryFile
+from buildozer import Buildozer
+import sys
+
+p4a_dir = Path(sys.argv[1]).resolve()
+command = sys.argv[2]
+extra_args = sys.argv[3:]
+
+repo = Path.cwd().resolve()
+original_spec = repo / "buildozer.spec"
+
+content = original_spec.read_text(encoding="utf-8")
+
+if "p4a.source_dir" in content:
+    raise SystemExit(
+        "ERROR: buildozer.spec ya contiene p4a.source_dir"
+    )
+
+if content.count("[app]") != 1:
+    raise SystemExit(
+        "ERROR: sección [app] inesperada"
+    )
+
+content = content.replace(
+    "[app]",
+    f"[app]\np4a.source_dir = {p4a_dir}",
+    1,
+)
+
+with NamedTemporaryFile(
+    mode="w",
+    prefix=".helios-deploy-",
+    suffix=".spec",
+    dir=repo,
+    encoding="utf-8",
+    delete=True,
+) as temporary:
+    temporary.write(content)
+    temporary.flush()
+
+    builder = Buildozer(filename=temporary.name)
+
+    if Path(builder.root_dir).resolve() != repo:
+        raise SystemExit("ERROR: raíz Buildozer incorrecta")
+
+    if Path(builder.buildozer_dir).resolve() != repo / ".buildozer":
+        raise SystemExit("ERROR: caché Buildozer incorrecta")
+
+    builder.set_target("android")
+
+    if Path(builder.target.p4a_dir).resolve() != p4a_dir:
+        raise SystemExit("ERROR: P4A seleccionado incorrecto")
+
+    print("P4A verificado:", p4a_dir, flush=True)
+    print("Caché verificada:", builder.buildozer_dir, flush=True)
+
+    builder.run_command(["android", command, *extra_args])
+HELIOS_BUILDOZER_PY
