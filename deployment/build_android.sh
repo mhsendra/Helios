@@ -88,6 +88,7 @@ EXPECTED_FILES=(
     "pythonforandroid/build.py"
     "pythonforandroid/bootstraps/common/build/build.py"
     "pythonforandroid/bootstraps/qt/build/src/main/java/org/kivy/android/PythonActivity.java"
+    "pythonforandroid/bootstraps/qt/build/templates/strings.tmpl.xml"
 )
 
 check_worktree() {
@@ -147,7 +148,7 @@ ACTUAL_FILES="$(git -C "$P4A_DIR" diff --name-only | LC_ALL=C sort)"
 EXPECTED_SORTED="$(printf '%s\n' "${EXPECTED_FILES[@]}" | LC_ALL=C sort)"
 
 [[ "$ACTUAL_FILES" == "$EXPECTED_SORTED" ]] ||
-    fail "El conjunto final de archivos modificados no coincide con los cuatro parches"
+    fail "El conjunto final de archivos modificados no coincide con los seis parches"
 
 echo
 echo "========== 4. CONFIGURAR BUILDOZER =========="

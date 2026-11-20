@@ -1,4 +1,7 @@
 from io import StringIO
+import os
+from pathlib import Path
+from datetime import datetime
 from contextlib import redirect_stdout
 
 from PySide6.QtWidgets import (
@@ -665,7 +668,52 @@ class ReportsPage(QWidget):
             available
         )
 
+    # HELIOS_PDF_DIAG_BEGIN
+    @staticmethod
+    def _pdf_diagnostic(message):
+        if not is_android():
+            return
+
+        try:
+            private = os.environ.get("ANDROID_PRIVATE")
+            if not private:
+                print(
+                    "HELIOS_PDF_DIAG: ANDROID_PRIVATE missing",
+                    flush=True,
+                )
+                return
+
+            directory = Path(private) / "helios_pdf"
+            directory.mkdir(parents=True, exist_ok=True)
+
+            logfile = directory / "pdf_debug.log"
+
+            timestamp = datetime.now().isoformat(
+                timespec="milliseconds"
+            )
+
+            line = f"{timestamp} | {message}"
+
+            with logfile.open("a", encoding="utf-8") as stream:
+                stream.write(line + "\n")
+                stream.flush()
+                os.fsync(stream.fileno())
+
+            print("HELIOS_PDF_DIAG:", line, flush=True)
+
+        except Exception as error:
+            print(
+                "HELIOS_PDF_DIAG logging error:",
+                repr(error),
+                flush=True,
+            )
+
     def generate_solar_pdf_report(self):
+        if is_android():
+            self._generate_android_solar_pdf_report()
+            return
+
+        self._pdf_diagnostic("01 BEFORE_FILE_DIALOG")
 
         output_path, _ = QFileDialog.getSaveFileName(
             self,
@@ -674,39 +722,266 @@ class ReportsPage(QWidget):
             "PDF (*.pdf)",
         )
 
+        self._pdf_diagnostic(
+            f"02 AFTER_FILE_DIALOG path={output_path!r}"
+        )
+
         if not output_path:
+            self._pdf_diagnostic("03 FILE_DIALOG_CANCELLED")
             return
 
+        self._generate_solar_pdf_to_path(output_path)
+
+    def _generate_solar_pdf_to_path(self, output_path):
         try:
+            self._pdf_diagnostic("04 BEFORE_DATA_FACTORY")
+
             data = SolarReportDataFactory.create(
                 self.project.analyzer.solar,
                 self.project.analyzer.economics,
             )
 
+            self._pdf_diagnostic("05 AFTER_DATA_FACTORY")
+
             generator = SolarReportGenerator()
 
-            generator.generate(
-                data,
-                output_path,
-            )
+            self._pdf_diagnostic("06 BEFORE_GENERATE")
+
+            generator.generate(data, str(output_path))
+
+            self._pdf_diagnostic("07 AFTER_GENERATE")
 
         except Exception as error:
+            self._pdf_diagnostic(
+                f"08 EXCEPTION {type(error).__name__}: {error}"
+            )
+
             QMessageBox.critical(
                 self,
                 "Error",
                 (
-                    "No se ha podido generar el informe solar.\n\n"
+                    "No se ha podido generar el informe solar.\\n\\n"
                     f"{error}"
                 ),
             )
+            return False
 
+        return True
+
+    def _generate_android_solar_pdf_report(self):
+        import uuid
+        from PySide6.QtCore import QTimer
+
+        if getattr(self, "_pdf_request_id", None) is not None:
             return
 
-        QMessageBox.information(
-            self,
-            "Informe generado",
-            (
-                "El informe solar se ha generado "
-                "correctamente."
-            ),
-        )
+        output_path = None
+
+        try:
+            private = os.environ.get("ANDROID_PRIVATE")
+            if not private:
+                raise RuntimeError("ANDROID_PRIVATE no está definido")
+
+            directory = Path(private) / "helios_pdf"
+            directory.mkdir(parents=True, exist_ok=True)
+
+            request_id = str(uuid.uuid4())
+            output_path = directory / f"{request_id}.pdf"
+
+            request = directory / "pdf_request.txt"
+            result = directory / "pdf_result.txt"
+
+            result.unlink(missing_ok=True)
+
+            self._pdf_diagnostic(
+                f"11 ANDROID_GENERATE_BEGIN id={request_id}"
+            )
+
+            if not self._generate_solar_pdf_to_path(output_path):
+                output_path.unlink(missing_ok=True)
+                return
+
+            if not output_path.is_file():
+                raise FileNotFoundError(str(output_path))
+
+            if output_path.stat().st_size == 0:
+                raise ValueError("El informe PDF generado está vacío")
+
+            self._pdf_diagnostic(
+                f"12 ANDROID_PDF_READY bytes={output_path.stat().st_size}"
+            )
+
+            if getattr(self, "_pdf_timer", None) is None:
+                self._pdf_timer = QTimer(self)
+                self._pdf_timer.setInterval(300)
+                self._pdf_timer.timeout.connect(
+                    self._check_android_pdf_result
+                )
+
+            self._pdf_request_id = request_id
+            self._pdf_directory = directory
+            self._pdf_output_path = output_path
+
+            self._pdf_button_was_enabled = (
+                self.generate_solar_pdf_button.isEnabled()
+            )
+            self.generate_solar_pdf_button.setEnabled(False)
+
+            temporary = directory / "pdf_request.tmp"
+            temporary.write_text(request_id, encoding="utf-8")
+            temporary.replace(request)
+
+            self._pdf_diagnostic(
+                f"13 ANDROID_REQUEST_PUBLISHED id={request_id}"
+            )
+
+            self._pdf_timer.start()
+
+        except Exception as error:
+            self._pdf_diagnostic(
+                f"14 ANDROID_REQUEST_ERROR {type(error).__name__}: {error}"
+            )
+
+            # Detener cualquier temporizador que haya podido iniciarse.
+            timer = getattr(self, "_pdf_timer", None)
+            if timer is not None:
+                timer.stop()
+
+            # Eliminar únicamente el PDF temporal de esta operación.
+            if output_path is not None:
+                try:
+                    output_path.unlink(missing_ok=True)
+                except OSError as cleanup_error:
+                    self._pdf_diagnostic(
+                        f"14 ANDROID_PDF_CLEANUP_ERROR {cleanup_error}"
+                    )
+
+            # Eliminar el archivo provisional de publicación.
+            if output_path is not None:
+                temporary = output_path.parent / "pdf_request.tmp"
+                try:
+                    temporary.unlink(missing_ok=True)
+                except OSError as cleanup_error:
+                    self._pdf_diagnostic(
+                        f"14 ANDROID_REQUEST_CLEANUP_ERROR {cleanup_error}"
+                    )
+
+            # Si la solicitud ya fue publicada, retirarla solamente
+            # cuando todavía corresponde a esta operación.
+            if output_path is not None:
+                request_file = output_path.parent / "pdf_request.txt"
+                try:
+                    if (
+                        request_file.is_file()
+                        and request_file.read_text(
+                            encoding="utf-8"
+                        ).strip() == str(request_id)
+                    ):
+                        request_file.unlink(missing_ok=True)
+                except (OSError, UnicodeError) as cleanup_error:
+                    self._pdf_diagnostic(
+                        f"14 ANDROID_PUBLISHED_CLEANUP_ERROR {cleanup_error}"
+                    )
+
+            self._pdf_request_id = None
+            self._pdf_output_path = None
+
+            self.generate_solar_pdf_button.setEnabled(
+                getattr(
+                    self,
+                    "_pdf_button_was_enabled",
+                    self.generate_solar_pdf_button.isEnabled(),
+                )
+            )
+
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"No se ha podido iniciar la exportación PDF.\\n\\n{error}",
+            )
+
+    def _check_android_pdf_result(self):
+        request_id = getattr(self, "_pdf_request_id", None)
+        if request_id is None:
+            return
+
+        result = self._pdf_directory / "pdf_result.txt"
+
+        if not result.is_file():
+            return
+
+        try:
+            contents = result.read_text(encoding="utf-8")
+            parts = contents.split("\n", 2)
+
+            # No consumir respuestas incompletas.
+            if len(parts) != 3:
+                return
+
+            received_id, status, detail = parts
+
+            # No consumir respuestas de otras solicitudes.
+            if received_id != request_id:
+                return
+
+            if status not in ("OK", "CANCELLED", "ERROR"):
+                self._pdf_diagnostic(
+                    f"17 ANDROID_UNKNOWN_STATUS {status}"
+                )
+                detail = (
+                    f"Android ha devuelto un estado PDF "
+                    f"desconocido: {status}. {detail}"
+                )
+                status = "ERROR"
+
+            result.unlink(missing_ok=True)
+
+            self._pdf_diagnostic(
+                f"15 ANDROID_RESULT status={status} detail={detail}"
+            )
+
+            # Finalizar antes de mostrar cuadros de diálogo.
+            self._pdf_timer.stop()
+
+            output_path = getattr(self, "_pdf_output_path", None)
+            if output_path is not None:
+                output_path.unlink(missing_ok=True)
+
+            self._pdf_output_path = None
+            self._pdf_request_id = None
+
+            self.generate_solar_pdf_button.setEnabled(
+                getattr(self, "_pdf_button_was_enabled", True)
+            )
+
+            self._pdf_diagnostic("18 ANDROID_EXPORT_FINISHED")
+
+            if status == "OK":
+                QMessageBox.information(
+                    self,
+                    "Informe generado",
+                    "El informe solar se ha guardado correctamente.",
+                )
+
+            elif status == "CANCELLED":
+                self._pdf_diagnostic("16 ANDROID_EXPORT_CANCELLED")
+
+            elif status == "ERROR":
+                QMessageBox.critical(
+                    self,
+                    "Error",
+                    f"No se ha podido guardar el informe PDF.\\n\\n{detail}",
+                )
+
+        except Exception as error:
+            self._pdf_diagnostic(
+                f"17 ANDROID_RESULT_ERROR {type(error).__name__}: {error}"
+            )
+
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"Error al procesar la exportación PDF.\\n\\n{error}",
+            )
+
+    # HELIOS_PDF_DIAG_END

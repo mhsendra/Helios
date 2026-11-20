@@ -1,0 +1,10 @@
+diff --git a/pythonforandroid/bootstraps/qt/build/templates/strings.tmpl.xml b/pythonforandroid/bootstraps/qt/build/templates/strings.tmpl.xml
+--- a/pythonforandroid/bootstraps/qt/build/templates/strings.tmpl.xml
++++ b/pythonforandroid/bootstraps/qt/build/templates/strings.tmpl.xml
+@@ -2,5 +2,6 @@
+ <resources>
+     <style name="KivySupportCutout">
+         <item name="android:windowNoTitle">true</item>
++        <item name="android:windowBackground">@drawable/helios_launch_background</item>
+         <!-- Display cutout is an area on some devices that extends into the display surface -->
+         {% if args.display_cutout != 'never'%}

@@ -1,0 +1,183 @@
+--- a/pythonforandroid/bootstraps/qt/build/src/main/java/org/kivy/android/PythonActivity.java
++++ b/pythonforandroid/bootstraps/qt/build/src/main/java/org/kivy/android/PythonActivity.java
+@@ -1,6 +1,17 @@
+ package org.kivy.android;
+
+ import android.content.Context;
++import android.app.Activity;
++import android.net.Uri;
++import android.database.Cursor;
++import android.provider.OpenableColumns;
++import android.os.Handler;
++import android.os.Looper;
++import java.io.FileInputStream;
++import java.io.FileOutputStream;
++import java.io.InputStream;
++import java.io.OutputStream;
++import java.nio.charset.StandardCharsets;
+ import android.content.Intent;
+ import android.content.pm.PackageManager;
+ import android.os.Bundle;
+@@ -17,6 +28,134 @@
+
+     private static final String TAG = "PythonActivity";
+
++    private static final int HELIOS_EXCEL_REQUEST = 48271;
++    private final Handler heliosExcelHandler =
++            new Handler(Looper.getMainLooper());
++    private String heliosExcelRequestId = null;
++
++    private final Runnable heliosExcelPoll = new Runnable() {
++        @Override
++        public void run() {
++            try {
++                File request = new File(getFilesDir(), "helios_excel/excel_request.txt");
++                if (request.exists()) {
++                    byte[] bytes = new byte[(int) Math.min(request.length(), 256)];
++                    try (FileInputStream input = new FileInputStream(request)) {
++                        int count = input.read(bytes);
++                        if (count > 0) {
++                            String id = new String(
++                                    bytes, 0, count, StandardCharsets.UTF_8).trim();
++                            if (id.matches("[a-fA-F0-9-]{36}")
++                                    && heliosExcelRequestId == null) {
++                                heliosExcelRequestId = id;
++                                request.delete();
++                                Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
++                                intent.addCategory(Intent.CATEGORY_OPENABLE);
++                                intent.setType(
++                                    "application/vnd.openxmlformats-officedocument."
++                                    + "spreadsheetml.sheet");
++                                startActivityForResult(intent, HELIOS_EXCEL_REQUEST);
++                            }
++                        }
++                    }
++                }
++            } catch (Exception e) {
++                Log.e(TAG, "Error comprobando solicitud Excel", e);
++            } finally {
++                heliosExcelHandler.postDelayed(this, 300);
++            }
++        }
++    };
++
++    private void heliosExcelWriteResult(String id, String status, String detail, String originalName) {
++        try {
++            File directory = new File(getFilesDir(), "helios_excel");
++            if (!directory.exists() && !directory.mkdirs()) {
++                throw new java.io.IOException("No se puede crear directorio Excel");
++            }
++            File temporary = new File(directory, "excel_result.tmp");
++            File result = new File(directory, "excel_result.txt");
++            try (FileOutputStream output = new FileOutputStream(temporary)) {
++                String message = id + "\n" + status + "\n" + detail + (originalName.isEmpty() ? "" : "\n" + originalName);
++                output.write(message.getBytes(StandardCharsets.UTF_8));
++                output.getFD().sync();
++            }
++            if (!temporary.renameTo(result)) {
++                throw new java.io.IOException("No se puede publicar resultado Excel");
++            }
++        } catch (Exception e) {
++            Log.e(TAG, "Error escribiendo resultado Excel", e);
++        }
++    }
++
++    private void heliosExcelHandleResult(int resultCode, Intent data) {
++        final String id = heliosExcelRequestId;
++        if (id == null) {
++            return;
++        }
++        if (resultCode != Activity.RESULT_OK || data == null
++                || data.getData() == null) {
++            heliosExcelWriteResult(id, "CANCELLED", "", "");
++            heliosExcelRequestId = null;
++            return;
++        }
++        final Uri uri = data.getData();
++        new Thread(() -> {
++            try {
++                File directory = new File(getFilesDir(), "helios_excel");
++                if (!directory.exists() && !directory.mkdirs()) {
++                    throw new java.io.IOException("No se puede crear directorio Excel");
++                }
++                File temporary = new File(directory, id + ".tmp");
++                File target = new File(directory, id + ".xlsx");
++                try (InputStream input = getContentResolver().openInputStream(uri);
++                     OutputStream output = new FileOutputStream(temporary)) {
++                    if (input == null) {
++                        throw new java.io.IOException("Documento no accesible");
++                    }
++                    byte[] buffer = new byte[65536];
++                    int count;
++                    while ((count = input.read(buffer)) != -1) {
++                        output.write(buffer, 0, count);
++                    }
++                }
++                if (!temporary.renameTo(target)) {
++                    throw new java.io.IOException("No se puede guardar Excel");
++                }
++                String originalName = "";
++                try (Cursor cursor = getContentResolver().query(
++                        uri,
++                        new String[]{OpenableColumns.DISPLAY_NAME},
++                        null, null, null)) {
++                    if (cursor != null && cursor.moveToFirst()) {
++                        int column = cursor.getColumnIndex(
++                            OpenableColumns.DISPLAY_NAME);
++                        if (column >= 0 && !cursor.isNull(column)) {
++                            originalName = cursor.getString(column);
++                        }
++                    }
++                } catch (Exception nameError) {
++                    Log.w(TAG, "No se puede recuperar nombre Excel", nameError);
++                }
++
++                if (originalName == null) {
++                    originalName = "";
++                }
++                originalName = originalName.replace("\r", " ")
++                                           .replace("\n", " ");
++
++                heliosExcelWriteResult(
++                    id, "OK", target.getAbsolutePath(), originalName);
++            } catch (Exception e) {
++                Log.e(TAG, "Error copiando Excel", e);
++                heliosExcelWriteResult(id, "ERROR", e.toString(), "");
++            } finally {
++                heliosExcelHandler.post(
++                    () -> heliosExcelRequestId = null);
++            }
++        }, "HeliosExcelCopy").start();
++    }
++
+     public static PythonActivity mActivity = null;
+
+     private Bundle mMetaData = null;
+@@ -86,6 +225,8 @@
+         super.onCreate(savedInstanceState);
+         Log.v(TAG, "Did super onCreate");
+
++        heliosExcelHandler.post(heliosExcelPoll);
++
+         this.mActivity = this;
+         try {
+             Log.v(TAG, "Access to our meta-data...");
+@@ -108,6 +249,7 @@
+
+     @Override
+     public void onDestroy() {
++        heliosExcelHandler.removeCallbacks(heliosExcelPoll);
+         Log.i("Destroy", "end of app");
+         super.onDestroy();
+
+@@ -174,6 +316,10 @@
+
+     @Override
+     protected void onActivityResult(int requestCode, int resultCode, Intent intent) {
++        if (requestCode == HELIOS_EXCEL_REQUEST) {
++            heliosExcelHandleResult(resultCode, intent);
++            return;
++        }
+         if (this.activityResultListeners == null) return;
+         this.onResume();
+         synchronized (this.activityResultListeners) {

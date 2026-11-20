@@ -1,6 +1,19 @@
+import os
+import sys
+
 
 from PySide6.QtCore import QEvent, QLocale, Qt
+from PySide6.QtGui import QInputMethodEvent
 from PySide6.QtWidgets import QDoubleSpinBox
+
+
+def _is_android():
+    """Detecta la ejecución bajo Python-for-Android."""
+    return (
+        sys.platform == "android"
+        or "ANDROID_ARGUMENT" in os.environ
+        or "ANDROID_PRIVATE" in os.environ
+    )
 
 
 class LocalizedDoubleSpinBox(QDoubleSpinBox):
@@ -9,14 +22,50 @@ class LocalizedDoubleSpinBox(QDoubleSpinBox):
     def __init__(self, parent=None):
         super().__init__(parent)
 
-        self.setLocale(QLocale("es_ES"))
+        self._android_mode = _is_android()
+
+        self.setLocale(
+            QLocale("en_US" if self._android_mode else "es_ES")
+        )
         self.setGroupSeparatorShown(False)
 
-        # El evento puede llegar tanto al spinbox como al editor interno.
-        self.installEventFilter(self)
-        self.lineEdit().installEventFilter(self)
+        # En Android dejamos que Qt procese directamente el teclado.
+        # En Windows conservamos la conversión del teclado numérico.
+        if not self._android_mode:
+            self.installEventFilter(self)
+            self.lineEdit().installEventFilter(self)
 
     def eventFilter(self, watched, event):
+        if self._android_mode:
+            return super().eventFilter(watched, event)
+
+        if (
+            watched is self.lineEdit()
+            and event.type() == QEvent.Type.InputMethod
+        ):
+            committed_text = event.commitString()
+
+            if "." in committed_text:
+                decimal_point = self.locale().decimalPoint()
+
+                normalized_text = committed_text.replace(
+                    ".", decimal_point
+                )
+
+                normalized_event = QInputMethodEvent(
+                    event.preeditString(),
+                    event.attributes(),
+                )
+
+                normalized_event.setCommitString(
+                    normalized_text,
+                    event.replacementStart(),
+                    event.replacementLength(),
+                )
+
+                return self.lineEdit().event(
+                    normalized_event
+                )
         if event.type() != QEvent.Type.KeyPress:
             return super().eventFilter(watched, event)
 

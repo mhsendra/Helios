@@ -1,0 +1,225 @@
+--- a/pythonforandroid/bootstraps/qt/build/src/main/java/org/kivy/android/PythonActivity.java
++++ b/pythonforandroid/bootstraps/qt/build/src/main/java/org/kivy/android/PythonActivity.java
+@@ -156,6 +156,195 @@
+         }, "HeliosExcelCopy").start();
+     }
+
++
++    // ============================================================
++    // HELIOS PDF EXPORT
++    // ============================================================
++
++    private static final int HELIOS_PDF_REQUEST = 48272;
++
++    private final Handler heliosPdfHandler =
++            new Handler(Looper.getMainLooper());
++
++    private String heliosPdfRequestId = null;
++
++    private final Runnable heliosPdfPoll = new Runnable() {
++        @Override
++        public void run() {
++            try {
++                File directory = new File(getFilesDir(), "helios_pdf");
++                File request = new File(directory, "pdf_request.txt");
++
++                if (request.exists() && heliosPdfRequestId == null) {
++                    byte[] bytes = new byte[
++                            (int) Math.min(request.length(), 256)];
++
++                    try (FileInputStream input =
++                                 new FileInputStream(request)) {
++
++                        int count = input.read(bytes);
++
++                        if (count > 0) {
++                            String id = new String(
++                                    bytes, 0, count,
++                                    StandardCharsets.UTF_8).trim();
++
++                            if (id.matches("[a-fA-F0-9-]{36}")) {
++                                heliosPdfRequestId = id;
++
++                                if (!request.delete()) {
++                                    throw new java.io.IOException(
++                                            "No se puede retirar solicitud PDF");
++                                }
++
++                                File pdf = new File(directory, id + ".pdf");
++
++                                if (!pdf.isFile() || pdf.length() == 0) {
++                                    throw new java.io.IOException(
++                                            "PDF privado inexistente o vacío");
++                                }
++
++                                Intent intent = new Intent(
++                                        Intent.ACTION_CREATE_DOCUMENT);
++
++                                intent.addCategory(
++                                        Intent.CATEGORY_OPENABLE);
++
++                                intent.setType("application/pdf");
++
++                                intent.putExtra(
++                                        Intent.EXTRA_TITLE,
++                                        "Informe_solar.pdf");
++
++                                startActivityForResult(
++                                        intent, HELIOS_PDF_REQUEST);
++                            }
++                        }
++                    }
++                }
++            } catch (Exception error) {
++                Log.e(TAG, "Error comprobando solicitud PDF", error);
++
++                if (heliosPdfRequestId != null) {
++                    heliosPdfWriteResult(
++                            heliosPdfRequestId,
++                            "ERROR",
++                            error.toString());
++                    heliosPdfRequestId = null;
++                }
++            } finally {
++                heliosPdfHandler.postDelayed(this, 300);
++            }
++        }
++    };
++
++    private void heliosPdfWriteResult(
++            String id, String status, String detail) {
++
++        try {
++            File directory = new File(getFilesDir(), "helios_pdf");
++
++            if (!directory.exists() && !directory.mkdirs()) {
++                throw new java.io.IOException(
++                        "No se puede crear directorio PDF");
++            }
++
++            File temporary = new File(directory, "pdf_result.tmp");
++            File result = new File(directory, "pdf_result.txt");
++
++            try (FileOutputStream output =
++                         new FileOutputStream(temporary)) {
++
++                String message = id + "\n" + status + "\n" + detail;
++
++                output.write(
++                        message.getBytes(StandardCharsets.UTF_8));
++
++                output.getFD().sync();
++            }
++
++            if (!temporary.renameTo(result)) {
++                throw new java.io.IOException(
++                        "No se puede publicar resultado PDF");
++            }
++
++        } catch (Exception error) {
++            Log.e(TAG, "Error escribiendo resultado PDF", error);
++        }
++    }
++
++    private void heliosPdfHandleResult(
++            int resultCode, Intent data) {
++
++        final String id = heliosPdfRequestId;
++
++        if (id == null) {
++            return;
++        }
++
++        if (resultCode != Activity.RESULT_OK
++                || data == null
++                || data.getData() == null) {
++
++            heliosPdfWriteResult(id, "CANCELLED", "");
++            heliosPdfRequestId = null;
++            return;
++        }
++
++        final Uri uri = data.getData();
++
++        new Thread(() -> {
++            try {
++                File directory = new File(
++                        getFilesDir(), "helios_pdf");
++
++                File sourcePdf = new File(directory, id + ".pdf");
++
++                if (!sourcePdf.isFile()
++                        || sourcePdf.length() == 0) {
++
++                    throw new java.io.IOException(
++                            "El PDF de origen no existe o está vacío");
++                }
++
++                try (InputStream input =
++                             new FileInputStream(sourcePdf);
++                     OutputStream output =
++                             getContentResolver().openOutputStream(uri, "wt")) {
++
++                    if (output == null) {
++                        throw new java.io.IOException(
++                                "No se puede abrir el documento de destino");
++                    }
++
++                    byte[] buffer = new byte[65536];
++                    int count;
++
++                    while ((count = input.read(buffer)) != -1) {
++                        output.write(buffer, 0, count);
++                    }
++
++                    output.flush();
++                }
++
++                heliosPdfWriteResult(
++                        id, "OK", "Informe_solar.pdf");
++
++            } catch (Exception error) {
++                Log.e(TAG, "Error exportando PDF", error);
++
++                heliosPdfWriteResult(
++                        id, "ERROR", error.toString());
++
++            } finally {
++                heliosPdfHandler.post(
++                        () -> heliosPdfRequestId = null);
++            }
++        }, "HeliosPdfExport").start();
++    }
++
++    // END HELIOS PDF EXPORT
++
+     public static PythonActivity mActivity = null;
+
+     private Bundle mMetaData = null;
+@@ -226,6 +415,7 @@
+         Log.v(TAG, "Did super onCreate");
+
+         heliosExcelHandler.post(heliosExcelPoll);
++        heliosPdfHandler.post(heliosPdfPoll);
+
+         this.mActivity = this;
+         try {
+@@ -250,6 +440,7 @@
+     @Override
+     public void onDestroy() {
+         heliosExcelHandler.removeCallbacks(heliosExcelPoll);
++        heliosPdfHandler.removeCallbacks(heliosPdfPoll);
+         Log.i("Destroy", "end of app");
+         super.onDestroy();
+
+@@ -316,6 +507,10 @@
+
+     @Override
+     protected void onActivityResult(int requestCode, int resultCode, Intent intent) {
++        if (requestCode == HELIOS_PDF_REQUEST) {
++            heliosPdfHandleResult(resultCode, intent);
++            return;
++        }
+         if (requestCode == HELIOS_EXCEL_REQUEST) {
+             heliosExcelHandleResult(resultCode, intent);
+             return;

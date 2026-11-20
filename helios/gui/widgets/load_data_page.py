@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
 
 from pathlib import Path
 
+
 from helios.utils.platform import is_android
 
 class LoadDataPage(QWidget):
@@ -45,6 +46,7 @@ class LoadDataPage(QWidget):
         layout.addWidget(self.load_button)
 
         self.info_label = QLabel("Ningún archivo cargado")
+        self.info_label.setWordWrap(True)
 
         layout.addWidget(self.info_label)
 
@@ -59,17 +61,138 @@ class LoadDataPage(QWidget):
         )
 
     def browse_file(self):
+        if not is_android():
+            filename, _ = QFileDialog.getOpenFileName(
+                self,
+                "Seleccionar archivo de consumo",
+                "",
+                "Excel (*.xlsx)",
+            )
+            if filename:
+                self.path_edit.setText(filename)
+            return
 
-        filename, _ = QFileDialog.getOpenFileName(
-            self,
-            "Seleccionar archivo de consumo",
-            "",
-            "Excel (*.xlsx *.xls)"
-        )
+        import os
+        import uuid
+        from PySide6.QtCore import QTimer
 
-        if filename:
+        if getattr(self, "_excel_request_id", None) is not None:
+            return
 
-            self.path_edit.setText(filename)
+        try:
+            private = os.environ.get("ANDROID_PRIVATE")
+            if not private:
+                raise RuntimeError("ANDROID_PRIVATE no está definido")
+
+            directory = Path(private) / "helios_excel"
+            directory.mkdir(parents=True, exist_ok=True)
+
+            request = directory / "excel_request.txt"
+            result = directory / "excel_result.txt"
+
+            request_id = str(uuid.uuid4())
+
+            # Eliminar únicamente resultados de selecciones anteriores.
+            result.unlink(missing_ok=True)
+
+            self._excel_path = None
+            self.path_edit.clear()
+            self._excel_request_id = request_id
+            self._excel_directory = directory
+
+            self.browse_button.setEnabled(False)
+            self.load_button.setEnabled(False)
+            self.info_label.setText("Esperando selección de Excel...")
+
+            if getattr(self, "_excel_timer", None) is None:
+                self._excel_timer = QTimer(self)
+                self._excel_timer.setInterval(300)
+                self._excel_timer.timeout.connect(
+                    self._check_android_excel_result
+                )
+
+            # Publicar la solicitud de forma atómica.
+            temporary = directory / "excel_request.tmp"
+            temporary.write_text(request_id, encoding="utf-8")
+            temporary.replace(request)
+
+            self._excel_timer.start()
+
+        except Exception as exc:
+            self._excel_request_id = None
+            self.browse_button.setEnabled(True)
+            self.load_button.setEnabled(True)
+            self.info_label.setText(
+                f"Error al abrir selector: {type(exc).__name__}: {exc}"
+            )
+
+    def _check_android_excel_result(self):
+        request_id = getattr(self, "_excel_request_id", None)
+        if request_id is None:
+            return
+
+        result = self._excel_directory / "excel_result.txt"
+
+        if not result.is_file():
+            return
+
+        try:
+            contents = result.read_text(encoding="utf-8")
+            parts = contents.split("\n", 3)
+
+            if len(parts) not in (3, 4):
+                raise ValueError("Respuesta Android incompleta")
+
+            received_id, status, detail = parts[:3]
+            original_name = parts[3].strip() if len(parts) == 4 else ""
+
+            if received_id != request_id:
+                return
+
+            result.unlink(missing_ok=True)
+
+            if status == "OK":
+                path = Path(detail.strip())
+
+                if not path.is_file():
+                    raise FileNotFoundError(str(path))
+
+                if path.suffix.lower() != ".xlsx":
+                    raise ValueError("El documento no es un archivo .xlsx")
+
+                self._excel_path = str(path)
+                display_name = Path(original_name).name if original_name else path.name
+                self.path_edit.setText(display_name)
+                self.info_label.setText(
+                    "Excel seleccionado. Pulse Cargar."
+                )
+
+            elif status == "CANCELLED":
+                self.info_label.setText("Selección cancelada.")
+
+            elif status == "ERROR":
+                self.info_label.setText(
+                    f"Error al seleccionar Excel: {detail}"
+                )
+
+            else:
+                raise ValueError(f"Estado Android desconocido: {status}")
+
+        except Exception as exc:
+            self._excel_path = None
+            self.path_edit.clear()
+            self.info_label.setText(
+                f"Error de selección: {type(exc).__name__}: {exc}"
+            )
+
+        finally:
+            # Solo finalizar cuando se haya recibido la respuesta
+            # correspondiente a la solicitud actual.
+            if not result.exists():
+                self._excel_request_id = None
+                self._excel_timer.stop()
+                self.browse_button.setEnabled(True)
+                self.load_button.setEnabled(True)
 
     def load_dataset(self):
         if self.project.solar_configuration is None:
@@ -78,7 +201,7 @@ class LoadDataPage(QWidget):
             )
             return
 
-        path = self.path_edit.text()
+        path = getattr(self, "_excel_path", None) if is_android() else self.path_edit.text()
 
         if not path:
 
@@ -126,7 +249,7 @@ class LoadDataPage(QWidget):
 
         dataset = self.project.dataset
 
-        filename = Path(self.path_edit.text()).name
+        filename = self.path_edit.text() if is_android() else Path(self.path_edit.text()).name
 
         first = dataset.index.min().strftime("%d/%m/%Y")
 
@@ -136,23 +259,18 @@ class LoadDataPage(QWidget):
 
         quality = self.project.quality
 
+        from html import escape
+
+        safe_filename = escape(str(filename))
+        safe_rating = escape(str(quality["rating"]))
+
         self.info_label.setText(
-            f"""
-        <b>Archivo</b><br>
-        {filename}<br><br>
-
-        <b>Registros</b><br>
-        {records:,}<br><br>
-
-        <b>Periodo</b><br>
-        {first} → {last}<br><br>
-
-        <b>Cobertura</b><br>
-        {quality["coverage"]:.2f}%<br><br>
-
-        <b>Calidad</b><br>
-        {quality["rating"]}
-        """
+            f"<b>Archivo:</b> {safe_filename}<br>"
+            f"<b>Registros:</b> {records:,}"
+            f" &nbsp;|&nbsp; "
+            f"<b>Cobertura:</b> {quality['coverage']:.2f}%<br>"
+            f"<b>Periodo:</b> {first} → {last}<br>"
+            f"<b>Calidad:</b> {safe_rating}"
         )
 
     # ==================================================

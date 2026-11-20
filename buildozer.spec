@@ -16,6 +16,7 @@ android.minapi = 28
 android.ndk_api = 28
 android.no-byte-compile-python = True
 p4a.bootstrap = qt
+android.add_resources = deployment/android-res/drawable/helios_launch_logo.jpg:drawable/helios_launch_logo.jpg,deployment/android-res/drawable/helios_launch_background.xml:drawable/helios_launch_background.xml
 p4a.local_recipes = deployment/recipes
 p4a.branch = master
 p4a.commit = 58d21141f17c889bf8585f5665921d72028f8831

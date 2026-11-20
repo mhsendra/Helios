@@ -1,10 +1,10 @@
+from helios.gui.widgets.localized_double_spinbox import LocalizedDoubleSpinBox
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
     QTabWidget,
     QGroupBox,
     QFormLayout,
-    QDoubleSpinBox,
     QComboBox,
     QPushButton,
     QSpinBox,
@@ -166,7 +166,7 @@ class SolarPage(QWidget):
             )
 
         self.pv_technology_combobox = QComboBox()
-        self.system_losses_spinbox = QDoubleSpinBox()
+        self.system_losses_spinbox = LocalizedDoubleSpinBox()
         self.tilt_spinbox = QSpinBox()
         self.azimuth_spinbox = QSpinBox()
         self.mounting_place_combobox = QComboBox()
@@ -176,7 +176,7 @@ class SolarPage(QWidget):
             self.pv_technology_combobox,
         )
 
-        self.installed_power_spinbox = QDoubleSpinBox()
+        self.installed_power_spinbox = LocalizedDoubleSpinBox()
 
         layout.addRow(
             "Potencia instalada",
@@ -216,8 +216,8 @@ class SolarPage(QWidget):
                 QFormLayout.WrapAllRows
             )
 
-        self.latitude_spinbox = QDoubleSpinBox()
-        self.longitude_spinbox = QDoubleSpinBox()
+        self.latitude_spinbox = LocalizedDoubleSpinBox()
+        self.longitude_spinbox = LocalizedDoubleSpinBox()
 
         layout.addRow(
             "Latitud",

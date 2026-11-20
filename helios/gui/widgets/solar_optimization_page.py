@@ -8,7 +8,6 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QHBoxLayout,
     QFormLayout,
-    QDoubleSpinBox,
     QSpinBox,
     QComboBox,
     QCheckBox,
@@ -820,7 +819,7 @@ class SolarOptimizationPage(QWidget):
 
         self.panel_width_spinbox = LocalizedDoubleSpinBox()
         self.panel_height_spinbox = LocalizedDoubleSpinBox()
-        self.panel_power_spinbox = QDoubleSpinBox()
+        self.panel_power_spinbox = LocalizedDoubleSpinBox()
 
         self.panel_orientation_combobox = QComboBox()
 

@@ -48,56 +48,75 @@ PATCHES=(
     "0002-create-adaptive-icon-directory.patch"
     "0003-remove-generic-back-handler.patch"
     "0004-refresh-helios-package.patch"
+    "0005-helios-launch-background.patch"
+    "0006-android-excel-picker.patch"
+    "0007-android-pdf-export.patch"
 )
 
-PENDING=()
+echo "========== 1. RECONSTRUIR ESTADO ESPERADO =========="
 
-echo "========== 1. COMPROBAR PARCHES =========="
+TEMP_DIR="$(mktemp -d -t helios-p4a-patches-XXXXXXXX)"
+
+cleanup() {
+    rm -rf -- "$TEMP_DIR"
+}
+
+trap cleanup EXIT
+
+git -C "$P4A_DIR" archive "$EXPECTED_COMMIT" |
+    tar -xf - -C "$TEMP_DIR"
 
 for name in "${PATCHES[@]}"; do
     patch="$PATCH_DIR/$name"
 
     if [[ ! -f "$patch" ]]; then
-        echo "ERROR: no se encuentra el parche: $patch"
+        echo "ERROR: falta el parche: $name"
         exit 1
     fi
 
-    if git -C "$P4A_DIR" apply --reverse --check "$patch" >/dev/null 2>&1; then
-        echo "YA APLICADO: $name"
-    elif git -C "$P4A_DIR" apply --check "$patch" >/dev/null 2>&1; then
-        echo "PENDIENTE:   $name"
-        PENDING+=("$name")
-    else
+    if ! git -C "$TEMP_DIR" apply --check "$patch"; then
         echo "ERROR: parche incompatible: $name"
-        echo "No se ha aplicado ningún parche."
         exit 1
     fi
-done
 
-echo
-echo "========== 2. APLICAR PARCHES PENDIENTES =========="
-
-if [[ ${#PENDING[@]} -eq 0 ]]; then
-    echo "No hay cambios pendientes."
-else
-    for name in "${PENDING[@]}"; do
-        echo "Aplicando: $name"
-        git -C "$P4A_DIR" apply "$PATCH_DIR/$name"
-    done
-fi
-
-echo
-echo "========== 3. VERIFICACIÓN FINAL =========="
-
-for name in "${PATCHES[@]}"; do
-    if ! git -C "$P4A_DIR" apply --reverse --check "$PATCH_DIR/$name" >/dev/null 2>&1; then
-        echo "ERROR: no se pudo verificar el parche: $name"
-        exit 1
-    fi
+    git -C "$TEMP_DIR" apply "$patch"
     echo "OK: $name"
 done
 
 echo
+echo "========== 2. COMPARAR ESTADO ACTUAL =========="
+
+mapfile -t AFFECTED_FILES < <(
+    for name in "${PATCHES[@]}"; do
+        git apply --numstat "$PATCH_DIR/$name" |
+            cut -f3
+    done | sort -u
+)
+
+for relative in "${AFFECTED_FILES[@]}"; do
+    expected="$TEMP_DIR/$relative"
+    actual="$P4A_DIR/$relative"
+
+    if [[ ! -f "$expected" || ! -f "$actual" ]]; then
+        echo "ERROR: archivo ausente: $relative"
+        exit 1
+    fi
+
+    if ! cmp -s "$expected" "$actual"; then
+        echo "ERROR: archivo diferente: $relative"
+        echo "No se han aplicado cambios."
+        exit 1
+    fi
+
+    echo "OK: $relative"
+done
+
+echo
+echo "========== 3. VERIFICACIÓN FINAL =========="
+echo "OK: los siete parches están incorporados."
+echo "OK: el estado de P4A coincide con la reconstrucción."
+echo "OK: no se han modificado archivos de P4A."
+
 echo "========== 4. ESTADO DE P4A =========="
 git -C "$P4A_DIR" status --short
 
