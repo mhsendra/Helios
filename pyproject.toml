@@ -30,3 +30,8 @@ test = [
     "pytest>=8.0",
     "numpy-financial>=1.0",
 ]
+
+# Pruebas propias de Helios.
+# Evita recopilar las pruebas del repositorio P4A local.
+[tool.pytest.ini_options]
+testpaths = ["tests"]

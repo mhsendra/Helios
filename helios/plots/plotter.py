@@ -228,5 +228,66 @@ class Plotter:
             plt.tight_layout()
 
     def show(self):
+        from helios.utils.platform import is_android
+
+        if not is_android():
+            plt.show()
+            return
+
+        from PySide6.QtCore import Qt
+        from PySide6.QtGui import QKeySequence, QShortcut
+
+        from matplotlib._pylab_helpers import Gcf
+
+        figures = [
+            manager.canvas.figure
+            for manager in Gcf.get_all_fig_managers()
+        ]
+
+        for fig in figures:
+            manager = fig.canvas.manager
+
+            if manager is None:
+                continue
+
+            window = manager.window
+            toolbar = manager.toolbar
+
+            # Evitar que cerrar el grafico finalice Helios.
+            window.setAttribute(
+                Qt.WidgetAttribute.WA_QuitOnClose,
+                False,
+            )
+
+            # Evitar instalar controles duplicados.
+            if getattr(window, "_helios_close_installed", False):
+                continue
+
+            def close_figure(figure=fig):
+                plt.close(figure)
+
+            # Boton de cierre accesible desde Android.
+            if toolbar is not None:
+                action = toolbar.addAction("Cerrar grafico")
+                action.triggered.connect(
+                    lambda checked=False, figure=fig:
+                    plt.close(figure)
+                )
+
+            # Gestionar la tecla Atras de Android.
+            shortcut = QShortcut(
+                QKeySequence("Back"),
+                window,
+            )
+
+            shortcut.setContext(
+                Qt.ShortcutContext.WindowShortcut
+            )
+
+            shortcut.activated.connect(close_figure)
+
+            # Conservar la referencia al atajo.
+            window._helios_back_shortcut = shortcut
+            window._helios_close_installed = True
 
         plt.show()

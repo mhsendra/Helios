@@ -20,6 +20,7 @@ android.add_resources = deployment/android-res/drawable/helios_launch_logo.jpg:d
 p4a.local_recipes = deployment/recipes
 p4a.branch = master
 p4a.commit = 58d21141f17c889bf8585f5665921d72028f8831
+p4a.source_dir = /home/mhsen/Helios-android-git/deployment/python-for-android-local
 android.permissions = android.permission.INTERNET, android.permission.WRITE_EXTERNAL_STORAGE
 android.add_jars = deployment/jar/PySide6/jar/Qt6AndroidBindings.jar,deployment/jar/PySide6/jar/Qt6Android.jar
 p4a.extra_args = --qt-libs=Widgets,Core,Gui --load-local-libs=plugins_platforms_qtforandroid --init-classes= --force-build
