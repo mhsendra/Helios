@@ -928,6 +928,15 @@ class MainWindow(QMainWindow):
         if page is self.solar_page:
             self.solar_page.load_saved_configuration()
 
+            if (
+                is_android()
+                and self.pages.currentWidget()
+                is self.solar_optimization_page
+            ):
+                self.solar_page.tabs.setCurrentWidget(
+                    self.solar_page.production_tab
+                )
+
         previous_page = self.pages.currentWidget()
 
         # Android: cancelar cualquier avance automático pendiente

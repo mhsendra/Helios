@@ -1171,3 +1171,45 @@ def test_android_back_keyboard_then_previous_page(android_window):
         is window.solar_config_page
     )
     assert window.android_page_history == []
+
+
+def test_android_optimization_to_solar_opens_production_tab(
+    monkeypatch, qapp
+):
+    """Desde Optimización, Solar debe abrir la pestaña Producción."""
+    from unittest.mock import MagicMock
+    import helios.gui.main_window as module
+
+    monkeypatch.setattr(module, "is_android", lambda: True)
+
+    window = module.MainWindow.__new__(module.MainWindow)
+
+    optimization_page = object()
+    solar_page = MagicMock()
+
+    window.solar_optimization_page = optimization_page
+    window.solar_page = solar_page
+    window.solar_config_page = MagicMock()
+
+    window.pages = MagicMock()
+    window.pages.currentWidget.return_value = optimization_page
+
+    window.page_map = {"Solar": solar_page}
+    window.is_page_enabled = lambda page_id: page_id == "Solar"
+
+    window.cancel_android_guided_navigation = MagicMock()
+    window.android_page_history = []
+    window._android_navigating_back = False
+    window.sync_android_section = MagicMock()
+    window.android_navigation_container = MagicMock()
+    window.android_drawer_animation = MagicMock()
+    window.android_navigation_backdrop = MagicMock()
+
+    window.navigate_to("Solar")
+
+    solar_page.tabs.setCurrentWidget.assert_called_once_with(
+        solar_page.production_tab
+    )
+    window.pages.setCurrentWidget.assert_called_once_with(
+        solar_page
+    )

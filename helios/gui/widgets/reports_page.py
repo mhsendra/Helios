@@ -352,9 +352,10 @@ class ReportsPage(QWidget):
             False
         )
 
-        solar_report_layout.addWidget(
-            self.generate_solar_pdf_button
-        )
+        if not is_android():
+            solar_report_layout.addWidget(
+                self.generate_solar_pdf_button
+            )
 
         solar_report_group.setLayout(
             solar_report_layout
@@ -378,7 +379,13 @@ class ReportsPage(QWidget):
 
         if is_android():
             # Android: grupos en una sola columna.
-            for row, group in enumerate(groups):
+            # El botón PDF está en el pie fijo, fuera del scroll.
+            android_groups = [
+                group for group in groups
+                if group is not solar_report_group
+            ]
+
+            for row, group in enumerate(android_groups):
                 groups_layout.addWidget(group, row, 0)
 
             groups_layout.setColumnStretch(0, 1)
@@ -415,6 +422,12 @@ class ReportsPage(QWidget):
             self.report_output,
             1
         )
+
+        if is_android():
+            # Pie fijo, fuera del QScrollArea.
+            outer_layout.addWidget(
+                self.generate_solar_pdf_button
+            )
 
         # ==================================================
         # Conexiones

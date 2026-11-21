@@ -415,3 +415,26 @@ class TestReportsPage:
         assert not (
             self.page.generate_solar_pdf_button.isEnabled()
         )
+
+
+def test_pdf_button_placement_by_platform(monkeypatch, qapp):
+    """El botón PDF es fijo en Android y conserva su grupo en Windows."""
+    import helios.gui.widgets.reports_page as module
+
+    for android in (True, False):
+        monkeypatch.setattr(
+            module, "is_android", lambda value=android: value
+        )
+
+        page = module.ReportsPage(project=None)
+        button = page.generate_solar_pdf_button
+
+        if android:
+            assert hasattr(page, "scroll_area")
+            assert page.layout().indexOf(button) >= 0
+            assert not page.scroll_area.isAncestorOf(button)
+        else:
+            assert page.layout().indexOf(button) == -1
+            assert button.parentWidget() is not None
+
+        page.close()
