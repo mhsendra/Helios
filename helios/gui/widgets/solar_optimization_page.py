@@ -8,7 +8,6 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QHBoxLayout,
     QFormLayout,
-    QSpinBox,
     QComboBox,
     QCheckBox,
     QPushButton,
@@ -54,6 +53,7 @@ from helios.solar.installation_component_selection import (
 from helios.solar.default_component_catalog import (
     build_default_component_catalog,
 )
+from helios.gui.widgets.android_integer_spinbox import AndroidIntegerSpinBox
 
 # Presupuesto de referencia HELIOS.
 # Los importes originales de los componentes y de la mano de obra
@@ -622,6 +622,11 @@ class SolarOptimizationPage(QWidget):
         self._initialize_default_component_selection()
         self.connect_signals()
 
+        if is_android():
+            self._android_optimization_running = False
+            self._connect_android_validation_signals()
+            self._update_android_optimize_button()
+
     # ==================================================
     # INTERFAZ
     # ==================================================
@@ -739,6 +744,12 @@ class SolarOptimizationPage(QWidget):
             self.scroll_area
         )
 
+        if is_android():
+            self.optimize_button.setMinimumHeight(48)
+            outer_layout.addWidget(
+                self.optimize_button
+            )
+
     def create_title(self):
 
         frame = QFrame()
@@ -838,8 +849,8 @@ class SolarOptimizationPage(QWidget):
             "horizontal",
         )
 
-        self.min_panels_spinbox = QSpinBox()
-        self.max_panels_spinbox = QSpinBox()
+        self.min_panels_spinbox = AndroidIntegerSpinBox()
+        self.max_panels_spinbox = AndroidIntegerSpinBox()
 
         self.max_panels_checkbox = QCheckBox(
             "Establecer máximo de paneles"
@@ -967,10 +978,11 @@ class SolarOptimizationPage(QWidget):
             self.status_label,
         )
 
-        layout.addRow(
-            "",
-            self.optimize_button,
-        )
+        if not is_android():
+            layout.addRow(
+                "",
+                self.optimize_button,
+            )
 
         return group
 
@@ -1397,6 +1409,95 @@ class SolarOptimizationPage(QWidget):
         )
 
     # ==================================================
+    # VALIDACIÓN INTELIGENTE ANDROID
+    # ==================================================
+
+    def _connect_android_validation_signals(self):
+        """Reevalúa el botón cuando cambian los parámetros."""
+
+        if not is_android():
+            return
+
+        numeric_widgets = (
+            self.available_area_spinbox,
+            self.roof_width_spinbox,
+            self.roof_height_spinbox,
+            self.panel_width_spinbox,
+            self.panel_height_spinbox,
+            self.panel_power_spinbox,
+            self.min_panels_spinbox,
+            self.max_panels_spinbox,
+            self.maintenance_width_spinbox,
+        )
+
+        for widget in numeric_widgets:
+            widget.valueChanged.connect(
+                self._update_android_optimize_button
+            )
+
+        for widget in (
+            self.max_panels_checkbox,
+            self.maintenance_required_checkbox,
+        ):
+            widget.toggled.connect(
+                self._update_android_optimize_button
+            )
+
+        for widget in (
+            self.panel_orientation_combobox,
+            self.maintenance_orientation_combobox,
+        ):
+            widget.currentIndexChanged.connect(
+                self._update_android_optimize_button
+            )
+
+    def _update_android_optimize_button(self, *args):
+        """Habilita Optimizar únicamente cuando puede ejecutarse."""
+
+        if not is_android():
+            return
+
+        if getattr(self, "_android_optimization_running", False):
+            self.optimize_button.setEnabled(False)
+            return
+
+        has_data = (
+            getattr(self.project, "dataset", None) is not None
+        )
+
+        if self.main_window is not None:
+            has_data = (
+                has_data
+                and bool(
+                    getattr(
+                        self.main_window,
+                        "project_loaded",
+                        False,
+                    )
+                )
+            )
+
+        if not has_data:
+            self.optimize_button.setEnabled(False)
+            return
+
+        try:
+            constraints = (
+                self.get_installation_configuration()
+                .to_constraints()
+            )
+
+            valid = (
+                constraints.effective_max_panels
+                >= constraints.min_panels
+            )
+
+        except (ValueError, TypeError, ZeroDivisionError):
+            valid = False
+
+        self.optimize_button.setEnabled(valid)
+
+    # ==================================================
     # CONFIGURACIÓN DE INSTALACIÓN
     # ==================================================
 
@@ -1787,6 +1888,9 @@ class SolarOptimizationPage(QWidget):
         # los controles ni la configuración introducida manualmente.
         self.clear_optimization_result()
 
+        if is_android():
+            self._android_optimization_running = True
+
         self.optimize_button.setEnabled(False)
         self.status_label.setText(
             "Buscando la mejor combinación FV + batería..."
@@ -1928,6 +2032,14 @@ class SolarOptimizationPage(QWidget):
                 "Optimización conjunta completada"
             )
 
+            # Android: ofrecer continuar a los resultados solares
+            # únicamente después de una optimización correcta.
+            if is_android() and self.main_window is not None:
+                self.main_window.show_android_guided_navigation(
+                    "Optimización solar completada",
+                    "Solar",
+                )
+
         except Exception as error:
             import traceback
 
@@ -1935,7 +2047,11 @@ class SolarOptimizationPage(QWidget):
             self.status_label.setText(f"Error: {error}")
 
         finally:
-            self.optimize_button.setEnabled(True)
+            if is_android():
+                self._android_optimization_running = False
+                self._update_android_optimize_button()
+            else:
+                self.optimize_button.setEnabled(True)
 
 
     # ==================================================
@@ -2004,7 +2120,11 @@ class SolarOptimizationPage(QWidget):
             "Pendiente de datos"
         )
 
-        self.optimize_button.setEnabled(True)
+        if is_android():
+            self._android_optimization_running = False
+            self._update_android_optimize_button()
+        else:
+            self.optimize_button.setEnabled(True)
 
     def update_data(self):
 
@@ -2014,11 +2134,17 @@ class SolarOptimizationPage(QWidget):
                 "Pendiente de datos"
             )
 
+            if is_android():
+                self._update_android_optimize_button()
+
             return
 
         self.status_label.setText(
             "Datos disponibles para optimización."
         )
+
+        if is_android():
+            self._update_android_optimize_button()
 
     def on_walkway_position_changed(
         self,

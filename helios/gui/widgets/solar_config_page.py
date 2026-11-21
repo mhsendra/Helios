@@ -3,7 +3,6 @@ from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
     QFormLayout,
-    QSpinBox,
     QComboBox,
     QPushButton,
     QLabel,
@@ -19,6 +18,7 @@ from helios.solar.configuration import SolarConfiguration
 from helios.gui.widgets.localized_double_spinbox import (
     LocalizedDoubleSpinBox,
 )
+from helios.gui.widgets.android_integer_spinbox import AndroidIntegerSpinBox
 
 class SolarConfigPage(QWidget):
     """
@@ -53,6 +53,10 @@ class SolarConfigPage(QWidget):
         self.configure_widgets()
         self.connect_signals()
         self.load_solar_basis()
+
+        if is_android():
+            self._android_configuration_edited = False
+            self._update_android_save_button()
 
     # ==================================================
     # INTERFAZ
@@ -92,6 +96,12 @@ class SolarConfigPage(QWidget):
         outer_layout.addWidget(
             self.scroll_area
         )
+
+        if is_android():
+            self.save_configuration_button.setMinimumHeight(48)
+            outer_layout.addWidget(
+                self.save_configuration_button
+            )
 
     # ==================================================
     # CABECERA
@@ -134,10 +144,10 @@ class SolarConfigPage(QWidget):
         self.latitude_spinbox = LocalizedDoubleSpinBox()
         self.longitude_spinbox = LocalizedDoubleSpinBox()
 
-        self.tilt_spinbox = QSpinBox()
-        self.azimuth_spinbox = QSpinBox()
+        self.tilt_spinbox = AndroidIntegerSpinBox()
+        self.azimuth_spinbox = AndroidIntegerSpinBox()
 
-        self.reference_year_spinbox = QSpinBox()
+        self.reference_year_spinbox = AndroidIntegerSpinBox()
 
         self.system_losses_spinbox = LocalizedDoubleSpinBox()
 
@@ -211,10 +221,11 @@ class SolarConfigPage(QWidget):
             self.status_label,
         )
 
-        layout.addRow(
-            "",
-            self.save_configuration_button,
-        )
+        if not is_android():
+            layout.addRow(
+                "",
+                self.save_configuration_button,
+            )
 
         return group
 
@@ -316,6 +327,59 @@ class SolarConfigPage(QWidget):
             self.save_solar_configuration
         )
 
+        if is_android():
+            for widget in (
+                self.latitude_spinbox,
+                self.longitude_spinbox,
+                self.tilt_spinbox,
+                self.azimuth_spinbox,
+                self.reference_year_spinbox,
+                self.system_losses_spinbox,
+            ):
+                widget.valueChanged.connect(
+                    self._mark_android_configuration_edited
+                )
+
+            for widget in (
+                self.pv_technology_combobox,
+                self.mounting_place_combobox,
+            ):
+                widget.currentIndexChanged.connect(
+                    self._mark_android_configuration_edited
+                )
+
+    def _mark_android_configuration_edited(self, *args):
+        if not is_android():
+            return
+
+        self._android_configuration_edited = True
+        self._update_android_save_button()
+
+    def _update_android_save_button(self):
+        if not is_android():
+            return
+
+        has_saved_configuration = (
+            self.project.solar_configuration is not None
+        )
+
+        has_valid_selections = (
+            self.pv_technology_combobox.currentData() is not None
+            and self.mounting_place_combobox.currentData() is not None
+        )
+
+        self.save_configuration_button.setEnabled(
+            has_valid_selections
+            and (
+                has_saved_configuration
+                or getattr(
+                    self,
+                    "_android_configuration_edited",
+                    False,
+                )
+            )
+        )
+
     # ==================================================
     # CONFIGURACIÓN SOLAR
     # ==================================================
@@ -369,6 +433,14 @@ class SolarConfigPage(QWidget):
         self.status_label.setText(
             "Configuración solar guardada."
         )
+
+        # Android: ofrecer el siguiente paso únicamente
+        # después de guardar correctamente la configuración.
+        if is_android() and self.main_window is not None:
+            self.main_window.show_android_guided_navigation(
+                "Configuración solar guardada",
+                "Cargar datos",
+            )
 
     def load_solar_basis(self):
 

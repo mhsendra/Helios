@@ -83,3 +83,21 @@ def test_navigation_sections_cover_all_pages_without_duplicates():
         "Entrada de datos",
         "Resultados",
     )
+
+
+def test_android_results_navigation_order():
+    """Solar y Economía primero; Informes al final."""
+    from helios.gui.navigation_state import NAVIGATION_SECTIONS
+
+    assert NAVIGATION_SECTIONS["Resultados"] == (
+        "Solar",
+        "Economía",
+        "Validación",
+        "Estadísticas",
+        "Perfiles",
+        "Comparativas",
+        "Indicadores",
+        "Tarifas",
+        "Gráficas",
+        "Informes",
+    )

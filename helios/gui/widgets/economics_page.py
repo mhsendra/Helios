@@ -171,11 +171,12 @@ class EconomicsPage(QWidget):
             self.calculate
         )
 
-        overview_layout.addWidget(
-            self.calculate_button,
-            0,
-            Qt.AlignmentFlag.AlignCenter,
-        )
+        if not is_android():
+            overview_layout.addWidget(
+                self.calculate_button,
+                0,
+                Qt.AlignmentFlag.AlignCenter,
+            )
 
         layout.addWidget(overview_widget)
 
@@ -234,6 +235,15 @@ class EconomicsPage(QWidget):
             self.scroll_area
         )
 
+        if is_android():
+            self.calculate_button.setMinimumHeight(48)
+            outer_layout.addWidget(
+                self.calculate_button
+            )
+
+        if is_android():
+            self._update_android_economics_button()
+
     def reset(self) -> None:
         """Limpia los resultados económicos mostrados en la interfaz."""
 
@@ -259,6 +269,26 @@ class EconomicsPage(QWidget):
         # Flujos de caja.
         self.cash_flow_tabs.clear()
 
+    def _update_android_economics_button(self):
+        """Habilita el cálculo económico si existe producción solar."""
+
+        if not is_android():
+            return
+
+        production_ready = (
+            bool(
+                getattr(
+                    self.main_window,
+                    "solar_production_calculated",
+                    False,
+                )
+            )
+            if self.main_window is not None
+            else False
+        )
+
+        self.calculate_button.setEnabled(production_ready)
+
     def calculate(self):
         """Calcula y actualiza los resultados económicos."""
 
@@ -283,6 +313,14 @@ class EconomicsPage(QWidget):
         # correctamente.
         if self.main_window is not None:
             self.main_window.set_economics_calculated(True)
+
+            # Android: ofrecer continuar a Informes
+            # únicamente tras completar el cálculo económico.
+            if is_android():
+                self.main_window.show_android_guided_navigation(
+                    "Análisis económico completado",
+                    "Informes",
+                )
 
     def update_summary(self):
 

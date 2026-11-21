@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <style name="KivySupportCutout">
+        <item name="android:windowNoTitle">true</item>
+
+        <!-- Fondo de la ventana durante el arranque de Qt -->
+        <item name="android:windowBackground">
+            @drawable/helios_launch_background
+        </item>
+
+        <!-- Pantalla inicial del sistema Android 12+ -->
+        <item name="android:windowSplashScreenBackground">
+            @android:color/white
+        </item>
+
+        <item name="android:windowSplashScreenAnimatedIcon">
+            @drawable/helios_splash_transparent
+        </item>
+
+    </style>
+
+</resources>

@@ -206,3 +206,50 @@ def test_android_accepts_decimal_point_without_event_filters(
     assert spinbox.value() == pytest.approx(8.1)
 
     spinbox.close()
+
+
+def test_android_numeric_keyboard_hints(app, monkeypatch):
+    """Android solicita teclado decimal en control y editor."""
+    import helios.gui.widgets.localized_double_spinbox as module
+
+    monkeypatch.setattr(module, "_is_android", lambda: True)
+
+    spinbox = module.LocalizedDoubleSpinBox()
+
+    try:
+        hint = Qt.InputMethodHint.ImhFormattedNumbersOnly
+
+        assert spinbox.inputMethodHints() & hint
+        assert spinbox.lineEdit().inputMethodHints() & hint
+        assert spinbox.locale().name() == "en_US"
+    finally:
+        spinbox.close()
+
+
+def test_desktop_numeric_keyboard_hints_unchanged(app, monkeypatch):
+    """Windows conserva los indicadores predeterminados de Qt."""
+    from PySide6.QtWidgets import QDoubleSpinBox
+    import helios.gui.widgets.localized_double_spinbox as module
+
+    monkeypatch.setattr(module, "_is_android", lambda: False)
+
+    spinbox = module.LocalizedDoubleSpinBox()
+    standard = QDoubleSpinBox()
+
+    try:
+        assert (
+            spinbox.inputMethodHints()
+            == standard.inputMethodHints()
+        )
+
+        assert (
+            spinbox.lineEdit().inputMethodHints()
+            == standard.lineEdit().inputMethodHints()
+        )
+
+        assert spinbox.locale().name() == "es_ES"
+        assert spinbox._android_mode is False
+
+    finally:
+        spinbox.close()
+        standard.close()

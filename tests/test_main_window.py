@@ -685,7 +685,14 @@ class TestMainWindow:
 
             # Cabecera Android.
             assert window.android_header is not None
-            assert window.android_title.text() == "HELIOS"
+            assert window.android_title.objectName() == "android_menu_logo"
+            assert window.android_title.text() == ""
+
+            logo = window.android_title.pixmap()
+            assert logo is not None
+            assert not logo.isNull()
+            assert logo.width() > 0
+            assert logo.height() > 0
 
             # Selector de secciones.
             selector = window.android_section_selector
@@ -694,6 +701,16 @@ class TestMainWindow:
             assert selector.itemText(0) == "Entrada de datos"
             assert selector.itemText(1) == "Resultados"
             assert selector.currentIndex() == 0
+
+            # El encabezado permanece fuera del área desplazable.
+            assert window.android_header.parent() is (
+                window.android_navigation_container
+            )
+
+            # La lista de páginas pertenece al área desplazable.
+            assert window.android_navigation_scroll.widget() is (
+                window.android_navigation_content
+            )
 
             # Todos los botones de navegación Android.
 
@@ -710,7 +727,7 @@ class TestMainWindow:
                 button = window.android_navigation_buttons[page_id]
 
                 assert button.text() == page_id
-                assert button.parent() is window.android_navigation_container
+                assert button.parent() is window.android_navigation_content
 
                 # Inicialmente solo se muestra Entrada de datos.
                 if page_id in NAVIGATION_SECTIONS["Entrada de datos"]:
@@ -1057,8 +1074,11 @@ class TestMainWindow:
 
             assert not window.android_navigation_container.isHidden()
 
-            # Segundo clic: cerrar el menú.
+            # Segundo clic: iniciar el cierre animado.
             window.android_menu_button.click()
+
+            from PySide6.QtTest import QTest
+            QTest.qWait(350)
 
             assert window.android_navigation_container.isHidden()
 
@@ -1108,8 +1128,11 @@ class TestMainWindow:
             # El menú no debe desplazar ni redimensionar las páginas.
             assert window.pages.geometry() == pages_geometry
 
-            # Cerrar el menú.
+            # Cerrar el menú y esperar a la animación.
             window.android_menu_button.click()
+
+            from PySide6.QtTest import QTest
+            QTest.qWait(350)
 
             assert navigation.isHidden()
             assert window.pages.geometry() == pages_geometry
@@ -1140,10 +1163,11 @@ class TestMainWindow:
             assert navigation.isHidden()
             assert not window.android_menu_button.isHidden()
 
-            # La navegación debe ocupar el ancho disponible.
+            # El menú es lateral izquierdo en ambas orientaciones.
             assert navigation.x() == 0
             assert navigation.y() == 0
-            assert navigation.width() == central.width()
+            assert navigation.width() == min(280, central.width())
+            assert navigation.height() == central.height()
 
             # La navegación oculta no debe reservar espacio.
             assert window.android_main_layout.contentsMargins().top() == 0
@@ -1271,7 +1295,7 @@ class TestMainWindow:
     def test_android_navigation_resizes_when_section_changes(
         self, monkeypatch
     ):
-        """Comprueba que el menú ajusta su altura al cambiar de sección."""
+        """Comprueba que el menú lateral mantiene su tamaño al cambiar de sección."""
         monkeypatch.setattr(
             "helios.gui.main_window.is_android",
             lambda: True,
@@ -1303,10 +1327,12 @@ class TestMainWindow:
 
             assert not navigation.isHidden()
 
-            # La altura debe ajustarse al contenido de cada sección.
-            assert results_height == min(
-                navigation.sizeHint().height(),
-                window.centralWidget().height(),
+            # El panel lateral conserva toda la altura disponible.
+            assert results_height == window.centralWidget().height()
+            assert results_height == input_height
+            assert navigation.width() == min(
+                280,
+                window.centralWidget().width(),
             )
 
             # Volver a Entrada de datos.

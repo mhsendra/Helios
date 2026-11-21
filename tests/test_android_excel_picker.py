@@ -75,7 +75,7 @@ def test_cancelled_selection(page, tmp_path):
 
     assert page._excel_path is None
     assert page.browse_button.isEnabled()
-    assert page.load_button.isEnabled()
+    assert not page.load_button.isEnabled()
     assert "cancelada" in page.info_label.text().lower()
 
 
@@ -94,7 +94,7 @@ def test_selection_error(page, tmp_path):
 
     assert page._excel_path is None
     assert page.browse_button.isEnabled()
-    assert page.load_button.isEnabled()
+    assert not page.load_button.isEnabled()
     assert "error" in page.info_label.text().lower()
 
 
@@ -167,3 +167,68 @@ def test_selection_accepts_legacy_three_line_result(
     assert page._excel_path == str(excel)
     assert page.path_edit.text() == excel.name
     assert page.load_button.isEnabled()
+
+
+
+def test_android_initial_state(page):
+    assert page.path_edit.isReadOnly()
+    assert not page.load_button.isEnabled()
+    assert page.path_edit.placeholderText()
+    assert not page.browse_button.isVisible()
+
+
+def test_android_field_click_opens_picker(page, tmp_path):
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+
+    page.show()
+    QApplication.processEvents()
+
+    QTest.mouseClick(
+        page.path_edit,
+        Qt.MouseButton.LeftButton,
+    )
+
+    request = tmp_path / "helios_excel" / "excel_request.txt"
+
+    assert request.is_file()
+    assert page._excel_request_id is not None
+    assert not page.load_button.isEnabled()
+
+
+def test_android_cancel_keeps_load_disabled(page, tmp_path):
+    page.browse_file()
+
+    request_id = page._excel_request_id
+    directory = tmp_path / "helios_excel"
+
+    (directory / "excel_result.txt").write_text(
+        f"{request_id}\\nCANCELLED\\n",
+        encoding="utf-8",
+    )
+
+    page._check_android_excel_result()
+
+    assert page.path_edit.text() == ""
+    assert page._excel_path is None
+    assert not page.load_button.isEnabled()
+
+
+def test_android_rejects_non_excel_file(page, tmp_path):
+    page.browse_file()
+
+    request_id = page._excel_request_id
+    directory = tmp_path / "helios_excel"
+    invalid = directory / "documento.txt"
+    invalid.write_text("No es Excel", encoding="utf-8")
+
+    (directory / "excel_result.txt").write_text(
+        f"{request_id}\\nOK\\n{invalid}",
+        encoding="utf-8",
+    )
+
+    page._check_android_excel_result()
+
+    assert page._excel_path is None
+    assert not page.load_button.isEnabled()
+    assert "error" in page.info_label.text().lower()

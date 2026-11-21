@@ -7,7 +7,6 @@ from PySide6.QtWidgets import (
     QFormLayout,
     QComboBox,
     QPushButton,
-    QSpinBox,
     QLabel,
     QTableWidget,
     QAbstractItemView,
@@ -24,6 +23,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 
 from helios.solar.configuration import SolarConfiguration
+from helios.gui.widgets.android_integer_spinbox import AndroidIntegerSpinBox
 
 class SolarPage(QWidget):
 
@@ -39,6 +39,29 @@ class SolarPage(QWidget):
         self.configure_widgets()
 
         self.connect_signals()
+
+        if is_android():
+            self._update_android_production_button()
+
+    def _update_android_production_button(self):
+        """Actualiza la disponibilidad del cálculo en Android."""
+
+        if not is_android():
+            return
+
+        has_configuration = (
+            self.project.solar_configuration is not None
+        )
+
+        optimized = (
+            bool(getattr(self.main_window, "solar_optimized", False))
+            if self.main_window is not None
+            else False
+        )
+
+        self.calculate_production_button.setEnabled(
+            has_configuration and optimized
+        )
 
     # ==========================================================
     # UI
@@ -167,8 +190,8 @@ class SolarPage(QWidget):
 
         self.pv_technology_combobox = QComboBox()
         self.system_losses_spinbox = LocalizedDoubleSpinBox()
-        self.tilt_spinbox = QSpinBox()
-        self.azimuth_spinbox = QSpinBox()
+        self.tilt_spinbox = AndroidIntegerSpinBox()
+        self.azimuth_spinbox = AndroidIntegerSpinBox()
         self.mounting_place_combobox = QComboBox()
 
         layout.addRow(
@@ -413,6 +436,11 @@ class SolarPage(QWidget):
 
             layout.addWidget(scroll)
 
+            self.calculate_production_button.setMinimumHeight(48)
+            layout.addWidget(
+                self.calculate_production_button
+            )
+
         else:
 
             layout = QVBoxLayout(
@@ -481,10 +509,11 @@ class SolarPage(QWidget):
             "Calcular producción"
         )
 
-        layout.addRow(
-            "",
-            self.calculate_production_button,
-        )
+        if not is_android():
+            layout.addRow(
+                "",
+                self.calculate_production_button,
+            )
 
         return group
 
@@ -664,6 +693,14 @@ class SolarPage(QWidget):
             if self.main_window is not None:
 
                 self.main_window.set_solar_production_calculated(True)
+
+                # Android: continuar al análisis económico
+                # únicamente tras calcular la producción.
+                if is_android():
+                    self.main_window.show_android_guided_navigation(
+                        "Producción solar calculada",
+                        "Economía",
+                    )
 
         except Exception as error:
 

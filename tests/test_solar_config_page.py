@@ -72,6 +72,85 @@ class TestSolarConfigPage:
 
         return page, project
 
+
+    # ==========================================================
+    # ACTIVACIÓN INTELIGENTE ANDROID
+    # ==========================================================
+
+    def test_android_save_disabled_for_new_project(
+        self,
+        monkeypatch,
+    ):
+        monkeypatch.setattr(
+            "helios.gui.widgets.solar_config_page.is_android",
+            lambda: True,
+        )
+
+        page, _ = self.create_page()
+
+        try:
+            assert not page.save_configuration_button.isEnabled()
+        finally:
+            page.close()
+
+    def test_android_save_enabled_after_edit(
+        self,
+        monkeypatch,
+    ):
+        monkeypatch.setattr(
+            "helios.gui.widgets.solar_config_page.is_android",
+            lambda: True,
+        )
+
+        page, _ = self.create_page()
+
+        try:
+            assert not page.save_configuration_button.isEnabled()
+
+            page.latitude_spinbox.setValue(41.62)
+
+            assert page.save_configuration_button.isEnabled()
+
+            # Cero sigue siendo un valor permitido.
+            page.latitude_spinbox.setValue(0.0)
+
+            assert page.save_configuration_button.isEnabled()
+        finally:
+            page.close()
+
+    def test_android_save_enabled_with_existing_configuration(
+        self,
+        monkeypatch,
+    ):
+        monkeypatch.setattr(
+            "helios.gui.widgets.solar_config_page.is_android",
+            lambda: True,
+        )
+
+        configuration = self.create_solar_configuration()
+        page, _ = self.create_page(configuration)
+
+        try:
+            assert page.save_configuration_button.isEnabled()
+        finally:
+            page.close()
+
+    def test_windows_save_remains_enabled(
+        self,
+        monkeypatch,
+    ):
+        monkeypatch.setattr(
+            "helios.gui.widgets.solar_config_page.is_android",
+            lambda: False,
+        )
+
+        page, _ = self.create_page()
+
+        try:
+            assert page.save_configuration_button.isEnabled()
+        finally:
+            page.close()
+
     # ==========================================================
     # INICIALIZACIÓN
     # ==========================================================
@@ -495,7 +574,7 @@ class TestSolarConfigPage:
 
         expected_groups = [
             ("Configuración solar", 8),
-            ("Configuración", 2),
+            ("Configuración", 1 if android else 2),
         ]
 
         expected_policy = (
@@ -558,25 +637,81 @@ class TestSolarConfigPage:
         assert content_width <= viewport_width
         assert horizontal.maximum() == 0
 
-        # Desplazarse hasta el final del formulario.
+        button = page.save_configuration_button
+
+        # En Android, el botón está fuera del área desplazable.
+        assert page.layout().indexOf(button) >= 0
+        assert button.parentWidget() is page
+        assert button.isVisible()
+
+        # Comprobar que permanece visible y fijo al desplazarse.
+        vertical.setValue(0)
+        self.app.processEvents()
+
+        initial_position = button.mapTo(
+            page,
+            button.rect().topLeft(),
+        )
+
         vertical.setValue(vertical.maximum())
         self.app.processEvents()
 
-        button = page.save_configuration_button
-
-        # Convertir la posición del botón a coordenadas
-        # del área visible del scroll.
-        button_top = button.mapTo(
-            scroll.viewport(),
+        final_position = button.mapTo(
+            page,
             button.rect().topLeft(),
-        ).y()
+        )
 
-        button_bottom = button.mapTo(
-            scroll.viewport(),
-            button.rect().bottomLeft(),
-        ).y()
+        assert final_position == initial_position
 
-        assert button_top >= 0
-        assert button_bottom < scroll.viewport().height()
+        # Debe permanecer completamente dentro de la página.
+        assert final_position.y() >= 0
+        assert (
+            final_position.y() + button.height()
+            <= page.height()
+        )
 
         page.close()
+
+
+def test_guided_navigation_after_solar_configuration_save(
+    monkeypatch, qapp
+):
+    """Solo propone avanzar si el guardado solar termina bien."""
+    from unittest.mock import MagicMock
+    import pytest
+    import helios.gui.widgets.solar_config_page as module
+
+    project = MagicMock()
+    project.solar_configuration = None
+    main_window = MagicMock()
+
+    monkeypatch.setattr(module, "is_android", lambda: True)
+
+    page = module.SolarConfigPage(project, main_window)
+    page.save_solar_configuration()
+
+    main_window.show_android_guided_navigation.assert_called_once_with(
+        "Configuración solar guardada",
+        "Cargar datos",
+    )
+
+    # Windows no debe solicitar navegación guiada.
+    main_window.show_android_guided_navigation.reset_mock()
+    monkeypatch.setattr(module, "is_android", lambda: False)
+
+    page.save_solar_configuration()
+
+    main_window.show_android_guided_navigation.assert_not_called()
+
+    # Si falla el guardado, Android no debe ofrecer avanzar.
+    monkeypatch.setattr(module, "is_android", lambda: True)
+    main_window.show_android_guided_navigation.reset_mock()
+
+    project.set_solar_configuration.side_effect = RuntimeError(
+        "Error de guardado"
+    )
+
+    with pytest.raises(RuntimeError, match="Error de guardado"):
+        page.save_solar_configuration()
+
+    main_window.show_android_guided_navigation.assert_not_called()

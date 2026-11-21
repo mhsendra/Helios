@@ -130,20 +130,28 @@ class TestEconomicsPage:
                 QHBoxLayout,
             )
 
-        # Los dos grupos y el botón siguen presentes.
-        assert overview_layout.count() == 3
+        # Android mantiene el botón fuera del área desplazable.
+        assert overview_layout.count() == (2 if android else 3)
 
         summary_group = overview_layout.itemAt(0).widget()
         profitability_group = overview_layout.itemAt(1).widget()
-        calculate_button = overview_layout.itemAt(2).widget()
 
         assert isinstance(summary_group, QGroupBox)
         assert isinstance(profitability_group, QGroupBox)
-        assert isinstance(calculate_button, QPushButton)
+        assert isinstance(page.calculate_button, QPushButton)
 
         assert summary_group.title() == "Resumen económico"
         assert profitability_group.title() == "Rentabilidad"
-        assert calculate_button is page.calculate_button
+
+        if android:
+            assert (
+                page.layout().indexOf(page.calculate_button)
+                >= 0
+            )
+            assert page.calculate_button.parentWidget() is page
+        else:
+            calculate_button = overview_layout.itemAt(2).widget()
+            assert calculate_button is page.calculate_button
 
         # Verificar formularios.
         summary_form = summary_group.layout()
@@ -2030,4 +2038,102 @@ class TestEconomicsPage:
 
         assert last_column_end <= viewport_width
 
+        page.close()
+
+
+def test_android_economics_calculate_button_remains_fixed(
+    app,
+    monkeypatch,
+):
+    """El botón económico no se desplaza con el contenido."""
+    monkeypatch.setattr(
+        "helios.gui.widgets.economics_page.is_android",
+        lambda: True,
+    )
+
+    project = TestEconomicsPage()._create_project()
+    page = EconomicsPage(project)
+
+    try:
+        page.resize(400, 600)
+        page.show()
+        app.processEvents()
+
+        button = page.calculate_button
+        scroll = page.scroll_area
+
+        assert page.layout().indexOf(button) >= 0
+        assert button.parentWidget() is page
+        assert button.minimumHeight() >= 48
+        assert button.isVisible()
+
+        scrollbar = scroll.verticalScrollBar()
+
+        scrollbar.setValue(0)
+        app.processEvents()
+
+        initial_position = button.mapTo(
+            page,
+            button.rect().topLeft(),
+        )
+
+        scrollbar.setValue(scrollbar.maximum())
+        app.processEvents()
+
+        final_position = button.mapTo(
+            page,
+            button.rect().topLeft(),
+        )
+
+        assert final_position == initial_position
+        assert final_position.y() >= 0
+        assert (
+            final_position.y() + button.height()
+            <= page.height()
+        )
+
+    finally:
+        page.close()
+
+
+# ============================================================
+# Activación inteligente del cálculo económico en Android
+# ============================================================
+
+
+def test_android_smart_economics_button(monkeypatch, qapp):
+    """El botón depende de la producción solar calculada."""
+    from unittest.mock import MagicMock
+
+    import helios.gui.widgets.economics_page as module
+
+    monkeypatch.setattr(module, "is_android", lambda: True)
+
+    project = TestEconomicsPage()._create_project()
+
+    main_window = MagicMock()
+    main_window.solar_production_calculated = False
+
+    page = module.EconomicsPage(project, main_window)
+
+    try:
+        # Inicialmente no hay producción calculada.
+        assert not page.calculate_button.isEnabled()
+
+        # La producción solar se ha calculado correctamente.
+        main_window.solar_production_calculated = True
+        page._update_android_economics_button()
+        assert page.calculate_button.isEnabled()
+
+        # Una nueva optimización invalida la producción.
+        main_window.solar_production_calculated = False
+        page._update_android_economics_button()
+        assert not page.calculate_button.isEnabled()
+
+        # Al recalcular producción vuelve a habilitarse.
+        main_window.solar_production_calculated = True
+        page._update_android_economics_button()
+        assert page.calculate_button.isEnabled()
+
+    finally:
         page.close()

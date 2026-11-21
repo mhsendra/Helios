@@ -1076,9 +1076,18 @@ class TestSolarOptimizationPage:
             is True
         )
 
-    def test_start_optimization_calls_recommendation(self):
+    def test_start_optimization_calls_recommendation(
+        self, monkeypatch
+    ):
+        monkeypatch.setattr(
+            "helios.gui.widgets.solar_optimization_page.is_android",
+            lambda: False,
+        )
+        main_window = MagicMock()
+
         page, project = self.create_page(
-            self.create_solar_configuration()
+            self.create_solar_configuration(),
+            main_window=main_window,
         )
 
         scenario = self.create_consumption_scenario()
@@ -1131,8 +1140,16 @@ class TestSolarOptimizationPage:
         project.solar.calculate.assert_not_called()
         assert page.status_label.text() == "Optimización conjunta completada"
         assert page.optimize_button.isEnabled() is True
+        main_window.show_android_guided_navigation.assert_not_called()
 
-    def test_start_optimization_notifies_main_window(self):
+
+    def test_start_optimization_notifies_main_window(
+        self, monkeypatch
+    ):
+        monkeypatch.setattr(
+            "helios.gui.widgets.solar_optimization_page.is_android",
+            lambda: True,
+        )
         main_window = MagicMock()
 
         page, project = self.create_page(
@@ -1173,13 +1190,23 @@ class TestSolarOptimizationPage:
             call(False),
             call(True),
         ]
+        main_window.show_android_guided_navigation.assert_called_once_with(
+            "Optimización solar completada",
+            "Solar",
+        )
 
     def test_start_optimization_restores_button_after_error(
-        self,
+        self, monkeypatch
     ):
+        monkeypatch.setattr(
+            "helios.gui.widgets.solar_optimization_page.is_android",
+            lambda: True,
+        )
+        main_window = MagicMock()
 
         page, project = self.create_page(
-            self.create_solar_configuration()
+            self.create_solar_configuration(),
+            main_window=main_window,
         )
 
         project.analyzer.calculate_representative_consumption_scenario.side_effect = (
@@ -1188,10 +1215,14 @@ class TestSolarOptimizationPage:
 
         page.start_optimization()
 
-        assert (
-            page.optimize_button.isEnabled()
-            is True
-        )
+        # En Android, el botón se habilita solo cuando hay
+        # datos y restricciones válidos. Esta prueba no carga
+        # un dataset, por lo que debe permanecer deshabilitado.
+        assert page._android_optimization_running is False
+        assert page.optimize_button.isEnabled() is False
+
+        # Un error nunca debe provocar navegación automática.
+        main_window.show_android_guided_navigation.assert_not_called()
 
     def test_clear_optimization_result_preserves_manual_configuration(
         self,
@@ -1775,7 +1806,7 @@ class TestSolarOptimizationPage:
                 configuration_widget.layout()
             )
 
-            expected_rows = [3, 7, 3, 2]
+            expected_rows = [3, 7, 3, 1 if android else 2]
 
             for index, expected_row_count in enumerate(
                 expected_rows
@@ -2210,3 +2241,142 @@ class TestSolarOptimizationPage:
 
         finally:
             widget.close()
+
+
+def test_android_optimize_button_remains_fixed(monkeypatch, qapp):
+    """El botón Optimizar no se desplaza con el formulario."""
+    from PySide6.QtWidgets import QWidget
+    from helios.gui.widgets.solar_optimization_page import (
+        SolarOptimizationPage,
+    )
+
+    monkeypatch.setattr(
+        "helios.gui.widgets.solar_optimization_page.is_android",
+        lambda: True,
+    )
+
+    # Reutilizar la infraestructura de creación de páginas
+    # existente en esta clase de pruebas.
+    test_case = TestSolarOptimizationPage()
+    page, _ = test_case.create_page()
+
+    try:
+        page.resize(400, 600)
+        page.show()
+        qapp.processEvents()
+
+        button = page.optimize_button
+        scroll = page.scroll_area
+
+        assert button.parentWidget() is page
+        assert page.layout().indexOf(button) >= 0
+        assert button.isVisible()
+
+        scrollbar = scroll.verticalScrollBar()
+
+        scrollbar.setValue(0)
+        qapp.processEvents()
+
+        initial_position = button.mapTo(
+            page,
+            button.rect().topLeft(),
+        )
+
+        scrollbar.setValue(scrollbar.maximum())
+        qapp.processEvents()
+
+        final_position = button.mapTo(
+            page,
+            button.rect().topLeft(),
+        )
+
+        assert final_position == initial_position
+        assert final_position.y() >= 0
+        assert (
+            final_position.y() + button.height()
+            <= page.height()
+        )
+
+    finally:
+        page.close()
+
+
+# ============================================================
+# Validación inteligente del botón Optimizar en Android
+# ============================================================
+
+
+def test_android_smart_optimize_button(monkeypatch, qapp):
+    """El botón responde a datos y restricciones de instalación."""
+    from unittest.mock import MagicMock
+
+    import helios.gui.widgets.solar_optimization_page as module
+
+    monkeypatch.setattr(module, "is_android", lambda: True)
+
+    project = MagicMock()
+    project.dataset = None
+    project.solar_configuration = None
+
+    page = module.SolarOptimizationPage(project)
+
+    try:
+        # Sin Excel cargado.
+        assert not page.optimize_button.isEnabled()
+
+        # Excel cargado y parámetros físicamente válidos.
+        project.dataset = MagicMock()
+        page.available_area_spinbox.setValue(42.0)
+        page.panel_width_spinbox.setValue(1.13)
+        page.panel_height_spinbox.setValue(2.38)
+        page.panel_power_spinbox.setValue(540)
+        page.min_panels_spinbox.setValue(1)
+
+        page._update_android_optimize_button()
+        assert page.optimize_button.isEnabled()
+
+        # La superficie no permite instalar un panel.
+        page.available_area_spinbox.setValue(0.1)
+        assert not page.optimize_button.isEnabled()
+
+        # Restaurar superficie suficiente.
+        page.available_area_spinbox.setValue(42.0)
+        assert page.optimize_button.isEnabled()
+
+        # El máximo de paneles es inferior al mínimo.
+        page.min_panels_spinbox.setValue(10)
+        page.max_panels_spinbox.setValue(5)
+        page.max_panels_checkbox.setChecked(True)
+        assert not page.optimize_button.isEnabled()
+
+        # Corregir el máximo.
+        page.max_panels_spinbox.setValue(15)
+        assert page.optimize_button.isEnabled()
+
+        # Activar mantenimiento sin geometría de cubierta.
+        page.roof_width_spinbox.setValue(0)
+        page.roof_height_spinbox.setValue(0)
+        page.maintenance_required_checkbox.setChecked(True)
+        assert not page.optimize_button.isEnabled()
+
+        # Proporcionar geometría válida.
+        page.roof_width_spinbox.setValue(6.5)
+        page.roof_height_spinbox.setValue(6.5)
+        assert page.optimize_button.isEnabled()
+
+        # Mientras se optimiza, no debe poder pulsarse otra vez.
+        page._android_optimization_running = True
+        page._update_android_optimize_button()
+        assert not page.optimize_button.isEnabled()
+
+        page._android_optimization_running = False
+        page._update_android_optimize_button()
+        assert page.optimize_button.isEnabled()
+
+        # Si se retiran los datos, vuelve a deshabilitarse.
+        project.dataset = None
+        page.update_data()
+        assert not page.optimize_button.isEnabled()
+
+    finally:
+        page.close()

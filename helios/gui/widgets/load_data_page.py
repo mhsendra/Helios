@@ -1,3 +1,4 @@
+from PySide6.QtCore import QEvent
 from PySide6.QtWidgets import (
     QWidget,
     QLabel,
@@ -33,15 +34,25 @@ class LoadDataPage(QWidget):
 
         self.path_edit = QLineEdit()
         self.path_edit.setReadOnly(True)
+        if is_android():
+            self.path_edit.setPlaceholderText(
+                "Toca aquí para seleccionar un archivo Excel"
+            )
+            self.path_edit.installEventFilter(self)
 
         self.browse_button = QPushButton("Examinar...")
 
         row.addWidget(self.path_edit)
-        row.addWidget(self.browse_button)
+        if not is_android():
+            row.addWidget(self.browse_button)
+        else:
+            self.browse_button.hide()
 
         layout.addLayout(row)
 
         self.load_button = QPushButton("Cargar")
+        if is_android():
+            self.load_button.setEnabled(False)
 
         layout.addWidget(self.load_button)
 
@@ -58,6 +69,29 @@ class LoadDataPage(QWidget):
 
         self.load_button.clicked.connect(
             self.load_dataset
+        )
+
+    def eventFilter(self, watched, event):
+        if (
+            is_android()
+            and watched is self.path_edit
+            and event.type() == QEvent.Type.MouseButtonRelease
+        ):
+            if getattr(self, '_excel_request_id', None) is None:
+                self.browse_file()
+            return True
+        return super().eventFilter(watched, event)
+
+    def _update_android_load_button(self):
+        if not is_android():
+            return
+        selected = getattr(self, '_excel_path', None)
+        waiting = getattr(self, '_excel_request_id', None)
+        self.load_button.setEnabled(
+            waiting is None
+            and selected is not None
+            and Path(selected).is_file()
+            and Path(selected).suffix.lower() == '.xlsx'
         )
 
     def browse_file(self):
@@ -121,7 +155,7 @@ class LoadDataPage(QWidget):
         except Exception as exc:
             self._excel_request_id = None
             self.browse_button.setEnabled(True)
-            self.load_button.setEnabled(True)
+            self._update_android_load_button()
             self.info_label.setText(
                 f"Error al abrir selector: {type(exc).__name__}: {exc}"
             )
@@ -192,7 +226,7 @@ class LoadDataPage(QWidget):
                 self._excel_request_id = None
                 self._excel_timer.stop()
                 self.browse_button.setEnabled(True)
-                self.load_button.setEnabled(True)
+                self._update_android_load_button()
 
     def load_dataset(self):
         if self.project.solar_configuration is None:
@@ -228,6 +262,14 @@ class LoadDataPage(QWidget):
             self.main_window.set_project_loaded(True)
 
             self.main_window.update_project_pages()
+
+            # Android: avanzar únicamente cuando el archivo
+            # se haya cargado y analizado correctamente.
+            if is_android():
+                self.main_window.show_android_guided_navigation(
+                    "Datos cargados correctamente",
+                    "Optimización solar",
+                )
 
         except Exception as e:
 

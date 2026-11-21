@@ -98,10 +98,15 @@ class TestLoadDataPage:
             file_row = main_layout.itemAt(1).layout()
 
             assert isinstance(file_row, expected_layout)
-            assert file_row.count() == 2
+            assert file_row.count() == (1 if android else 2)
 
             assert file_row.itemAt(0).widget() is page.path_edit
-            assert file_row.itemAt(1).widget() is page.browse_button
+
+            if android:
+                assert page.browse_button.isHidden()
+                assert not page.load_button.isEnabled()
+            else:
+                assert file_row.itemAt(1).widget() is page.browse_button
 
         finally:
             page.close()
@@ -357,3 +362,57 @@ class TestLoadDataPage:
         self.page.load_dataset()
 
         assert self.project.solar_configuration is solar_configuration
+
+
+def test_guided_navigation_after_excel_load(monkeypatch):
+    """Solo propone optimizar tras cargar y analizar el Excel."""
+    from unittest.mock import MagicMock
+    import helios.gui.widgets.load_data_page as module
+
+    page = MagicMock()
+    page.project.solar_configuration = object()
+    page._excel_path = "/tmp/datos.xlsx"
+    page.path_edit.text.return_value = "/tmp/datos.xlsx"
+
+    # Ejecutar el método real sobre un objeto simulado permite
+    # comprobar la lógica sin abrir el selector de archivos.
+    load_dataset = module.LoadDataPage.load_dataset
+
+    monkeypatch.setattr(module, "is_android", lambda: True)
+
+    load_dataset(page)
+
+    page.project.load_data.assert_called_once_with(
+        "/tmp/datos.xlsx"
+    )
+    page.project.analyze_data.assert_called_once()
+    page.main_window.show_android_guided_navigation.assert_called_once_with(
+        "Datos cargados correctamente",
+        "Optimización solar",
+    )
+
+    # Windows no debe mostrar la notificación.
+    page.reset_mock()
+    page.project.solar_configuration = object()
+    page.path_edit.text.return_value = "/tmp/datos.xlsx"
+
+    monkeypatch.setattr(module, "is_android", lambda: False)
+
+    load_dataset(page)
+
+    page.main_window.show_android_guided_navigation.assert_not_called()
+
+    # Si falla el análisis, no debe ofrecer avanzar.
+    page.reset_mock()
+    page.project.solar_configuration = object()
+    page._excel_path = "/tmp/datos.xlsx"
+    page.project.analyze_data.side_effect = RuntimeError(
+        "Error de análisis"
+    )
+
+    monkeypatch.setattr(module, "is_android", lambda: True)
+
+    load_dataset(page)
+
+    page.main_window.show_android_guided_navigation.assert_not_called()
+    assert "Error de análisis" in page.info_label.setText.call_args.args[0]

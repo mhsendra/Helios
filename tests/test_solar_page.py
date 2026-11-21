@@ -1939,7 +1939,141 @@ class TestSolarPage:
             )
 
             assert form.rowWrapPolicy() == expected_policy
+            if (
+                android
+                and method_name == "create_production_status_group"
+            ):
+                expected_rows -= 1
+
             assert form.rowCount() == expected_rows
 
         finally:
             page.close()
+
+
+def test_android_production_button_remains_fixed(monkeypatch, qapp):
+    """Calcular producción permanece fijo en su pestaña."""
+    from PySide6.QtWidgets import QScrollArea
+    from helios.gui.widgets.solar_page import SolarPage
+
+    monkeypatch.setattr(
+        "helios.gui.widgets.solar_page.is_android",
+        lambda: True,
+    )
+
+    # Esta prueba independiente no ejecuta setup_method().
+    # Solo necesita un proyecto simulado para construir la interfaz.
+    project = MagicMock()
+    page = SolarPage(project)
+
+    try:
+        page.resize(400, 600)
+        page.show()
+        qapp.processEvents()
+
+        button = page.calculate_production_button
+        tab = page.production_tab
+        tab_layout = tab.layout()
+
+        assert tab_layout.indexOf(button) >= 0
+        assert button.parentWidget() is tab
+
+        # El botón pertenece exclusivamente a Producción.
+        assert page.configuration_tab.layout().indexOf(button) == -1
+        assert page.balance_tab.layout().indexOf(button) == -1
+        assert page.statistics_tab.layout().indexOf(button) == -1
+
+        production_index = page.tabs.indexOf(tab)
+        page.tabs.setCurrentIndex(production_index)
+        qapp.processEvents()
+
+        assert button.isVisible()
+
+        scroll = tab.findChild(QScrollArea)
+        assert scroll is not None
+
+        scrollbar = scroll.verticalScrollBar()
+
+        scrollbar.setValue(0)
+        qapp.processEvents()
+
+        initial_position = button.mapTo(
+            tab,
+            button.rect().topLeft(),
+        )
+
+        scrollbar.setValue(scrollbar.maximum())
+        qapp.processEvents()
+
+        final_position = button.mapTo(
+            tab,
+            button.rect().topLeft(),
+        )
+
+        assert final_position == initial_position
+        assert final_position.y() >= 0
+        assert (
+            final_position.y() + button.height()
+            <= tab.height()
+        )
+
+        # Al cambiar de pestaña deja de estar visible.
+        page.tabs.setCurrentIndex(
+            page.tabs.indexOf(page.balance_tab)
+        )
+        qapp.processEvents()
+
+        assert not button.isVisible()
+
+    finally:
+        page.close()
+
+
+# ============================================================
+# Activación inteligente del cálculo de producción en Android
+# ============================================================
+
+
+def test_android_smart_production_button(monkeypatch, qapp):
+    """El botón depende de la configuración y la optimización."""
+    from unittest.mock import MagicMock
+
+    import helios.gui.widgets.solar_page as module
+
+    monkeypatch.setattr(module, "is_android", lambda: True)
+
+    project = MagicMock()
+    project.solar_configuration = None
+
+    main_window = MagicMock()
+    main_window.solar_optimized = False
+
+    page = module.SolarPage(project, main_window)
+
+    try:
+        # Sin configuración ni optimización.
+        assert not page.calculate_production_button.isEnabled()
+
+        # Tener configuración no basta.
+        project.solar_configuration = MagicMock()
+        page._update_android_production_button()
+        assert not page.calculate_production_button.isEnabled()
+
+        # Optimización completada.
+        main_window.solar_optimized = True
+        page._update_android_production_button()
+        assert page.calculate_production_button.isEnabled()
+
+        # Invalidar optimización.
+        main_window.solar_optimized = False
+        page._update_android_production_button()
+        assert not page.calculate_production_button.isEnabled()
+
+        # Optimización sin configuración válida.
+        main_window.solar_optimized = True
+        project.solar_configuration = None
+        page._update_android_production_button()
+        assert not page.calculate_production_button.isEnabled()
+
+    finally:
+        page.close()

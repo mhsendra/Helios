@@ -29,6 +29,15 @@ class LocalizedDoubleSpinBox(QDoubleSpinBox):
         )
         self.setGroupSeparatorShown(False)
 
+        # Solicitar teclado numérico decimal en Android.
+        # Configuramos también el editor interno del QDoubleSpinBox.
+        if self._android_mode:
+            numeric_hint = (
+                Qt.InputMethodHint.ImhFormattedNumbersOnly
+            )
+            self.setInputMethodHints(numeric_hint)
+            self.lineEdit().setInputMethodHints(numeric_hint)
+
         # En Android dejamos que Qt procese directamente el teclado.
         # En Windows conservamos la conversión del teclado numérico.
         if not self._android_mode:

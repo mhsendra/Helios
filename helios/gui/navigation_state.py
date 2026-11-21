@@ -26,16 +26,16 @@ INPUT_PAGES = (
 )
 
 RESULT_PAGES = (
+    "Solar",
+    "Economía",
     "Validación",
     "Estadísticas",
     "Perfiles",
     "Comparativas",
     "Indicadores",
     "Tarifas",
-    "Solar",
-    "Economía",
-    "Informes",
     "Gráficas",
+    "Informes",
 )
 
 NAVIGATION_SECTIONS = {
