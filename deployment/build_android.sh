@@ -158,7 +158,7 @@ ACTUAL_FILES="$(git -C "$P4A_DIR" diff --name-only | LC_ALL=C sort)"
 EXPECTED_SORTED="$(printf '%s\n' "${EXPECTED_FILES[@]}" | LC_ALL=C sort)"
 
 [[ "$ACTUAL_FILES" == "$EXPECTED_SORTED" ]] ||
-    fail "El conjunto final de archivos modificados no coincide con los seis parches"
+    fail "El conjunto final de archivos modificados no coincide con los siete parches"
 
 echo
 echo "========== 4. CONFIGURAR BUILDOZER =========="
