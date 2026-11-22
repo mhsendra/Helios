@@ -114,29 +114,83 @@ Resultado de la comprobación:
     Archivos comprobados: 4
     Diferencias detectadas: 0
 
-## 5. Aplicador de parches
+## 5. Instalación y verificación de parches
 
-Script:
+Existen dos scripts con responsabilidades distintas.
+
+Instalador:
+
+    deployment/install_p4a_patches.sh
+
+Verificador:
 
     deployment/apply_p4a_patches.sh
 
-IMPORTANTE:
+El instalador aplica los siete parches en orden
+sobre un checkout limpio de python-for-android
+situado en el commit fijado.
 
-La versión validada de este script reconstruye
-los cambios en un directorio temporal y comprueba
-que el checkout local ya contiene esos cambios.
+El verificador reconstruye los cambios esperados
+en un directorio temporal y comprueba que los
+archivos del checkout coinciden exactamente.
 
-No instala automáticamente los parches sobre
-un checkout limpio.
+### Recuperación en un checkout independiente
 
-En consecuencia, la recuperación desde cero
-requiere aplicar primero los siete parches.
+Desde la raíz del repositorio Helios:
 
-Esta operación todavía debe integrarse y validarse
-en un procedimiento automatizado de recuperación.
+    git clone https://github.com/kivy/python-for-android.git \
+        "$HOME/helios-p4a-nuevo"
+
+    git -C "$HOME/helios-p4a-nuevo" \
+        checkout --detach \
+        58d21141f17c889bf8585f5665921d72028f8831
+
+    bash deployment/install_p4a_patches.sh \
+        "$HOME/helios-p4a-nuevo"
+
+    bash deployment/apply_p4a_patches.sh \
+        "$HOME/helios-p4a-nuevo"
+
+La ruta de ejemplo debe estar libre antes de
+ejecutar git clone. No reutilizar un directorio
+que contenga archivos o trabajos anteriores.
+
+El instalador exige un checkout limpio y
+rechaza un commit base diferente.
+
+La instalación de parches es una operación
+explícita e independiente de la compilación.
+
+No ejecutar el instalador sobre un checkout
+que ya tenga los parches aplicados.
+
+Para utilizar un checkout alternativo durante
+la preparación o compilación:
+
+    HELIOS_P4A_DIR="$HOME/helios-p4a-nuevo" \
+        bash deployment/build_android.sh prepare
+
+El comando prepare verifica el entorno y
+los parches, pero no los instala.
+
+### Validación realizada
+
+En los pasos 854 y 858 se comprobó la
+recuperación en checkouts independientes.
+
+Resultado:
+
+- Siete parches aplicados correctamente.
+- Cuatro archivos modificados.
+- Cuatro archivos idénticos al entorno funcional.
+- Ningún archivo adicional inesperado.
+
+Estas pruebas validan la reconstrucción de
+python-for-android, no una compilación completa
+desde cero en un ordenador nuevo.
 
 No utilizar git reset --hard, git clean -fdx
-ni eliminar el checkout existente para probar
+ni eliminar el checkout funcional para probar
 la recuperación.
 
 ## 6. Configuración Android
@@ -301,10 +355,8 @@ Antes de modificar el entorno:
 
 ## 12. Trabajo pendiente
 
-- Automatizar la aplicación inicial de los parches
-  sobre un checkout limpio sin afectar al validado.
-- Probar una recuperación desde cero en una ruta
-  independiente.
+- Validar una compilación Android completa desde
+  un entorno recién preparado e independiente.
 - Documentar el procedimiento de publicación
   de versiones de producción.
 - Validar compatibilidad en otros dispositivos.
