@@ -9,8 +9,8 @@ REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 
 P4A_DIR="${HELIOS_P4A_DIR:-$HOME/.cache/helios/python-for-android}"
 VENV_DIR="${HELIOS_DEPLOY_VENV:-$HOME/venvs/helios-deploy}"
-SDK_DIR="${HELIOS_ANDROID_SDK:-$HOME/.pyside6_android_deploy/android-sdk}"
-NDK_DIR="${HELIOS_ANDROID_NDK:-$SDK_DIR/ndk/28.2.13676358}"
+SDK_DIR="${HELIOS_ANDROID_SDK:-$HOME/.buildozer/android/platform/android-sdk}"
+NDK_DIR="${HELIOS_ANDROID_NDK:-$HOME/.buildozer/android/platform/android-ndk-r28c}"
 WHEELS_DIR="${HELIOS_ANDROID_WHEELS:-$HOME/.pyside6_android_deploy/wheels}"
 
 COMMAND="${1:-prepare}"
