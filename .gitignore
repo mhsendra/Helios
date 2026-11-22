@@ -90,3 +90,6 @@ bin/
 # Local patched python-for-android checkout
 # Rebuild from deployment/patches; do not commit this repository.
 /deployment/python-for-android-local/
+
+# Copias de seguridad locales de Helios
+/backups/
