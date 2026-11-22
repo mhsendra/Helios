@@ -7,7 +7,7 @@ P4A_URL="https://github.com/kivy/python-for-android.git"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 
-P4A_DIR="${HELIOS_P4A_DIR:-$HOME/.cache/helios/python-for-android}"
+P4A_DIR="${HELIOS_P4A_DIR:-$REPO_ROOT/deployment/python-for-android-local}"
 VENV_DIR="${HELIOS_DEPLOY_VENV:-$HOME/venvs/helios-deploy}"
 SDK_DIR="${HELIOS_ANDROID_SDK:-$HOME/.buildozer/android/platform/android-sdk}"
 NDK_DIR="${HELIOS_ANDROID_NDK:-$HOME/.buildozer/android/platform/android-ndk-r28c}"
@@ -76,11 +76,21 @@ P4A_ROOT="$(git -C "$P4A_DIR" rev-parse --show-toplevel)"
     fail "La ruta no corresponde a la raíz del checkout P4A"
 
 ORIGIN="$(git -C "$P4A_DIR" remote get-url origin)"
+BUILDOZER_P4A="$REPO_ROOT/.buildozer/android/platform/python-for-android"
+
 case "$ORIGIN" in
     "$P4A_URL"|"https://github.com/kivy/python-for-android")
         ;;
     *)
-        fail "Origen Git P4A inesperado: $ORIGIN"
+        if [[ "$ORIGIN" != "$BUILDOZER_P4A" ]]; then
+            fail "Origen Git P4A inesperado: $ORIGIN"
+        fi
+
+        [[ -d "$BUILDOZER_P4A/.git" ]] ||
+            fail "No existe el repositorio P4A original de Buildozer"
+
+        [[ "$(git -C "$BUILDOZER_P4A" rev-parse HEAD)" == "$EXPECTED_COMMIT" ]] ||
+            fail "El repositorio P4A de Buildozer tiene otro commit"
         ;;
 esac
 
@@ -195,21 +205,34 @@ original_spec = repo / "buildozer.spec"
 
 content = original_spec.read_text(encoding="utf-8")
 
-if "p4a.source_dir" in content:
-    raise SystemExit(
-        "ERROR: buildozer.spec ya contiene p4a.source_dir"
-    )
-
 if content.count("[app]") != 1:
     raise SystemExit(
         "ERROR: sección [app] inesperada"
     )
 
-content = content.replace(
-    "[app]",
-    f"[app]\np4a.source_dir = {p4a_dir}",
-    1,
-)
+import re
+
+pattern = r"(?m)^p4a\.source_dir\s*=.*$"
+matches = re.findall(pattern, content)
+
+if len(matches) > 1:
+    raise SystemExit(
+        "ERROR: p4a.source_dir aparece varias veces"
+    )
+
+if matches:
+    content = re.sub(
+        pattern,
+        lambda _: f"p4a.source_dir = {p4a_dir}",
+        content,
+        count=1,
+    )
+else:
+    content = content.replace(
+        "[app]",
+        f"[app]\np4a.source_dir = {p4a_dir}",
+        1,
+    )
 
 with NamedTemporaryFile(
     mode="w",
