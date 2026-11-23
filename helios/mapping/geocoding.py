@@ -31,7 +31,7 @@ class AddressCandidate:
 
 def _coordinates(data: dict) -> GeoCoordinates | None:
     """Extrae WGS84 cuando el servicio proporciona ambos valores."""
-    lon = data.get("lon", data.get("longitude"))
+    lon = data.get("lng", data.get("lon", data.get("longitude")))
     lat = data.get("lat", data.get("latitude"))
     if lon is None or lat is None:
         geometry = data.get("geometry")
