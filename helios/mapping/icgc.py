@@ -90,7 +90,7 @@ class ICGCOrthophotoClient:
             raise OrthophotoError("Error de conexión con el WMS del ICGC.") from exc
         if len(image) > 15_000_000:
             raise OrthophotoError("Imagen demasiado grande.")
-        if not image.startswith(b"\\x89PNG\\r\\n\\x1a\\n") or "image/png" not in content_type:
+        if not image.startswith(b"\x89PNG\r\n\x1a\n") or "image/png" not in content_type:
             raise OrthophotoError("El ICGC no ha devuelto una imagen PNG válida.")
         if len(image) < 24:
             raise OrthophotoError("Imagen PNG incompleta.")
