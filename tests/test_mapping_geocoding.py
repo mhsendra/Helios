@@ -95,3 +95,20 @@ def test_geojson_point():
         })
     )
     assert geocoder.resolve(AddressCandidate("Madrid")) == GeoCoordinates(40.4, -3.7)
+
+
+def test_real_cartociudad_find_lat_lng():
+    """Regresión: el servicio real usa 'lng', no 'lon'."""
+    geocoder = CartoCiudadGeocoder(
+        opener=lambda *_args, **_kwargs: Response({
+            "id": "13.PV.MUN_280790145199",
+            "type": "portal",
+            "address": "MAYOR",
+            "lat": 40.416461059323886,
+            "lng": -3.7046584169537073,
+            "state": 0,
+        })
+    )
+    assert geocoder.resolve(AddressCandidate("CALLE MAYOR 1, Madrid")) == GeoCoordinates(
+        40.416461059323886, -3.7046584169537073
+    )
