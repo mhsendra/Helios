@@ -21,7 +21,7 @@ class FakeResponse(io.BytesIO):
 
 
 def png_header(width=768, height=768):
-    return b"\\x89PNG\\r\\n\\x1a\\n" + b"\\x00\\x00\\x00\\x0dIHDR" + struct.pack(">II", width, height)
+    return b"\x89PNG\r\n\x1a\n" + b"\x00\x00\x00\x0dIHDR" + struct.pack(">II", width, height)
 
 
 def test_web_mercator_origin():
